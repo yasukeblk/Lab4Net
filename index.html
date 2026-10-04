@@ -279,6 +279,36 @@ dialog::backdrop{background:rgba(8,6,20,.72);backdrop-filter:blur(5px)}
 #notice{position:fixed;left:20px;bottom:20px;z-index:60;max-width:460px;background:linear-gradient(var(--panel3),var(--panel));color:var(--ink);font:italic 700 16px var(--px);letter-spacing:.03em;padding:10px 16px;border:3px solid var(--line);border-radius:10px;box-shadow:0 0 0 2px var(--yel),0 0 22px rgba(255,210,63,.4),0 12px 24px rgba(0,0,0,.5);cursor:pointer;animation:slidein .3s cubic-bezier(.2,1.4,.4,1)}
 #notice:empty{display:none}
 
+
+/* movable windows + pop-out guide */
+.guide-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:22px 0 -8px}
+.guide-row .gswitch{margin:0}
+#guideWin{display:none;flex-direction:column;overflow:hidden;background:linear-gradient(var(--panel2),var(--panel));border:3px solid var(--line);border-radius:12px;box-shadow:var(--lift),0 0 30px rgba(92,240,138,.2)}
+#guideWin .panel-title{flex:none;color:#062812;text-shadow:0 1px 0 rgba(255,255,255,.5);background:repeating-linear-gradient(115deg,rgba(0,0,0,.12) 0 6px,transparent 6px 14px) center/130px 100% no-repeat,linear-gradient(100deg,#d7ffe4,var(--go) 45%,#12a36a)}
+#guideBody{flex:1;min-height:0;overflow:auto;padding:14px 18px 18px}
+#guideBody h2{font:italic 800 27px/1.05 var(--px);text-transform:uppercase;margin:4px 0 14px;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.5)}
+.gtask{display:grid;grid-template-columns:34px 1fr;gap:12px;margin-bottom:14px}
+.gtask>b{display:grid;place-items:center;width:34px;height:30px;font:italic 800 16px var(--px);color:#fff;background:linear-gradient(#4a3f96,#2c2462);border:2px solid var(--line);border-radius:7px;transform:skewX(-8deg)}
+#snapV,#snapH,#snapPrev{display:none;position:absolute;pointer-events:none}
+#snapV{top:0;bottom:0;width:2px;background:var(--cy);box-shadow:0 0 12px var(--cy);z-index:9998}
+#snapH{left:0;right:0;height:2px;background:var(--cy);box-shadow:0 0 12px var(--cy);z-index:9998}
+#snapPrev{z-index:9997;border:3px dashed var(--yel);border-radius:12px;background:rgba(255,210,63,.12);box-shadow:0 0 30px rgba(255,210,63,.3)}
+.dragging{opacity:.96;box-shadow:var(--lift),0 0 0 2px var(--cy),0 0 34px rgba(46,230,255,.5)!important}
+body[data-cur="move"] main *{cursor:move!important}
+body[data-cur="ns-resize"] main,body[data-cur="ns-resize"] main *{cursor:ns-resize!important}
+body[data-cur="ew-resize"] main,body[data-cur="ew-resize"] main *{cursor:ew-resize!important}
+body[data-cur="nesw-resize"] main,body[data-cur="nesw-resize"] main *{cursor:nesw-resize!important}
+body[data-cur="nwse-resize"] main,body[data-cur="nwse-resize"] main *{cursor:nwse-resize!important}
+@media (min-width:861px){
+  main.free{display:block;position:relative;padding:0}
+  main.free #bench{display:contents}
+  main.free :is(#brief,#practice,#mapPanel,#console,#guideWin).fw{position:absolute;left:var(--x);top:var(--y);width:var(--w);height:var(--h);min-width:0;min-height:0;margin:0;flex:none}
+  main.free #guideWin{display:flex}
+  main.free #mapPanel{display:flex;flex-direction:column}
+  main.free #topo{flex:1;min-height:0}
+  main.free #topo svg{height:100%;max-height:none}
+  body:has(main.free){overflow:hidden}
+}
 /* boot */
 #boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--crt);color:var(--ph);cursor:pointer}
 #boot pre{font:400 28px/1.25 var(--mono);margin:0;min-width:340px;min-height:290px;text-shadow:0 0 9px rgba(255,184,74,.55)}
@@ -315,7 +345,7 @@ dialog::backdrop{background:rgba(8,6,20,.72);backdrop-filter:blur(5px)}
 <div id="boot" aria-hidden="true"><pre></pre></div>
 <header>
   <h1><svg viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path class="w" d="M7 5h2v3H7zM3 8h10v1H3zM3 9h1v2H3zM12 9h1v2h-1z"/><path class="w" d="M6 2h4v3H6zM2 11h3v3H2zM11 11h3v3h-3z"/><path class="l" d="M7 3h2v1H7z"/></svg>Lab4Net</h1>
-  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="transfer">Transfer progress</button></div>
+  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="transfer">Transfer progress</button><button class="small-btn" id="resetLayout">Reset layout</button></div>
   <select id="labs" aria-label="Choose a lab"></select>
   <div id="meter"></div>
   <span id="clock" aria-hidden="true"></span>
@@ -334,6 +364,8 @@ dialog::backdrop{background:rgba(8,6,20,.72);backdrop-filter:blur(5px)}
     </div>
   </section>
   <section id="practice" aria-label="Practice workspace" hidden></section>
+  <section id="guideWin" aria-label="Step-by-step guide" hidden><div class="panel-title"><b>Step-by-step guide</b><button class="small-btn" id="guideClose">Dock ×</button></div><div id="guideBody"></div></section>
+  <div id="snapPrev"></div><div id="snapV"></div><div id="snapH"></div>
 </main>
 <dialog id="dialog" aria-labelledby="dialogTitle"><div class="dialog-heading"><h2 id="dialogTitle"></h2><button class="small-btn" id="closeDialog" aria-label="Close dialog">Close ×</button></div><div id="dialogBody"></div></dialog>
 <div id="notice" role="status" onclick="this.textContent=''" title="Click to dismiss"></div>
@@ -1133,12 +1165,12 @@ function renderLabs(){let h='';for(const g of GROUPS)h+=`<optgroup label="${g}">
   const count=LABS.filter(l=>progress[l.title]).length;$('meter').innerHTML=`<div class="progressbar" role="progressbar" aria-label="Labs passed" aria-valuemin="0" aria-valuemax="${LABS.length}" aria-valuenow="${count}"><span style="width:${count/LABS.length*100}%"></span></div><span>${count} / ${LABS.length} passed</span>`;
   $('workspaceTitle').textContent=cur.view==='lab'?cur.lab.title:cur.view==='drill'?'Subnetting drill':'Theory check';}
 function renderBrief(){if(cur.view==='drill')return renderDrill();if(cur.view==='quiz')return renderQuiz();const l=cur.lab,done=cur.tasks.filter(Boolean).length;
-  let h=`<div class="eyebrow">${l.group} <span>LAB ${String(cur.idx+1).padStart(2,'0')}</span></div><h2>${l.title}</h2><p>${l.brief}</p><div class="lesson-tip"><b>Configure → verify → explain</b><br>Use the tasks as a guide. Grade checks the actual network, independently of your checklist.</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><label class="gswitch"><input type="checkbox" id="guideToggle"${guideOn?' checked':''}><span aria-hidden="true"></span>Step-by-step instructions</label><h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details>${stepsHtml(k)}</div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
+  let h=`<div class="eyebrow">${l.group} <span>LAB ${String(cur.idx+1).padStart(2,'0')}</span></div><h2>${l.title}</h2><p>${l.brief}</p><div class="lesson-tip"><b>Configure → verify → explain</b><br>Use the tasks as a guide. Grade checks the actual network, independently of your checklist.</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><div class="guide-row"><label class="gswitch"><input type="checkbox" id="guideToggle"${guideOn?' checked':''}><span aria-hidden="true"></span>Step-by-step instructions</label><button class="small-btn" id="guidePopBtn" type="button">${guidePop?'Dock guide':'Pop out guide'}</button></div><h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details>${stepsHtml(k)}</div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
   if(cur.graded){const ok=cur.graded.filter(g=>g[1]).length,all=ok===cur.graded.length;h+=`<strong class="${all?'done':''}">${all?'✓ Lab complete':`${ok} / ${cur.graded.length} checks passed`}</strong><p>${all?'You built a working network. Try explaining why it works before moving on.':'Use the failed checks below to narrow your next change. Your work is saved.'}</p><ul>${cur.graded.map((g,k)=>`<li class="${g[1]?'ok':'no'}" style="--i:${k}">${g[0]}</li>`).join('')}</ul>${all?'<button class="btn primary" id="nextLab">Next unpassed lab →</button>':''}`;}
   h+='</div><div id="solution">';
   if(cur.showSol)h+=`<div class="lesson-tip">Read one device at a time, predict what each command changes, then type it yourself. This is one working approach.</div>`+Object.entries(l.solution).map(([d,c])=>`<h3>${d}</h3>`+c.map(x=>`<div class="sol"><code>${esc(x)}</code>${whyOf(x)?`<span>${whyOf(x)}</span>`:''}</div>`).join('')).join('');
   $('brief').innerHTML=h+'</div>';
-  $('guideToggle').onchange=e=>{guideOn=e.target.checked;try{localStorage.setItem('lab4net-guide',guideOn?'1':'0');}catch(x){}const sc=$('brief').scrollTop;renderBrief();$('brief').scrollTop=sc;};
+  $('guideToggle').onchange=e=>{guideOn=e.target.checked;try{localStorage.setItem('lab4net-guide',guideOn?'1':'0');}catch(x){}const sc=$('brief').scrollTop;renderBrief();$('brief').scrollTop=sc;};$('guidePopBtn').onclick=()=>setGuidePop(!guidePop);
   $('brief').querySelectorAll('[data-task]').forEach(x=>x.onchange=()=>{cur.tasks[+x.dataset.task]=x.checked;saveWork();const scroll=$('brief').scrollTop;renderBrief();$('brief').scrollTop=scroll;});
   $('bGrade').onclick=()=>{cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});if(cur.graded.every(g=>g[1])){progress[l.title]=true;persist();celebrate();}renderLabs();renderBrief();$('grade').scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});};
   $('bSol').onclick=()=>{cur.showSol=!cur.showSol;renderBrief();};
@@ -1268,9 +1300,11 @@ const tin=$('tin');tin.oninput=()=>{if(!tin.value.includes('?'))return;const{net
 tin.onkeydown=e=>{const s=cur.sess[cur.sel],d=cur.net.devs[cur.sel];if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(d.type!=='pc'&&!['user','priv'].includes(s.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
 tin.onpaste=e=>{const text=e.clipboardData.getData('text');if(!/[\r\n]/.test(text))return;e.preventDefault();const lines=text.split(/\r?\n/).filter(x=>x.trim());if(lines.length>100||lines.some(x=>x.length>512)){notify('Paste up to 100 commands, each under 512 characters.');return;}dialog('Review pasted commands',`<p>Run these ${lines.length} commands on <b>${esc(cur.net.devs[cur.sel].hostname)}</b> in the order shown.</p><pre class="paste-preview">${esc(lines.join('\n'))}</pre><button class="btn primary" id="runPaste">Run commands</button>`);$('runPaste').onclick=()=>{$('dialog').close();lines.forEach(execute);tin.value='';tin.focus();};};
 let guideOn=true;try{guideOn=localStorage.getItem('lab4net-guide')!=='0';}catch(e){}
-function stepsHtml(k){if(!guideOn)return '';if(!cur.guide)cur.guide=guideFor(cur.lab);const task=cur.guide[k]||[];
+const DESK=window.matchMedia('(min-width:861px)');let guidePop=false;try{guidePop=localStorage.getItem('lab4net-guide-pop')==='1';}catch(e){}
+function stepsHtml(k){return guideOn&&!(guidePop&&DESK.matches)?stepsBlock(k):'';}
+function stepsBlock(k){if(!cur.guide)cur.guide=guideFor(cur.lab);const task=cur.guide[k]||[];
   return '<div class="steps">'+task.map(g=>`<div class="step-dev">On ${esc(g.dev)}</div>`+g.lines.map(x=>x.note?`<div class="step-note">${esc(x.note)}</div>`:`<button class="step" data-dev="${esc(g.dev)}" data-cmd="${esc(x.cmd)}" title="Click to place this command in the console"><span class="sp">${esc(x.prompt)}</span>${esc(x.cmd)}</button>`).join('')).join('')+'</div>';}
-$('brief').addEventListener('click',e=>{const b=e.target.closest('.step');if(!b||cur.view!=='lab')return;select(b.dataset.dev);$('tin').value=b.dataset.cmd;$('tin').focus({preventScroll:true});});
+document.addEventListener('click',e=>{const b=e.target.closest('.step');if(!b||cur.view!=='lab')return;if($('dialog').open)$('dialog').close();select(b.dataset.dev);$('tin').value=b.dataset.cmd;$('tin').focus({preventScroll:true});});
 openLab(Math.max(0,Math.min(LABS.length-1,lastLab)));
 
 
@@ -1281,6 +1315,80 @@ openLab(Math.max(0,Math.min(LABS.length-1,lastLab)));
   const lines=['LAB4NET BIOS 2.0','','CPU ......... OK','MEMORY ...... 640K OK','LABS ........ '+LABS.length+' FOUND','CONSOLE ..... READY','','STARTING WORKSPACE'],pre=b.querySelector('pre');let i=0,t;
   const close=()=>{clearInterval(t);window.removeEventListener('keydown',close);b.classList.add('off');setTimeout(()=>b.remove(),280);};
   t=setInterval(()=>{if(i<lines.length)pre.textContent+=lines[i++]+'\n';else close();},140);b.onclick=close;window.addEventListener('keydown',close);})();
+
+// ---------- pop-out guide window ----------
+function guideHtml(){if(!cur.guide)cur.guide=guideFor(cur.lab);return `<div class="eyebrow">${cur.lab.group} <span>LAB ${String(cur.idx+1).padStart(2,'0')}</span></div><h2>${cur.lab.title}</h2>`+cur.lab.tasks.map((t,k)=>`<div class="gtask"><b>${String(k+1).padStart(2,'0')}</b><div>${t}${stepsBlock(k)}</div></div>`).join('');}
+function renderGuideWin(){const w=$('guideWin'),show=guidePop&&cur.view==='lab'&&DESK.matches;w.hidden=!show;if(show)$('guideBody').innerHTML=guideHtml();}
+function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guideHtml());return;}
+  guidePop=on;try{localStorage.setItem('lab4net-guide-pop',on?'1':'0');}catch(e){}
+  if(cur.view==='lab'){const sc=$('brief').scrollTop;renderBrief();$('brief').scrollTop=sc;}renderGuideWin();layoutApply();}
+
+// ---------- movable, resizable, snapping windows (desktop) ----------
+(function(){
+  const main=document.querySelector('main'),IDS=['brief','mapPanel','console','practice','guideWin'],KEY='lab4net-layout-v1',PAD=18,GAP=22,SNAP=12,EDGE=7,MINW=260,MINH=150;
+  const CUR={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize',move:'move'};
+  let L={},z=5,act=null;try{L=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(L));}catch(e){}};
+  const view=()=>cur.view==='lab'?'lab':'practice';
+  const wins=()=>IDS.map($).filter(el=>!el.hidden&&!el.parentElement.hidden);
+  const setVars=(el,r)=>{for(const k of ['x','y','w','h'])el.style.setProperty('--'+k,(r[k]*100).toFixed(3)+'%');};
+  const sv=$('snapV'),sh=$('snapH'),sp=$('snapPrev');
+  window.layoutApply=function(){
+    if(!DESK.matches){main.classList.remove('free');return;}
+    const S=L[view()]||(L[view()]={}),vis=wins();
+    if(vis.some(el=>!S[el.id])){main.classList.remove('free');const m=main.getBoundingClientRect();
+      for(const el of vis){if(S[el.id])continue;
+        if(el.id==='guideWin'){S[el.id]={x:.6,y:.04,w:.385,h:.66};continue;}
+        const r=el.getBoundingClientRect();S[el.id]={x:(r.left-m.left)/m.width,y:(r.top-m.top)/m.height,w:r.width/m.width,h:r.height/m.height};}
+      save();}
+    main.classList.add('free');
+    for(const el of vis){el.classList.add('fw');setVars(el,S[el.id]);if(el.id==='guideWin'&&!el.style.zIndex)el.style.zIndex=++z;}
+  };
+  function hit(e){if(!main.classList.contains('free'))return null;
+    const vis=wins().sort((a,b)=>(+b.style.zIndex||0)-(+a.style.zIndex||0)),x=e.clientX,y=e.clientY;
+    for(const el of vis){const r=el.getBoundingClientRect();if(x<r.left-4||x>r.right+4||y<r.top-4||y>r.bottom+4)continue;
+      let m='';if(y<r.top+EDGE)m='n';else if(y>r.bottom-EDGE)m='s';if(x<r.left+EDGE)m+='w';else if(x>r.right-EDGE)m+='e';
+      if(!m&&y<r.top+40&&!(e.target.closest&&e.target.closest('button,select,input,a,label,summary')))m='move';
+      return {el,mode:m};}
+    return null;}
+  function drag(e){const {el,mode,m,r}=act,dx=e.clientX-act.px,dy=e.clientY-act.py,W=m.width,H=m.height,xs=[PAD,W-PAD],ys=[PAD,H-PAD];
+    for(const o of wins()){if(o===el)continue;const q=o.getBoundingClientRect(),l=q.left-m.left,t=q.top-m.top;xs.push(l,l+q.width,l-GAP,l+q.width+GAP);ys.push(t,t+q.height,t-GAP,t+q.height+GAP);}
+    const near=(v,a)=>{if(e.altKey)return null;let b=null;for(const c of a)if(Math.abs(c-v)<=SNAP&&(b===null||Math.abs(c-v)<Math.abs(b-v)))b=c;return b;};
+    let x=r.x,y=r.y,w=r.w,h=r.h,gx=null,gy=null,s;act.snap=null;
+    if(mode==='move'){x=r.x+dx;y=r.y+dy;
+      if((s=near(x,xs))!==null){x=s;gx=s;}else if((s=near(x+w,xs))!==null){x=s-w;gx=s;}
+      if((s=near(y,ys))!==null){y=s;gy=s;}else if((s=near(y+h,ys))!==null){y=s-h;gy=s;}
+      x=Math.max(0,Math.min(W-w,x));y=Math.max(0,Math.min(H-h,y));
+      const half=(W-2*PAD-GAP)/2,full=H-2*PAD;
+      if(e.clientX<=m.left+10)act.snap={x:PAD,y:PAD,w:half,h:full};else if(e.clientX>=m.right-10)act.snap={x:PAD+half+GAP,y:PAD,w:half,h:full};else if(e.clientY<=m.top+10)act.snap={x:PAD,y:PAD,w:W-2*PAD,h:full};
+    }else{let x2=r.x+r.w,y2=r.y+r.h;
+      if(mode.includes('w')){x=r.x+dx;if((s=near(x,xs))!==null){x=s;gx=s;}x=Math.max(0,Math.min(x2-MINW,x));}
+      if(mode.includes('e')){x2=r.x+r.w+dx;if((s=near(x2,xs))!==null){x2=s;gx=s;}x2=Math.min(W,Math.max(x+MINW,x2));}
+      if(mode.includes('n')){y=r.y+dy;if((s=near(y,ys))!==null){y=s;gy=s;}y=Math.max(0,Math.min(y2-MINH,y));}
+      if(mode.includes('s')){y2=r.y+r.h+dy;if((s=near(y2,ys))!==null){y2=s;gy=s;}y2=Math.min(H,Math.max(y+MINH,y2));}
+      w=x2-x;h=y2-y;}
+    act.cur={x,y,w,h};setVars(el,{x:x/W,y:y/H,w:w/W,h:h/H});
+    sv.style.display=gx!==null&&!act.snap?'block':'none';if(gx!==null)sv.style.left=gx+'px';
+    sh.style.display=gy!==null&&!act.snap?'block':'none';if(gy!==null)sh.style.top=gy+'px';
+    if(act.snap){sp.style.display='block';sp.style.left=act.snap.x+'px';sp.style.top=act.snap.y+'px';sp.style.width=act.snap.w+'px';sp.style.height=act.snap.h+'px';}else sp.style.display='none';}
+  function end(){if(!act)return;const {el,m}=act,f=act.snap||act.cur;
+    if(f){const S=L[view()]||(L[view()]={});S[el.id]={x:f.x/m.width,y:f.y/m.height,w:f.w/m.width,h:f.h/m.height};setVars(el,S[el.id]);save();}
+    el.classList.remove('dragging');sv.style.display=sh.style.display=sp.style.display='none';document.body.style.userSelect='';act=null;
+    if(cur.view==='lab')$('term').scrollTop=$('term').scrollHeight;}
+  main.addEventListener('pointermove',e=>{if(act)return drag(e);const h=hit(e),c=h&&h.mode?CUR[h.mode]:'';if(document.body.dataset.cur!==c)document.body.dataset.cur=c;});
+  main.addEventListener('pointerleave',()=>{if(!act)document.body.dataset.cur='';});
+  main.addEventListener('pointerdown',e=>{if(e.button)return;const h=hit(e);if(!h)return;h.el.style.zIndex=++z;if(!h.mode)return;
+    e.preventDefault();e.stopPropagation();const m=main.getBoundingClientRect(),r=h.el.getBoundingClientRect();
+    act={el:h.el,mode:h.mode,px:e.clientX,py:e.clientY,m,r:{x:r.left-m.left,y:r.top-m.top,w:r.width,h:r.height},snap:null,cur:null};
+    h.el.classList.add('dragging');try{main.setPointerCapture(e.pointerId);}catch(x){}document.body.style.userSelect='none';},true);
+  main.addEventListener('pointerup',end);main.addEventListener('pointercancel',end);
+  $('resetLayout').onclick=()=>{L={};save();for(const el of IDS.map($)){el.classList.remove('fw');el.style.zIndex='';for(const k of ['x','y','w','h'])el.style.removeProperty('--'+k);}main.classList.remove('free');layoutApply();notify('Layout reset to the default.');};
+  $('guideClose').onclick=()=>setGuidePop(false);
+  window.addEventListener('resize',()=>{renderGuideWin();layoutApply();});
+  DESK.addEventListener?.('change',()=>{if(cur.view==='lab')renderBrief();renderGuideWin();layoutApply();});
+  const ra0=renderAll;renderAll=function(){ra0();renderGuideWin();layoutApply();};
+  renderGuideWin();layoutApply();
+})();
 
 </script>
 </body>
