@@ -1,5 +1,21 @@
 # Lab4Net changes
 
+## Free-build network sandbox
+
+- Added **Sandbox** to the header and lab selector, retaining the Matrix theme. Build freely with up to 16 routers, switches, PCs or servers. Desktop windows have their own saved sandbox arrangement; graded-lab windows retain theirs.
+- Added a device palette, draggable topology nodes with cables following during movement, keyboard arrow positioning, a port-aware cable builder, cable removal and confirmed device removal. Empty projects disable console input safely. Overlapping node positions do not create invalid SVG coordinates.
+- Added IPv4/mask/gateway controls and DHCP requests for hosts, while keeping IOS consoles and command explanations for device configuration. Server nodes use the engine's simulated port checks on 80 and 443.
+- Added a source/destination ping probe using real simulator forwarding, packet animation and persistent request/reply diagnostics. Router probes leave configuration mode before testing. Mission information explains how to build, configure and troubleshoot; the sandbox has no grading.
+- Added a working switch/two-PC LAN starter, an empty-canvas option, Undo for one action/command, local autosave and automatic sandbox resume. Projects record topology edits and commands chronologically, so DHCP leases acquired before cable changes and IOS session contexts restore correctly. Export/import moves projects between devices. Validation builds an imported project before replacing existing work; lab progress and drafts stay separate.
+- Fixed reduced-motion layout resets: disabling transitions fully prevents the window manager from measuring intermediate geometry and collapsing panels. Added a browser regression check.
+- Preserved the simulator between ENGINE markers without changes. The original 15 labs, their grading and the 284-command guides remain intact. No runtime dependency, backend or deployment restructuring was introduced.
+
+Verification: `tests/labs.cjs` passes **15 labs / 85 checks / 284 guide commands** before and after this work. Forwarding tests pass. Added dependency-free `tests/sandbox.cjs` covering real paths, IOS configuration, port validation, disconnect/reconnect/removal, position replay, and DHCP acquired before subsequent edits; included it in GitHub Actions. Local headless Edge passes existing lab and Matrix browser suites plus new `tests/sandbox-ui.cjs` covering editor controls, probes, export/import, invalid import preservation, restored configuration modes, drag positions, lab isolation, phone layouts and reduced motion. Inspected desktop and phone sandbox previews.
+
+Limits: this is a free-build workspace for the existing CCNA engine, not a complete Packet Tracer replacement. No IPv6 forwarding, wireless devices, interchangeable hardware modules or real IOS runtime. One project autosaves locally; export separate files to keep multiple projects. Project limits are 16 concurrent devices, 10,000 actions, 5,000 commands and 5 MB imports. Progress backups and sandbox project files are separate. The home nginx container, Docker runtime, Safari/Firefox and physical touch devices could not be tested; deployment still copies the single index.html.
+
+---
+
 ## Matrix redesign — based on main c20f45b
 
 Copied the current main branch into `chatgpt/improvements` through a merge, preserving main's movable/resizable windows, task-by-task instructions and separate Mission and Checklist windows. Main itself was not changed.

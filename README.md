@@ -17,6 +17,19 @@ A single-page CCNA learning workspace. Open `index.html` directly in a modern br
 
 For theory scope, see [Cisco's CCNA v1.1 topic outline](https://learningcontent.cisco.com/documents/marketing/exam-topics/200-301-CCNA-v1.1.pdf). The questions are supplementary concept practice, not a full exam bank.
 
+## Network sandbox
+
+Choose **Sandbox** in the header or lab selector to build a network without grading. Start on an empty canvas, or choose **New / starter → Working LAN starter** for two addressed PCs and a switch.
+
+1. Add routers, switches, PCs or servers from the device palette (up to 16 devices). Drag nodes to arrange them; focus a node and use arrow keys for keyboard positioning.
+2. In **Cable builder**, choose devices and free physical ports, then connect them. Remove cables with their × buttons. Router interfaces need `no shutdown`; switch access ports start in VLAN 1.
+3. Select a device to use its IOS-style console and command guide. PCs and servers also have an IPv4/mask/gateway form and a DHCP request button. Servers listen on simulated ports 80 and 443.
+4. Use **Connectivity probe** or console `ping` commands to trace the real request/reply path and read failure reasons. Experiment with the engine's VLAN, trunk, static route, OSPF, DHCP, ACL and NAT commands.
+
+The project autosaves separately from graded labs and resumes after reopening the app. **Export project / Import project** transfers topology and ordered command history; sandbox files are separate from **Transfer progress** lab backups. Export before choosing a new project. **Undo** reverses one edit or console command; applying a host IP generates two or three commands, so undo those individually if needed. Removing a device also removes its cables. Sandbox actions never earn or change lab grades.
+
+Projects support up to 10,000 edits, 5,000 commands and 5 MB imports. Reopening replays actions in order, preserving configuration modes and DHCP acquisition before later cable changes. Local storage remains per browser/origin. This uses the same simplified IPv4 learning engine as the labs, rather than full Packet Tracer protocol/device coverage; IPv6 forwarding, wireless simulation and hardware/module customization are not included.
+
 ## Option A: plain LXC on Proxmox (simplest)
 
 1. In the Proxmox UI, create an unprivileged container from a Debian 12 or 13 template.
@@ -57,8 +70,9 @@ The lab test extracts only the code between the ENGINE markers, creates every la
 
     node tests/labs.cjs
     node tests/forwarding.cjs
+    node tests/sandbox.cjs
 
-GitHub Actions runs both dependency-free checks on pushes and pull requests.
+GitHub Actions runs all three dependency-free checks on pushes and pull requests.
 
 Optional browser integration tests use Playwright:
 
@@ -66,8 +80,9 @@ Optional browser integration tests use Playwright:
     npx playwright install chromium
     node tests/ui.cjs
     node tests/matrix.cjs
+    node tests/sandbox-ui.cjs
 
-Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge browser. The browser suite opens the local file, grades every lab, checks command/session restoration and backup import/export, and exercises the library, guide, practices, phone layout and reduced motion. The Matrix suite additionally checks rain preferences, pop-out guidance, window dragging/resizing/restoration and common desktop resolutions. `LAB4NET_SCREENSHOTS` optionally specifies a directory for desktop and phone captures.
+Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge browser. The browser suite opens the local file, grades every lab, checks command/session restoration and backup import/export, and exercises the library, guide, practices, phone layout and reduced motion. The sandbox suite covers actual editor controls, cabling, configuration/position restoration, project transfer, packet paths and phone use. The Matrix suite additionally checks rain preferences, pop-out guidance, window dragging/resizing/restoration and common desktop resolutions. `LAB4NET_SCREENSHOTS` optionally specifies a directory for desktop and phone captures.
 
 ## Notes
 

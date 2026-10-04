@@ -149,7 +149,26 @@ body[data-cur="move"] main *{cursor:move!important}body[data-cur="ns-resize"] ma
 @media(min-width:1600px){main{grid-template-columns:410px 1fr}#term{font-size:14px}}
 @media(max-width:1200px){header{flex-wrap:wrap;gap:6px}#labs{flex:1 1 240px}.header-actions{gap:0}#clock{display:none}.legend{font-size:9px}.progressbar{width:55px}}
 @media(max-width:860px){#checkBody{flex:none;overflow:visible}#checkWin{overflow:visible}body{height:auto}header{padding:10px 12px}h1{font-size:20px}#labs{flex:1 1 100%;order:5;margin:0}.header-actions{order:4;width:100%;justify-content:space-between}.header-actions .small-btn{padding:6px 4px;font-size:10px}#meter{font-size:10px}.workspace-bar{font-size:9px;padding:8px 12px;gap:8px}#saveStatus{max-width:120px;text-align:right}main{grid-template-columns:1fr;padding:12px;gap:14px}.mobile-nav{display:flex;gap:10px;padding:12px 12px 0}.mobile-nav button[aria-pressed="true"]{background:#193d26;border-color:var(--go);color:#bcffce}body.mobile-network #side{display:none}#side{display:block}#side>*+*{margin-top:14px}#brief{max-height:none!important}body:not(.mobile-network) #bench{display:none}#bench{overflow:visible}#console{height:440px;flex:none}#brief,#practice{overflow:visible}.drill label{grid-template-columns:1fr}.drill p{margin-left:0!important}.legend,#deviceInfo{display:none}#brief h2,#practice h2{font-size:22px}.reference-tools{flex-wrap:wrap}.console-toolbar{gap:6px;padding:8px}.console-toolbar>div{gap:4px}.console-toolbar .small-btn{font-size:10px;padding:5px}.mode-pill{font-size:9px}.mode-pill::before{content:""}#term{padding:12px;font-size:12px}.big{font-size:24px}#boot pre{font-size:12px}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important}.selring,.selglow,.wire.flow,h1 .l,.workspace-bar .cur,.clear{animation:none!important}.fxlabel{opacity:1!important;animation:none!important}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition:none!important}.selring,.selglow,.wire.flow,h1 .l,.workspace-bar .cur,.clear{animation:none!important}.fxlabel{opacity:1!important;animation:none!important}}
+
+
+/* Free topology workbench */
+.sb-palette{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.sb-palette button{text-transform:capitalize;text-align:left;padding:10px}
+.sb-end{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.sb-end label,#sbHost label,#sbProbe label{display:grid;gap:5px;font:11px var(--mono);color:var(--muted);margin-bottom:10px;min-width:0}
+.sb-end select,#sbHost input,#sbProbe input,#sbProbe select{width:100%;min-width:0}
+#sbHost input,#sbProbe input{padding:8px;border:1px solid #35573e;background:#020a06;font:12px var(--mono);border-radius:2px}
+.sb-caption{font-size:12px;color:var(--muted)!important;margin:12px 0!important}
+.sb-cables{margin:14px 0}.sb-cables>div{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font:10px var(--mono)}
+#sbDelete{margin-top:14px;color:#ffc0c0;border-color:#784949}
+#sbStatus{font-size:12px;color:#ffc0c0;margin-top:10px}
+body.sandbox #brief::before{content:"01 / Sandbox briefing"}
+body.sandbox #checkWin>.panel-title>b::before{content:"02 / "}
+body.sandbox #topo .dev{touch-action:none}
+body.sandbox #topo::after{content:"BUILD / DRAG DEVICES TO ARRANGE"}
+body.sandbox #sandbox{border-color:var(--go);color:var(--cy)}
+input:disabled{cursor:default}
 
 </style>
 </head>
@@ -159,7 +178,7 @@ body[data-cur="move"] main *{cursor:move!important}body[data-cur="ns-resize"] ma
 <div id="boot" aria-hidden="true"><pre></pre></div>
 <header>
   <h1><svg viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path class="w" d="M7 5h2v3H7zM3 8h10v1H3zM3 9h1v2H3zM12 9h1v2h-1z"/><path class="w" d="M6 2h4v3H6zM2 11h3v3H2zM11 11h3v3h-3z"/><path class="l" d="M7 3h2v1H7z"/></svg>Lab4Net</h1>
-  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="transfer">Transfer progress</button><button class="small-btn" id="resetLayout">Reset layout</button><button class="small-btn" id="rainToggle" aria-pressed="true" title="Toggle ambient digital rain">Rain on</button></div>
+  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="sandbox">Sandbox</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="transfer">Transfer progress</button><button class="small-btn" id="resetLayout">Reset layout</button><button class="small-btn" id="rainToggle" aria-pressed="true" title="Toggle ambient digital rain">Rain on</button></div>
   <select id="labs" aria-label="Choose a lab"></select>
   <div id="meter"></div>
   <span id="clock" aria-hidden="true"></span>
@@ -960,7 +979,7 @@ let cur=null,progress={},drafts={},lastLab=0,fxToken=0,quizIndex=0,quizAnswer=nu
 try{const p=JSON.parse(localStorage.getItem('ccna-bench-v2')||'{}');if(p&&typeof p==='object')progress=p;}catch(e){}
 try{const p=JSON.parse(localStorage.getItem('lab4net-workspace-v1')||'{}');if(p&&typeof p.drafts==='object')drafts=p.drafts;lastLab=Number.isInteger(p.lastLab)?p.lastLab:0;}catch(e){}
 function persist(){try{localStorage.setItem('ccna-bench-v2',JSON.stringify(progress));localStorage.setItem('lab4net-workspace-v1',JSON.stringify({drafts,lastLab}));$('saveStatus').textContent='Saved on this browser';}catch(e){$('saveStatus').textContent='Storage unavailable · Export to keep work';}}
-function saveWork(){if(cur?.view==='lab'){drafts[cur.lab.title]={journal:cur.journal,tasks:Array.from({length:cur.lab.tasks.length},(_,i)=>!!cur.tasks[i])};lastLab=cur.idx;}persist();}
+function saveWork(){if(cur?.view==='lab'&&!cur.sandbox){try{localStorage.setItem('lab4net-last-workspace','lab');}catch(e){}}if(cur?.view==='lab'&&cur.sandbox){saveSandbox();return;}if(cur?.view==='lab'){drafts[cur.lab.title]={journal:cur.journal,tasks:Array.from({length:cur.lab.tasks.length},(_,i)=>!!cur.tasks[i])};lastLab=cur.idx;}persist();}
 function notify(text){$('notice').textContent=text;}
 function sessions(net){const sess={};for(const [n,d] of Object.entries(net.devs))sess[n]={mode:d.type==='pc'?'pc':'user',ctx:null,lines:[d.type==='pc'?'Host console · ipconfig, ping, tracert, telnet, ssh':d.hostname+' console ready',''],hist:[],hi:0,fresh:0};return sess;}
 function push(s,lines){s.lines.push(...lines);if(s.lines.length>600)s.lines.splice(0,s.lines.length-600);}
@@ -973,12 +992,12 @@ function openLab(idx,fresh=false){if(cur?.view==='lab'&&!fresh)saveWork();const 
   try{state=replay(lab,fresh?null:drafts[lab.title]);}catch(e){state=replay(lab,null);notify('Could not restore this lab. A fresh topology is ready.');}
   cur={view:'lab',idx,lab,...state,sel:lab.start,graded:null,showSol:false,tasks:fresh?[]:(drafts[lab.title]?.tasks||[]),intro:true,links:{},trace:null};
   fxToken++;mobilePanel(false);$('tin').value='';$('hint').textContent=HINT;$('hint').className='';$('trace').innerHTML='';renderAll();saveWork();}
-function renderAll(){renderLabs();renderBrief();drawTopo();renderTerm();$('bench').hidden=cur.view!=='lab';$('practice').hidden=cur.view==='lab';$('mobileNav').hidden=cur.view!=='lab';if(cur.view!=='lab')mobilePanel(false);}
-function renderLabs(){let h='';for(const g of GROUPS)h+=`<optgroup label="${g}">`+LABS.map((l,i)=>l.group===g?`<option value="${i}"${cur.view==='lab'&&i===cur.idx?' selected':''}>${progress[l.title]?'✓ ':''}${l.title}</option>`:'').join('')+'</optgroup>';
-  h+=`<optgroup label="Practice"><option value="drill"${cur.view==='drill'?' selected':''}>Subnetting drill</option><option value="quiz"${cur.view==='quiz'?' selected':''}>Theory check</option></optgroup>`;$('labs').innerHTML=h;
+function renderAll(){document.body.classList.toggle('sandbox',!!cur.sandbox&&cur.view==='lab');renderLabs();renderBrief();drawTopo();renderTerm();$('bench').hidden=cur.view!=='lab';$('practice').hidden=cur.view==='lab';$('mobileNav').hidden=cur.view!=='lab';if(cur.view!=='lab')mobilePanel(false);}
+function renderLabs(){let h='';for(const g of GROUPS)h+=`<optgroup label="${g}">`+LABS.map((l,i)=>l.group===g?`<option value="${i}"${cur.view==='lab'&&!cur.sandbox&&i===cur.idx?' selected':''}>${progress[l.title]?'✓ ':''}${l.title}</option>`:'').join('')+'</optgroup>';
+  h+=`<optgroup label="Free build"><option value="sandbox"${cur.view==='lab'&&cur.sandbox?' selected':''}>Network sandbox</option></optgroup><optgroup label="Practice"><option value="drill"${cur.view==='drill'?' selected':''}>Subnetting drill</option><option value="quiz"${cur.view==='quiz'?' selected':''}>Theory check</option></optgroup>`;$('labs').innerHTML=h;
   const count=LABS.filter(l=>progress[l.title]).length;$('meter').innerHTML=`<div class="progressbar" role="progressbar" aria-label="Labs passed" aria-valuemin="0" aria-valuemax="${LABS.length}" aria-valuenow="${count}"><span style="width:${count/LABS.length*100}%"></span></div><span>${count} / ${LABS.length} passed</span>`;
   $('workspaceTitle').textContent=cur.view==='lab'?cur.lab.title:cur.view==='drill'?'Subnetting drill':'Theory check';}
-function renderBrief(){if(cur.view==='drill')return renderDrill();if(cur.view==='quiz')return renderQuiz();const l=cur.lab,done=cur.tasks.filter(Boolean).length;
+function renderBrief(){if(cur.view==='lab'&&cur.sandbox)return renderSandbox();$('checkWin').querySelector('.panel-title b').textContent='Checklist';if(cur.view==='drill')return renderDrill();if(cur.view==='quiz')return renderQuiz();const l=cur.lab,done=cur.tasks.filter(Boolean).length;
   let h=`<div class="eyebrow">${l.group} <span>LAB ${String(cur.idx+1).padStart(2,'0')}</span></div><h2>${l.title}</h2><p>${l.brief}</p><div class="lesson-tip"><b>Configure → verify → explain</b><br>Use the tasks as a guide. Grade checks the actual network, independently of your checklist.</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><div class="guide-row"><label class="gswitch"><input type="checkbox" id="guideToggle"${guideOn?' checked':''}><span aria-hidden="true"></span>Step-by-step instructions</label><button class="small-btn" id="guidePopBtn" type="button">${guidePop?'Dock guide':'Pop out guide'}</button></div><h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details>${stepsHtml(k)}</div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
   if(cur.graded){const ok=cur.graded.filter(g=>g[1]).length,all=ok===cur.graded.length;h+=`<strong class="${all?'done':''}">${all?'✓ Lab complete':`${ok} / ${cur.graded.length} checks passed`}</strong><p>${all?'You built a working network. Try explaining why it works before moving on.':'Use the failed checks below to narrow your next change. Your work is saved.'}</p><ul>${cur.graded.map((g,k)=>`<li class="${g[1]?'ok':'no'}" style="--i:${k}">${g[0]}</li>`).join('')}</ul>${all?'<button class="btn primary" id="nextLab">Next unpassed lab →</button>':''}`;}
   h+='</div><div id="solution">';
@@ -991,18 +1010,18 @@ function renderBrief(){if(cur.view==='drill')return renderDrill();if(cur.view===
   $('bReset').onclick=()=>{dialog('Start this lab over?',`<p>This removes this lab’s saved commands and checklist. Its earned pass stays in your progress.</p><button class="btn primary" id="confirmReset">Start with a fresh network</button>`);$('confirmReset').onclick=()=>{$('dialog').close();openLab(cur.idx,true);notify('Lab reset. Previously earned progress kept.');};};
   if($('nextLab'))$('nextLab').onclick=()=>{const next=LABS.findIndex((l,i)=>i>cur.idx&&!progress[l.title]);const first=LABS.findIndex(l=>!progress[l.title]);openLab(next>=0?next:first>=0?first:0);};}
 function lineClass(l){if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';if(/^%|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
-function renderTerm(){if(cur.view!=='lab')return;const {net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],n=s.lines.length,fresh=s.fresh||0;s.fresh=0;
+function renderTerm(){if(cur.view!=='lab')return;const empty=!cur.sel||!cur.net.devs[cur.sel];$('tin').disabled=empty;$('reference').disabled=empty;$('clearConsole').disabled=empty;if(empty){$('tabs').innerHTML='';$('tout').textContent='Add a device from the sandbox palette to open its console.';$('prompt').textContent='';$('mode').textContent='No device';$('deviceInfo').textContent='';$('term').removeAttribute('aria-labelledby');return;}const {net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],n=s.lines.length,fresh=s.fresh||0;s.fresh=0;
   $('tabs').innerHTML=Object.keys(net.devs).map(x=>`<button class="tab" role="tab" id="tab-${x}" aria-controls="term" tabindex="${x===sel?0:-1}" data-dev="${x}" aria-selected="${x===sel}"><span class="device-dot ${net.devs[x].type}"></span>${esc(net.devs[x].hostname)}</button>`).join('');
   $('term').setAttribute('aria-labelledby','tab-'+sel);$('tout').innerHTML=s.lines.map((l,k)=>`<span class="${l[0]==='\u0001'?'cmd':lineClass(l)}${k>=n-fresh?' new':''}">${esc(l[0]==='\u0001'?l.slice(1):l)}</span>`).join('\n');
   $('prompt').textContent=promptOf(d,s);$('mode').textContent=MODE[s.mode]||s.mode;$('term').scrollTop=$('term').scrollHeight;
   $('deviceInfo').textContent=`${d.hostname} · ${d.type==='pc'?'host':d.type} · ${Object.values(d.ifs).filter(i=>ifUp(net,d,i)).length} interfaces up`;}
-function select(n){cur.sel=n;$('tin').value='';drawTopo();renderTerm();$('tin').focus({preventScroll:true});}
+function select(n){if(!cur.net.devs[n])return;cur.sel=n;$('tin').value='';drawTopo();renderTerm();if(cur.sandbox)renderSandbox();$('tin').focus({preventScroll:true});}
 function mobilePanel(network){document.body.classList.toggle('mobile-network',network);$('missionView').setAttribute('aria-pressed',String(!network));$('networkView').setAttribute('aria-pressed',String(network));if(cur?.view==='lab')renderTerm();}
-function execute(line){if(cur.view!=='lab')return;const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];TRACE=null;
+function execute(line){if(cur.view!=='lab'||!cur.sel)return;if(cur.sandbox&&cur.project.events.length>=10000){notify('Project history is full. Export before starting a new project.');return;}const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];TRACE=null;
   if(line.length>512){notify('Keep each command under 512 characters.');return;}
   if(cur.journal.length>=5000){notify('This lab has reached its saved command limit. Export your work, then start over.');return;}
-  push(s,['\u0001'+promptOf(d,s)+line]);if(line.trim()){s.hist.push(line);s.last=null;const out=execLine(net,d,s,line);if(out.length)push(s,out.join('\n').split('\n'));cur.journal.push({device:sel,line});const w=s.last&&WHYC[s.last];$('hint').textContent=w?'Why: '+w:HINT;$('hint').className=w?'why':'';}
-  s.hi=s.hist.length;if(cur.graded){cur.graded=null;$('grade').innerHTML='<p>Commands run since grading. Grade again to check the current network.</p>';}drawTopo();renderTerm();if(TRACE){cur.trace=TRACE;renderTrace();playTrace(TRACE);}saveWork();}
+  push(s,['\u0001'+promptOf(d,s)+line]);if(line.trim()){s.hist.push(line);s.last=null;const out=execLine(net,d,s,line);if(out.length)push(s,out.join('\n').split('\n'));cur.journal.push({device:sel,line});if(cur.sandbox)cur.project.events.push({op:'command',device:sel,line});const w=s.last&&WHYC[s.last];$('hint').textContent=w?'Why: '+w:HINT;$('hint').className=w?'why':'';}
+  s.hi=s.hist.length;if(cur.graded){cur.graded=null;$('grade').innerHTML='<p>Commands run since grading. Grade again to check the current network.</p>';}drawTopo();renderTerm();if(TRACE){cur.trace=TRACE;renderTrace();playTrace(TRACE);}saveWork();if(cur.sandbox)renderSandbox();}
 function renderTrace(){const T=cur.trace;if(!T)return;const last=p=>p.hops.path.at(-1);const result=T.ok?'Reply received':T.refused?'Destination port closed':!T.f.ok?T.f.reason:T.r?'Reply failed: '+(T.r.reason||'did not return to source'):'No reply';
   $('trace').innerHTML=`<div class="trace-title ${T.ok?'good':'bad'}">${T.ok?'✓':'!'} ${esc(result)}<button class="small-btn" id="replayTrace">Replay</button></div><div class="trace-path"><b>Request</b> ${T.f.hops.path.map(esc).join(' → ')}${!T.f.ok?` <span class="bad">· stopped at ${esc(last(T.f))}</span>`:''}</div>${T.r?`<div class="trace-path"><b>Reply</b> ${T.r.hops.path.map(esc).join(' → ')}</div>`:''}<p>${T.ok?'Both directions succeeded. A request reaching the destination alone is not enough.':T.refused?'The network path works, but the destination is not listening on that port.':T.f.blocked||T.r?.blocked?'Read the ACL in order. The first matching rule wins; unmatched traffic is denied.':'Verify interface state and addressing first, then the next hop and the return route.'}</p><p>Last connectivity test · Run the command again after changing configuration.</p>`;$('replayTrace').onclick=()=>playTrace(cur.trace);}
 function dialog(title,body){$('dialogTitle').textContent=title;$('dialogBody').innerHTML=body;if(!$('dialog').open)$('dialog').showModal();}
@@ -1064,7 +1083,7 @@ function drawTopo(){if(cur.view!=='lab')return;const{lab,net}=cur;let h=`<svg vi
   for(const l of net.links){const k=pk(l),idx=seen[k]=(seen[k]??-1)+1,off=(idx-(cnt[k]-1)/2)*16;
     let[ax,ay]=lab.pos[l.a],[bx,by]=lab.pos[l.b];const A=net.devs[l.a],B=net.devs[l.b],up=ifUp(net,A,A.ifs[l.ai])&&ifUp(net,B,B.ifs[l.bi]);
     const id=l.a+'|'+l.ai,was=cur.links[id];cur.links[id]=up;
-    const dx=bx-ax,dy=by-ay,len=Math.hypot(dx,dy),ux=dx/len,uy=dy/len,side=cnt[k]>1?(off<0?-1:1):1,px=-uy*10*side,py=ux*10*side;
+    const dx=bx-ax,dy=by-ay,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,side=cnt[k]>1?(off<0?-1:1):1,px=-uy*10*side,py=ux*10*side;
     ax+=-uy*off;ay+=ux*off;bx+=-uy*off;by+=ux*off;const xy=`x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}"`;
     h+=`<line class="wire ${up?'base':'off'}" ${xy}/>`;if(up)h+=`<line class="wire flow" ${xy}/>`;if(up&&was===false)h+=`<line class="wire flash" ${xy}/>`;
     [[A,l.ai,ax+ux*42,ay+uy*42,1],[B,l.bi,bx-ux*42,by-uy*42,-1]].forEach(([D,ifn,x,y,s])=>{
@@ -1102,16 +1121,16 @@ async function playTrace(T){const tok=++fxToken,g=fxLayer();if(!g)return;g.inner
 function celebrate(){if(REDUCED)return;const tok=fxToken,g=fxLayer();if(g)g.insertAdjacentHTML('beforeend','<text class="clear" x="300" y="140">ACCESS GRANTED</text>');Object.keys(cur.net.devs).forEach((n,k)=>setTimeout(()=>{if(tok===fxToken)burst(n,'good','');},k*120));}
 
 
-$('labs').onchange=e=>{if(['drill','quiz'].includes(e.target.value))openPractice(e.target.value);else openLab(+e.target.value);};
+$('labs').onchange=e=>{if(e.target.value==='sandbox'){openSandbox();return;}if(['drill','quiz'].includes(e.target.value))openPractice(e.target.value);else openLab(+e.target.value);};
 $('library').onclick=library;$('help').onclick=help;$('transfer').onclick=transfer;$('reference').onclick=reference;
 $('missionView').onclick=()=>mobilePanel(false);$('networkView').onclick=()=>mobilePanel(true);window.addEventListener('resize',()=>{if(cur?.view==='lab')$('term').scrollTop=$('term').scrollHeight;});
 $('closeDialog').onclick=()=>$('dialog').close();$('dialog').onclick=e=>{if(e.target===$('dialog')){const r=$('dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('dialog').close();}};
 $('tabs').onclick=e=>{const b=e.target.closest('[data-dev]');if(b)select(b.dataset.dev);};
-$('tabs').onkeydown=e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const names=Object.keys(cur.net.devs),i=names.indexOf(cur.sel);const next=e.key==='Home'?0:e.key==='End'?names.length-1:(i+(e.key==='ArrowRight'?1:-1)+names.length)%names.length;select(names[next]);$('tab-'+names[next]).focus();}};
+$('tabs').onkeydown=e=>{if(!cur.sel)return;if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const names=Object.keys(cur.net.devs),i=names.indexOf(cur.sel);const next=e.key==='Home'?0:e.key==='End'?names.length-1:(i+(e.key==='ArrowRight'?1:-1)+names.length)%names.length;select(names[next]);$('tab-'+names[next]).focus();}};
 $('topo').onclick=e=>{const g=e.target.closest('[data-dev]');if(g)select(g.dataset.dev);};$('topo').onkeydown=e=>{const g=e.target.closest('[data-dev]');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select(g.dataset.dev);}};
 $('clearConsole').onclick=()=>{cur.sess[cur.sel].lines=[];renderTerm();};$('term').onclick=()=>{if(!String(window.getSelection()))$('tin').focus({preventScroll:true});};
 const tin=$('tin');tin.oninput=()=>{if(!tin.value.includes('?'))return;const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],line=tin.value.replace(/\?/g,'');const c=candidates(d,s.mode,line);push(s,['\u0001'+promptOf(d,s)+line+'?',...(c.length?c.map(x=>'  '+x):['% Unrecognized command'])]);tin.value=line;renderTerm();};
-tin.onkeydown=e=>{const s=cur.sess[cur.sel],d=cur.net.devs[cur.sel];if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(d.type!=='pc'&&!['user','priv'].includes(s.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
+tin.onkeydown=e=>{if(!cur.sel)return;const s=cur.sess[cur.sel],d=cur.net.devs[cur.sel];if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(d.type!=='pc'&&!['user','priv'].includes(s.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
 tin.onpaste=e=>{const text=e.clipboardData.getData('text');if(!/[\r\n]/.test(text))return;e.preventDefault();const lines=text.split(/\r?\n/).filter(x=>x.trim());if(lines.length>100||lines.some(x=>x.length>512)){notify('Paste up to 100 commands, each under 512 characters.');return;}dialog('Review pasted commands',`<p>Run these ${lines.length} commands on <b>${esc(cur.net.devs[cur.sel].hostname)}</b> in the order shown.</p><pre class="paste-preview">${esc(lines.join('\n'))}</pre><button class="btn primary" id="runPaste">Run commands</button>`);$('runPaste').onclick=()=>{$('dialog').close();lines.forEach(execute);tin.value='';tin.focus();};};
 let guideOn=true;try{guideOn=localStorage.getItem('lab4net-guide')!=='0';}catch(e){}
 const DESK=window.matchMedia('(min-width:861px)');let guidePop=false;try{guidePop=localStorage.getItem('lab4net-guide-pop')==='1';}catch(e){}
@@ -1119,6 +1138,7 @@ function stepsHtml(k){return guideOn&&!(guidePop&&DESK.matches)?stepsBlock(k):''
 function stepsBlock(k){if(!cur.guide)cur.guide=guideFor(cur.lab);const task=cur.guide[k]||[];
   return '<div class="steps">'+task.map(g=>`<div class="step-dev">On ${esc(g.dev)}</div>`+g.lines.map(x=>x.note?`<div class="step-note">${esc(x.note)}</div>`:`<button class="step" data-dev="${esc(g.dev)}" data-cmd="${esc(x.cmd)}" title="Click to place this command in the console"><span class="sp">${esc(x.prompt)}</span>${esc(x.cmd)}</button>`).join('')).join('')+'</div>';}
 document.addEventListener('click',e=>{const b=e.target.closest('.step');if(!b||cur.view!=='lab')return;if($('dialog').open)$('dialog').close();select(b.dataset.dev);$('tin').value=b.dataset.cmd;$('tin').focus({preventScroll:true});});
+let resumeSandbox=false;try{resumeSandbox=localStorage.getItem('lab4net-last-workspace')==='sandbox';}catch(e){}
 openLab(Math.max(0,Math.min(LABS.length-1,lastLab)));
 
 
@@ -1132,7 +1152,7 @@ openLab(Math.max(0,Math.min(LABS.length-1,lastLab)));
 
 // ---------- pop-out guide window ----------
 function guideHtml(){if(!cur.guide)cur.guide=guideFor(cur.lab);return `<div class="eyebrow">${cur.lab.group} <span>LAB ${String(cur.idx+1).padStart(2,'0')}</span></div><h2>${cur.lab.title}</h2>`+cur.lab.tasks.map((t,k)=>`<div class="gtask"><b>${String(k+1).padStart(2,'0')}</b><div>${t}${stepsBlock(k)}</div></div>`).join('');}
-function renderGuideWin(){const w=$('guideWin'),show=guideOn&&guidePop&&cur.view==='lab'&&DESK.matches;w.hidden=!show;if(show)$('guideBody').innerHTML=guideHtml();}
+function renderGuideWin(){const w=$('guideWin'),show=guideOn&&guidePop&&cur.view==='lab'&&!cur.sandbox&&DESK.matches;w.hidden=!show;if(show)$('guideBody').innerHTML=guideHtml();}
 function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-guide','1');}catch(e){}}if(on&&!DESK.matches){dialog('Step-by-step guide',guideHtml());return;}
   guidePop=on;try{localStorage.setItem('lab4net-guide-pop',on?'1':'0');}catch(e){}
   if(cur.view==='lab'){const sc=$('checkBody').scrollTop;renderBrief();$('checkBody').scrollTop=sc;}renderGuideWin();layoutApply();}
@@ -1143,7 +1163,7 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
   const CUR={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize',move:'move'};
   let L={},z=5,act=null;try{L=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(L));}catch(e){}};
-  const view=()=>cur.view==='lab'?'lab':'practice';
+  const view=()=>cur.view==='lab'?(cur.sandbox?'sandbox':'lab'):'practice';
   const wins=()=>IDS.map($).filter(el=>!el.hidden&&!el.parentElement.hidden);
   const setVars=(el,r)=>{for(const k of ['x','y','w','h'])el.style.setProperty('--'+k,(r[k]*100).toFixed(3)+'%');};
   const sv=$('snapV'),sh=$('snapH'),sp=$('snapPrev');
@@ -1223,6 +1243,103 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
   window.addEventListener('resize',()=>{resize();sync();});document.addEventListener('visibilitychange',sync);motion.addEventListener?.('change',sync);resize();sync();
 })();
 
+//SANDBOX-START
+// Replay topology edits and commands in their original order, including DHCP leases.
+function sandboxSession(d){return {mode:d.type==='pc'?'pc':'user',ctx:null,lines:[d.hostname+' console ready',''],hist:[],hi:0,fresh:0};}
+function sandboxApply(m,e){
+  if(!e||typeof e!=='object')throw Error('Invalid project event');
+  const device=n=>{if(typeof n!=='string'||!Object.hasOwn(m.net.devs,n))throw Error('Unknown device');return m.net.devs[n];};
+  const point=()=>{if(!Number.isFinite(e.x)||!Number.isFinite(e.y)||e.x<35||e.x>565||e.y<45||e.y>195)throw Error('Invalid device position');};
+  if(e.op==='add'){
+    if(Object.keys(m.net.devs).length>=16)throw Error('Use up to 16 devices per sandbox');
+    if(typeof e.name!=='string'||!/^[A-Z][A-Z0-9]{0,15}$/.test(e.name)||Object.hasOwn(m.net.devs,e.name))throw Error('Invalid or duplicate device name');
+    if(!['router','switch','pc','server'].includes(e.type))throw Error('Unknown device type');point();
+    const d=e.type==='router'?mkRouter(e.name):e.type==='switch'?mkSwitch(e.name):mkPC(e.name,null,24);
+    if(e.type==='server')d.services=[80,443];m.net.devs[e.name]=d;m.pos[e.name]=[e.x,e.y];m.sess[e.name]=sandboxSession(d);
+  }else if(e.op==='link'){
+    const a=device(e.a),b=device(e.b),ai=parseIf(e.ai),bi=parseIf(e.bi);
+    const valid=(d,n)=>n&&/^(FastEthernet|GigabitEthernet)\d+(\/\d+)*$/.test(n)&&d.ifs[n]&&!d.ifs[n].link;
+    if(a===b||!valid(a,ai)||!valid(b,bi))throw Error('Choose two free physical ports on different devices');
+    link(m.net,e.a,ai,e.b,bi);
+  }else if(e.op==='unlink'){
+    const d=device(e.name),n=parseIf(e.port),i=d.ifs[n];if(!i?.link)throw Error('Cable no longer exists');
+    const peer=i.link;m.net.devs[peer.dev].ifs[peer.ifn].link=null;i.link=null;
+    m.net.links=m.net.links.filter(l=>!((l.a===e.name&&l.ai===n)||(l.b===e.name&&l.bi===n)));
+  }else if(e.op==='remove'){
+    const d=device(e.name);for(const i of Object.values(d.ifs))if(i.link)sandboxApply(m,{op:'unlink',name:e.name,port:i.name});
+    delete m.net.devs[e.name];delete m.pos[e.name];delete m.sess[e.name];
+  }else if(e.op==='move'){device(e.name);point();m.pos[e.name]=[e.x,e.y];
+  }else if(e.op==='command'){
+    const d=device(e.device),s=m.sess[e.device];
+    if(typeof e.line!=='string'||e.line.length>512||/[\r\n]/.test(e.line)||m.journal.length>=5000)throw Error('Invalid or excessive command history');
+    const prompt=promptOf(d,s),out=execLine(m.net,d,s,e.line);s.lines.push('\u0001'+prompt+e.line,...(out.length?out.join('\n').split('\n'):[]));if(s.lines.length>600)s.lines.splice(0,s.lines.length-600);
+    s.hist.push(e.line);s.hi=s.hist.length;m.journal.push({device:e.device,line:e.line});
+  }else throw Error('Unknown project event');
+}
+function sandboxModel(project){
+  if(project?.format!=='lab4net-sandbox'||project.version!==1||!Array.isArray(project.events)||project.events.length>10000)throw Error('Not a supported sandbox project');
+  const m={net:mkNet([]),pos:{},sess:{},journal:[]};for(const e of project.events)sandboxApply(m,e);TRACE=null;return m;
+}
+//SANDBOX-END
+
+// ---------- free topology sandbox ----------
+const SANDBOX_KEY='lab4net-sandbox-v1';
+function saveSandbox(){try{localStorage.setItem(SANDBOX_KEY,JSON.stringify(cur.project));localStorage.setItem('lab4net-last-workspace','sandbox');$('saveStatus').textContent='Sandbox saved on this browser';}catch(e){$('saveStatus').textContent='Storage unavailable · Export project to keep work';}}
+function openSandbox(project){
+  if(!project){try{project=JSON.parse(localStorage.getItem(SANDBOX_KEY)||'null');}catch(e){}project=project||{format:'lab4net-sandbox',version:1,events:[]};}
+  let model;try{model=sandboxModel(project);}catch(e){notify('Could not open sandbox: '+e.message);return false;}
+  if(cur?.view==='lab')saveWork();
+  cur={view:'lab',sandbox:true,idx:lastLab,project:JSON.parse(JSON.stringify(project)),...model,sel:Object.keys(model.net.devs)[0]||null,tasks:[],graded:null,links:{},intro:true,trace:null,lab:{title:'Network sandbox',pos:model.pos,group:'Free build'}};
+  fxToken++;mobilePanel(false);$('trace').innerHTML='';$('tin').value='';$('hint').textContent=HINT;$('hint').className='';renderAll();saveSandbox();return true;
+}
+function sandboxEdit(event){
+  if(cur.project.events.length>=10000){notify('Project edit limit reached. Export your project before starting a new one.');return false;}
+  try{sandboxApply(cur,event);}catch(e){notify(e.message);return false;}
+  cur.project.events.push(event);cur.lab.pos=cur.pos;if(!cur.sel||!cur.net.devs[cur.sel])cur.sel=Object.keys(cur.net.devs)[0]||null;
+  fxToken++;cur.trace=null;$('trace').innerHTML='';renderAll();saveSandbox();return true;
+}
+function sandboxAdd(type){const prefix={router:'R',switch:'SW',pc:'PC',server:'SRV'}[type];let k=1;while(cur.net.devs[prefix+k])k++;
+  const count=Object.keys(cur.net.devs).length;const x=75+(count%4)*145,y=55+Math.floor(count/4)*45;
+  if(sandboxEdit({op:'add',type,name:prefix+k,x,y})){select(prefix+k);renderSandbox();}
+}
+function sandboxPorts(n){const d=cur.net.devs[n];return d?Object.values(d.ifs).filter(i=>/^(FastEthernet|GigabitEthernet)\d+(\/\d+)*$/.test(i.name)&&!i.link).map(i=>i.name):[];}
+function renderSandbox(){
+  const briefScroll=$('brief').scrollTop,workScroll=$('checkBody').scrollTop;
+  const names=Object.keys(cur.net.devs),d=cur.net.devs[cur.sel];
+  $('brief').innerHTML=`<div class="eyebrow">Free build <span>${names.length}/16 devices</span></div><h2>Network sandbox</h2><p>Build your own network. Add devices, cable their ports, then configure and test it. There is no task list or grade.</p><div class="lesson-tip"><b>01 / Build → 02 / Configure → 03 / Test</b><p>Drag devices to arrange the map. Router ports start shut down: assign an IP and use <code>no shutdown</code>. Switch ports start in VLAN 1. Hosts need an IP and a gateway for other subnets.</p></div><details><summary>Why traffic can fail</summary><p>Both request and reply need a route. VLANs must match across access ports and trunks. ACLs filter in order. Ping below shows the actual path and where forwarding stops.</p></details><div class="actions"><button class="small-btn" id="sbExport">Export project</button><label class="small-btn">Import project<input type="file" id="sbImport" accept=".json,application/json" hidden></label><button class="small-btn" id="sbUndo"${cur.project.events.length?'':' disabled'}>Undo</button><button class="small-btn" id="sbNew">New / starter</button></div><p class="sb-caption">Autosaved locally. Project files include topology and command history. Supports the lab engine's IPv4 features; this is not a full Packet Tracer emulator.</p>`;
+  $('checkWin').querySelector('.panel-title b').textContent='Sandbox workbench';
+  const opts=selected=>names.map(n=>`<option${n===selected?' selected':''}>${n}</option>`).join('');
+  $('checkBody').innerHTML=`<h3>Device palette</h3><div class="sb-palette">${['router','switch','pc','server'].map(t=>`<button class="small-btn" data-add="${t}">+ ${t==='pc'?'PC':t}</button>`).join('')}</div><h3>Cable builder</h3><p class="sb-caption">Choose a free physical port at each end.</p><div class="sb-end"><label>Device A<select id="sbA">${opts(names[0])}</select></label><label>Port A<select id="sbAP"></select></label></div><div class="sb-end"><label>Device B<select id="sbB">${opts(names[1]||names[0])}</select></label><label>Port B<select id="sbBP"></select></label></div><button class="btn" id="sbConnect"${names.length<2?' disabled':''}>Connect ports</button><div class="sb-cables">${cur.net.links.map((l,i)=>`<div><span>${l.a} ${shortIf(l.ai)} ↔ ${l.b} ${shortIf(l.bi)}</span><button class="small-btn" data-unlink="${i}" aria-label="Remove cable ${i+1}">×</button></div>`).join('')||'<p class="sb-caption">No cables yet.</p>'}</div><h3>Selected device ${d?'<span>'+esc(d.hostname)+'</span>':''}</h3>${d?`<p class="sb-caption">${d.type==='pc'?'Host configuration':'Use the console below for IOS configuration.'}</p>${d.type==='pc'?`<form id="sbHost"><label>IPv4 address<input name="address" placeholder="192.168.1.10" value="${nic(d).ip===null?'':n2ip(nic(d).ip)}" required></label><label>Subnet mask<input name="mask" value="${n2ip(lenMask(nic(d).len))}" required></label><label>Default gateway (optional)<input name="gateway" placeholder="192.168.1.1" value="${d.gw===null?'':n2ip(d.gw)}"></label><div class="actions"><button class="small-btn" type="submit">Apply host IP</button><button class="small-btn" id="sbDhcp" type="button">Request DHCP</button></div></form>`:''}<button class="small-btn" id="sbDelete">Remove ${cur.sel}</button>`:'<p>Add a device to open a console.</p>'}<h3>Connectivity probe</h3><form id="sbProbe"><label>From device<select name="source">${opts(cur.sel)}</select></label><label>Destination IPv4<input name="target" placeholder="192.168.1.1" value="${esc(cur.probeTarget||'')}" required></label><button class="btn primary"${names.length?'':' disabled'}>Send ping</button></form><div id="sbStatus" role="status"></div>`;
+  const ports=(dev,port)=>{$(port).innerHTML=sandboxPorts($(dev).value).map(n=>`<option value="${n}">${shortIf(n)}</option>`).join('')||'<option value="">No free ports</option>';};
+  ports('sbA','sbAP');ports('sbB','sbBP');$('sbA').onchange=()=>ports('sbA','sbAP');$('sbB').onchange=()=>ports('sbB','sbBP');
+  $('checkBody').querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>sandboxAdd(b.dataset.add));
+  $('sbConnect').onclick=()=>sandboxEdit({op:'link',a:$('sbA').value,ai:$('sbAP').value,b:$('sbB').value,bi:$('sbBP').value});
+  $('checkBody').querySelectorAll('[data-unlink]').forEach(b=>b.onclick=()=>{const l=cur.net.links[+b.dataset.unlink];sandboxEdit({op:'unlink',name:l.a,port:l.ai});});
+  if(d){$('sbDelete').onclick=()=>{const name=cur.sel;dialog('Remove '+name+'?',`<p>This removes the device, its configuration and attached cables.</p><button class="btn primary" id="sbConfirmDelete">Remove device</button>`);$('sbConfirmDelete').onclick=()=>{$('dialog').close();sandboxEdit({op:'remove',name});};};
+    if(d.type==='pc'){$('sbHost').onsubmit=e=>{e.preventDefault();const f=e.target.elements,ip=f.address.value.trim(),mask=f.mask.value.trim(),gw=f.gateway.value.trim();if(!isIp(ip)||!isIp(mask)||maskLenN(ip2n(mask))===null||(gw&&!isIp(gw))){$('sbStatus').textContent='Enter valid IPv4 addresses and a contiguous subnet mask.';return;}if(cur.journal.length>4997||cur.project.events.length>9997){notify('Project history is full. Export before starting a new project.');return;}execute('ipconfig /release');execute('ipconfig /ip '+ip+' '+mask);if(gw)execute('ipconfig /dg '+gw);renderSandbox();};$('sbDhcp').onclick=()=>{execute('ipconfig /renew');renderSandbox();};}}
+  $('sbProbe').onsubmit=e=>{e.preventDefault();const f=e.target.elements,target=f.target.value.trim(),source=f.source.value;if(!isIp(target)){$('sbStatus').textContent='Enter a valid destination IPv4 address.';return;}cur.probeTarget=target;select(source);const s=cur.sess[source];if(!['user','priv','pc'].includes(s.mode))execute('end');execute('ping '+target);mobilePanel(true);};
+  $('sbExport').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(cur.project,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='lab4net-sandbox.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  $('sbImport').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024)throw Error('Project exceeds 5 MB');const p=JSON.parse(await file.text());sandboxModel(p);openSandbox(p);notify('Sandbox imported.');}catch(err){$('sbStatus').textContent='Import failed: '+err.message;}};
+  $('brief').scrollTop=briefScroll;$('checkBody').scrollTop=workScroll;
+  $('sbUndo').onclick=()=>openSandbox({...cur.project,events:cur.project.events.slice(0,-1)});
+  $('sbNew').onclick=()=>{dialog('Start a sandbox project',`<p>Your current project will be replaced. Export it first if you want to keep it.</p><div class="actions"><button class="btn" id="sbBlank">Empty canvas</button><button class="btn primary" id="sbStarter">Working LAN starter</button></div><p>A starter contains one switch and two addressed PCs. Try breaking a cable, changing a VLAN, or adding a router.</p>`);$('sbBlank').onclick=()=>{$('dialog').close();openSandbox({format:'lab4net-sandbox',version:1,events:[]});};$('sbStarter').onclick=()=>{$('dialog').close();openSandbox(sandboxStarter());};};
+}
+function sandboxStarter(){return {format:'lab4net-sandbox',version:1,events:[
+  {op:'add',type:'pc',name:'PC1',x:140,y:120},{op:'add',type:'switch',name:'SW1',x:300,y:120},{op:'add',type:'pc',name:'PC2',x:460,y:120},
+  {op:'link',a:'PC1',ai:'f0',b:'SW1',bi:'f0/1'},{op:'link',a:'SW1',ai:'f0/2',b:'PC2',bi:'f0'},
+  {op:'command',device:'PC1',line:'ipconfig /ip 192.168.1.10 255.255.255.0'},{op:'command',device:'PC2',line:'ipconfig /ip 192.168.1.20 255.255.255.0'}]};}
+$('sandbox').onclick=()=>openSandbox();
+// Pointer capture keeps a topology device under the cursor or finger while dragging.
+(function(){let drag=null;const topo=$('topo');
+  const point=e=>{const svg=topo.querySelector('svg'),p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse());};
+  topo.addEventListener('pointerdown',e=>{const g=e.target.closest('.dev');if(!cur.sandbox||!g||e.button)return;const p=point(e);drag={name:g.dataset.dev,x:e.clientX,y:e.clientY,dx:cur.pos[g.dataset.dev][0]-p.x,dy:cur.pos[g.dataset.dev][1]-p.y,g,origin:cur.pos[g.dataset.dev].slice(),moved:false};topo.setPointerCapture(e.pointerId);});
+  topo.addEventListener('pointermove',e=>{if(!drag)return;const p=point(e);drag.p=[Math.round(Math.max(35,Math.min(565,p.x+drag.dx))),Math.round(Math.max(45,Math.min(195,p.y+drag.dy)))];if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>4)drag.moved=true;if(drag.moved){fxToken++;cur.pos[drag.name]=drag.p;drawTopo();}});
+  const end=()=>{if(!drag)return;const done=drag;drag=null;if(done.moved){sandboxEdit({op:'move',name:done.name,x:done.p[0],y:done.p[1]});select(done.name);renderSandbox();}else{select(done.name);renderSandbox();}};
+  topo.addEventListener('pointerup',end);topo.addEventListener('pointercancel',()=>{if(drag)cur.pos[drag.name]=drag.origin;drag=null;drawTopo();});
+  topo.addEventListener('keydown',e=>{const g=e.target.closest('.dev'),dirs={ArrowLeft:[-10,0],ArrowRight:[10,0],ArrowUp:[0,-10],ArrowDown:[0,10]};if(!cur.sandbox||!g||!dirs[e.key])return;e.preventDefault();const name=g.dataset.dev,[x,y]=cur.pos[name],[dx,dy]=dirs[e.key];sandboxEdit({op:'move',name,x:Math.max(35,Math.min(565,x+dx)),y:Math.max(45,Math.min(195,y+dy))});topo.querySelector('[data-dev="'+name+'"]')?.focus();});
+})();
+
+if(resumeSandbox)openSandbox();
 </script>
 </body>
 </html>
