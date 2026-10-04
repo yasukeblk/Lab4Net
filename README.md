@@ -4,21 +4,9 @@ A single-page CCNA learning workspace. Open `index.html` directly in a modern br
 
 ## Learning workspace
 
-The interface is a desktop-first retro PC workstation: beveled controls, lavender window frames, a mint terminal and animated pixel packets. On desktop, drag the divider beside the mission to change its width and the divider above the console to change the map/console balance. Focus a divider and use the arrow keys for keyboard resizing. Sizes are remembered in this browser.
-
-**Maximize** expands the console; **Restore** or Escape returns to the full workspace. F1 opens help and F2 opens the lab library. Grading controls stay accessible at the bottom of the mission panel. On wide desktops, packet diagnostics sit beside the topology instead of shrinking its height.
-
-Motion includes device boot sequences, link pulses, window transitions, packet trails and a short mission-complete celebration. System reduced-motion settings disable these effects while preserving all results and controls.
-
-### Step-by-step instructions
-
-Each lab has a command-by-command guide showing the target device, expected IOS prompt, exact command, next prompt when it changes, and the reason for the command. **Back**, **Next** and **Jump to step** navigate without changing the network. Successfully entering the exact displayed command advances the guide automatically; use Next after an abbreviated equivalent.
-
-- **Instructions ON/OFF** shows or hides only the step-by-step command-guide card. Separate **General information**, **Address plan** and **Your objectives** cards remain available, with task checkboxes and their why explanations. Grading remains available in the mission panel and from the console's **Grade** button.
-- **Pop out** opens instructions in a separate resizable browser window, suitable for a second monitor. It follows the active lab and step, includes the address plan and task explanations, and can grade the lab at the final step.
-- **Dock** returns the guide card to the workspace. Closing the window also restores it. The general-information and objective cards remain in the main workspace while the guide is popped out. If a browser blocks the pop-up, the app keeps the guide docked and explains how to allow it.
-- Your show/hide preference and each lab's current step are remembered locally. The guide presents one working solution; it does not execute commands or treat step navigation as grading.
-
+- Matrix-inspired desktop: black and phosphor green, schematic topology devices, animated real-path packets and optional digital rain. **Rain on/off** remembers your choice; rain pauses in hidden tabs and under reduced motion.
+- Separate **Mission briefing** and **Checklist** windows keep the goal, address plan and objectives visible even with **Step-by-step instructions** off. Every task retains its reasoning. **Pop out guide** opens a movable guide window; **Dock** returns commands to the checklist. Clicking a command inserts it into the right console for you to review and run.
+- Drag desktop windows by their title bars and resize from their edges or corners. They snap to one another; hold Alt to move freely. Drag to the left/right edge for a half-screen window, or the top edge to fill the workspace. **Reset layout** restores the default arrangement. Layout is saved per browser.
 - 15 configurable labs with a live topology, IOS-style device consoles, independent grading and an explained walkthrough.
 - Every mission task retains its **Why this step** explanation. Task checkboxes track your own work; grading checks the network configuration and connectivity.
 - Searchable lab library, command field guide and console mode indicators.
@@ -65,7 +53,7 @@ For Docker, run `git pull && docker compose up -d --build`.
 
 ## Verification
 
-The lab test extracts only the code between the ENGINE markers, creates every lab, executes its per-device solution through `execLine`, and asserts every grading check passes. It also requires an explanation for each task. Node is only needed for development tests, not for nginx deployment.
+The lab test extracts only the code between the ENGINE markers, creates every lab, executes its per-device solution through `execLine`, and asserts every grading check passes. It also requires an explanation for each task and runs all task-by-task instruction commands to a passing grade. Node is only needed for development tests, not for nginx deployment.
 
     node tests/labs.cjs
     node tests/forwarding.cjs
@@ -77,15 +65,13 @@ Optional browser integration tests use Playwright:
     npm install --no-save --package-lock=false playwright
     npx playwright install chromium
     node tests/ui.cjs
-    node tests/instructions.cjs
+    node tests/matrix.cjs
 
-Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge browser. The browser suite opens the local file, grades every lab, checks command/session restoration and backup import/export, and exercises the library, guide, practices, phone layout and reduced motion. `LAB4NET_SCREENSHOTS` optionally specifies a directory for desktop and phone captures.
+Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge browser. The browser suite opens the local file, grades every lab, checks command/session restoration and backup import/export, and exercises the library, guide, practices, phone layout and reduced motion. The Matrix suite additionally checks rain preferences, pop-out guidance, window dragging/resizing/restoration and common desktop resolutions. `LAB4NET_SCREENSHOTS` optionally specifies a directory for desktop and phone captures.
 
 ## Notes
 
 - Passes use the existing `ccna-bench-v2` localStorage key, preserving earlier progress. Command journals and task marks use `lab4net-workspace-v1`.
-- Desktop panel sizes use `lab4net-layout-v1`; they are local preferences and are not included in progress backups.
-- Instruction visibility and per-lab step bookmarks use `lab4net-instructions-v1`. They are local preferences and are not included in progress backups.
 - Storage is per browser and origin. Export before clearing browser data or switching from a local file to a server. A backup includes simulated passwords and configurations; use fictional lab credentials.
 - Import validates command journals by rebuilding them before replacing saved work. Earned lab passes are merged; included lab drafts replace their corresponding saved configurations.
 - Saved command history is capped at 5,000 commands per lab; backups at 5 MB. Start over removes that lab's draft and checklist, while preserving its earned pass.

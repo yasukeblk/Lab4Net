@@ -16,29 +16,6 @@ const fs = require('node:fs');
     await page.evaluate(() => { localStorage.clear(); });
     await page.reload();
     assert.equal(await page.locator('#tabs button').count(), 3);
-    // Desktop stays within the viewport and exposes more console space on demand.
-    for(const size of [{width:1024,height:768},{width:1920,height:1080},{width:1440,height:1000}]){
-      await page.setViewportSize(size);
-      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth));
-      assert.ok(await page.evaluate(() => document.querySelector('.desktop-status').getBoundingClientRect().bottom<=innerHeight+1));
-      assert.ok(await page.evaluate(() => document.getElementById('console').getBoundingClientRect().height>200));
-    }
-    const initialWidth=await page.locator('#brief').evaluate(el=>el.getBoundingClientRect().width);
-    await page.locator('#columnGrip').focus();await page.locator('#columnGrip').press('ArrowRight');
-    assert.ok(await page.locator('#brief').evaluate(el=>el.getBoundingClientRect().width)>initialWidth);
-    await page.locator('#rowGrip').focus();await page.locator('#rowGrip').press('ArrowDown');
-    assert.equal(await page.locator('#rowGrip').getAttribute('aria-valuenow'),'45');
-    await page.locator('#rowGrip').hover(); // Wait for the initial window-opening animation to settle.
-    const grip=await page.locator('#rowGrip').boundingBox();
-    await page.mouse.move(grip.x+grip.width/2,grip.y+4);await page.mouse.down();await page.mouse.move(grip.x+grip.width/2,grip.y-30);await page.mouse.up();
-    assert.ok(Number(await page.locator('#rowGrip').getAttribute('aria-valuenow'))<45);
-    await page.locator('#focusConsole').click();
-    assert.equal(await page.locator('#brief').isVisible(),false);
-    assert.equal(await page.locator('#mapPanel').isVisible(),false);
-    assert.ok(await page.locator('#console').evaluate(el=>el.getBoundingClientRect().height)>700);
-    await page.keyboard.press('Escape');assert.equal(await page.locator('#brief').isVisible(),true);
-    await page.keyboard.press('F2');assert.equal(await page.locator('#dialog').isVisible(),true);await page.locator('#closeDialog').click();
-    assert.match(await page.locator('.selring').evaluate(el=>getComputedStyle(el).animationName),/flow/);
     // Type into the actual console, reload inside interface mode, and continue.
     for (const line of ['enable', 'configure terminal', 'interface g0/0', 'description RESTORED']) {
       await page.locator('#tin').fill(line);
@@ -68,10 +45,6 @@ const fs = require('node:fs');
     // Persistent trace survives animation and describes both directions.
     assert.match(await page.locator('#trace').textContent(), /Reply received/);
     assert.match(await page.locator('#trace').textContent(), /CLIENT → ISP → R1 → WEB/);
-    await page.evaluate(()=>{playTrace(cur.trace);});
-    await page.locator('.pkt').first().waitFor({state:'visible'});
-    const packetX=await page.locator('.pkt').first().getAttribute('x');
-    await page.waitForFunction(x=>document.querySelector('.pkt')?.getAttribute('x')!==x,packetX);
     await page.evaluate(() => { select('R1');execute('show ip nat translations'); });
     assert.match(await page.locator('#grade').textContent(),/Grade again/);
     assert.match(await page.locator('#trace').textContent(),/Reply received/);
@@ -156,6 +129,6 @@ const fs = require('node:fs');
       await page.screenshot({path:path.join(process.env.LAB4NET_SCREENSHOTS,'desktop.png'),fullPage:true});
     }
     assert.deepEqual(errors, []);
-    console.log(`PASS browser: ${count} lab grades, desktop viewport sizes, mouse/keyboard dividers, console maximize/restore, moving packets, console restore, task restore, backup round-trip, invalid import, library, guide, drill, quiz, phone, reduced motion; no page errors.`);
+    console.log(`PASS browser: ${count} lab grades, console restore, task restore, backup round-trip, invalid import, library, guide, drill, quiz, phone, reduced motion; no page errors.`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode=1; });
