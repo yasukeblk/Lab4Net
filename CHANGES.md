@@ -1,8 +1,20 @@
 # Lab4Net improvements
 
+## Desktop retro PC redesign
+
+- Replaced the rounded dashboard styling with an original retro PC workstation: lavender title bars, square beveled controls, mint terminal text, dotted desktop background, segmented progress and a persistent session status bar. Local fonts and the single-file architecture remain.
+- Made the desktop workspace fit the viewport with independently scrolling mission and terminal panels. Kept mission grading controls visible while scrolling.
+- Added draggable mission-width and map/console dividers, with arrow-key adjustment and browser-local size preferences. Added console maximization, Restore/Escape, F1 help and F2 library shortcuts.
+- On wide desktops, packet diagnostics appear beside the topology to preserve the drawing's height. Phones retain the mission/network panel switcher.
+- Replaced the device artwork with angular routers, classic CRT hosts, square switch ports and server towers. Selected devices use an animated rectangular targeting frame.
+- Added device boot animations, link pulses, a subtle map scan, stepped window opening, control press feedback, console command feedback, square packet motion and trails, and a mission-complete banner with pixel particles. Reduced-motion preferences suppress all of these animations, including when changed during use.
+- Consolidated the old layered stylesheet into one coherent theme. The simulator engine and grading functions were unchanged in this design revision.
+- Verification before and after: **15 labs / 85 checks passed**; forwarding regression checks pass. Browser integration passes with no page errors, now including desktop sizes 1024×768, 1440×1000 and 1920×1080, mouse/keyboard dividers, maximize/restore, F2 library and moving packet coordinates. Existing saved-work, backup, grading, practice, phone and reduced-motion checks continue to pass.
+- Visually inspected the desktop with packet diagnostics, the mission library and phone console. No external art, fonts or dependencies were introduced. Private-container, Docker, Safari/iOS and physical-device testing limitations below still apply.
+
 ## Learning and interaction
 
-- Reworked the dark cyan/violet interface into a calmer workspace with clearer hierarchy, readable panels, console mode labels and a quieter topology. Removed external font requests so the app works fully offline.
+- Reworked the interface with clearer hierarchy, readable panels and console mode labels. The later desktop revision above establishes the final retro PC visual direction. Removed external font requests so the app works fully offline.
 - Added a searchable mission library grouped by topic, showing ready/resume/passed status. Added a short onboarding guide and a next-unpassed-lab action after successful grading.
 - Preserved all task explanations and command explanations. Added manual task tracking that is explicitly independent of real configuration grading.
 - Added a searchable command guide sourced from the actual command table, filtered to the device and current mode. It inserts syntax for review without executing it.
@@ -21,7 +33,7 @@
 - The forwarding model records the switches it actually traverses. Animation no longer guesses a shortest physical path that might cross a VLAN-ineligible link.
 - Added diagnostic reasons for missing routes, unreachable next hops, inbound/outbound ACL drops and hop-limit failures.
 - Added persistent request/reply results with troubleshooting guidance and replay. Results are labeled as the last test; rerun the command after changing configuration.
-- Disabled ambient spinning/flow effects. Packet movement remains available, while reduced-motion users get the same readable outcomes. Live preference changes cancel movement safely.
+- Replaced ambient spinning with the retro animation system described above. Reduced-motion users get the same readable outcomes; live preference changes cancel packet movement safely.
 
 ## Content
 

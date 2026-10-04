@@ -4,6 +4,12 @@ A single-page CCNA learning workspace. Open `index.html` directly in a modern br
 
 ## Learning workspace
 
+The interface is a desktop-first retro PC workstation: beveled controls, lavender window frames, a mint terminal and animated pixel packets. On desktop, drag the divider beside the mission to change its width and the divider above the console to change the map/console balance. Focus a divider and use the arrow keys for keyboard resizing. Sizes are remembered in this browser.
+
+**Maximize** expands the console; **Restore** or Escape returns to the full workspace. F1 opens help and F2 opens the lab library. Grading controls stay accessible at the bottom of the mission panel. On wide desktops, packet diagnostics sit beside the topology instead of shrinking its height.
+
+Motion includes device boot sequences, link pulses, window transitions, packet trails and a short mission-complete celebration. System reduced-motion settings disable these effects while preserving all results and controls.
+
 - 15 configurable labs with a live topology, IOS-style device consoles, independent grading and an explained walkthrough.
 - Every mission task retains its **Why this step** explanation. Task checkboxes track your own work; grading checks the network configuration and connectivity.
 - Searchable lab library, command field guide and console mode indicators.
@@ -68,6 +74,7 @@ Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge brow
 ## Notes
 
 - Passes use the existing `ccna-bench-v2` localStorage key, preserving earlier progress. Command journals and task marks use `lab4net-workspace-v1`.
+- Desktop panel sizes use `lab4net-layout-v1`; they are local preferences and are not included in progress backups.
 - Storage is per browser and origin. Export before clearing browser data or switching from a local file to a server. A backup includes simulated passwords and configurations; use fictional lab credentials.
 - Import validates command journals by rebuilding them before replacing saved work. Earned lab passes are merged; included lab drafts replace their corresponding saved configurations.
 - Saved command history is capped at 5,000 commands per lab; backups at 5 MB. Start over removes that lab's draft and checklist, while preserving its earned pass.
