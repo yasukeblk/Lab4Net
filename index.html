@@ -83,10 +83,10 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(340px,460px) 
 .console-toolbar{background:repeating-linear-gradient(115deg,rgba(255,255,255,.16) 0 6px,transparent 6px 14px) center/130px 100% no-repeat,linear-gradient(100deg,#19c8ff,#2a6bff 60%,#4b3bff)}
 .panel-title,.console-toolbar,.dialog-heading{justify-content:space-between}
 #brief h2,#practice h2{font:italic 800 34px/1.05 var(--px);letter-spacing:.01em;text-transform:uppercase;margin:4px 0 10px;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.5)}
-#brief p,#practice p{margin:0 0 12px;color:#d9d3f5}
-#brief h3,#practice h3,#dialogBody h3{font:italic 800 19px var(--px);letter-spacing:.05em;text-transform:uppercase;color:var(--cy);margin:22px 0 12px;display:flex;align-items:center;gap:10px;text-shadow:0 0 12px rgba(46,230,255,.45)}
-#brief h3::after,#practice h3::after,#dialogBody h3::after{content:"";flex:1;height:3px;background:linear-gradient(90deg,var(--cy),transparent);transform:skewX(-30deg);order:1;opacity:.7}
-#brief h3 span{order:2;font-size:16px;background:var(--mag);color:#fff;padding:1px 9px;transform:skewX(-10deg);border-radius:4px;text-shadow:none;box-shadow:0 0 12px rgba(255,61,129,.5)}
+#checkBody p,#brief p,#practice p{margin:0 0 12px;color:#d9d3f5}
+#checkBody h3,#brief h3,#practice h3,#dialogBody h3{font:italic 800 19px var(--px);letter-spacing:.05em;text-transform:uppercase;color:var(--cy);margin:22px 0 12px;display:flex;align-items:center;gap:10px;text-shadow:0 0 12px rgba(46,230,255,.45)}
+#checkBody h3::after,#brief h3::after,#practice h3::after,#dialogBody h3::after{content:"";flex:1;height:3px;background:linear-gradient(90deg,var(--cy),transparent);transform:skewX(-30deg);order:1;opacity:.7}
+#checkBody h3 span,#brief h3 span{order:2;font-size:16px;background:var(--mag);color:#fff;padding:1px 9px;transform:skewX(-10deg);border-radius:4px;text-shadow:none;box-shadow:0 0 12px rgba(255,61,129,.5)}
 .eyebrow{font:italic 800 16px var(--px);letter-spacing:.06em;text-transform:uppercase;color:var(--yel);display:flex;gap:9px;align-items:center;margin-bottom:2px}
 .eyebrow span{background:var(--mag);color:#fff;padding:0 8px;transform:skewX(-10deg);border-radius:4px}
 .lesson-tip{border-left:4px solid var(--cy);background:rgba(46,230,255,.08);border-radius:0 8px 8px 0;padding:9px 12px;margin:12px 0;font-size:14px;color:#d9d3f5}
@@ -301,14 +301,23 @@ body[data-cur="nesw-resize"] main,body[data-cur="nesw-resize"] main *{cursor:nes
 body[data-cur="nwse-resize"] main,body[data-cur="nwse-resize"] main *{cursor:nwse-resize!important}
 @media (min-width:861px){
   main.free{display:block;position:relative;padding:0}
-  main.free #bench{display:contents}
-  main.free :is(#brief,#practice,#mapPanel,#console,#guideWin).fw{position:absolute;left:var(--x);top:var(--y);width:var(--w);height:var(--h);min-width:0;min-height:0;margin:0;flex:none}
+  main.free #bench,main.free #side{display:contents}
+  main.free #brief{max-height:none}
+  main.free :is(#brief,#checkWin,#practice,#mapPanel,#console,#guideWin).fw{position:absolute;left:var(--x);top:var(--y);width:var(--w);height:var(--h);min-width:0;min-height:0;margin:0;flex:none}
   main.free #guideWin{display:flex}
   main.free #mapPanel{display:flex;flex-direction:column}
   main.free #topo{flex:1;min-height:0}
   main.free #topo svg{height:100%;max-height:none}
   body:has(main.free){overflow:hidden}
 }
+
+#side{display:flex;flex-direction:column;gap:22px;min-height:0;min-width:0}
+#side #brief{flex:0 1 auto;max-height:45%}
+#side:has(#checkWin[hidden]) #brief{flex:1;max-height:none}
+#checkWin{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(var(--panel2),var(--panel));border:3px solid var(--line);border-radius:12px;box-shadow:var(--lift)}
+#checkWin .panel-title{flex:none;color:#2a0d00;text-shadow:0 1px 0 rgba(255,255,255,.45);background:repeating-linear-gradient(115deg,rgba(0,0,0,.13) 0 6px,transparent 6px 14px) right/130px 100% no-repeat,linear-gradient(100deg,#ffd9a0,var(--org) 45%,#ff5c39)}
+#checkBody{flex:1;min-height:0;overflow-y:auto;padding:2px 20px 18px}
+#checkBody .guide-row{margin-top:16px}
 /* boot */
 #boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--crt);color:var(--ph);cursor:pointer}
 #boot pre{font:400 28px/1.25 var(--mono);margin:0;min-width:340px;min-height:290px;text-shadow:0 0 9px rgba(255,184,74,.55)}
@@ -327,7 +336,10 @@ body[data-cur="nwse-resize"] main,body[data-cur="nwse-resize"] main *{cursor:nws
   main{grid-template-columns:1fr;padding:12px 12px 20px}
   .mobile-nav{display:flex;gap:10px;padding:12px 14px 0}
   .mobile-nav button[aria-pressed="true"]{color:#221400;background:linear-gradient(#fff3a0,var(--yel) 45%,var(--org))}
-  body.mobile-network #brief{display:none}
+  body.mobile-network #side{display:none}
+  #side{display:block}
+  #side>*+*{margin-top:16px}
+  #brief{max-height:none!important}
   body:not(.mobile-network) #bench{display:none}
   #bench{overflow:visible;padding:0;margin:0}
   #console{height:440px;flex:none}
@@ -353,7 +365,7 @@ body[data-cur="nwse-resize"] main,body[data-cur="nwse-resize"] main *{cursor:nws
 <div class="workspace-bar"><span>C:\LAB4NET\<b id="workspaceTitle"></b>&gt;<i class="cur"></i></span><span id="saveStatus" role="status">Saved on this browser</span></div>
 <nav id="mobileNav" class="mobile-nav" aria-label="Workspace panels"><button class="small-btn" id="missionView" aria-pressed="true">Mission &amp; tasks</button><button class="small-btn" id="networkView" aria-pressed="false">Topology &amp; console</button></nav>
 <main>
-  <section id="brief" aria-label="Lab mission" tabindex="-1"></section>
+  <div id="side"><section id="brief" aria-label="Lab mission" tabindex="-1"></section><section id="checkWin" aria-label="Mission checklist"><div class="panel-title"><b>Checklist</b></div><div id="checkBody"></div></section></div>
   <section id="bench" aria-label="Network workspace">
     <div id="mapPanel"><div class="panel-title"><b>Network map</b><span class="legend"><span class="good">■</span> Link up &nbsp; <span class="bad">■</span> Link down &nbsp;·&nbsp; Click a device to open its console</span></div><div id="topo"></div><div id="trace" aria-live="polite"></div></div>
     <div id="console">
@@ -1169,9 +1181,9 @@ function renderBrief(){if(cur.view==='drill')return renderDrill();if(cur.view===
   if(cur.graded){const ok=cur.graded.filter(g=>g[1]).length,all=ok===cur.graded.length;h+=`<strong class="${all?'done':''}">${all?'✓ Lab complete':`${ok} / ${cur.graded.length} checks passed`}</strong><p>${all?'You built a working network. Try explaining why it works before moving on.':'Use the failed checks below to narrow your next change. Your work is saved.'}</p><ul>${cur.graded.map((g,k)=>`<li class="${g[1]?'ok':'no'}" style="--i:${k}">${g[0]}</li>`).join('')}</ul>${all?'<button class="btn primary" id="nextLab">Next unpassed lab →</button>':''}`;}
   h+='</div><div id="solution">';
   if(cur.showSol)h+=`<div class="lesson-tip">Read one device at a time, predict what each command changes, then type it yourself. This is one working approach.</div>`+Object.entries(l.solution).map(([d,c])=>`<h3>${d}</h3>`+c.map(x=>`<div class="sol"><code>${esc(x)}</code>${whyOf(x)?`<span>${whyOf(x)}</span>`:''}</div>`).join('')).join('');
-  $('brief').innerHTML=h+'</div>';
+  {const cut=h.indexOf('<div class="guide-row">'),cb=$('checkBody'),sc=cb.scrollTop;$('brief').innerHTML=h.slice(0,cut);cb.innerHTML=h.slice(cut)+'</div>';cb.scrollTop=sc;}
   $('guideToggle').onchange=e=>{guideOn=e.target.checked;try{localStorage.setItem('lab4net-guide',guideOn?'1':'0');}catch(x){}const sc=$('brief').scrollTop;renderBrief();$('brief').scrollTop=sc;};$('guidePopBtn').onclick=()=>setGuidePop(!guidePop);
-  $('brief').querySelectorAll('[data-task]').forEach(x=>x.onchange=()=>{cur.tasks[+x.dataset.task]=x.checked;saveWork();const scroll=$('brief').scrollTop;renderBrief();$('brief').scrollTop=scroll;});
+  $('checkBody').querySelectorAll('[data-task]').forEach(x=>x.onchange=()=>{cur.tasks[+x.dataset.task]=x.checked;saveWork();const scroll=$('brief').scrollTop;renderBrief();$('brief').scrollTop=scroll;});
   $('bGrade').onclick=()=>{cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});if(cur.graded.every(g=>g[1])){progress[l.title]=true;persist();celebrate();}renderLabs();renderBrief();$('grade').scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});};
   $('bSol').onclick=()=>{cur.showSol=!cur.showSol;renderBrief();};
   $('bReset').onclick=()=>{dialog('Start this lab over?',`<p>This removes this lab’s saved commands and checklist. Its earned pass stays in your progress.</p><button class="btn primary" id="confirmReset">Start with a fresh network</button>`);$('confirmReset').onclick=()=>{$('dialog').close();openLab(cur.idx,true);notify('Lab reset. Previously earned progress kept.');};};
@@ -1325,7 +1337,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
 
 // ---------- movable, resizable, snapping windows (desktop) ----------
 (function(){
-  const main=document.querySelector('main'),IDS=['brief','mapPanel','console','practice','guideWin'],KEY='lab4net-layout-v1',PAD=18,GAP=22,SNAP=12,EDGE=7,MINW=260,MINH=150;
+  const main=document.querySelector('main'),IDS=['brief','checkWin','mapPanel','console','practice','guideWin'],KEY='lab4net-layout-v2',PAD=18,GAP=22,SNAP=12,EDGE=7,MINW=260,MINH=150;
   const CUR={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize',move:'move'};
   let L={},z=5,act=null;try{L=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(L));}catch(e){}};
@@ -1386,8 +1398,9 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
   $('guideClose').onclick=()=>setGuidePop(false);
   window.addEventListener('resize',()=>{renderGuideWin();layoutApply();});
   DESK.addEventListener?.('change',()=>{if(cur.view==='lab')renderBrief();renderGuideWin();layoutApply();});
-  const ra0=renderAll;renderAll=function(){ra0();renderGuideWin();layoutApply();};
-  renderGuideWin();layoutApply();
+  let seen=null;const sync=()=>{$('checkWin').hidden=cur.view!=='lab';if(cur!==seen){seen=cur;$('checkBody').scrollTop=0;}renderGuideWin();layoutApply();};
+  const ra0=renderAll;renderAll=function(){ra0();sync();};
+  sync();
 })();
 
 </script>
