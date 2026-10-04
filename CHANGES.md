@@ -19,6 +19,8 @@ Changed:
 - Hovering a device on the map shows its interfaces, addresses and link state. The trace panel under the map is always present, so the map keeps its size.
 - "Transfer progress" and "Reset layout" moved to the status line under the menu bar, next to the new sound switch.
 - Sandbox mode (under "Free build" in the lab picker, and in the Lab library): place up to 20 routers, switches, PCs and servers on a larger canvas, drag them around, and configure them from the console. Nothing is graded. The cable tool lets you choose the port on each end, showing which ports are free or in use. Right-click a device for console, cabling, IP settings, rename and delete; click or right-click a cable to remove it. PCs and servers have an IP settings dialog that runs the matching ipconfig commands. Four starter kits load ready-cabled topologies, and a sandbox can be saved to and loaded from a file. The build and its configuration are saved in the browser.
+- Sandbox additions: a five-port router and a 24-port switch; zoom (scroll, or the + and − buttons), pan (drag empty space) and Fit over a canvas four times the default view; text notes on the map; and four challenges that load a cabled topology and check goals against the live network after every command, with no instructions.
+- Transfer progress now also carries ranks, XP, trophies, the window layout and the sandbox.
 - Fixed: commands with no output no longer add a blank line to the console.
 - Desktop is the primary target. The phone layout from ChatGPT's branch is kept and still passes its overflow checks.
 

@@ -407,6 +407,19 @@ ul.plain li{margin-bottom:8px}
 .kit-list{display:grid;gap:12px;margin:2px 4px 6px}
 .kit-list .lab-card b{font-size:18px}
 #checkBody h3 span{white-space:nowrap}
+
+#mapPanel{position:relative}
+#zoomCtl{position:absolute;top:50px;right:16px;display:flex;gap:9px;z-index:2}
+#zoomCtl .small-btn{min-width:34px;text-align:center}
+.note{font:italic 700 15px var(--px);letter-spacing:.04em;fill:var(--cy);text-anchor:middle;paint-order:stroke;stroke:#0c0920;stroke-width:4px;cursor:grab}
+.note:hover{fill:#fff}
+.goals{list-style:none;margin:6px 0 12px;padding:0}
+.goals li{position:relative;padding-left:26px;margin-bottom:6px;font-size:14px}
+.goals li::before{position:absolute;left:2px;font:800 16px var(--px)}
+.goals li.ok::before{content:"✓";color:var(--go);text-shadow:0 0 8px var(--go)}
+.goals li.no::before{content:"○";color:var(--muted)}
+.goals li.ok{color:#c9ffdd}
+#topo.sandbox{cursor:grab}
 /* boot */
 #boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--crt);color:var(--ph);cursor:pointer}
 #boot pre{font:400 28px/1.25 var(--mono);margin:0;min-width:340px;min-height:290px;text-shadow:0 0 9px rgba(255,184,74,.55)}
@@ -457,7 +470,7 @@ ul.plain li{margin-bottom:8px}
 <main>
   <div id="side"><section id="brief" aria-label="Lab mission" tabindex="-1"></section><section id="checkWin" aria-label="Mission checklist"><div class="panel-title"><b id="checkTitle">Checklist</b><span id="runHud"></span></div><div id="checkBody"></div></section></div>
   <section id="bench" aria-label="Network workspace">
-    <div id="mapPanel"><div class="panel-title"><b>Network map</b><span class="legend"><span class="good">■</span> Link up &nbsp; <span class="bad">■</span> Link down &nbsp;·&nbsp; Click a device to open its console</span></div><div id="topo"></div><div id="trace" aria-live="polite"></div></div>
+    <div id="mapPanel"><div class="panel-title"><b>Network map</b><span class="legend"><span class="good">■</span> Link up &nbsp; <span class="bad">■</span> Link down &nbsp;·&nbsp; Click a device to open its console</span></div><div id="topo"></div><div id="zoomCtl" hidden><button class="small-btn" data-z="in" aria-label="Zoom in">+</button><button class="small-btn" data-z="out" aria-label="Zoom out">−</button><button class="small-btn" data-z="fit">Fit</button></div><div id="trace" aria-live="polite"></div></div>
     <div id="console">
       <div class="console-toolbar"><div><span id="mode" class="mode-pill"></span><span id="deviceInfo"></span><span id="combo" aria-live="polite"></span></div><div><button id="reference" class="small-btn">Command guide</button><button id="clearConsole" class="small-btn">Clear</button></div></div>
       <div id="tabs" role="tablist" aria-label="Device consoles"></div>
@@ -1237,6 +1250,9 @@ function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
     return {dev:g.dev,lines:g.cmds.map(c=>{if(c[0]==='#')return {note:c.slice(1).trim()};const prompt=promptOf(d,s);execLine(net,d,s,c);return {prompt,cmd:c};})};}));
   TRACE=keep;return out;}
 //ENGINE-END
+// apply extras from an imported backup before anything reads them
+try{const p=JSON.parse(localStorage.getItem('lab4net-pending')||'null');if(p&&typeof p==='object'){for(const k in p)if(typeof p[k]==='string')localStorage.setItem(k,p[k]);}localStorage.removeItem('lab4net-pending');}catch(e){}
+
 
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
 const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -1373,7 +1389,7 @@ function burst(name,cls,label){const g=fxLayer();if(!g)return;const[x,y]=cur.lab
     h=`<polygon class="spark ${cls}" points="${pts.join(' ')}"/><circle class="burst ${cls}" cx="${x}" cy="${y}" r="30"/>`;
     for(let k=0;k<8;k++){const a=k/8*6.283+.4,r=44+(k%2)*14;h+=`<circle class="bit ${cls}" cx="${x}" cy="${y}" r="3" style="--dx:${Math.round(Math.cos(a)*r)}px;--dy:${Math.round(Math.sin(a)*r)}px"/>`;}
     if(cls==='bad'){const p=[...document.querySelectorAll('#topo .dev')].find(e=>e.dataset.dev===name)?.querySelector('.pop');if(p){p.classList.remove('shake');void p.getBoundingClientRect();p.classList.add('shake');}}}
-  if(label)h+=`<text class="fxlabel ${cls}" x="${Math.min(510,Math.max(90,x))}" y="${y<64?y+62:y-46}">${label}</text>`;
+  if(label)h+=`<text class="fxlabel ${cls}" x="${cur.sandbox?x:Math.min(510,Math.max(90,x))}" y="${y<64?y+62:y-46}">${label}</text>`;
   g.insertAdjacentHTML('beforeend',h);}
 function fly(names,cls,tok){return new Promise(res=>{const g=fxLayer();if(!g||names.length<2||REDUCED)return res();
   const pts=names.map(n=>cur.lab.pos[n]),dot=document.createElementNS(NS,'circle');dot.setAttribute('r',5.5);dot.setAttribute('class','pkt '+cls);dot.setAttribute('cx',pts[0][0]);dot.setAttribute('cy',pts[0][1]);g.appendChild(dot);
@@ -1609,21 +1625,26 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
 
 // ---------- sandbox: build any topology, Packet Tracer style ----------
 (function(){
-  const KEY='lab4net-sandbox-v1',MAX=20,W=800,H=330,topo=$('topo'),ctx=$('ctx');let def={devs:[],links:[]},cable=false,pick=null,dragging=null;
-  const TYPES=['router','switch','pc','srv'],KIND={router:['R','Router'],switch:['SW','Switch'],pc:['PC','PC'],srv:['SRV','Server']};
+  const KEY='lab4net-sandbox-v1',MAX=20,W=1600,H=660,VW=800,VH=330,topo=$('topo'),ctx=$('ctx');
+  const blank=()=>({devs:[],links:[],notes:[],view:null,ch:null,chDone:false});let def=blank(),cable=false,pick=null,dragging=null;
+  const KIND={router:['R','Router'],router5:['R','Router, 5 ports'],switch:['SW','Switch'],switch24:['SW','Switch, 24 ports'],pc:['PC','PC'],srv:['SRV','Server']},TYPES=Object.keys(KIND);
   const clean=p=>{if(!p||!Array.isArray(p.devs)||!Array.isArray(p.links)||p.devs.length>MAX)return null;const names=new Set(),devs=[];
     for(const d of p.devs){if(!d||typeof d.name!=='string'||!/^[A-Za-z][A-Za-z0-9-]{0,14}$/.test(d.name)||names.has(d.name)||!TYPES.includes(d.type))return null;names.add(d.name);
       devs.push({name:d.name,type:d.type,x:Math.max(34,Math.min(W-34,Math.round(+d.x)||100)),y:Math.max(34,Math.min(H-40,Math.round(+d.y)||100))});}
     const links=[];for(const l of p.links){if(!l||!names.has(l.a)||!names.has(l.b)||l.a===l.b)return null;const ai=parseIf(l.ai),bi=parseIf(l.bi);if(!ai||!bi)return null;links.push({a:l.a,ai,b:l.b,bi});}
-    return {devs,links};};
+    const notes=(Array.isArray(p.notes)?p.notes:[]).filter(n=>n&&typeof n.text==='string'&&n.text.trim()).slice(0,30).map(n=>({text:n.text.slice(0,60),x:Math.max(10,Math.min(W-10,Math.round(+n.x)||100)),y:Math.max(16,Math.min(H-6,Math.round(+n.y)||40))}));
+    const v=p.view,view=v&&[v.x,v.y,v.w].every(Number.isFinite)?{x:v.x,y:v.y,w:v.w,h:v.w*VH/VW}:null;
+    return {devs,links,notes,view,ch:Number.isInteger(p.ch)&&p.ch>=0&&p.ch<4?p.ch:null,chDone:!!p.chDone};};
   try{const c=clean(JSON.parse(localStorage.getItem(KEY)||'null'));if(c)def=c;}catch(e){}
   const saveDef=()=>{try{localStorage.setItem(KEY,JSON.stringify(def));}catch(e){}};
   const setLast=v=>{try{localStorage.setItem('lab4net-last',v);}catch(e){}};
+  function make(d){if(d.type==='router'||d.type==='router5'){const r=mkRouter(d.name);if(d.type==='router5'){addIf(r,'GigabitEthernet0/3',{shutdown:true});addIf(r,'GigabitEthernet0/4',{shutdown:true});}return r;}
+    if(d.type==='switch'||d.type==='switch24'){const s=mkSwitch(d.name);if(d.type==='switch24')for(let i=9;i<=24;i++)addIf(s,'FastEthernet0/'+i);return s;}
+    const p=mkPC(d.name,null,24);if(d.type==='srv')p.services=[80];return p;}
   const SBX={title:'Sandbox',group:'Free build',brief:'',addr:[],tasks:[],why:[],checks:[],solution:{},steps:[],pos:{},start:null,
-    build(){const net=mkNet(def.devs.map(d=>{if(d.type==='router')return mkRouter(d.name);if(d.type==='switch')return mkSwitch(d.name);const p=mkPC(d.name,null,24);if(d.type==='srv')p.services=[80];return p;}));
-      for(const l of def.links)link(net,l.a,l.ai,l.b,l.bi);SBX.pos={};for(const d of def.devs)SBX.pos[d.name]=[d.x,d.y];return net;}};
+    build(){const net=mkNet(def.devs.map(make));for(const l of def.links)link(net,l.a,l.ai,l.b,l.bi);SBX.pos={};for(const d of def.devs)SBX.pos[d.name]=[d.x,d.y];return net;}};
   function load(keepSel){const names=new Set(def.devs.map(d=>d.name)),journal=((drafts[SBX.title]||{}).journal||[]).filter(e=>e&&names.has(e.device));let state;
-    try{state=replay(SBX,{journal});}catch(e){try{state=replay(SBX,null);}catch(x){def={devs:[],links:[]};state=replay(SBX,null);}}
+    try{state=replay(SBX,{journal});}catch(e){try{state=replay(SBX,null);}catch(x){def=blank();state=replay(SBX,null);}}
     return {state,sel:keepSel&&names.has(keepSel)?keepSel:(def.devs[0]?def.devs[0].name:null)};}
   window.openSandbox=function(){if(cur&&cur.view==='lab'&&!cur.sandbox)saveWork();const {state,sel}=load(null);
     cur={view:'lab',idx:-1,lab:SBX,...state,sel,graded:null,showSol:false,tasks:[],intro:true,links:{},trace:null,sandbox:true};
@@ -1632,6 +1653,14 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
   const isHost=n=>{const d=def.devs.find(x=>x.name===n);return !!d&&(d.type==='pc'||d.type==='srv');};
   const ports=d=>sortIfs(Object.keys(d.ifs)).map(n=>d.ifs[n]).filter(i=>/^(Fast|Gigabit)Ethernet[\d\/]+$/.test(i.name));
 
+  // view: zoom and pan over a canvas four times the size of the default view
+  const view=()=>def.view||(def.view={x:0,y:0,w:VW,h:VH});
+  function setView(v){const w=Math.max(400,Math.min(W,v.w)),h=w*VH/VW;def.view={x:Math.max(0,Math.min(W-w,v.x)),y:Math.max(0,Math.min(H-h,v.y)),w,h};}
+  function zoom(f,cx,cy){const v=view();if(cx==null){cx=v.x+v.w/2;cy=v.y+v.h/2;}const w=Math.max(400,Math.min(W,v.w*f)),k=w/v.w;setView({x:cx-(cx-v.x)*k,y:cy-(cy-v.y)*k,w});saveDef();drawTopo();}
+  function fit(){if(!def.devs.length)def.view={x:0,y:0,w:VW,h:VH};else{const xs=def.devs.map(d=>d.x),ys=def.devs.map(d=>d.y),x0=Math.min(...xs)-80,x1=Math.max(...xs)+80,y0=Math.min(...ys)-70,y1=Math.max(...ys)+80,w=Math.max(x1-x0,(y1-y0)*VW/VH,640);
+      setView({x:(x0+x1)/2-w/2,y:(y0+y1)/2-w*VH/VW/2,w});}saveDef();drawTopo();}
+  $('zoomCtl').querySelectorAll('[data-z]').forEach(b=>b.onclick=()=>{const z=b.dataset.z;if(z==='fit')fit();else zoom(z==='in'?1/1.25:1.25);});
+
   // floating menu used for the port picker and right-click actions
   function menu(x,y,title,items){ctx.innerHTML=`<b>${esc(title)}</b>`+items.map((it,i)=>`<button data-i="${i}"${it.disabled?' disabled':''}><span>${esc(it.label)}</span>${it.sub?`<small>${esc(it.sub)}</small>`:''}</button>`).join('');
     ctx.hidden=false;ctx.style.left=Math.max(8,Math.min(innerWidth-ctx.offsetWidth-8,x))+'px';ctx.style.top=Math.max(8,Math.min(innerHeight-ctx.offsetHeight-8,y))+'px';
@@ -1639,9 +1668,9 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
   const closeMenu=()=>{ctx.hidden=true;};
   document.addEventListener('pointerdown',e=>{if(!ctx.hidden&&!ctx.contains(e.target))closeMenu();},true);
 
-  function addDev(type){if(def.devs.length>=MAX)return notify('The sandbox holds up to '+MAX+' devices.');const pre=KIND[type][0];let n=1;while(def.devs.some(d=>d.name===pre+n))n++;
-    let spot=null;outer:for(const y of [80,170,255])for(let x=80;x<=720;x+=100)if(!def.devs.some(d=>Math.hypot(d.x-x,d.y-y)<70)){spot=[x,y];break outer;}
-    if(!spot)spot=[60+Math.random()*(W-120),50+Math.random()*(H-110)];
+  function addDev(type){if(def.devs.length>=MAX)return notify('The sandbox holds up to '+MAX+' devices.');const pre=KIND[type][0],v=view();let n=1;while(def.devs.some(d=>d.name===pre+n))n++;
+    let spot=null;outer:for(let y=v.y+80;y<=v.y+v.h-60;y+=90)for(let x=v.x+80;x<=v.x+v.w-70;x+=100)if(!def.devs.some(d=>Math.hypot(d.x-x,d.y-y)<70)){spot=[x,y];break outer;}
+    if(!spot)spot=[v.x+60+Math.random()*(v.w-120),v.y+50+Math.random()*(v.h-110)];
     def.devs.push({name:pre+n,type,x:Math.round(spot[0]),y:Math.round(spot[1])});cur.sel=pre+n;rebuild();}
   function delDev(n){if(!n||!cur.net.devs[n])return notify('Select a device on the map first.');def.devs=def.devs.filter(d=>d.name!==n);def.links=def.links.filter(l=>l.a!==n&&l.b!==n);cur.journal=cur.journal.filter(e=>e.device!==n);if(pick&&pick.dev===n)pick=null;rebuild();notify(n+' deleted.');}
   function connect(a,ai,b,bi){if(a===b)return notify('A cable needs two different devices.');def.links.push({a,ai,b,bi});rebuild();notify(`Connected ${a} ${shortIf(ai)} to ${b} ${shortIf(bi)}.`);}
@@ -1663,10 +1692,14 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
     const go=()=>{const v=$('rnName').value.trim();if(v===n)return $('dialog').close();if(!/^[A-Za-z][A-Za-z0-9-]{0,14}$/.test(v))return $('rnMsg').textContent='Use letters, digits and hyphens, starting with a letter.';if(def.devs.some(d=>d.name===v))return $('rnMsg').textContent='Another device already has that name.';
       def.devs.find(d=>d.name===n).name=v;for(const l of def.links){if(l.a===n)l.a=v;if(l.b===n)l.b=v;}cur.journal=cur.journal.map(e=>e.device===n?{device:v,line:e.line}:e);if(cur.sel===n)cur.sel=v;$('dialog').close();rebuild();};
     $('rnOk').onclick=go;$('rnName').onkeydown=e=>{if(e.key==='Enter')go();};$('rnName').select();}
+  function noteDialog(i){const n=i==null?null:def.notes[i];dialog(n?'Edit note':'Add a note',`<p>A short label on the map, such as a subnet or a site name. Drag it wherever you like.</p><input id="ntText" class="search" autocomplete="off" maxlength="60" value="${n?esc(n.text):''}" placeholder="LAN A · 192.168.1.0/24"><div class="actions"><button class="btn primary" id="ntOk">${n?'Save note':'Add note'}</button></div>`);
+    const go=()=>{const t=$('ntText').value.trim();if(!t)return;if(n)n.text=t;else{if(def.notes.length>=30)return notify('The sandbox holds up to 30 notes.');const v=view();def.notes.push({text:t,x:Math.round(v.x+v.w/2),y:Math.round(v.y+30+def.notes.length%6*18)});}$('dialog').close();saveDef();drawTopo();};
+    $('ntOk').onclick=go;$('ntText').onkeydown=e=>{if(e.key==='Enter')go();};$('ntText').focus();}
   function devMenu(n,x,y){const items=[{label:'Open console',fn:()=>select(n)},{label:'Connect a cable from here',fn:()=>{cable=true;pick=null;renderSandbox();cableClick(n,x,y);}}];
     if(isHost(n))items.push({label:'IP settings',fn:()=>ipDialog(n)});
     items.push({label:'Rename',fn:()=>renameDialog(n)},{label:'Delete',fn:()=>delDev(n)});menu(x,y,n,items);}
   function linkMenu(i,x,y){const l=def.links[i];if(!l)return;menu(x,y,`${l.a} ${shortIf(l.ai)} ↔ ${l.b} ${shortIf(l.bi)}`,[{label:'Remove this cable',fn:()=>{def.links.splice(i,1);rebuild();}}]);}
+  function noteMenu(i,x,y){menu(x,y,'Note',[{label:'Edit text',fn:()=>noteDialog(i)},{label:'Delete note',fn:()=>{def.notes.splice(i,1);saveDef();drawTopo();}}]);}
 
   const P=(n,t,x,y)=>({name:n,type:t,x,y}),Lk=(a,ai,b,bi)=>({a,ai,b,bi});
   const KITS=[
@@ -1674,7 +1707,38 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
     ['Two sites','Two routers, each with its own switch and PCs.',{devs:[P('R1','router',300,75),P('R2','router',500,75),P('SW1','switch',180,165),P('SW2','switch',620,165),P('PC1','pc',90,258),P('PC2','pc',250,258),P('PC3','pc',550,258),P('PC4','pc',710,258)],links:[Lk('R1','g0/1','R2','g0/1'),Lk('R1','g0/0','SW1','g0/1'),Lk('R2','g0/0','SW2','g0/1'),Lk('PC1','f0','SW1','f0/1'),Lk('PC2','f0','SW1','f0/2'),Lk('PC3','f0','SW2','f0/1'),Lk('PC4','f0','SW2','f0/2')]}],
     ['Router triangle','Three routers in a loop, each with a PC. Good for OSPF.',{devs:[P('R1','router',400,70),P('R2','router',250,200),P('R3','router',550,200),P('PC1','pc',560,70),P('PC2','pc',100,200),P('PC3','pc',700,200)],links:[Lk('R1','g0/1','R2','g0/1'),Lk('R2','g0/2','R3','g0/2'),Lk('R1','g0/2','R3','g0/1'),Lk('R1','g0/0','PC1','f0'),Lk('R2','g0/0','PC2','f0'),Lk('R3','g0/0','PC3','f0')]}],
     ['Switch pair','Two switches joined by two cables. Good for trunks, EtherChannel and spanning tree.',{devs:[P('SW1','switch',260,100),P('SW2','switch',540,100),P('PC1','pc',260,235),P('PC2','pc',540,235)],links:[Lk('SW1','g0/1','SW2','g0/1'),Lk('SW1','g0/2','SW2','g0/2'),Lk('PC1','f0','SW1','f0/1'),Lk('PC2','f0','SW2','f0/1')]}]];
-  function replaceWith(next,journal,what){const go=()=>{def=next;cur.journal=journal;cur.sel=null;pick=null;cable=false;rebuild();notify(what);};
+
+  // challenges: a starter kit plus goals that are checked against the live network
+  const hostIp=(n,h)=>n.devs[h]&&n.devs[h].ifs.FastEthernet0?n.devs[h].ifs.FastEthernet0.ip:null;
+  const pingH=(n,a,b)=>{const ip=hostIp(n,b);return ip!=null&&!!n.devs[a]&&canPing(n,n.devs[a],ip);};
+  const CHALL=[
+    {kit:0,title:'Get the office online',desc:'Address everything, then get the PCs talking to each other, the router and the web server.',goals:[
+      ['PC1, PC2 and SRV1 each have an IP address',n=>['PC1','PC2','SRV1'].every(h=>hostIp(n,h)!=null)],
+      ['PC1 can ping PC2',n=>pingH(n,'PC1','PC2')],
+      ['R1 Gi0/0 has an address and PC1 can ping it',n=>{const i=n.devs.R1.ifs['GigabitEthernet0/0'];return i.ip!==null&&canPing(n,n.devs.PC1,i.ip);}],
+      ['PC1 can open the web server on SRV1 (TCP 80)',n=>{const ip=hostIp(n,'SRV1');return ip!=null&&reach(n,n.devs.PC1,ip,'tcp',80).ok;}]]},
+    {kit:1,title:'Connect two sites',desc:'Two LANs on different subnets, joined by two routers. Make a PC at one site reach a PC at the other.',goals:[
+      ['All four PCs have an address and a default gateway',n=>['PC1','PC2','PC3','PC4'].every(h=>hostIp(n,h)!=null&&n.devs[h].gw!=null)],
+      ['The two sites use different subnets',n=>{const a=n.devs.PC1.ifs.FastEthernet0,b=n.devs.PC3.ifs.FastEthernet0;return a.ip!==null&&b.ip!==null&&netOf(a.ip,a.len)!==netOf(b.ip,b.len);}],
+      ['PC1 can ping PC2 at its own site',n=>pingH(n,'PC1','PC2')],
+      ['PC1 can ping PC4 at the other site',n=>pingH(n,'PC1','PC4')],
+      ['PC3 can ping PC2 the other way',n=>pingH(n,'PC3','PC2')]]},
+    {kit:2,title:'OSPF, no static routes',desc:'Three routers in a loop. Let OSPF find every LAN. Static routes are not allowed.',goals:[
+      ['No router has a static route',n=>['R1','R2','R3'].every(r=>n.devs[r].statics.length===0)],
+      ['Every router has two OSPF neighbors',n=>['R1','R2','R3'].every(r=>ospfNeighbors(n,n.devs[r]).length===2)],
+      ['PC1 can ping PC2',n=>pingH(n,'PC1','PC2')],
+      ['PC1 can ping PC3',n=>pingH(n,'PC1','PC3')]]},
+    {kit:3,title:'One VLAN over a bundle',desc:'Put both PCs in VLAN 10 and carry it between the switches over an EtherChannel trunk.',goals:[
+      ['VLAN 10 exists on both switches',n=>['SW1','SW2'].every(s=>!!n.devs[s].vlans[10])],
+      ['Both PC ports are access ports in VLAN 10',n=>['SW1','SW2'].every(s=>{const i=n.devs[s].ifs['FastEthernet0/1'];return i.mode==='access'&&i.accessVlan===10;})],
+      ['Both cables are bundled into one EtherChannel',n=>['SW1','SW2'].every(s=>['GigabitEthernet0/1','GigabitEthernet0/2'].every(p=>bundled(n,n.devs[s],n.devs[s].ifs[p])))],
+      ['PC1 can ping PC2',n=>pingH(n,'PC1','PC2')]]}];
+  const goalState=()=>def.ch==null?[]:CHALL[def.ch].goals.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});
+  function afterCmd(){if(def.ch==null)return;const g=goalState();renderSandbox();
+    if(!def.chDone&&g.length&&g.every(x=>x[1])){def.chDone=true;saveDef();renderSandbox();notify('Challenge complete: '+CHALL[def.ch].title+'.');
+      const layer=fxLayer(),v=view();if(layer&&!REDUCED){layer.insertAdjacentHTML('beforeend',`<text class="clear" x="${v.x+v.w/2}" y="${v.y+v.h/2+16}" style="font-size:${Math.round(52*v.w/VW)}px">CHALLENGE CLEAR!</text>`);def.devs.forEach((d,k)=>setTimeout(()=>{if(inSbx())burst(d.name,'good','');},k*110));}}}
+
+  function replaceWith(next,journal,what){const go=()=>{def=next;cur.journal=journal;cur.sel=null;pick=null;cable=false;rebuild();fit();notify(what);};
     if(!def.devs.length)return go();dialog('Replace the current sandbox?',`<p>This replaces every device, cable and command now in the sandbox. Save it to a file first if you want to keep it.</p><button class="btn primary" id="sbYes">Replace it</button>`);$('sbYes').onclick=()=>{$('dialog').close();go();};}
   function saveFile(){const url=URL.createObjectURL(new Blob([JSON.stringify({format:'lab4net-sandbox',version:1,def,journal:cur.journal},null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='lab4net-sandbox.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Sandbox saved to lab4net-sandbox.json.');}
   async function loadFile(file){try{if(!file)return;if(file.size>2*1024*1024)throw Error('the file is larger than 2 MB');const p=JSON.parse(await file.text());if(p.format!=='lab4net-sandbox')throw Error('it is not a Lab4Net sandbox file');
@@ -1683,15 +1747,18 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
       const keep=def;def=next;try{replay(SBX,{journal});}catch(e){def=keep;throw Error('its cables use ports that do not exist');}def=keep;
       replaceWith(next,journal,'Sandbox loaded from file.');}catch(err){notify('Could not load that file: '+err.message+'.');}}
 
-  function renderSandbox(){const cb=$('checkBody'),sc=cb.scrollTop,sel=cur.sel&&cur.net.devs[cur.sel]?cur.sel:null;
-    $('checkTitle').textContent='Toolbox';$('runHud').textContent='Free build';topo.classList.toggle('cabling',cable);topo.classList.add('sandbox');
-    $('brief').innerHTML=`<div class="eyebrow">Free build <span>SANDBOX</span></div><h2>Build your own network</h2><p>Nothing is graded here. Add devices, cable them, and configure them from the console exactly as in the labs.</p>
+  function renderSandbox(){const cb=$('checkBody'),sc=cb.scrollTop,sel=cur.sel&&cur.net.devs[cur.sel]?cur.sel:null,goals=goalState(),ch=def.ch==null?null:CHALL[def.ch];
+    $('checkTitle').textContent='Toolbox';$('runHud').textContent=ch?`Challenge · ${goals.filter(g=>g[1]).length}/${goals.length} goals`:'Free build';topo.classList.toggle('cabling',cable);topo.classList.add('sandbox');$('zoomCtl').hidden=false;
+    $('brief').innerHTML=ch?`<div class="eyebrow">Challenge <span>SANDBOX</span></div><h2>${ch.title}</h2><p>${ch.desc}</p><div class="lesson-tip"><b>No instructions this time</b><br>The goals in the Toolbox are checked against the live network after every command. How you get there is up to you. Use <code>?</code> and the Command guide if you get stuck.</div>`
+      :`<div class="eyebrow">Free build <span>SANDBOX</span></div><h2>Build your own network</h2><p>Nothing is graded here. Add devices, cable them, and configure them from the console exactly as in the labs.</p>
       <div class="lesson-tip"><b>How it works</b><br>Add devices from the Toolbox and drag them around the map. Turn the cable tool on, click a device and choose its port, then do the same on the other device. Right-click a device or a cable for more actions.</div>
-      <h3>Good to know</h3><ul class="plain"><li>Router ports start shut down. Bring them up with <code>no shutdown</code>.</li><li>PCs and servers start with no address. Use IP settings in the Toolbox, or type <code>ipconfig /ip 192.168.1.10 255.255.255.0</code> and <code>ipconfig /dg 192.168.1.1</code> in the console.</li><li>Servers listen on TCP port 80, so <code>telnet 192.168.1.20 80</code> tests one.</li><li>Routers have three gigabit ports. Switches have eight fast and two gigabit ports.</li><li>Your build and its configuration are saved in this browser. Save to file to keep copies or move them.</li></ul>`;
-    cb.innerHTML=`<h3>Add a device <span>${def.devs.length}/${MAX}</span></h3><div class="tool-grid">${Object.entries(KIND).map(([k,v])=>`<button class="btn" data-add="${k}">+ ${v[1]}</button>`).join('')}</div>
+      <h3>Good to know</h3><ul class="plain"><li>Scroll over the map to zoom, and drag empty space to pan. Fit brings everything back into view.</li><li>Router ports start shut down. Bring them up with <code>no shutdown</code>.</li><li>PCs and servers start with no address. Use IP settings in the Toolbox, or type <code>ipconfig /ip 192.168.1.10 255.255.255.0</code> and <code>ipconfig /dg 192.168.1.1</code> in the console.</li><li>Servers listen on TCP port 80, so <code>telnet 192.168.1.20 80</code> tests one.</li><li>Your build and its configuration are saved in this browser. Save to file to keep copies or move them.</li></ul>`;
+    cb.innerHTML=(ch?`<h3>Goals <span>${goals.filter(g=>g[1]).length}/${goals.length}</span></h3><ul class="goals">${goals.map(g=>`<li class="${g[1]?'ok':'no'}">${g[0]}</li>`).join('')}</ul>${def.chDone?'<p><b>Challenge complete.</b> Keep building, or pick another one below.</p>':''}<div class="tool-grid"><button class="btn" id="sbLeave">Leave challenge</button></div>`:'')+
+      `<h3>Add a device <span>${def.devs.length}/${MAX}</span></h3><div class="tool-grid">${Object.entries(KIND).map(([k,v])=>`<button class="btn" data-add="${k}">+ ${v[1]}</button>`).join('')}</div>
       <h3>Selected ${sel?`<span>${esc(sel)}</span>`:''}</h3>${sel?`<div class="tool-grid">${isHost(sel)?'<button class="btn" id="sbIp">IP settings</button>':''}<button class="btn" id="sbFrom">Cable from here</button><button class="btn" id="sbRen">Rename</button><button class="btn" id="sbDel">Delete</button></div>`:'<p>Click a device on the map to select it.</p>'}
-      <h3>Cables <span>${def.links.length}</span></h3><div class="tool-grid"><button class="btn${cable?' primary':''}" id="sbCable" aria-pressed="${cable}">Cable tool: ${cable?'on':'off'}</button></div>
+      <h3>Cables <span>${def.links.length}</span></h3><div class="tool-grid"><button class="btn${cable?' primary':''}" id="sbCable" aria-pressed="${cable}">Cable tool: ${cable?'on':'off'}</button><button class="btn" id="sbNote">Add a note</button></div>
       <ul class="cable-list">${def.links.map((l,i)=>`<li><span>${esc(l.a)} ${shortIf(l.ai)} ↔ ${esc(l.b)} ${shortIf(l.bi)}</span><button class="small-btn" data-cut="${i}">Remove</button></li>`).join('')||'<li><span>No cables yet.</span></li>'}</ul>
+      <h3>Challenges</h3><div class="kit-list">${CHALL.map((c,i)=>`<button class="lab-card" data-ch="${i}"><b>${c.title}</b><span>${c.desc}</span><small>${c.goals.length} goals${def.ch===i?(def.chDone?' · complete':' · in progress'):''}</small></button>`).join('')}</div>
       <h3>Starter kits</h3><div class="kit-list">${KITS.map((k,i)=>`<button class="lab-card" data-kit="${i}"><b>${k[0]}</b><span>${k[1]}</span></button>`).join('')}</div>
       <h3>Files</h3><div class="tool-grid"><button class="btn" id="sbSave">Save to file</button><label class="btn">Load from file<input type="file" id="sbLoad" accept="application/json,.json" hidden></label></div>
       <h3>Manage</h3><div class="tool-grid"><button class="btn" id="sbWipe">Erase all configuration</button><button class="btn" id="sbClear">Clear the sandbox</button></div>`;
@@ -1699,45 +1766,76 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
     cb.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>addDev(b.dataset.add));
     cb.querySelectorAll('[data-cut]').forEach(b=>b.onclick=()=>{def.links.splice(+b.dataset.cut,1);rebuild();});
     cb.querySelectorAll('[data-kit]').forEach(b=>b.onclick=()=>{const k=KITS[+b.dataset.kit];replaceWith(clean(k[2]),[],k[0]+' loaded. Nothing is configured yet.');});
+    cb.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ch,next=clean(KITS[CHALL[i].kit][2]);next.ch=i;replaceWith(next,[],'Challenge started: '+CHALL[i].title+'.');});
+    if($('sbLeave'))$('sbLeave').onclick=()=>{def.ch=null;def.chDone=false;saveDef();renderSandbox();};
     $('sbCable').onclick=()=>{cable=!cable;pick=null;renderSandbox();drawTopo();if(cable)notify('Cable tool on: click a device and choose its port. Press Esc to stop.');};
+    $('sbNote').onclick=()=>noteDialog(null);
     if(sel){if($('sbIp'))$('sbIp').onclick=()=>ipDialog(sel);$('sbRen').onclick=()=>renameDialog(sel);$('sbDel').onclick=()=>delDev(sel);
       $('sbFrom').onclick=e=>{cable=true;pick=null;renderSandbox();const r=e.target.getBoundingClientRect();cableClick(sel,r.right+8,r.top);};}
     $('sbSave').onclick=saveFile;$('sbLoad').onchange=e=>{loadFile(e.target.files[0]);e.target.value='';};
-    $('sbWipe').onclick=()=>{dialog('Erase all configuration?',`<p>Every device goes back to factory defaults. Devices and cables stay where they are.</p><button class="btn primary" id="sbYes">Erase configuration</button>`);$('sbYes').onclick=()=>{$('dialog').close();cur.journal=[];rebuild();};};
-    $('sbClear').onclick=()=>{dialog('Clear the sandbox?',`<p>This removes every device, cable and command in the sandbox.</p><button class="btn primary" id="sbYes">Clear everything</button>`);$('sbYes').onclick=()=>{$('dialog').close();def={devs:[],links:[]};cur.journal=[];cur.sel=null;pick=null;rebuild();};};}
+    $('sbWipe').onclick=()=>{dialog('Erase all configuration?',`<p>Every device goes back to factory defaults. Devices and cables stay where they are.</p><button class="btn primary" id="sbYes">Erase configuration</button>`);$('sbYes').onclick=()=>{$('dialog').close();cur.journal=[];def.chDone=false;rebuild();};};
+    $('sbClear').onclick=()=>{dialog('Clear the sandbox?',`<p>This removes every device, cable, note and command in the sandbox.</p><button class="btn primary" id="sbYes">Clear everything</button>`);$('sbYes').onclick=()=>{$('dialog').close();def=blank();cur.journal=[];cur.sel=null;pick=null;rebuild();};};}
 
   // hooks into the existing workspace
   const inSbx=()=>cur&&cur.view==='lab'&&cur.sandbox;
-  const rb0=renderBrief;renderBrief=function(){if(inSbx())return renderSandbox();$('checkTitle').textContent='Checklist';topo.classList.remove('sandbox','cabling');rb0();};
+  const rb0=renderBrief;renderBrief=function(){if(inSbx())return renderSandbox();$('checkTitle').textContent='Checklist';topo.classList.remove('sandbox','cabling');$('zoomCtl').hidden=true;rb0();};
   const rt0=renderTerm;renderTerm=function(){const none=inSbx()&&!cur.net.devs[cur.sel];$('tin').disabled=!!none;
     if(none){$('tabs').innerHTML='';$('tout').textContent='Add a device from the Toolbox to get a console.';$('prompt').textContent='';$('mode').textContent='No device';$('deviceInfo').textContent='';return;}rt0();};
-  const dt0=drawTopo;drawTopo=function(){dt0();if(!inSbx())return;const svg=topo.querySelector('svg');if(!svg)return;svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-    if(!def.devs.length){svg.insertAdjacentHTML('beforeend',`<text class="emptyhint" x="${W/2}" y="${H/2}">Add a device or load a starter kit from the Toolbox</text>`);return;}
-    const first=svg.querySelector('.dev');if(first)first.insertAdjacentHTML('beforebegin',def.links.map((l,i)=>{const a=SBX.pos[l.a],b=SBX.pos[l.b];return `<line class="hitwire" data-link="${i}" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"/>`;}).join(''));
+  const dt0=drawTopo;drawTopo=function(){dt0();if(!inSbx())return;const svg=topo.querySelector('svg');if(!svg)return;const v=view();svg.setAttribute('viewBox',`${v.x} ${v.y} ${v.w} ${v.h}`);
+    const under=def.links.map((l,i)=>{const a=SBX.pos[l.a],b=SBX.pos[l.b];return `<line class="hitwire" data-link="${i}" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"/>`;}).join('')+def.notes.map((n,i)=>`<text class="note" data-note="${i}" x="${n.x}" y="${n.y}">${esc(n.text)}</text>`).join('');
+    const first=svg.querySelector('.dev');if(first)first.insertAdjacentHTML('beforebegin',under);else svg.insertAdjacentHTML('afterbegin',under);
+    if(!def.devs.length)svg.insertAdjacentHTML('beforeend',`<text class="emptyhint" x="${v.x+v.w/2}" y="${v.y+v.h/2}">Add a device, or pick a challenge or starter kit in the Toolbox</text>`);
     if(pick){const g=[...svg.querySelectorAll('.dev')].find(e=>e.dataset.dev===pick.dev);if(g)g.classList.add('pick');}};
   const sel0=select;select=function(n){sel0(n);if(inSbx())renderSandbox();};
-  const rl0=renderLabs;renderLabs=function(){rl0();$('labs').insertAdjacentHTML('beforeend','<optgroup label="Free build"><option value="sandbox">Sandbox</option></optgroup>');if(inSbx())$('labs').value='sandbox';};
+  const ex0=execute;execute=function(line){ex0(line);if(inSbx())afterCmd();};
+  const rl0=renderLabs;renderLabs=function(){rl0();$('labs').insertAdjacentHTML('beforeend','<optgroup label="Free build"><option value="sandbox">Sandbox and challenges</option></optgroup>');if(inSbx())$('labs').value='sandbox';};
   const ol0=openLab;openLab=function(idx,isFresh){if(!(idx>=0))return openSandbox();cable=false;pick=null;closeMenu();setLast('lab');ol0(idx,isFresh);};
   $('labs').onchange=e=>{const v=e.target.value;if(v==='sandbox')openSandbox();else if(['drill','quiz'].includes(v))openPractice(v);else openLab(+v);};
-  const lb0=library;library=function(){lb0();const pb=$('dialogBody').querySelector('.practice-buttons');if(pb){pb.insertAdjacentHTML('afterbegin','<button class="btn primary" id="sbOpen">Sandbox: build your own →</button>');$('sbOpen').onclick=()=>{$('dialog').close();openSandbox();};}};
+  const lb0=library;library=function(){lb0();const pb=$('dialogBody').querySelector('.practice-buttons');if(pb){pb.insertAdjacentHTML('afterbegin','<button class="btn primary" id="sbOpen">Sandbox and challenges →</button>');$('sbOpen').onclick=()=>{$('dialog').close();openSandbox();};}};
   $('library').onclick=library;
 
-  // map interactions: drag to move, cable tool, right-click menus
+  // map interactions: drag devices and notes, pan, zoom, cable tool, right-click menus
   const svgPt=e=>{const svg=topo.querySelector('svg');return new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.getScreenCTM().inverse());};
-  topo.addEventListener('pointerdown',e=>{if(!inSbx()||cable||e.button)return;const g=e.target.closest('[data-dev]');if(!g)return;const d=def.devs.find(x=>x.name===g.dataset.dev);if(!d)return;
-    const p=svgPt(e);dragging={d,ox:d.x-p.x,oy:d.y-p.y,moved:false,sx:e.clientX,sy:e.clientY};});
-  window.addEventListener('pointermove',e=>{if(!dragging)return;if(!dragging.moved&&Math.hypot(e.clientX-dragging.sx,e.clientY-dragging.sy)<4)return;dragging.moved=true;const p=svgPt(e),d=dragging.d;
-    d.x=Math.round(Math.max(34,Math.min(W-34,p.x+dragging.ox)));d.y=Math.round(Math.max(34,Math.min(H-40,p.y+dragging.oy)));SBX.pos[d.name]=[d.x,d.y];cur.sel=d.name;drawTopo();});
-  window.addEventListener('pointerup',()=>{if(!dragging)return;const was=dragging;dragging=null;if(was.moved){saveDef();renderTerm();renderSandbox();}});
+  topo.addEventListener('pointerdown',e=>{if(!inSbx()||cable||e.button)return;const g=e.target.closest('[data-dev]'),nt=e.target.closest('[data-note]'),hw=e.target.closest('[data-link]'),base={moved:false,sx:e.clientX,sy:e.clientY};
+    if(g){const d=def.devs.find(x=>x.name===g.dataset.dev);if(!d)return;const p=svgPt(e);dragging={...base,d,ox:d.x-p.x,oy:d.y-p.y};}
+    else if(nt){const n=def.notes[+nt.dataset.note];if(!n)return;const p=svgPt(e);dragging={...base,note:n,ni:+nt.dataset.note,ox:n.x-p.x,oy:n.y-p.y};}
+    else if(!hw){const svg=topo.querySelector('svg');if(!svg)return;const v=view();dragging={...base,pan:true,vx:v.x,vy:v.y,k:1/svg.getScreenCTM().a};}});
+  window.addEventListener('pointermove',e=>{if(!dragging)return;dragging.lx=e.clientX;dragging.ly=e.clientY;if(!dragging.moved&&Math.hypot(e.clientX-dragging.sx,e.clientY-dragging.sy)<4)return;dragging.moved=true;
+    if(dragging.pan){setView({x:dragging.vx-(e.clientX-dragging.sx)*dragging.k,y:dragging.vy-(e.clientY-dragging.sy)*dragging.k,w:view().w});drawTopo();return;}
+    const p=svgPt(e);
+    if(dragging.note){dragging.note.x=Math.round(Math.max(10,Math.min(W-10,p.x+dragging.ox)));dragging.note.y=Math.round(Math.max(16,Math.min(H-6,p.y+dragging.oy)));drawTopo();return;}
+    const d=dragging.d;d.x=Math.round(Math.max(34,Math.min(W-34,p.x+dragging.ox)));d.y=Math.round(Math.max(34,Math.min(H-40,p.y+dragging.oy)));SBX.pos[d.name]=[d.x,d.y];cur.sel=d.name;drawTopo();});
+  window.addEventListener('pointerup',e=>{if(!dragging)return;const was=dragging;dragging=null;
+    if(was.moved){saveDef();if(was.d){renderTerm();renderSandbox();}}else if(was.note)noteMenu(was.ni,e.clientX,e.clientY);});
+  topo.addEventListener('wheel',e=>{if(!inSbx())return;e.preventDefault();const p=svgPt(e);zoom(e.deltaY>0?1.15:1/1.15,p.x,p.y);},{passive:false});
   topo.addEventListener('click',e=>{if(!inSbx())return;const g=e.target.closest('[data-dev]'),w=e.target.closest('[data-link]');
     if(cable){e.stopImmediatePropagation();if(g)cableClick(g.dataset.dev,e.clientX,e.clientY);return;}
     if(w&&!g){e.stopImmediatePropagation();linkMenu(+w.dataset.link,e.clientX,e.clientY);}},true);
-  topo.addEventListener('contextmenu',e=>{if(!inSbx())return;const g=e.target.closest('[data-dev]'),w=e.target.closest('[data-link]');if(!g&&!w)return;e.preventDefault();
-    if(g)devMenu(g.dataset.dev,e.clientX,e.clientY);else linkMenu(+w.dataset.link,e.clientX,e.clientY);});
+  topo.addEventListener('contextmenu',e=>{if(!inSbx())return;const g=e.target.closest('[data-dev]'),w=e.target.closest('[data-link]'),nt=e.target.closest('[data-note]');if(!g&&!w&&!nt)return;e.preventDefault();
+    if(g)devMenu(g.dataset.dev,e.clientX,e.clientY);else if(nt)noteMenu(+nt.dataset.note,e.clientX,e.clientY);else linkMenu(+w.dataset.link,e.clientX,e.clientY);});
   document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;closeMenu();if(cable&&inSbx()){cable=false;pick=null;renderSandbox();drawTopo();}});
 
   let last=null;try{last=localStorage.getItem('lab4net-last');}catch(e){}
-  if(last==='sandbox')openSandbox();else renderLabs();
+  if(last==='sandbox')openSandbox();else{$('zoomCtl').hidden=true;renderLabs();}
+})();
+
+// ---------- backup: include ranks, trophies, layout and the sandbox in Transfer progress ----------
+(function(){
+  const EXTRA=['lab4net-fun-v1','lab4net-sandbox-v1','lab4net-layout-v3','lab4net-guide','lab4net-guide-pop','lab4net-last'];
+  const tr0=transfer;transfer=function(){tr0();
+    $('export').onclick=()=>{saveWork();const extras={};for(const k of EXTRA){try{const v=localStorage.getItem(k);if(v!=null)extras[k]=v;}catch(e){}}
+      const sj=drafts.Sandbox&&Array.isArray(drafts.Sandbox.journal)?drafts.Sandbox.journal:[];
+      const url=URL.createObjectURL(new Blob([JSON.stringify({format:'lab4net',version:1,progress,drafts,lastLab,extras,sandboxJournal:sj},null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='lab4net-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      $('transferStatus').textContent='Backup exported, including ranks, trophies, your window layout and the sandbox. Import it on your other device to continue.';};
+    $('import').addEventListener('change',async e=>{const file=e.target.files[0];if(!file||file.size>5*1024*1024)return;let p;try{p=JSON.parse(await file.text());}catch(x){return;}
+      if(!p||p.format!=='lab4net'||p.version!==1||!p.extras||typeof p.extras!=='object')return;
+      setTimeout(()=>{const st=$('transferStatus');if(st&&/^Import failed/.test(st.textContent))return;
+        try{const pend={};for(const k of EXTRA){const v=p.extras[k];if(typeof v!=='string'||v.length>2e6)continue;if(/-v\d$/.test(k)){try{JSON.parse(v);}catch(x){continue;}}pend[k]=v;}
+          localStorage.setItem('lab4net-pending',JSON.stringify(pend));
+          if(Array.isArray(p.sandboxJournal)){drafts.Sandbox={journal:p.sandboxJournal.filter(x=>x&&typeof x.device==='string'&&typeof x.line==='string'&&x.line.length<=512&&!/[\r\n]/.test(x.line)).slice(0,5000).map(x=>({device:x.device,line:x.line})),tasks:[]};persist();}
+          if(st){st.textContent='Backup imported. Lab progress is restored now; reload to bring in ranks, trophies, your window layout and the sandbox. ';const btn=document.createElement('button');btn.className='small-btn';btn.textContent='Reload now';btn.onclick=()=>location.reload();st.appendChild(btn);}
+        }catch(x){}},700);});};
+  $('transfer').onclick=transfer;
 })();
 
 </script>
