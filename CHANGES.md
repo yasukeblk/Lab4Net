@@ -1,5 +1,15 @@
 # Lab4Net improvements
 
+## Toggleable step-by-step instructions
+
+- Added a command-by-command guide for all 15 labs, generated from each lab's tested solution. Every command identifies the device, expected prompt/mode, command, changed prompt and why explanation. A final verification/grading step keeps configuration and proof separate.
+- Added Back, Next and Jump controls. Navigation does not execute commands. Successfully entering the exact expected command advances the guide; rejected commands do not. Abbreviated equivalents can be followed with Next.
+- Added an Instructions ON/OFF control to the workspace bar. Hiding instructions gives the topology and console full width. A console Grade button keeps grading available and shows detailed results when the mission panel is hidden.
+- Added a real separate browser window for the instructions, with live lab/step synchronization, device selection, address-plan/task explanations and final-step grading. Dock returns it to the workspace; closing it also restores the panel, including browsers that skip unload callbacks. Blocked pop-ups leave the instructions in place and display recovery guidance.
+- Saved visibility preferences and per-lab guide bookmarks locally. The guide follows the active lab; it pauses with explanatory text during subnetting/theory practice. The simulator and its grading functions are unchanged.
+- Verification: 15 labs / 85 checks pass; forwarding and existing browser suites pass. New `tests/instructions.cjs` passes all 15 guide lengths, navigation without execution, automatic advancement, rejected-command behavior, saved state, popup synchronization/grading, docking, native window closure, popup blocking and phone layout. No browser errors. Visually inspected docked and popped-out instructions.
+- Separate-window testing used local Edge. Browser policy may open the requested popup as a tab, and physical multi-monitor placement was not tested. The app still deploys as one static `index.html`.
+
 ## Desktop retro PC redesign
 
 - Replaced the rounded dashboard styling with an original retro PC workstation: lavender title bars, square beveled controls, mint terminal text, dotted desktop background, segmented progress and a persistent session status bar. Local fonts and the single-file architecture remain.

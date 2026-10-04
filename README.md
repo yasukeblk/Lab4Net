@@ -10,6 +10,15 @@ The interface is a desktop-first retro PC workstation: beveled controls, lavende
 
 Motion includes device boot sequences, link pulses, window transitions, packet trails and a short mission-complete celebration. System reduced-motion settings disable these effects while preserving all results and controls.
 
+### Step-by-step instructions
+
+Each lab has a command-by-command guide showing the target device, expected IOS prompt, exact command, next prompt when it changes, and the reason for the command. **Back**, **Next** and **Jump to step** navigate without changing the network. Successfully entering the exact displayed command advances the guide automatically; use Next after an abbreviated equivalent.
+
+- **Instructions ON/OFF** shows or hides the mission/instruction panel. Turning it off gives the network workspace the full width. Grading remains available from the console's **Grade** button.
+- **Pop out** opens instructions in a separate resizable browser window, suitable for a second monitor. It follows the active lab and step, includes the address plan and task explanations, and can grade the lab at the final step.
+- **Dock** returns instructions to the workspace. Closing the window also restores the docked panel. If a browser blocks the pop-up, the app keeps the instructions docked and explains how to allow it.
+- Your show/hide preference and each lab's current step are remembered locally. The guide presents one working solution; it does not execute commands or treat step navigation as grading.
+
 - 15 configurable labs with a live topology, IOS-style device consoles, independent grading and an explained walkthrough.
 - Every mission task retains its **Why this step** explanation. Task checkboxes track your own work; grading checks the network configuration and connectivity.
 - Searchable lab library, command field guide and console mode indicators.
@@ -68,6 +77,7 @@ Optional browser integration tests use Playwright:
     npm install --no-save --package-lock=false playwright
     npx playwright install chromium
     node tests/ui.cjs
+    node tests/instructions.cjs
 
 Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge browser. The browser suite opens the local file, grades every lab, checks command/session restoration and backup import/export, and exercises the library, guide, practices, phone layout and reduced motion. `LAB4NET_SCREENSHOTS` optionally specifies a directory for desktop and phone captures.
 
@@ -75,6 +85,7 @@ Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge brow
 
 - Passes use the existing `ccna-bench-v2` localStorage key, preserving earlier progress. Command journals and task marks use `lab4net-workspace-v1`.
 - Desktop panel sizes use `lab4net-layout-v1`; they are local preferences and are not included in progress backups.
+- Instruction visibility and per-lab step bookmarks use `lab4net-instructions-v1`. They are local preferences and are not included in progress backups.
 - Storage is per browser and origin. Export before clearing browser data or switching from a local file to a server. A backup includes simulated passwords and configurations; use fictional lab credentials.
 - Import validates command journals by rebuilding them before replacing saved work. Earned lab passes are merged; included lab drafts replace their corresponding saved configurations.
 - Saved command history is capped at 5,000 commands per lab; backups at 5 MB. Start over removes that lab's draft and checklist, while preserving its earned pass.
