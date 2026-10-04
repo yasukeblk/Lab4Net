@@ -170,6 +170,14 @@ body.sandbox #topo::after{content:"BUILD / DRAG DEVICES TO ARRANGE"}
 body.sandbox #sandbox{border-color:var(--go);color:var(--cy)}
 input:disabled{cursor:default}
 
+
+.hw-picker{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.hw-picker select{font-size:10px;width:100%}
+.hw-card{padding:12px;border:1px solid #35573e;background:#0c2013;margin:12px 0}.hw-card>b{font:14px var(--mono);color:#b9ffcb}.hw-card p{font-size:12px;margin:8px 0!important}.hw-card a{color:#a5f8bf;font:10px var(--mono)}
+.hw-ports{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:12px 0}.hw-port{background:#030c07;border:1px solid #35573e;padding:7px 2px;color:#9dbcaa;min-width:0;font:8px var(--mono)}.hw-port small{display:block;color:#648771;margin-top:3px}.hw-port.live{border-color:#48f392;box-shadow:inset 0 2px 0 #48f392}.hw-port.disabled{border-color:#9e5757;color:#ffaaaa}.hw-port:hover{background:#193d26}
+#commitState{font:9px var(--mono);padding:3px 6px;color:#f2c879;background:#382e17;border:1px solid #66502a;white-space:nowrap}
+.hw-exercise{margin:22px 0;border:1px solid #35573e;padding:12px}.hw-exercise>summary{line-height:1.6;width:auto}.hw-exercise>p{margin-top:12px!important;font-size:12px}.hw-task{margin:18px 0;font-size:13px}.hw-task>details{font-size:12px;margin-top:6px}
+@media(max-width:860px){#commitState{font-size:8px;padding:2px}.console-toolbar>div:first-child{flex-wrap:wrap}}
+
 </style>
 </head>
 <body>
@@ -190,7 +198,7 @@ input:disabled{cursor:default}
   <section id="bench" aria-label="Network workspace">
     <div id="mapPanel"><div class="panel-title"><b>Network map</b><span class="legend"><span class="good">■</span> Link up &nbsp; <span class="bad">■</span> Link down &nbsp;·&nbsp; Click a device to open its console</span></div><div id="topo"></div><div id="trace" aria-live="polite"></div></div>
     <div id="console">
-      <div class="console-toolbar"><div><span id="mode" class="mode-pill"></span><span id="deviceInfo"></span></div><div><button id="reference" class="small-btn">Command guide</button><button id="clearConsole" class="small-btn">Clear</button></div></div>
+      <div class="console-toolbar"><div><span id="mode" class="mode-pill"></span><span id="commitState" hidden role="status"></span><span id="deviceInfo"></span></div><div><button id="reference" class="small-btn">Command guide</button><button id="clearConsole" class="small-btn">Clear</button></div></div>
       <div id="tabs" role="tablist" aria-label="Device consoles"></div>
       <div id="term" role="tabpanel" tabindex="0"><pre id="tout"></pre><div id="inrow"><span id="prompt"></span><input id="tin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Device console input" aria-describedby="hint"></div></div>
       <div id="hint"></div>
@@ -211,7 +219,7 @@ const lenMask=l=>l===0?0:((0xFFFFFFFF<<(32-l))>>>0);
 const maskLenN=n=>{for(let l=0;l<=32;l++)if(lenMask(l)===n)return l;return null;};
 const netOf=(ip,len)=>(ip&lenMask(len))>>>0;
 const IFT=['FastEthernet','GigabitEthernet','Loopback','Vlan'];
-function parseIf(str){const m=/^([a-z]+)([\d\/.]+)$/i.exec(String(str).replace(/\s+/g,''));if(!m)return null;const t=IFT.find(t=>t.toLowerCase().startsWith(m[1].toLowerCase()));return t?t+m[2]:null;}
+function parseIf(str){const j=/^(ge|xe)-\d+\/\d+\/\d+$/i.exec(String(str).trim());if(j)return j[0].toLowerCase();const m=/^([a-z]+)([\d\/.]+)$/i.exec(String(str).replace(/\s+/g,''));if(!m)return null;const t=IFT.find(t=>t.toLowerCase().startsWith(m[1].toLowerCase()));return t?t+m[2]:null;}
 const shortIf=n=>n.replace('FastEthernet','Fa').replace('GigabitEthernet','Gi').replace('Loopback','Lo').replace('Vlan','Vl').replace('Port-channel','Po');
 function sortIfs(names){const key=n=>{const t=IFT.findIndex(t=>n.startsWith(t));return [t].concat((n.match(/\d+/g)||[]).map(Number));};
   return names.slice().sort((a,b)=>{const x=key(a),y=key(b);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]??-1)-(y[i]??-1);if(d)return d;}return 0;});}
@@ -339,6 +347,7 @@ C('priv','disable',e=>{e.s.mode='user';});
 C('priv','configure terminal',e=>{e.s.mode='config';e.out('Enter configuration commands, one per line.  End with CNTL/Z.');});
 C('priv','show running-config',e=>runningConfig(e.net,e.d).forEach(l=>e.out(l)));
 C('priv','show startup-config',e=>e.d.startup?e.d.startup.forEach(l=>e.out(l)):e.out('startup-config is not present'));
+C(EX,'show version',e=>{const h=HARDWARE[e.d.hardware];e.out('Cisco IOS learning simulator',h?'Model: '+h.model+' ('+h.sku+')':'Generic '+e.d.type,h?h.summary:'Educational device profile');},['router','switch']);
 C(EX,'show ip interface brief',e=>{const{net,d,out}=e;out(pad('Interface',23)+pad('IP-Address',16)+'OK? Method Status                Protocol');
   for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n],up=ifUp(net,d,i);
     out(pad(n,23)+pad(i.ip!==null?n2ip(i.ip):'unassigned',16)+'YES '+pad(i.ip!==null?'manual':'unset',7)+pad(i.shutdown?'administratively down':up?'up':'down',22)+(up?'up':'down'));}});
@@ -459,16 +468,16 @@ function run(env,line,mode){line=line.trim();if(!line)return;const toks=line.spl
   if(!m&&!['config','user','priv','pc'].includes(mode)){m=find('config');if(m){s.mode='config';s.ctx=null;}}
   if(m){env.args=m.args;m.c.fn(env);return;}
   env.out(partial?'% Incomplete command.':BAD);}
-function execLine(net,d,s,line){const out=[];const env={net,d,s,out:(...x)=>out.push(...x)};
+function execLine(net,d,s,line){if(d.os==='junos'){const was=LIVE;LIVE=true;try{return junosExecLine(net,d,s,line);}finally{LIVE=was;}}const out=[];const env={net,d,s,out:(...x)=>out.push(...x)};
   const snap=()=>{const m={};for(const n in d.ifs)m[n]=ifUp(net,d,d.ifs[n]);return m;};
   const before=d.type==='pc'?null:snap();
   run(env,line,s.mode);
   if(before){const after=snap();for(const n in after)if(!!before[n]!==after[n]){const st=after[n]?'up':'down';out.push('%LINK-3-UPDOWN: Interface '+n+', changed state to '+st,'%LINEPROTO-5-UPDOWN: Line protocol on Interface '+n+', changed state to '+st);}}
   return out;}
-function promptOf(d,s){const h=d.hostname;switch(s.mode){case 'pc':return 'C:\\>';case 'user':return h+'>';case 'priv':return h+'#';case 'config':return h+'(config)#';
+function promptOf(d,s){if(d.os==='junos')return 'lab@'+d.hostname+(s.mode==='junos-config'?'#':'>');const h=d.hostname;switch(s.mode){case 'pc':return 'C:\\>';case 'user':return h+'>';case 'priv':return h+'#';case 'config':return h+'(config)#';
   case 'if':return h+(s.ctx.length>1?'(config-if-range)#':s.ctx[0].name.includes('.')?'(config-subif)#':'(config-if)#');case 'vlan':return h+'(config-vlan)#';case 'line':return h+'(config-line)#';default:return h+'(config-router)#';}}
 const HELP={'<ip>':'A.B.C.D','<n>':'<number>','<w>':'WORD','<rest>':'LINE','<rest?>':'<cr>'};
-function candidates(d,mode,line){const sp=line===''||/\s$/.test(line);const toks=line.trim()?line.trim().split(/\s+/):[];const part=sp?'':toks.pop().toLowerCase();const set=new Set();
+function candidates(d,mode,line){if(d.os==='junos')return junosCandidates(mode,line);const sp=line===''||/\s$/.test(line);const toks=line.trim()?line.trim().split(/\s+/):[];const part=sp?'':toks.pop().toLowerCase();const set=new Set();
   for(const c of CMDS){if(!c.modes.includes(mode)||(c.types&&!c.types.includes(d.type)))continue;const pat=c.pat;let ok=true,rest=false;
     for(let j=0;j<toks.length;j++){const p=pat[j];if(p===undefined){ok=false;break;}if(p.startsWith('<rest')){rest=true;break;}if(p[0]==='<')continue;if(!p.startsWith(toks[j].toLowerCase())){ok=false;break;}}
     if(!ok)continue;if(rest){set.add('LINE');continue;}
@@ -548,7 +557,7 @@ const LABS=[
 
 // ---------- v2 engine ----------
 IFT.push('Port-channel');
-parseIf=function(str){const m=/^([a-z-]+?)([\d\/.]+)$/i.exec(String(str).replace(/\s+/g,''));if(!m)return null;const t=IFT.find(t=>t.toLowerCase().startsWith(m[1].toLowerCase()));return t?t+m[2]:null;};
+parseIf=function(str){const value=String(str).replace(/\s+/g,'');if(/^(ge|xe)-\d+\/\d+\/\d+$/i.test(value))return value.toLowerCase();const m=/^([a-z-]+?)([\d\/.]+)$/i.exec(value);if(!m)return null;const t=IFT.find(t=>t.toLowerCase().startsWith(m[1].toLowerCase()));return t?t+m[2]:null;};
 function macOf(d){if(d.mac)return d.mac;let h=7;for(const c of d.name)h=(h*31+c.charCodeAt(0))%65536;const x=h.toString(16).padStart(4,'0');return '00e0.b0'+x.slice(0,2)+'.'+x.slice(2)+'10';}
 let LIVE=false,TRACE=null;
 const run0=run;run=function(env,line,mode){const was=LIVE;LIVE=true;try{run0(env,line,mode);}finally{LIVE=was;}};
@@ -962,9 +971,157 @@ const STEPS={
 LABS.forEach(l=>{l.steps=(STEPS[l.title]||[]).map(t=>t.split(' ; ').map(g=>{const k=g.indexOf(': ');return {dev:g.slice(0,k),cmds:g.slice(k+2).split(' | ')};}));});
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
-  const out=lab.steps.map(task=>task.map(g=>{const d=net.devs[g.dev],s=sess[g.dev]||(sess[g.dev]={mode:d.type==='pc'?'pc':'user',ctx:null});
+  const out=lab.steps.map(task=>task.map(g=>{const d=net.devs[g.dev],s=sess[g.dev]||(sess[g.dev]={mode:d.os==='junos'?'junos-op':d.type==='pc'?'pc':'user',ctx:null});
     return {dev:g.dev,lines:g.cmds.map(c=>{if(c[0]==='#')return {note:c.slice(1).trim()};const prompt=promptOf(d,s);execLine(net,d,s,c);return {prompt,cmd:c};})};}));
   TRACE=keep;return out;}
+// Model profiles specify real port layouts; protocol behavior remains a learning subset.
+const HARDWARE={
+ 'c2960-24tt':{vendor:'Cisco',model:'Catalyst 2960-24TT-L',sku:'WS-C2960-24TT-L',os:'ios',summary:'24 × 10/100 copper + 2 × Gigabit copper uplinks',source:'https://www.cisco.com/c/dam/en_us/solutions/small-business/products/routers-switches/catalyst-2960-series-switches/C45-484155-03_2960_AAG_v1b.pdf'},
+ 'ex2300-24t':{vendor:'Juniper',model:'EX2300-24T',sku:'EX2300-24T',os:'junos',summary:'24 × Gigabit copper + 4 × SFP+ uplinks modeled at 10G',source:'https://www.juniper.net/documentation/us/en/hardware/ex2300/topics/topic-map/ex2300-configuring-junos-os.html'}
+};
+const hardwarePhysical=n=>/^(?:(?:FastEthernet|GigabitEthernet)\d+(?:\/\d+)*|(?:ge|xe)-\d+\/\d+\/\d+)$/.test(n);
+function hardwareLinkRate(a,ai,b,bi){
+ if(!a.hardware&&!b.hardware)return null;
+ const rates=n=>n.startsWith('xe-')?[10000]:n.startsWith('FastEthernet')?[10,100]:[10,100,1000];
+ const common=rates(ai).filter(r=>rates(bi).includes(r));if(!common.length)throw Error('No common link speed. EX2300 SFP+ uplinks are fixed at 10G in this profile; use a Gigabit copper port for this cable.');return Math.max(...common);
+}
+const jClone=o=>JSON.parse(JSON.stringify(o));
+function hardwareSwitch(name,id){
+ const h=HARDWARE[id];if(!h)throw Error('Unknown hardware model');const d=mkSwitch(name);Object.assign(d,{hardware:id,vendor:h.vendor,model:h.model,os:h.os});
+ if(h.os==='ios'){for(let p=9;p<=24;p++)addIf(d,'FastEthernet0/'+p);for(const i of Object.values(d.ifs))if(hardwarePhysical(i.name))i.speed=i.name.startsWith('Fast')?100:1000;
+ }else{d.ifs={};for(let p=0;p<24;p++)addIf(d,'ge-0/0/'+p,{speed:1000});for(let p=0;p<4;p++)addIf(d,'xe-0/1/'+p,{speed:10000});d.junosActive={hostname:name,vlans:{default:{id:1}},ports:{},irb:{}};d.junosPrevious=null;}
+ return d;
+}
+const jDefaultPort=()=>({mode:'access',members:['default'],native:null,disabled:false,description:''});
+function junosLines(c){
+ const lines=['set system host-name '+c.hostname];
+ for(const [name,v] of Object.entries(c.vlans)){lines.push(`set vlans ${name} vlan-id ${v.id}`);if(v.irb!==undefined)lines.push(`set vlans ${name} l3-interface irb.${v.irb}`);}
+ for(const [name,p] of Object.entries(c.ports)){
+  if(p.description)lines.push(`set interfaces ${name} description "${p.description}"`);
+  if(p.disabled)lines.push(`set interfaces ${name} disable`);
+  if(p.native!==null)lines.push(`set interfaces ${name} native-vlan-id ${p.native}`);
+  lines.push(`set interfaces ${name} unit 0 family ethernet-switching interface-mode ${p.mode}`);
+  lines.push(`set interfaces ${name} unit 0 family ethernet-switching vlan members ${p.members.length===1?p.members[0]:'[ '+p.members.join(' ')+' ]'}`);
+ }
+ for(const [unit,addr] of Object.entries(c.irb))lines.push(`set interfaces irb unit ${unit} family inet address ${addr}`);
+ return lines.sort();
+}
+function junosValidate(d,c){
+ const ids=new Set(),bindings=new Set();for(const [name,v] of Object.entries(c.vlans)){
+  if(!Number.isInteger(v.id)||v.id<1||v.id>4094||ids.has(v.id))throw Error('VLAN IDs must be unique numbers from 1 to 4094');ids.add(v.id);
+  if(v.irb!==undefined){if(!c.irb[v.irb])throw Error(`${name}: configure irb.${v.irb} before binding it`);if(bindings.has(v.irb))throw Error('An IRB unit can belong to only one VLAN');bindings.add(v.irb);}
+ }
+ const resolve=m=>Object.hasOwn(c.vlans,m)?c.vlans[m].id:/^\d+$/.test(m)&&ids.has(+m)?+m:null;
+ for(const name of Object.keys(d.ifs).filter(hardwarePhysical)){
+  const p=c.ports[name]||jDefaultPort();if(p.mode==='access'&&(p.members.length!==1||p.members[0]==='all'))throw Error(name+': an access port needs exactly one VLAN');
+  for(const m of p.members)if(m!=='all'&&resolve(m)===null)throw Error(name+': unknown VLAN '+m);
+  if(p.members.includes('all')&&p.members.length!==1)throw Error(name+': all cannot be combined with named VLANs');
+  if(p.native!==null&&(!ids.has(p.native)||p.mode!=='trunk'))throw Error(name+': native VLAN must exist and the port must be a trunk');
+  if(p.native!==null&&!p.members.includes('all')&&!p.members.map(resolve).includes(p.native))throw Error(name+': include the native VLAN in trunk membership');
+ }
+ return resolve;
+}
+function junosCommit(d,c){
+ const resolve=junosValidate(d,c);d.junosPrevious=jClone(d.junosActive);d.junosActive=jClone(c);d.hostname=c.hostname;
+ d.vlans={};for(const [name,v] of Object.entries(c.vlans))d.vlans[v.id]={name};
+ for(const name of Object.keys(d.ifs)){
+  if(name.startsWith('Vlan')){delete d.ifs[name];continue;}
+  const p=c.ports[name]||jDefaultPort(),i=d.ifs[name];Object.assign(i,{mode:p.mode,modeSet:true,accessVlan:resolve(p.members[0])??1,allowed:p.members[0]==='all'?'all':p.members.map(resolve),native:p.native??-1,shutdown:p.disabled,desc:p.description});
+ }
+ for(const v of Object.values(c.vlans))if(v.irb!==undefined){const [ip,len]=c.irb[v.irb].split('/');addIf(d,'Vlan'+v.id,{ip:ip2n(ip),len:+len,shutdown:false,displayName:'irb.'+v.irb});}
+}
+const JUNOS_COMMANDS=[
+ ['junos-op','configure','Enter candidate configuration. Edits do not affect forwarding until commit.'],
+ ['junos-op','show interfaces terse','Check committed administrative and link state, including IRB addresses.'],
+ ['junos-op','show vlans','Check active VLAN IDs and physical port membership.'],
+ ['junos-op','show configuration | display set','Read the committed configuration as set commands.'],
+ ['junos-op','show chassis hardware','Inspect the simulated EX2300 hardware profile.'],
+ ['junos-op','show version','Identify the model and the supported Junos learning subset.'],
+ ['junos-op','ping <ip>','Test both request and reply over the committed network.'],
+ ['junos-config','set system host-name <name>','Stage a new hostname; it becomes active at commit.'],
+ ['junos-config','set vlans <name> vlan-id <id>','Create a named VLAN with an 802.1Q ID. The same ID connects vendors.'],
+ ['junos-config','set interfaces <port> unit 0 family ethernet-switching interface-mode access','Make an untagged host-facing port.'],
+ ['junos-config','set interfaces <port> unit 0 family ethernet-switching interface-mode trunk','Carry tagged VLANs to another switch.'],
+ ['junos-config','set interfaces <port> unit 0 family ethernet-switching vlan members <name>','Assign a named VLAN or numeric ID. Trunks also accept [ BLUE RED ] or all.'],
+ ['junos-config','set interfaces <port> native-vlan-id <id>','Map untagged trunk traffic to an existing VLAN included in membership.'],
+ ['junos-config','set interfaces <port> description <text>','Label the physical port.'],
+ ['junos-config','set interfaces <port> disable','Stage an administrative shutdown.'],
+ ['junos-config','delete interfaces <port> disable','Stage re-enabling the physical port.'],
+ ['junos-config','delete interfaces <port>','Reset that port to the learning model defaults.'],
+ ['junos-config','delete vlans <name>','Remove a VLAN. Commit fails if ports still refer to it.'],
+ ['junos-config','set interfaces irb unit <unit> family inet address <ip/prefix>','Give an IRB unit an IPv4 management address. Inter-VLAN routing is outside this profile.'],
+ ['junos-config','set vlans <name> l3-interface irb.<unit>','Attach the management IRB unit to a VLAN.'],
+ ['junos-config','show | display set','Read the candidate configuration.'],
+ ['junos-config','show | compare','Compare candidate edits against the active configuration.'],
+ ['junos-config','commit check','Validate without changing the network.'],
+ ['junos-config','commit','Atomically activate a valid candidate configuration.'],
+ ['junos-config','commit and-quit','Activate the configuration and return to operational mode.'],
+ ['junos-config','rollback 0','Discard edits and reload the currently active configuration.'],
+ ['junos-config','rollback 1','Load the previous commit into the candidate; commit to activate it.'],
+ ['junos-config','run ping <ip>','Test the committed network without leaving candidate mode.'],
+ ['junos-config','run show interfaces terse','Inspect the active ports while editing a candidate.'],
+ ['junos-config','exit','Leave configuration mode when no uncommitted changes remain.']
+];
+for(const [,cmd,why] of JUNOS_COMMANDS)WHYC['junos::'+cmd]=why;
+function junosCandidates(mode,line){
+ const text=line.trimStart(),tokens=text.trim().split(/\s+/),space=/\s$/.test(text),partial=space?'':tokens.pop()||'',base=space?text.trim().split(/\s+/):tokens;
+ if(!text.trim())return [...new Set(JUNOS_COMMANDS.filter(c=>c[0]===mode).map(c=>c[1].split(' ')[0]))];
+ const out=new Set();for(const [m,cmd] of JUNOS_COMMANDS){if(m!==mode)continue;const pat=cmd.split(' ');if(!base.every((t,i)=>pat[i]&&(pat[i].startsWith('<')||pat[i].startsWith(t))))continue;const next=pat[base.length];if(!next){if(!partial)out.add('<cr>');}else if(next.startsWith('<'))out.add(next);else if(next.startsWith(partial))out.add(next);}return [...out];
+}
+function junosExecLine(net,d,s,line){
+ const out=[],say=(...x)=>out.push(...x),fail=x=>say('error: '+x);line=line.trim();if(!line)return out;
+ const cfg=s.mode==='junos-config';let m;
+ const why=syntax=>{s.last='junos::'+syntax;};
+ const operational=cmd=>{
+  if(cmd==='show interfaces terse'){say(pad('Interface',23)+'Admin Link Address');for(const i of Object.values(d.ifs))say(pad(i.displayName||i.name,23)+pad(i.shutdown?'down':'up',6)+pad(ifUp(net,d,i)?'up':'down',5)+(i.ip===null?'':n2ip(i.ip)+'/'+i.len));}
+  else if(cmd==='show vlans'){say(pad('VLAN',20)+pad('ID',6)+'Interfaces');for(const [id,v] of Object.entries(d.vlans)){const ports=Object.values(d.ifs).filter(i=>hardwarePhysical(i.name)&&(i.mode==='trunk'?allowed(i,+id):i.accessVlan===+id)).map(i=>i.name+'.0');say(pad(v.name,20)+pad(id,6)+ports.join(', '));}}
+  else if(cmd==='show configuration'||cmd==='show configuration | display set')say(...junosLines(d.junosActive));
+  else if(cmd==='show version')say('Model: '+d.model,'Junos OS learning subset · VLANs, trunks, commit and management IRB');
+  else if(cmd==='show chassis hardware')say('Hardware inventory:','Chassis     '+d.model,'PIC 0       24 × Gigabit copper','PIC 1       4 × SFP/SFP+ (simulated 10G uplinks)');
+  else if((m=/^ping (\S+)$/.exec(cmd))&&isIp(m[1])){const ok=canPing(net,d,ip2n(m[1]));say('PING '+m[1]+' ('+m[1]+'): 56 data bytes');for(let k=0;k<4;k++)say(ok?'64 bytes from '+m[1]+': icmp_seq='+k+' ttl=64 time<1 ms':'Request timeout for icmp_seq '+k);say('4 packets transmitted, '+(ok?'4':'0')+' packets received, '+(ok?'0':'100')+'% packet loss');}
+  else return false;return true;
+ };
+ if(!cfg){
+  if(line==='configure'){s.mode='junos-config';s.candidate=s.candidate||jClone(d.junosActive);say('Entering configuration mode','[edit]');why('configure');}
+  else if(!operational(line))fail('Unsupported command. Use ? or the Junos command guide.');
+  else why(line.startsWith('ping ')?'ping <ip>':line);
+  return out;
+ }
+ const c=s.candidate||(s.candidate=jClone(d.junosActive));
+ if(line.startsWith('run ')){if(!operational(line.slice(4)))fail('Unsupported operational command');else why(line.startsWith('run ping ')?'run ping <ip>':line);return out;}
+ if(line==='show'||line==='show | display set'){say(...junosLines(c));why('show | display set');return out;}
+ if(line==='show | compare'){const a=new Set(junosLines(d.junosActive)),b=new Set(junosLines(c));say(...[...a].filter(x=>!b.has(x)).map(x=>'- '+x),...[...b].filter(x=>!a.has(x)).map(x=>'+ '+x));why(line);return out;}
+ if(['commit','commit check','commit and-quit'].includes(line)){
+  try{junosValidate(d,c);if(line==='commit check')say('configuration check succeeds');else{junosCommit(d,c);s.candidate=jClone(d.junosActive);say('commit complete');if(line==='commit and-quit'){s.mode='junos-op';s.candidate=null;say('Exiting configuration mode');}}}catch(e){fail(e.message);say('commit failed; active configuration unchanged');}why(line);return out;
+ }
+ if(line==='rollback 0'||line==='rollback 1'){const source=line==='rollback 0'?d.junosActive:d.junosPrevious;if(!source)fail('No previous commit available');else{s.candidate=jClone(source);say('load complete');}why(line);return out;}
+ if(line==='exit'||line==='exit configuration-mode'){if(junosLines(c).join('\n')!==junosLines(d.junosActive).join('\n'))fail('Uncommitted changes. Use commit or rollback 0, then exit.');else{s.mode='junos-op';s.candidate=null;say('Exiting configuration mode');}why('exit');return out;}
+ if((m=/^set system host-name ([A-Za-z][A-Za-z0-9_.-]{0,63})$/.exec(line))){c.hostname=m[1];why('set system host-name <name>');return out;}
+ if((m=/^set vlans ([A-Za-z][A-Za-z0-9_-]{0,31}) vlan-id (\d+)$/.exec(line))){const id=+m[2];if(id<1||id>4094)return fail('VLAN ID must be 1–4094'),out;c.vlans[m[1]]={...(Object.hasOwn(c.vlans,m[1])?c.vlans[m[1]]:{}),id};why('set vlans <name> vlan-id <id>');return out;}
+ if((m=/^set vlans ([A-Za-z][A-Za-z0-9_-]{0,31}) l3-interface irb\.(\d+)$/.exec(line))){if(!Object.hasOwn(c.vlans,m[1]))return fail('Define the VLAN ID first'),out;c.vlans[m[1]].irb=+m[2];why('set vlans <name> l3-interface irb.<unit>');return out;}
+ if((m=/^set interfaces irb unit (\d+) family inet address (\S+)\/(\d+)$/.exec(line))){if(!isIp(m[2])||+m[3]>32)return fail('Invalid IPv4 address or prefix'),out;c.irb[m[1]]=m[2]+'/'+m[3];why('set interfaces irb unit <unit> family inet address <ip/prefix>');return out;}
+ if((m=/^delete vlans ([A-Za-z][A-Za-z0-9_-]{0,31})(?: l3-interface)?$/.exec(line))){if(line.endsWith(' l3-interface')){if(c.vlans[m[1]])delete c.vlans[m[1]].irb;}else delete c.vlans[m[1]];why('delete vlans <name>');return out;}
+ if((m=/^delete interfaces irb unit (\d+)$/.exec(line))){delete c.irb[m[1]];return out;}
+ if((m=/^(set|delete) interfaces ((?:ge|xe)-\d+\/\d+\/\d+)(?: (.*))?$/.exec(line))){
+  const [,op,name,tail='']=m;if(!d.ifs[name])return fail('Interface does not exist on '+d.model),out;
+  const prior=c.ports[name]||jDefaultPort(),p=jClone(prior);let r,syntax;
+  if(op==='delete'&&!tail){delete c.ports[name];why('delete interfaces <port>');return out;}
+  if(tail==='disable'){p.disabled=op==='set';syntax=op+' interfaces <port> disable';}
+  else if(tail==='native-vlan-id'&&op==='delete'){p.native=null;syntax='set interfaces <port> native-vlan-id <id>';}
+  else if((r=/^native-vlan-id (\d+)$/.exec(tail))&&op==='set'){if(+r[1]<1||+r[1]>4094)return fail('Invalid native VLAN ID'),out;p.native=+r[1];syntax='set interfaces <port> native-vlan-id <id>';}
+  else if((r=/^description (.+)$/.exec(tail))&&op==='set'){p.description=r[1].replace(/^"(.*)"$/,'$1');syntax='set interfaces <port> description <text>';}
+  else if(tail==='description'&&op==='delete'){p.description='';syntax='set interfaces <port> description <text>';}
+  else if((r=/^unit 0 family ethernet-switching interface-mode (access|trunk)$/.exec(tail))&&op==='set'){p.mode=r[1];syntax='set interfaces <port> unit 0 family ethernet-switching interface-mode '+r[1];}
+  else if((r=/^unit 0 family ethernet-switching vlan members (.+)$/.exec(tail))){
+   const value=r[1],list=value.startsWith('[')&&value.endsWith(']')?value.slice(1,-1).trim().split(/\s+/):[value];if(!list.length||list.some(x=>!/^([A-Za-z][A-Za-z0-9_-]{0,31}|\d+)$/.test(x)))return fail('Use a VLAN name, ID, all, or [ BLUE RED ]'),out;
+   p.members=op==='set'?[...new Set(prior.members.filter(x=>!['default','all'].includes(x)).concat(list))]:prior.members.filter(x=>!list.includes(x));if(!p.members.length)p.members=['default'];syntax='set interfaces <port> unit 0 family ethernet-switching vlan members <name>';
+  }else if(tail==='unit 0 family ethernet-switching vlan members'&&op==='delete'){p.members=['default'];syntax='set interfaces <port> unit 0 family ethernet-switching vlan members <name>';}
+  else return fail('Unsupported interface statement. Use the Junos command guide.'),out;
+  c.ports[name]=p;why(syntax);return out;
+ }
+ fail('Unsupported command. This profile uses Junos ELS set statements; use the command guide.');return out;
+}
+
 //ENGINE-END
 
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
@@ -974,14 +1131,14 @@ motion.addEventListener?.('change',e=>{REDUCED=e.matches;if(REDUCED)fxToken++;})
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const GROUPS=['Fundamentals','Switching','Routing','IP services','Security'];
 const HINT='? commands · Tab complete · ↑↓ history · Ctrl+Z end · Ctrl+L clear';
-const MODE={user:'User EXEC',priv:'Privileged EXEC',config:'Global configuration',if:'Interface configuration',vlan:'VLAN configuration',line:'Line configuration',ospf:'OSPF configuration',acl:'ACL configuration',dhcp:'DHCP pool configuration',pc:'Host console'};
+const MODE={'junos-op':'Junos operational','junos-config':'Junos candidate configuration',user:'User EXEC',priv:'Privileged EXEC',config:'Global configuration',if:'Interface configuration',vlan:'VLAN configuration',line:'Line configuration',ospf:'OSPF configuration',acl:'ACL configuration',dhcp:'DHCP pool configuration',pc:'Host console'};
 let cur=null,progress={},drafts={},lastLab=0,fxToken=0,quizIndex=0,quizAnswer=null;
 try{const p=JSON.parse(localStorage.getItem('ccna-bench-v2')||'{}');if(p&&typeof p==='object')progress=p;}catch(e){}
 try{const p=JSON.parse(localStorage.getItem('lab4net-workspace-v1')||'{}');if(p&&typeof p.drafts==='object')drafts=p.drafts;lastLab=Number.isInteger(p.lastLab)?p.lastLab:0;}catch(e){}
 function persist(){try{localStorage.setItem('ccna-bench-v2',JSON.stringify(progress));localStorage.setItem('lab4net-workspace-v1',JSON.stringify({drafts,lastLab}));$('saveStatus').textContent='Saved on this browser';}catch(e){$('saveStatus').textContent='Storage unavailable · Export to keep work';}}
 function saveWork(){if(cur?.view==='lab'&&!cur.sandbox){try{localStorage.setItem('lab4net-last-workspace','lab');}catch(e){}}if(cur?.view==='lab'&&cur.sandbox){saveSandbox();return;}if(cur?.view==='lab'){drafts[cur.lab.title]={journal:cur.journal,tasks:Array.from({length:cur.lab.tasks.length},(_,i)=>!!cur.tasks[i])};lastLab=cur.idx;}persist();}
 function notify(text){$('notice').textContent=text;}
-function sessions(net){const sess={};for(const [n,d] of Object.entries(net.devs))sess[n]={mode:d.type==='pc'?'pc':'user',ctx:null,lines:[d.type==='pc'?'Host console · ipconfig, ping, tracert, telnet, ssh':d.hostname+' console ready',''],hist:[],hi:0,fresh:0};return sess;}
+function sessions(net){const sess={};for(const [n,d] of Object.entries(net.devs))sess[n]={mode:d.os==='junos'?'junos-op':d.type==='pc'?'pc':'user',ctx:null,lines:[d.type==='pc'?'Host console · ipconfig, ping, tracert, telnet, ssh':d.hostname+' console ready',''],hist:[],hi:0,fresh:0};return sess;}
 function push(s,lines){s.lines.push(...lines);if(s.lines.length>600)s.lines.splice(0,s.lines.length-600);}
 function replay(lab,draft){const net=lab.build(),sess=sessions(net);const journal=draft?.journal||[];
   if(!Array.isArray(journal)||journal.length>5000)throw Error('Invalid command history');
@@ -1009,12 +1166,13 @@ function renderBrief(){if(cur.view==='lab'&&cur.sandbox)return renderSandbox();$
   $('bSol').onclick=()=>{cur.showSol=!cur.showSol;renderBrief();};
   $('bReset').onclick=()=>{dialog('Start this lab over?',`<p>This removes this lab’s saved commands and checklist. Its earned pass stays in your progress.</p><button class="btn primary" id="confirmReset">Start with a fresh network</button>`);$('confirmReset').onclick=()=>{$('dialog').close();openLab(cur.idx,true);notify('Lab reset. Previously earned progress kept.');};};
   if($('nextLab'))$('nextLab').onclick=()=>{const next=LABS.findIndex((l,i)=>i>cur.idx&&!progress[l.title]);const first=LABS.findIndex(l=>!progress[l.title]);openLab(next>=0?next:first>=0?first:0);};}
-function lineClass(l){if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';if(/^%|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
-function renderTerm(){if(cur.view!=='lab')return;const empty=!cur.sel||!cur.net.devs[cur.sel];$('tin').disabled=empty;$('reference').disabled=empty;$('clearConsole').disabled=empty;if(empty){$('tabs').innerHTML='';$('tout').textContent='Add a device from the sandbox palette to open its console.';$('prompt').textContent='';$('mode').textContent='No device';$('deviceInfo').textContent='';$('term').removeAttribute('aria-labelledby');return;}const {net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],n=s.lines.length,fresh=s.fresh||0;s.fresh=0;
+function lineClass(l){if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';if(/^%|^error:|^commit failed|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
+function renderTerm(){if(cur.view!=='lab')return;const empty=!cur.sel||!cur.net.devs[cur.sel];$('tin').disabled=empty;$('reference').disabled=empty;$('clearConsole').disabled=empty;if(empty){$('tabs').innerHTML='';$('tout').textContent='Add a device from the sandbox palette to open its console.';$('prompt').textContent='';$('mode').textContent='No device';$('deviceInfo').textContent='';$('commitState').hidden=true;$('term').removeAttribute('aria-labelledby');return;}const {net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],n=s.lines.length,fresh=s.fresh||0;s.fresh=0;
   $('tabs').innerHTML=Object.keys(net.devs).map(x=>`<button class="tab" role="tab" id="tab-${x}" aria-controls="term" tabindex="${x===sel?0:-1}" data-dev="${x}" aria-selected="${x===sel}"><span class="device-dot ${net.devs[x].type}"></span>${esc(net.devs[x].hostname)}</button>`).join('');
   $('term').setAttribute('aria-labelledby','tab-'+sel);$('tout').innerHTML=s.lines.map((l,k)=>`<span class="${l[0]==='\u0001'?'cmd':lineClass(l)}${k>=n-fresh?' new':''}">${esc(l[0]==='\u0001'?l.slice(1):l)}</span>`).join('\n');
   $('prompt').textContent=promptOf(d,s);$('mode').textContent=MODE[s.mode]||s.mode;$('term').scrollTop=$('term').scrollHeight;
-  $('deviceInfo').textContent=`${d.hostname} · ${d.type==='pc'?'host':d.type} · ${Object.values(d.ifs).filter(i=>ifUp(net,d,i)).length} interfaces up`;}
+  const dirty=d.os==='junos'&&s.candidate&&junosLines(s.candidate).join('\n')!==junosLines(d.junosActive).join('\n');$('commitState').hidden=!dirty;$('commitState').textContent=dirty?'UNCOMMITTED':'';
+  $('deviceInfo').textContent=`${d.model?d.model+' · ':''}${d.hostname} · ${d.type==='pc'?'host':d.type} · ${Object.values(d.ifs).filter(i=>ifUp(net,d,i)).length} interfaces up`;}
 function select(n){if(!cur.net.devs[n])return;cur.sel=n;$('tin').value='';drawTopo();renderTerm();if(cur.sandbox)renderSandbox();$('tin').focus({preventScroll:true});}
 function mobilePanel(network){document.body.classList.toggle('mobile-network',network);$('missionView').setAttribute('aria-pressed',String(!network));$('networkView').setAttribute('aria-pressed',String(network));if(cur?.view==='lab')renderTerm();}
 function execute(line){if(cur.view!=='lab'||!cur.sel)return;if(cur.sandbox&&cur.project.events.length>=10000){notify('Project history is full. Export before starting a new project.');return;}const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];TRACE=null;
@@ -1029,8 +1187,8 @@ function library(){dialog('Choose your next mission',`<p>Build the fundamentals,
   const cards=()=>{const q=$('labSearch').value.toLowerCase();$('labCards').innerHTML=GROUPS.map(g=>{const matches=LABS.map((l,i)=>({l,i})).filter(({l})=>l.group===g&&(l.title+' '+l.brief+' '+g).toLowerCase().includes(q));return matches.length?`<h3>${g}</h3><div class="lab-grid">${matches.map(({l,i})=>`<button class="lab-card" data-lab="${i}"><span class="eyebrow">${String(i+1).padStart(2,'0')} <span>${progress[l.title]?'✓ PASSED':drafts[l.title]?.journal.length?'RESUME':'READY'}</span></span><b>${l.title}</b><span>${l.brief}</span><small>${l.tasks.length} tasks · ${Object.keys(l.build().devs).length} devices</small></button>`).join('')}</div>`:'';}).join('')||'<p>No labs match. Try “routing” or “security”.</p>';
     $('labCards').querySelectorAll('[data-lab]').forEach(b=>b.onclick=()=>{$('dialog').close();openLab(+b.dataset.lab);});};cards();$('labSearch').oninput=cards;$('dialogBody').querySelectorAll('[data-practice]').forEach(b=>b.onclick=()=>{$('dialog').close();openPractice(b.dataset.practice);});}
 function reference(){if(cur.view!=='lab')return;const d=cur.net.devs[cur.sel],s=cur.sess[cur.sel];dialog('Command field guide',`<p>Commands supported by this simulator for <b>${esc(d.hostname)}</b>. Choose a command to place its syntax in the console; replace placeholders before pressing Enter.</p><div class="reference-tools"><input id="cmdSearch" class="search" placeholder="Search commands or explanations…" aria-label="Search commands"><label><input type="checkbox" id="allModes"> All modes</label></div><div id="cmdList"></div>`);
-  const render=()=>{const q=$('cmdSearch').value.toLowerCase(),all=$('allModes').checked;const list=CMDS.filter(c=>(!c.types||c.types.includes(d.type))&&(all||c.modes.includes(s.mode))&&(c.pat.join(' ')+' '+(WHYC[c.pat.join(' ')]||'')).toLowerCase().includes(q));
-    $('cmdList').innerHTML=list.map((c,i)=>`<button class="command-card" data-command="${i}"><code>${esc(c.pat.join(' '))}</code><small>${c.modes.map(m=>MODE[m]||m).join(' · ')}</small><span>${WHYC[c.pat.join(' ')]||'Use ? in the console to explore its arguments.'}</span></button>`).join('')||'<p>No matching commands in this mode. Try “All modes”.</p>';
+  const render=()=>{const q=$('cmdSearch').value.toLowerCase(),all=$('allModes').checked;const commands=d.os==='junos'?JUNOS_COMMANDS.map(([mode,syntax,why])=>({modes:[mode],pat:syntax.split(' '),why})):CMDS;const list=commands.filter(c=>(!c.types||c.types.includes(d.type))&&(all||c.modes.includes(s.mode))&&(c.pat.join(' ')+' '+(c.why||WHYC[c.pat.join(' ')]||'')).toLowerCase().includes(q));
+    $('cmdList').innerHTML=list.map((c,i)=>`<button class="command-card" data-command="${i}"><code>${esc(c.pat.join(' '))}</code><small>${c.modes.map(m=>MODE[m]||m).join(' · ')}</small><span>${c.why||WHYC[c.pat.join(' ')]||'Use ? in the console to explore its arguments.'}</span></button>`).join('')||'<p>No matching commands in this mode. Try “All modes”.</p>';
     $('cmdList').querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>{$('tin').value=list[+b.dataset.command].pat.join(' ');$('dialog').close();$('tin').focus();});};render();$('cmdSearch').oninput=render;$('allModes').onchange=render;}
 function help(){dialog('Your network, your reasoning',`<div class="help-steps"><p><b>01 · Read the mission.</b> The address plan is your source of truth. Check off tasks as you work; open “Why this step” to understand the purpose.</p><p><b>02 · Take the console.</b> Click a device or its tab. Type <code>enable</code>, then <code>configure terminal</code> to start configuring a router or switch. Use the field guide for supported syntax.</p><p><b>03 · Prove it works.</b> Run show commands and test connectivity. Packet results show both the request and reply, including where forwarding fails.</p><p><b>04 · Grade and reflect.</b> Grading checks configuration and reachability, not your checkboxes. A walkthrough explains one working solution.</p></div><h3>Console shortcuts</h3><p><kbd>?</kbd> context help · <kbd>Tab</kbd> completion · <kbd>↑ ↓</kbd> history<br><kbd>Ctrl+Z</kbd> privileged mode · <kbd>Ctrl+L</kbd> clear display</p><h3>Keep your work</h3><p>Commands, task marks and passes save in this browser. Use Transfer progress to export a JSON backup and import it on another device. The file includes your simulated configurations.</p><div class="lesson-tip">This is an educational IOS-style model, not a full IOS emulator. Timing, authentication, STP and services are simplified. SSH and Telnet test a connection; they do not open an interactive remote shell.</div>`);}
 function transfer(){dialog('Take your progress with you',`<p>Move your passed labs, task marks, theory results and saved configurations between browsers. Import merges earned passes and replaces saved work only for labs included in the file.</p><div class="actions"><button class="btn primary" id="export">Export backup</button><label class="btn">Import backup<input type="file" id="import" accept="application/json,.json" hidden></label></div><p id="transferStatus" role="status"></p>`);
@@ -1130,7 +1288,7 @@ $('tabs').onkeydown=e=>{if(!cur.sel)return;if(['ArrowLeft','ArrowRight','Home','
 $('topo').onclick=e=>{const g=e.target.closest('[data-dev]');if(g)select(g.dataset.dev);};$('topo').onkeydown=e=>{const g=e.target.closest('[data-dev]');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select(g.dataset.dev);}};
 $('clearConsole').onclick=()=>{cur.sess[cur.sel].lines=[];renderTerm();};$('term').onclick=()=>{if(!String(window.getSelection()))$('tin').focus({preventScroll:true});};
 const tin=$('tin');tin.oninput=()=>{if(!tin.value.includes('?'))return;const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],line=tin.value.replace(/\?/g,'');const c=candidates(d,s.mode,line);push(s,['\u0001'+promptOf(d,s)+line+'?',...(c.length?c.map(x=>'  '+x):['% Unrecognized command'])]);tin.value=line;renderTerm();};
-tin.onkeydown=e=>{if(!cur.sel)return;const s=cur.sess[cur.sel],d=cur.net.devs[cur.sel];if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(d.type!=='pc'&&!['user','priv'].includes(s.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
+tin.onkeydown=e=>{if(!cur.sel)return;const s=cur.sess[cur.sel],d=cur.net.devs[cur.sel];if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(d.os==='junos'){if(s.mode==='junos-config')execute('exit');return;}if(d.type!=='pc'&&!['user','priv'].includes(s.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
 tin.onpaste=e=>{const text=e.clipboardData.getData('text');if(!/[\r\n]/.test(text))return;e.preventDefault();const lines=text.split(/\r?\n/).filter(x=>x.trim());if(lines.length>100||lines.some(x=>x.length>512)){notify('Paste up to 100 commands, each under 512 characters.');return;}dialog('Review pasted commands',`<p>Run these ${lines.length} commands on <b>${esc(cur.net.devs[cur.sel].hostname)}</b> in the order shown.</p><pre class="paste-preview">${esc(lines.join('\n'))}</pre><button class="btn primary" id="runPaste">Run commands</button>`);$('runPaste').onclick=()=>{$('dialog').close();lines.forEach(execute);tin.value='';tin.focus();};};
 let guideOn=true;try{guideOn=localStorage.getItem('lab4net-guide')!=='0';}catch(e){}
 const DESK=window.matchMedia('(min-width:861px)');let guidePop=false;try{guidePop=localStorage.getItem('lab4net-guide-pop')==='1';}catch(e){}
@@ -1245,7 +1403,7 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
 
 //SANDBOX-START
 // Replay topology edits and commands in their original order, including DHCP leases.
-function sandboxSession(d){return {mode:d.type==='pc'?'pc':'user',ctx:null,lines:[d.hostname+' console ready',''],hist:[],hi:0,fresh:0};}
+function sandboxSession(d){return {mode:d.os==='junos'?'junos-op':d.type==='pc'?'pc':'user',ctx:null,lines:[d.hostname+' console ready',''],hist:[],hi:0,fresh:0};}
 function sandboxApply(m,e){
   if(!e||typeof e!=='object')throw Error('Invalid project event');
   const device=n=>{if(typeof n!=='string'||!Object.hasOwn(m.net.devs,n))throw Error('Unknown device');return m.net.devs[n];};
@@ -1254,16 +1412,16 @@ function sandboxApply(m,e){
     if(Object.keys(m.net.devs).length>=16)throw Error('Use up to 16 devices per sandbox');
     if(typeof e.name!=='string'||!/^[A-Z][A-Z0-9]{0,15}$/.test(e.name)||Object.hasOwn(m.net.devs,e.name))throw Error('Invalid or duplicate device name');
     if(!['router','switch','pc','server'].includes(e.type))throw Error('Unknown device type');point();
-    const d=e.type==='router'?mkRouter(e.name):e.type==='switch'?mkSwitch(e.name):mkPC(e.name,null,24);
+    if(e.hardware&&e.type!=='switch')throw Error('Hardware profile requires a switch');const d=e.hardware?hardwareSwitch(e.name,e.hardware):e.type==='router'?mkRouter(e.name):e.type==='switch'?mkSwitch(e.name):mkPC(e.name,null,24);
     if(e.type==='server')d.services=[80,443];m.net.devs[e.name]=d;m.pos[e.name]=[e.x,e.y];m.sess[e.name]=sandboxSession(d);
   }else if(e.op==='link'){
     const a=device(e.a),b=device(e.b),ai=parseIf(e.ai),bi=parseIf(e.bi);
-    const valid=(d,n)=>n&&/^(FastEthernet|GigabitEthernet)\d+(\/\d+)*$/.test(n)&&d.ifs[n]&&!d.ifs[n].link;
+    const valid=(d,n)=>n&&hardwarePhysical(n)&&d.ifs[n]&&!d.ifs[n].link;
     if(a===b||!valid(a,ai)||!valid(b,bi))throw Error('Choose two free physical ports on different devices');
-    link(m.net,e.a,ai,e.b,bi);
+    const rate=hardwareLinkRate(a,ai,b,bi);link(m.net,e.a,ai,e.b,bi);if(rate!==null){a.ifs[ai].negotiatedSpeed=rate;b.ifs[bi].negotiatedSpeed=rate;}
   }else if(e.op==='unlink'){
     const d=device(e.name),n=parseIf(e.port),i=d.ifs[n];if(!i?.link)throw Error('Cable no longer exists');
-    const peer=i.link;m.net.devs[peer.dev].ifs[peer.ifn].link=null;i.link=null;
+    const peer=i.link;m.net.devs[peer.dev].ifs[peer.ifn].link=null;delete m.net.devs[peer.dev].ifs[peer.ifn].negotiatedSpeed;i.link=null;delete i.negotiatedSpeed;
     m.net.links=m.net.links.filter(l=>!((l.a===e.name&&l.ai===n)||(l.b===e.name&&l.bi===n)));
   }else if(e.op==='remove'){
     const d=device(e.name);for(const i of Object.values(d.ifs))if(i.link)sandboxApply(m,{op:'unlink',name:e.name,port:i.name});
@@ -1308,26 +1466,28 @@ function sandboxEdit(event){
   cur.project.events.push(event);cur.lab.pos=cur.pos;if(!cur.sel||!cur.net.devs[cur.sel])cur.sel=Object.keys(cur.net.devs)[0]||null;
   fxToken++;cur.trace=null;$('trace').innerHTML='';renderAll();saveSandbox();return true;
 }
-function sandboxAdd(type){const prefix={router:'R',switch:'SW',pc:'PC',server:'SRV'}[type];let k=1;while(cur.net.devs[prefix+k])k++;
+function sandboxAdd(type,hardware){const prefix=hardware==='ex2300-24t'?'EX':hardware?'CAT':{router:'R',switch:'SW',pc:'PC',server:'SRV'}[type];let k=1;while(cur.net.devs[prefix+k])k++;
   const count=Object.keys(cur.net.devs).length;const x=75+(count%4)*145,y=55+Math.floor(count/4)*45;
-  if(sandboxEdit({op:'add',type,name:prefix+k,x,y})){select(prefix+k);renderSandbox();}
+  if(sandboxEdit({op:'add',type,...(hardware?{hardware}:{}),name:prefix+k,x,y})){select(prefix+k);renderSandbox();}
 }
-function sandboxPorts(n){const d=cur.net.devs[n];return d?Object.values(d.ifs).filter(i=>/^(FastEthernet|GigabitEthernet)\d+(\/\d+)*$/.test(i.name)&&!i.link).map(i=>i.name):[];}
+function sandboxPorts(n){const d=cur.net.devs[n];return d?Object.values(d.ifs).filter(i=>hardwarePhysical(i.name)&&!i.link).map(i=>i.name):[];}
 function renderSandbox(){
   const briefScroll=$('brief').scrollTop,workScroll=$('checkBody').scrollTop;
   const names=Object.keys(cur.net.devs),d=cur.net.devs[cur.sel];
   $('brief').innerHTML=`<div class="eyebrow">Free build <span>${names.length}/16 devices</span></div><h2>Network sandbox</h2><p>Build your own network. Add devices, cable their ports, then configure and test it. There is no task list or grade.</p><div class="lesson-tip"><b>01 / Build → 02 / Configure → 03 / Test</b><p>Drag devices to arrange the map. Router ports start shut down: assign an IP and use <code>no shutdown</code>. Switch ports start in VLAN 1. Hosts need an IP and a gateway for other subnets.</p></div><details><summary>Why traffic can fail</summary><p>Both request and reply need a route. VLANs must match across access ports and trunks. ACLs filter in order. Ping below shows the actual path and where forwarding stops.</p></details><div class="actions"><button class="small-btn" id="sbExport">Export project</button>${sandboxRecovery?'<button class="small-btn" id="sbRecover">Download previous save</button>':''}<label class="small-btn">Import project<input type="file" id="sbImport" accept=".json,application/json" hidden></label><button class="small-btn" id="sbUndo"${cur.project.events.length?'':' disabled'}>Undo</button><button class="small-btn" id="sbNew">New / starter</button></div><p class="sb-caption">Autosaved locally. Project files include topology and command history. Supports the lab engine's IPv4 features; this is not a full Packet Tracer emulator.</p>`;
   $('checkWin').querySelector('.panel-title b').textContent='Sandbox workbench';
   const opts=selected=>names.map(n=>`<option${n===selected?' selected':''}>${n}</option>`).join('');
-  $('checkBody').innerHTML=`<h3>Device palette</h3><div class="sb-palette">${['router','switch','pc','server'].map(t=>`<button class="small-btn" data-add="${t}">+ ${t==='pc'?'PC':t}</button>`).join('')}</div><h3>Cable builder</h3><p class="sb-caption">Choose a free physical port at each end.</p><div class="sb-end"><label>Device A<select id="sbA">${opts(names[0])}</select></label><label>Port A<select id="sbAP"></select></label></div><div class="sb-end"><label>Device B<select id="sbB">${opts(names[1]||names[0])}</select></label><label>Port B<select id="sbBP"></select></label></div><button class="btn" id="sbConnect"${names.length<2?' disabled':''}>Connect ports</button><div class="sb-cables">${cur.net.links.map((l,i)=>`<div><span>${l.a} ${shortIf(l.ai)} ↔ ${l.b} ${shortIf(l.bi)}</span><button class="small-btn" data-unlink="${i}" aria-label="Remove cable ${i+1}">×</button></div>`).join('')||'<p class="sb-caption">No cables yet.</p>'}</div><h3>Selected device ${d?'<span>'+esc(d.hostname)+'</span>':''}</h3>${d?`<p class="sb-caption">${d.type==='pc'?'Host configuration':'Use the console below for IOS configuration.'}</p>${d.type==='pc'?`<form id="sbHost"><label>IPv4 address<input name="address" placeholder="192.168.1.10" value="${nic(d).ip===null?'':n2ip(nic(d).ip)}" required></label><label>Subnet mask<input name="mask" value="${n2ip(lenMask(nic(d).len))}" required></label><label>Default gateway (optional)<input name="gateway" placeholder="192.168.1.1" value="${d.gw===null?'':n2ip(d.gw)}"></label><div class="actions"><button class="small-btn" type="submit">Apply host IP</button><button class="small-btn" id="sbDhcp" type="button">Request DHCP</button></div></form>`:''}<button class="small-btn" id="sbDelete">Remove ${cur.sel}</button>`:'<p>Add a device to open a console.</p>'}<h3>Connectivity probe</h3><form id="sbProbe"><label>From device<select name="source">${opts(cur.sel)}</select></label><label>Destination IPv4<input name="target" placeholder="192.168.1.1" value="${esc(cur.probeTarget||'')}" required></label><button class="btn primary"${names.length?'':' disabled'}>Send ping</button></form><div id="sbStatus" role="status"></div>`;
+  $('checkBody').innerHTML=`<h3>Device palette</h3><div class="sb-palette">${['router','switch','pc','server'].map(t=>`<button class="small-btn" data-add="${t}">+ ${t==='pc'?'PC':t}</button>`).join('')}</div><h3>Hardware catalog</h3><div class="hw-picker"><select id="sbHardware" aria-label="Hardware model">${Object.entries(HARDWARE).map(([id,h])=>`<option value="${id}">${h.vendor} ${h.model}</option>`).join('')}</select><button class="small-btn" id="sbAddHardware">Add model</button></div><h3>Cable builder</h3><p class="sb-caption">Choose a free physical port at each end.</p><div class="sb-end"><label>Device A<select id="sbA">${opts(names[0])}</select></label><label>Port A<select id="sbAP"></select></label></div><div class="sb-end"><label>Device B<select id="sbB">${opts(names[1]||names[0])}</select></label><label>Port B<select id="sbBP"></select></label></div><button class="btn" id="sbConnect"${names.length<2?' disabled':''}>Connect ports</button><div class="sb-cables">${cur.net.links.map((l,i)=>`<div><span>${l.a} ${shortIf(l.ai)} ↔ ${l.b} ${shortIf(l.bi)}</span><button class="small-btn" data-unlink="${i}" aria-label="Remove cable ${i+1}">×</button></div>`).join('')||'<p class="sb-caption">No cables yet.</p>'}</div><h3>Selected device ${d?'<span>'+esc(d.hostname)+'</span>':''}</h3>${d?`${hardwarePanel(d)}<p class="sb-caption">${d.type==='pc'?'Host configuration':d.os==='junos'?'Use the console below for Junos configuration.':'Use the console below for IOS configuration.'}</p>${d.type==='pc'?`<form id="sbHost"><label>IPv4 address<input name="address" placeholder="192.168.1.10" value="${nic(d).ip===null?'':n2ip(nic(d).ip)}" required></label><label>Subnet mask<input name="mask" value="${n2ip(lenMask(nic(d).len))}" required></label><label>Default gateway (optional)<input name="gateway" placeholder="192.168.1.1" value="${d.gw===null?'':n2ip(d.gw)}"></label><div class="actions"><button class="small-btn" type="submit">Apply host IP</button><button class="small-btn" id="sbDhcp" type="button">Request DHCP</button></div></form>`:''}<button class="small-btn" id="sbDelete">Remove ${cur.sel}</button>`:'<p>Add a device to open a console.</p>'}<h3>Connectivity probe</h3><form id="sbProbe"><label>From device<select name="source">${opts(cur.sel)}</select></label><label>Destination IPv4<input name="target" placeholder="192.168.1.1" value="${esc(cur.probeTarget||'')}" required></label><button class="btn primary"${names.length?'':' disabled'}>Send ping</button></form><div id="sbStatus" role="status"></div>${hardwareExerciseHtml()}`;
   const ports=(dev,port)=>{$(port).innerHTML=sandboxPorts($(dev).value).map(n=>`<option value="${n}">${shortIf(n)}</option>`).join('')||'<option value="">No free ports</option>';};
   ports('sbA','sbAP');ports('sbB','sbBP');$('sbA').onchange=()=>ports('sbA','sbAP');$('sbB').onchange=()=>ports('sbB','sbBP');
   $('checkBody').querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>sandboxAdd(b.dataset.add));
+  $('sbAddHardware').onclick=()=>sandboxAdd('switch',$('sbHardware').value);
   $('sbConnect').onclick=()=>sandboxEdit({op:'link',a:$('sbA').value,ai:$('sbAP').value,b:$('sbB').value,bi:$('sbBP').value});
   $('checkBody').querySelectorAll('[data-unlink]').forEach(b=>b.onclick=()=>{const l=cur.net.links[+b.dataset.unlink];sandboxEdit({op:'unlink',name:l.a,port:l.ai});});
+  $('checkBody').querySelectorAll('[data-hw-port]').forEach(b=>b.onclick=()=>{const n=b.dataset.hwPort;if(d.ifs[n].link){notify(n+' is connected to '+d.ifs[n].link.dev);return;}$('sbA').value=cur.sel;ports('sbA','sbAP');$('sbAP').value=n;$('sbA').scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});});
   if(d){$('sbDelete').onclick=()=>{const name=cur.sel;dialog('Remove '+name+'?',`<p>This removes the device, its configuration and attached cables.</p><button class="btn primary" id="sbConfirmDelete">Remove device</button>`);$('sbConfirmDelete').onclick=()=>{$('dialog').close();sandboxEdit({op:'remove',name});};};
     if(d.type==='pc'){$('sbHost').onsubmit=e=>{e.preventDefault();const f=e.target.elements,ip=f.address.value.trim(),mask=f.mask.value.trim(),gw=f.gateway.value.trim();if(!isIp(ip)||!isIp(mask)||maskLenN(ip2n(mask))===null||(gw&&!isIp(gw))){$('sbStatus').textContent='Enter valid IPv4 addresses and a contiguous subnet mask.';return;}if(cur.journal.length>4997||cur.project.events.length>9997){notify('Project history is full. Export before starting a new project.');return;}execute('ipconfig /release');execute('ipconfig /ip '+ip+' '+mask);if(gw)execute('ipconfig /dg '+gw);renderSandbox();};$('sbDhcp').onclick=()=>{execute('ipconfig /renew');renderSandbox();};}}
-  $('sbProbe').onsubmit=e=>{e.preventDefault();const f=e.target.elements,target=f.target.value.trim(),source=f.source.value;if(!isIp(target)){$('sbStatus').textContent='Enter a valid destination IPv4 address.';return;}cur.probeTarget=target;select(source);const s=cur.sess[source];if(!['user','priv','pc'].includes(s.mode))execute('end');execute('ping '+target);mobilePanel(true);};
+  $('sbProbe').onsubmit=e=>{e.preventDefault();const f=e.target.elements,target=f.target.value.trim(),source=f.source.value;if(!isIp(target)){$('sbStatus').textContent='Enter a valid destination IPv4 address.';return;}cur.probeTarget=target;select(source);const s=cur.sess[source];if(s.mode==='junos-config')execute('run ping '+target);else{if(!['user','priv','pc','junos-op'].includes(s.mode))execute('end');execute('ping '+target);}mobilePanel(true);};
   $('sbExport').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(cur.project,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='lab4net-sandbox.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
   if($('sbRecover'))$('sbRecover').onclick=()=>{
     let data=sandboxRecovery.raw;try{const old=JSON.parse(data);if(Array.isArray(old?.devs)&&Array.isArray(old.links)){const journal=drafts['Network sandbox']?.journal||drafts['Sandbox']?.journal||[];data=JSON.stringify({format:'lab4net-sandbox',version:1,def:old,journal},null,2);}}catch(e){}
@@ -1336,7 +1496,7 @@ function renderSandbox(){
   $('sbImport').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024)throw Error('Project exceeds 5 MB');const p=JSON.parse(await file.text());sandboxModel(p);openSandbox(p);notify('Sandbox imported.');}catch(err){$('sbStatus').textContent='Import failed: '+err.message;}};
   $('brief').scrollTop=briefScroll;$('checkBody').scrollTop=workScroll;
   $('sbUndo').onclick=()=>openSandbox({...cur.project,events:cur.project.events.slice(0,-1)});
-  $('sbNew').onclick=()=>{dialog('Start a sandbox project',`<p>Your current project will be replaced. Export it first if you want to keep it.</p><div class="actions"><button class="btn" id="sbBlank">Empty canvas</button><button class="btn primary" id="sbStarter">Working LAN starter</button></div><p>A starter contains one switch and two addressed PCs. Try breaking a cable, changing a VLAN, or adding a router.</p>`);$('sbBlank').onclick=()=>{$('dialog').close();openSandbox({format:'lab4net-sandbox',version:1,events:[]});};$('sbStarter').onclick=()=>{$('dialog').close();openSandbox(sandboxStarter());};};
+  $('sbNew').onclick=()=>{dialog('Start a sandbox project',`<p>Your current project will be replaced. Export it first if you want to keep it.</p><div class="actions"><button class="btn" id="sbBlank">Empty canvas</button><button class="btn primary" id="sbStarter">Working LAN starter</button><button class="btn" id="sbMixed">Cisco + Juniper VLAN exercise</button></div><p>The LAN starter has one switch and two addressed PCs. The vendor exercise links a Catalyst and an EX2300 between two PCs, with an optional command guide.</p>`);$('sbBlank').onclick=()=>{$('dialog').close();openSandbox({format:'lab4net-sandbox',version:1,events:[]});};$('sbStarter').onclick=()=>{$('dialog').close();openSandbox(sandboxStarter());};$('sbMixed').onclick=()=>{$('dialog').close();openSandbox(hardwareStarter());};};
 }
 function sandboxStarter(){return {format:'lab4net-sandbox',version:1,events:[
   {op:'add',type:'pc',name:'PC1',x:140,y:120},{op:'add',type:'switch',name:'SW1',x:300,y:120},{op:'add',type:'pc',name:'PC2',x:460,y:120},
@@ -1354,6 +1514,31 @@ $('sandbox').onclick=()=>openSandbox();
 })();
 
 if(resumeSandbox)openSandbox();
+function hardwarePanel(d){
+ const h=HARDWARE[d.hardware];if(!h)return '';
+ const ports=Object.values(d.ifs).filter(i=>hardwarePhysical(i.name));
+ return `<div class="hw-card"><span class="eyebrow">${h.vendor} / ${h.os==='junos'?'Junos ELS':'Cisco IOS'}</span><b>${h.model}</b><p>${h.summary}</p><details><summary>Front panel · ${ports.length} ports</summary><div class="hw-ports">${ports.map(i=>`<button class="hw-port ${i.shutdown?'disabled':ifUp(cur.net,d,i)?'live':'idle'}" data-hw-port="${i.name}" title="${i.name} · ${i.speed>=1000?i.speed/1000+'G':i.speed+'M'} · ${i.shutdown?'administratively down':i.link?'connected to '+i.link.dev:'free'}"><span>${i.name.replace('FastEthernet','Fa').replace('GigabitEthernet','Gi')}</span><small>${i.speed>=1000?i.speed/1000+'G':i.speed+'M'}</small></button>`).join('')}</div><p class="sb-caption">Green = link up · red = shutdown · dark = no link. Choose a free port to preselect it in the cable builder. Speeds are hardware metadata, not throughput simulation.</p></details><p class="sb-caption">${h.os==='junos'?'Implemented: VLANs, access/trunk ports, native VLAN, descriptions, shutdown, management IRB, candidate/commit/rollback and show/ping. Layer 3 routing, Junos firewall filters and Virtual Chassis are outside this subset.':'Implemented: the existing IOS learning commands on this port layout. Model-specific firmware, licensing, throughput, PoE and stacking are not emulated.'}</p><a href="${h.source}" target="_blank" rel="noopener noreferrer">Hardware reference ↗</a></div>`;
+}
+function hardwareExerciseHtml(){
+ if(cur.project.exercise!=='mixed-vendor-vlan')return '';
+ const steps=[
+  ['Move the Cisco host port into VLAN 10.','VLAN names can differ across vendors; the 802.1Q VLAN ID must match.','CAT1',['enable','configure terminal','vlan 10','name BLUE','interface f0/1','switchport mode access','switchport access vlan 10']],
+  ['Make the Cisco uplink a trunk carrying VLAN 10.','An access link carries only one untagged VLAN. A trunk carries tagged frames to the other switch.','CAT1',['interface g0/1','switchport mode trunk','switchport trunk allowed vlan 10','end','show interfaces trunk']],
+  ['Stage Juniper VLAN and access-port changes.','Junos edits change the candidate only. The active network still uses the last committed configuration.','EX1',['configure','set vlans BLUE vlan-id 10','set interfaces ge-0/0/0 unit 0 family ethernet-switching interface-mode access','set interfaces ge-0/0/0 unit 0 family ethernet-switching vlan members BLUE']],
+  ['Stage the Juniper uplink trunk.','Both ends must allow the same VLAN ID. This example uses tagged VLAN 10 and needs no native VLAN.','EX1',['set interfaces ge-0/0/23 unit 0 family ethernet-switching interface-mode trunk','set interfaces ge-0/0/23 unit 0 family ethernet-switching vlan members BLUE','show | compare','commit check']],
+  ['Commit, then verify the active VLAN.','Commit check validates without applying. Commit and-quit activates all valid changes together.','EX1',['commit and-quit','show vlans','show interfaces terse']],
+  ['Prove traffic crosses both switch models.','The request and reply should traverse PC1 → CAT1 → EX1 → PC2. VLAN 10 is shared by ID, not vendor.','PC1',['ping 192.168.10.20']]
+ ];
+ return '<details class="hw-exercise"><summary>Mixed-vendor VLAN exercise · optional guide</summary><p>The starter begins on the learning profile’s default VLAN 1. Move it into tagged VLAN 10. During the change, connectivity should fail until both switch configurations agree.</p>'+steps.map(([task,why,dev,cmds],k)=>`<div class="hw-task"><b>${k+1}. ${task}</b><details><summary>Why this step</summary>${why}</details><div class="steps"><div class="step-dev">On ${dev}</div>${cmds.map(cmd=>`<button class="step" data-dev="${dev}" data-cmd="${esc(cmd)}">${esc(cmd)}</button>`).join('')}</div></div>`).join('')+'</details>';
+}
+function hardwareStarter(){
+ return {format:'lab4net-sandbox',version:1,exercise:'mixed-vendor-vlan',events:[
+  {op:'add',type:'pc',name:'PC1',x:70,y:125},{op:'add',type:'switch',hardware:'c2960-24tt',name:'CAT1',x:220,y:125},{op:'add',type:'switch',hardware:'ex2300-24t',name:'EX1',x:375,y:125},{op:'add',type:'pc',name:'PC2',x:530,y:125},
+  {op:'link',a:'PC1',ai:'f0',b:'CAT1',bi:'f0/1'},{op:'link',a:'CAT1',ai:'g0/1',b:'EX1',bi:'ge-0/0/23'},{op:'link',a:'EX1',ai:'ge-0/0/0',b:'PC2',bi:'f0'},
+  {op:'command',device:'PC1',line:'ipconfig /ip 192.168.10.10 255.255.255.0'},{op:'command',device:'PC2',line:'ipconfig /ip 192.168.10.20 255.255.255.0'}
+ ]};
+}
+
 </script>
 </body>
 </html>

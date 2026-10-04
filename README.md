@@ -68,13 +68,26 @@ For Docker, run `git pull && docker compose up -d --build`.
 
 ## Verification
 
+### Sandbox hardware
+
+Open **Sandbox → Hardware catalog**, choose a model, then **Add model**. The Catalyst 2960-24TT-L has 24 Fast Ethernet copper ports and two Gigabit copper uplinks. The EX2300-24T has 24 Gigabit copper ports and four SFP+ uplinks modeled at fixed 10G. Expand **Front panel** to see port status; clicking a free port selects it in the cable builder. Incompatible model-port speeds are rejected. Speed labels describe hardware; this simulator does not model bandwidth or transceiver installation.
+
+The Catalyst uses the existing IOS learning commands. The EX2300 uses a focused Junos ELS command subset: `configure`, full `set`/`delete` statements for VLANs and access/trunk ports, native VLAN, descriptions, shutdown and management IRB. `show | compare` previews pending changes, `commit check` validates, and `commit` applies valid changes atomically. `rollback 0` discards pending edits; `rollback 1` loads the previous committed configuration into the candidate and requires a commit to activate. `run show ...` and `run ping ...` work from configuration mode. The command guide explains the supported commands.
+
+Choose **New / starter → Cisco + Juniper VLAN exercise** for a working two-switch topology and an optional, explained guide to moving its hosts into tagged VLAN 10. Click commands to put them in the appropriate console, then press Enter. Project export/import and local autosave retain model selection, configuration mode, candidate changes and commit history.
+
+These are educational hardware profiles, not firmware emulators. The Juniper profile starts with a simplified VLAN 1 learning configuration, accepts full statements rather than hierarchical `edit` navigation, and models IRB as management only. Junos routing, firewall filters, Virtual Chassis, authentication, dual-speed optic installation and hardware throughput are not implemented. Existing CCNA labs keep their generic IOS devices.
+
+Hardware and CLI references: [Cisco 2960 model table](https://www.cisco.com/c/dam/en_us/solutions/small-business/products/routers-switches/catalyst-2960-series-switches/C45-484155-03_2960_AAG_v1b.pdf), [Juniper EX2300 interface naming](https://www.juniper.net/documentation/us/en/hardware/ex2300/topics/topic-map/ex2300-configuring-junos-os.html), [Junos commits](https://www.juniper.net/documentation/us/en/software/junos/cli/topics/topic-map/junos-configuration-commit.html), [rollback](https://www.juniper.net/documentation/us/en/software/junos/cli-reference/topics/ref/command/rollback.html), and [ELS IRB configuration](https://www.juniper.net/documentation/us/en/software/junos/multicast-l2/topics/topic-map/irb-and-bridging.html).
+
 The lab test extracts only the code between the ENGINE markers, creates every lab, executes its per-device solution through `execLine`, and asserts every grading check passes. It also requires an explanation for each task and runs all task-by-task instruction commands to a passing grade. Node is only needed for development tests, not for nginx deployment.
 
     node tests/labs.cjs
     node tests/forwarding.cjs
     node tests/sandbox.cjs
+    node tests/hardware.cjs
 
-GitHub Actions runs all three dependency-free checks on pushes and pull requests.
+GitHub Actions runs all four dependency-free checks on pushes and pull requests.
 
 Optional browser integration tests use Playwright:
 
@@ -84,6 +97,7 @@ Optional browser integration tests use Playwright:
     node tests/matrix.cjs
     node tests/sandbox-ui.cjs
     node tests/sandbox-storage.cjs
+    node tests/hardware-ui.cjs
 
 Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge browser. The browser suite opens the local file, grades every lab, checks command/session restoration and backup import/export, and exercises the library, guide, practices, phone layout and reduced motion. The sandbox suite covers actual editor controls, cabling, configuration/position restoration, project transfer, packet paths and phone use. The Matrix suite additionally checks rain preferences, pop-out guidance, window dragging/resizing/restoration and common desktop resolutions. `LAB4NET_SCREENSHOTS` optionally specifies a directory for desktop and phone captures.
 

@@ -1,5 +1,17 @@
 # Lab4Net changes
 
+## Cisco and Juniper hardware profiles
+
+- Added a sandbox hardware catalog with Catalyst 2960-24TT-L and EX2300-24T switches. Real port counts/names make cabling practice model-specific. Expandable port panels show live/shutdown/free status and select free cable endpoints.
+- Added a focused Junos ELS interpreter with operational/configuration prompts, candidate edits, comparisons, validation, atomic commits, previous-commit rollback, explained command reference, show commands and simulated ping. An uncommitted indicator makes the candidate/active distinction visible. The existing IOS interpreter remains the Catalyst console.
+- Added VLAN, access/trunk, native VLAN, description, shutdown and management IRB support for the Juniper profile. Packet forwarding uses committed configuration. Model port speeds reject incompatible 10G/1G links; rates are metadata, not throughput simulation.
+- Added an optional Cisco + Juniper VLAN starter with separate task statements, why explanations and clickable commands. It teaches tagged VLAN interoperability and commit activation across a four-device path.
+- Existing project replay now restores hardware, candidate configuration and commit history, preserving the sandbox storage recovery behavior. Runtime remains one self-contained HTML file; deployment scripts need no changes.
+- Deliberate limits: educational profiles rather than firmware emulation, a simplified default VLAN 1 configuration, fixed 10G EX2300 uplink mode, full ELS statements rather than hierarchical edit navigation, management-only IRB, no Junos routing/firewall filters/Virtual Chassis/authentication or physical optic simulation. Original labs retain generic devices. Official model/CLI references are linked in README and the hardware cards.
+- Before and after hardware work: **15 labs / 85 grading checks pass**, and **284 step commands** reach passing grades. Forwarding and sandbox engine tests pass. New hardware tests cover port layouts, speed compatibility, command separation, candidate isolation, atomic failed commits, rollback, shutdown, management ping, actual mixed-vendor path and saved-project replay.
+- Local Edge browser tests pass for all lab grades, Matrix desktop controls, sandbox editor, storage recovery and new hardware UI. The new browser test completes the mixed-vendor exercise through actual guide/console controls, restores pending changes after reload, transfers projects and checks phone/reduced-motion use. No page errors. Desktop and phone captures were visually reviewed.
+- Could not test the private nginx container, physical hardware, physical phones, Safari/iOS or Docker deployment. No emulator-equivalence claim is made; CI execution is separate from the local passing checks.
+
 ## Sandbox save compatibility fix
 
 - Fixed sandbox opening when another branch wrote a different save format to the shared `lab4net-sandbox-v1` key. Matrix sandbox projects now use the distinct `lab4net-sandbox-events-v1` key. Supported earlier Matrix saves migrate intact; the original key is preserved.
