@@ -28,6 +28,8 @@ Choose **Sandbox** in the header or lab selector to build a network without grad
 
 The project autosaves separately from graded labs and resumes after reopening the app. **Export project / Import project** transfers topology and ordered command history; sandbox files are separate from **Transfer progress** lab backups. Export before choosing a new project. **Undo** reverses one edit or console command; applying a host IP generates two or three commands, so undo those individually if needed. Removing a device also removes its cables. Sandbox actions never earn or change lab grades.
 
+Matrix sandbox saves use `lab4net-sandbox-events-v1` to avoid clashes with other branches' sandbox formats. Supported older Matrix saves migrate automatically. An incompatible save is preserved and offered through **Download previous save**, while a fresh sandbox opens. The recovery file for main's format can be restored in that version. Lab progress is unaffected; clearing browser storage is unnecessary.
+
 Projects support up to 10,000 edits, 5,000 commands and 5 MB imports. Reopening replays actions in order, preserving configuration modes and DHCP acquisition before later cable changes. Local storage remains per browser/origin. This uses the same simplified IPv4 learning engine as the labs, rather than full Packet Tracer protocol/device coverage; IPv6 forwarding, wireless simulation and hardware/module customization are not included.
 
 ## Option A: plain LXC on Proxmox (simplest)
@@ -81,6 +83,7 @@ Optional browser integration tests use Playwright:
     node tests/ui.cjs
     node tests/matrix.cjs
     node tests/sandbox-ui.cjs
+    node tests/sandbox-storage.cjs
 
 Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge browser. The browser suite opens the local file, grades every lab, checks command/session restoration and backup import/export, and exercises the library, guide, practices, phone layout and reduced motion. The sandbox suite covers actual editor controls, cabling, configuration/position restoration, project transfer, packet paths and phone use. The Matrix suite additionally checks rain preferences, pop-out guidance, window dragging/resizing/restoration and common desktop resolutions. `LAB4NET_SCREENSHOTS` optionally specifies a directory for desktop and phone captures.
 

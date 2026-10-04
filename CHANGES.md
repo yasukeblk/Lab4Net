@@ -1,5 +1,11 @@
 # Lab4Net changes
 
+## Sandbox save compatibility fix
+
+- Fixed sandbox opening when another branch wrote a different save format to the shared `lab4net-sandbox-v1` key. Matrix sandbox projects now use the distinct `lab4net-sandbox-events-v1` key. Supported earlier Matrix saves migrate intact; the original key is preserved.
+- Unsupported older saves open a fresh workspace with a recovery notice and **Download previous save**. Main's topology format is retained with its saved command journal in the recovery download. Damaged current saves are archived before replacement; if archiving fails, autosave is blocked to preserve the original. Lab drafts and earned progress are not cleared. Explicit invalid imports still reject without replacing work.
+- Added `tests/sandbox-storage.cjs`: reproduces the main-format collision and checks opening, recovery download, lab-progress retention, reload, valid Matrix migration, corrupt-save archiving and non-destructive import rejection. Local Edge storage and full sandbox browser tests pass; lab tests remain **15 labs / 85 checks / 284 guide commands**, and forwarding/sandbox model tests pass. The private nginx container remains untested.
+
 ## Free-build network sandbox
 
 - Added **Sandbox** to the header and lab selector, retaining the Matrix theme. Build freely with up to 16 routers, switches, PCs or servers. Desktop windows have their own saved sandbox arrangement; graded-lab windows retain theirs.
