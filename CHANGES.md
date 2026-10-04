@@ -15,6 +15,9 @@ Changed:
 - Windows can be rearranged on desktop: drag any window by its title bar, resize from any edge or corner, and they snap to the screen margins and to each other (hold Alt to place freely). Dragging to the left or right screen edge snaps a window to that half; the top edge fills the screen. The arrangement is saved per browser, and "Reset layout" in the menu bar restores the default.
 - The step-by-step guide can be popped out into its own window ("Pop out guide" beside the switch) and docked again.
 - The mission is split into two windows: Mission (the brief and address plan) and Checklist (the guide switch, tasks, grading and walkthrough). Each can be moved and resized on its own.
+- Rewards: each lab run is timed and scored into a stage rank (S to D) from time, command count, rejected commands and help used, shown on a results card with XP earned. XP feeds eight levels shown in the header, there are twelve trophies, a combo counter for consecutive valid commands, a study-day streak, and rank badges in the lab library. Sound effects are generated in the browser and can be switched off.
+- Hovering a device on the map shows its interfaces, addresses and link state. The trace panel under the map is always present, so the map keeps its size.
+- "Transfer progress" and "Reset layout" moved to the status line under the menu bar, next to the new sound switch.
 - Fixed: commands with no output no longer add a blank line to the console.
 - Desktop is the primary target. The phone layout from ChatGPT's branch is kept and still passes its overflow checks.
 

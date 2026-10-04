@@ -218,7 +218,9 @@ td:last-child{font:400 18px/1.15 var(--mono);color:var(--ph)}
 .clear{font:italic 800 62px var(--px);letter-spacing:.03em;fill:url(#gY);text-anchor:middle;paint-order:stroke;stroke:var(--line);stroke-width:9px;stroke-linejoin:round;transform-box:fill-box;transform-origin:center;filter:drop-shadow(0 6px 0 rgba(0,0,0,.65)) drop-shadow(0 0 22px rgba(255,210,63,.75));animation:clearin 2.8s cubic-bezier(.2,1.5,.3,1) forwards}
 @keyframes clearin{0%{opacity:0;transform:translateX(-160px) skewX(-22deg) scale(.8)}10%{opacity:1;transform:translateX(0) skewX(-10deg) scale(1.1)}16%{transform:translateX(0) skewX(-10deg) scale(1)}82%{opacity:1;transform:translateX(0) skewX(-10deg) scale(1)}100%{opacity:0;transform:translateX(140px) skewX(-22deg) scale(1)}}
 #trace{border-top:3px solid var(--line);background:rgba(7,6,15,.55);padding:10px 14px;font-size:14px}
-#trace:empty{display:none}
+#trace{min-height:112px}
+#trace:empty::before{content:"Ping, telnet or ssh between devices and the path is traced here.";color:var(--muted)}
+#trace p:last-child:not(:first-of-type){display:none}
 .trace-title{display:flex;justify-content:space-between;align-items:center;gap:10px;font:italic 800 19px var(--px);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
 .trace-path{font:400 19px/1.2 var(--mono);color:var(--ph)}
 .trace-path b{font:italic 700 14px var(--px);letter-spacing:.06em;text-transform:uppercase;color:var(--cy);display:inline-block;min-width:70px}
@@ -318,6 +320,65 @@ body[data-cur="nwse-resize"] main,body[data-cur="nwse-resize"] main *{cursor:nws
 #checkWin .panel-title{flex:none;color:#2a0d00;text-shadow:0 1px 0 rgba(255,255,255,.45);background:repeating-linear-gradient(115deg,rgba(0,0,0,.13) 0 6px,transparent 6px 14px) right/130px 100% no-repeat,linear-gradient(100deg,#ffd9a0,var(--org) 45%,#ff5c39)}
 #checkBody{flex:1;min-height:0;overflow-y:auto;padding:2px 20px 18px}
 #checkBody .guide-row{margin-top:16px}
+
+/* rewards */
+#labs{flex:0 1 250px}
+#hud{display:flex;align-items:center;gap:9px;margin-left:auto;white-space:nowrap;font:italic 800 16px var(--px);letter-spacing:.04em;text-transform:uppercase}
+#hud b{background:var(--mag);color:#fff;padding:1px 9px;border-radius:5px;transform:skewX(-10deg);box-shadow:0 0 12px rgba(255,61,129,.5)}
+#hud .xpbar{width:120px;height:13px;border:2px solid var(--line);border-radius:3px;background:#0c0920;transform:skewX(-18deg);overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+#hud .xpbar i{display:block;height:100%;background:linear-gradient(#c9f9ff,var(--cy));box-shadow:0 0 10px var(--cy);transition:width .8s cubic-bezier(.2,1.2,.3,1)}
+#hud .streak{color:var(--org);text-shadow:0 0 10px rgba(255,138,31,.6)}
+#meter{margin-left:16px}
+.progressbar{width:110px}
+.wb-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:flex-end}
+.workspace-bar .small-btn{font:400 19px/1.1 var(--mono);letter-spacing:0;text-transform:none;color:#c9c3ee;background:none;border:0;border-radius:0;box-shadow:none;transform:none;padding:0;filter:none}
+.workspace-bar .small-btn:hover,.workspace-bar .small-btn:focus-visible{color:var(--yel);transform:none;text-decoration:underline}
+.workspace-bar .small-btn:active{transform:none}
+#clock{margin:0;padding:0;border:0;font:400 19px/1.1 var(--mono)}
+#combo{font:italic 800 19px var(--px);letter-spacing:.05em;color:var(--yel);text-shadow:0 2px 0 #000,0 0 12px rgba(255,210,63,.8);white-space:nowrap}
+#combo.pop{animation:combo .32s cubic-bezier(.2,2,.4,1)}
+#combo.break{color:#ffd0d6;animation:shake .4s ease-in-out}
+@keyframes combo{from{transform:scale(1.8) rotate(-7deg)}}
+#runHud{font:400 19px/1 var(--mono);text-transform:none;letter-spacing:0;font-style:normal;color:#2a0d00;text-shadow:none;white-space:nowrap}
+#toasts{position:fixed;top:92px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{display:grid;grid-template-columns:auto 1fr;gap:0 12px;align-items:center;min-width:270px;max-width:360px;padding:10px 14px;background:linear-gradient(var(--panel3),var(--panel));border:3px solid var(--line);border-radius:12px;box-shadow:0 0 0 2px var(--yel),0 0 26px rgba(255,210,63,.5),0 14px 26px rgba(0,0,0,.55);animation:toastin .45s cubic-bezier(.2,1.5,.4,1),toastout .4s ease-in 4.3s forwards}
+.toast i{grid-row:1/4;font-style:normal;font-size:34px;color:var(--yel);text-shadow:0 0 14px rgba(255,210,63,.8)}
+.toast small{font:italic 700 13px var(--px);letter-spacing:.08em;text-transform:uppercase;color:var(--yel)}
+.toast b{font:italic 800 20px/1.1 var(--px);letter-spacing:.03em;text-transform:uppercase}
+.toast span{font-size:13px;color:var(--muted)}
+@keyframes toastin{from{transform:translateX(120%) skewX(-12deg);opacity:0}}
+@keyframes toastout{to{transform:translateX(120%);opacity:0}}
+#resultCard{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9000;width:min(560px,calc(100vw - 32px));overflow:hidden;background:linear-gradient(var(--panel2),var(--panel));border:3px solid var(--line);border-radius:14px;box-shadow:var(--lift),0 0 0 2px var(--yel),0 0 60px rgba(255,210,63,.4);animation:pop .35s cubic-bezier(.2,1.5,.4,1)}
+#resultCard .panel-title{color:#221400;text-shadow:0 1px 0 rgba(255,255,255,.5);background:repeating-linear-gradient(115deg,rgba(0,0,0,.14) 0 6px,transparent 6px 14px) center/130px 100% no-repeat,linear-gradient(100deg,#fff3a0,var(--yel) 40%,var(--org))}
+#resultBody{padding:18px 22px 22px}
+.result{display:grid;grid-template-columns:170px 1fr;gap:22px;align-items:center}
+.stamp{font:italic 800 160px/1 var(--px);text-align:center;-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 0 #000) drop-shadow(0 0 24px rgba(255,210,63,.6));animation:stamp .5s cubic-bezier(.2,1.8,.4,1) .25s both}
+@keyframes stamp{from{transform:scale(3.2) rotate(-20deg);opacity:0}}
+.rS{background-image:linear-gradient(#fff3a0,var(--yel) 50%,var(--org))}
+.rA{background-image:linear-gradient(#d7ffe4,var(--go) 60%,#12a36a)}
+.rB{background-image:linear-gradient(#c9f9ff,var(--cy) 60%,#2a7bff)}
+.rC{background-image:linear-gradient(#e2d3ff,var(--vio))}
+.rD{background-image:linear-gradient(#e6e3f5,#8f89b5)}
+.rrows>div{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.09);animation:rise .3s ease-out both;animation-delay:calc(.5s + var(--i)*90ms)}
+.rrows span{color:var(--muted)}
+.rrows b{font:400 21px/1 var(--mono);color:var(--ph)}
+.rrows small{font:400 13px var(--ui);color:var(--muted)}
+.xpgain{font:italic 800 22px var(--px);letter-spacing:.04em;text-transform:uppercase;color:var(--cy)!important;margin:16px 0 4px!important;text-shadow:0 0 12px rgba(46,230,255,.5)}
+.lab-card{position:relative}
+.rankbadge{position:absolute;top:-12px;right:-9px;width:40px;height:40px;display:grid;place-items:center;font:italic 800 26px var(--px);color:#1a1200;border:3px solid var(--line);border-radius:10px;transform:rotate(8deg);box-shadow:0 4px 0 #120e2b,0 0 16px rgba(255,210,63,.5)}
+.trophy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.trophy{display:grid;grid-template-columns:auto 1fr;gap:0 10px;align-items:center;padding:9px 12px;background:linear-gradient(var(--panel3),#231c52);border:2px solid var(--line);border-radius:10px;box-shadow:0 0 0 1px var(--yel),0 0 14px rgba(255,210,63,.25)}
+.trophy i{grid-row:1/3;font-style:normal;font-size:28px;color:var(--yel)}
+.trophy b{font:italic 800 17px/1.1 var(--px);letter-spacing:.03em;text-transform:uppercase}
+.trophy span{font-size:12.5px;color:var(--muted)}
+.trophy.locked{opacity:.45;box-shadow:none;filter:grayscale(1)}
+#tip{position:fixed;z-index:9999;pointer-events:none;width:260px;padding:9px 12px;background:rgba(12,9,32,.96);border:2px solid var(--cy);border-radius:10px;box-shadow:0 0 18px rgba(46,230,255,.4),0 10px 20px rgba(0,0,0,.5)}
+#tip b{display:block;font:italic 800 18px/1.1 var(--px);letter-spacing:.04em;text-transform:uppercase}
+#tip span{font-size:12.5px;color:var(--muted)}
+#tip table{border:0;background:transparent;margin-top:6px;border-radius:0}
+#tip td{border:0;padding:1px 8px 1px 0;font:400 17px/1.15 var(--mono);color:var(--ph)}
+#tip td:first-child{color:#c9c3ee}
+#tip td.good{color:var(--go)} #tip td.bad{color:#ff8a98}
 /* boot */
 #boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--crt);color:var(--ph);cursor:pointer}
 #boot pre{font:400 28px/1.25 var(--mono);margin:0;min-width:340px;min-height:290px;text-shadow:0 0 9px rgba(255,184,74,.55)}
@@ -330,7 +391,8 @@ body[data-cur="nwse-resize"] main,body[data-cur="nwse-resize"] main *{cursor:nws
   body{height:auto}
   header{flex-wrap:wrap;padding:6px 10px;gap:6px}
   #labs{flex:1 1 100%;order:5;margin:0}
-  #clock{display:none}
+  #clock,#hud .xpbar{display:none}
+  .wb-right{gap:10px}
   .progressbar{width:90px}
   .workspace-bar{font-size:16px}
   main{grid-template-columns:1fr;padding:12px 12px 20px}
@@ -357,19 +419,19 @@ body[data-cur="nwse-resize"] main,body[data-cur="nwse-resize"] main *{cursor:nws
 <div id="boot" aria-hidden="true"><pre></pre></div>
 <header>
   <h1><svg viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path class="w" d="M7 5h2v3H7zM3 8h10v1H3zM3 9h1v2H3zM12 9h1v2h-1z"/><path class="w" d="M6 2h4v3H6zM2 11h3v3H2zM11 11h3v3h-3z"/><path class="l" d="M7 3h2v1H7z"/></svg>Lab4Net</h1>
-  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="transfer">Transfer progress</button><button class="small-btn" id="resetLayout">Reset layout</button></div>
+  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="trophies">Trophies</button></div>
   <select id="labs" aria-label="Choose a lab"></select>
+  <div id="hud" aria-label="Level and experience"></div>
   <div id="meter"></div>
-  <span id="clock" aria-hidden="true"></span>
 </header>
-<div class="workspace-bar"><span>C:\LAB4NET\<b id="workspaceTitle"></b>&gt;<i class="cur"></i></span><span id="saveStatus" role="status">Saved on this browser</span></div>
+<div class="workspace-bar"><span>C:\LAB4NET\<b id="workspaceTitle"></b>&gt;<i class="cur"></i></span><span class="wb-right"><button class="small-btn" id="transfer">Transfer progress</button><button class="small-btn" id="resetLayout">Reset layout</button><button class="small-btn" id="sound">Sound on</button><span id="saveStatus" role="status">Saved on this browser</span><span id="clock" aria-hidden="true"></span></span></div>
 <nav id="mobileNav" class="mobile-nav" aria-label="Workspace panels"><button class="small-btn" id="missionView" aria-pressed="true">Mission &amp; tasks</button><button class="small-btn" id="networkView" aria-pressed="false">Topology &amp; console</button></nav>
 <main>
-  <div id="side"><section id="brief" aria-label="Lab mission" tabindex="-1"></section><section id="checkWin" aria-label="Mission checklist"><div class="panel-title"><b>Checklist</b></div><div id="checkBody"></div></section></div>
+  <div id="side"><section id="brief" aria-label="Lab mission" tabindex="-1"></section><section id="checkWin" aria-label="Mission checklist"><div class="panel-title"><b>Checklist</b><span id="runHud"></span></div><div id="checkBody"></div></section></div>
   <section id="bench" aria-label="Network workspace">
     <div id="mapPanel"><div class="panel-title"><b>Network map</b><span class="legend"><span class="good">■</span> Link up &nbsp; <span class="bad">■</span> Link down &nbsp;·&nbsp; Click a device to open its console</span></div><div id="topo"></div><div id="trace" aria-live="polite"></div></div>
     <div id="console">
-      <div class="console-toolbar"><div><span id="mode" class="mode-pill"></span><span id="deviceInfo"></span></div><div><button id="reference" class="small-btn">Command guide</button><button id="clearConsole" class="small-btn">Clear</button></div></div>
+      <div class="console-toolbar"><div><span id="mode" class="mode-pill"></span><span id="deviceInfo"></span><span id="combo" aria-live="polite"></span></div><div><button id="reference" class="small-btn">Command guide</button><button id="clearConsole" class="small-btn">Clear</button></div></div>
       <div id="tabs" role="tablist" aria-label="Device consoles"></div>
       <div id="term" role="tabpanel" tabindex="0"><pre id="tout"></pre><div id="inrow"><span id="prompt"></span><input id="tin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Device console input" aria-describedby="hint"></div></div>
       <div id="hint"></div>
@@ -380,6 +442,8 @@ body[data-cur="nwse-resize"] main,body[data-cur="nwse-resize"] main *{cursor:nws
   <div id="snapPrev"></div><div id="snapV"></div><div id="snapH"></div>
 </main>
 <dialog id="dialog" aria-labelledby="dialogTitle"><div class="dialog-heading"><h2 id="dialogTitle"></h2><button class="small-btn" id="closeDialog" aria-label="Close dialog">Close ×</button></div><div id="dialogBody"></div></dialog>
+<div id="toasts" aria-live="polite"></div><div id="tip" hidden></div>
+<section id="resultCard" aria-label="Stage results" hidden><div class="panel-title"><b>Stage clear</b><button class="small-btn" id="resultClose">Close ×</button></div><div id="resultBody"></div></section>
 <div id="notice" role="status" onclick="this.textContent=''" title="Click to dismiss"></div>
 <script>
 //ENGINE-START
@@ -1337,7 +1401,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
 
 // ---------- movable, resizable, snapping windows (desktop) ----------
 (function(){
-  const main=document.querySelector('main'),IDS=['brief','checkWin','mapPanel','console','practice','guideWin'],KEY='lab4net-layout-v2',PAD=18,GAP=22,SNAP=12,EDGE=7,MINW=260,MINH=150;
+  const main=document.querySelector('main'),IDS=['brief','checkWin','mapPanel','console','practice','guideWin'],KEY='lab4net-layout-v3',PAD=18,GAP=22,SNAP=12,EDGE=7,MINW=260,MINH=150;
   const CUR={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize',move:'move'};
   let L={},z=5,act=null;try{L=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(L));}catch(e){}};
@@ -1401,6 +1465,118 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
   let seen=null;const sync=()=>{$('checkWin').hidden=cur.view!=='lab';if(cur!==seen){seen=cur;$('checkBody').scrollTop=0;}renderGuideWin();layoutApply();};
   const ra0=renderAll;renderAll=function(){ra0();sync();};
   sync();
+})();
+
+// ---------- rewards: stage ranks, XP and levels, combos, trophies, sound, device info ----------
+(function(){
+  const KEY='lab4net-fun-v1';let F={ranks:{},ach:{},days:[],runs:{},cleared:{},sound:true};
+  try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object')F=Object.assign(F,p);}catch(e){}
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(F));}catch(e){}};
+  const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+
+  // sound (generated, no audio files)
+  let ac=null;
+  function tone(freq,dur,type,when,vol){if(!F.sound)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const t=ac.currentTime+(when||0),o=ac.createOscillator(),g=ac.createGain();
+    o.type=type||'square';o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(vol||.05,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+dur+.02);}catch(e){}}
+  const SFX={key:()=>tone(880,.04,'square',0,.02),combo:n=>tone(440+Math.min(n,12)*60,.07,'square',0,.03),
+    err:()=>{tone(160,.18,'sawtooth',0,.05);tone(120,.22,'sawtooth',.08,.05);},ok:()=>{tone(660,.08);tone(990,.14,'square',.08);},fail:()=>{tone(300,.12,'triangle',0,.07);tone(200,.22,'triangle',.1,.07);},
+    clear:()=>[523,659,784,1047,1319].forEach((f,i)=>tone(f,.18,'square',i*.09,.06)),ach:()=>{tone(1047,.1,'triangle',0,.08);tone(1568,.28,'triangle',.1,.08);}};
+  const soundBtn=$('sound'),soundLabel=()=>{soundBtn.textContent='Sound '+(F.sound?'on':'off');};
+  soundBtn.onclick=()=>{F.sound=!F.sound;save();soundLabel();SFX.ok();};soundLabel();
+
+  // XP and levels (derived from what has been earned, so nothing is counted twice)
+  const TITLES=[[0,'Cable Runner'],[150,'Packet Pusher'],[400,'Switch Hand'],[800,'Route Finder'],[1300,'Subnet Slicer'],[1900,'ACL Enforcer'],[2600,'Core Engineer'],[3400,'CCNA Ready']];
+  const BONUS={S:100,A:60,B:30,C:10,D:0},ORDER='DCBAS';
+  function xp(){let x=0;for(const l of LABS)if(progress[l.title])x+=100+(BONUS[F.ranks[l.title]]||0);const d=progress.drill;if(d)x+=Math.min(100,d.r)*5;
+    x+=Object.values(progress.quiz||{}).filter(v=>v===true).length*20;return x+Object.keys(F.ach).length*50;}
+  function level(x){let i=0;while(i+1<TITLES.length&&x>=TITLES[i+1][0])i++;const lo=TITLES[i][0],hi=i+1<TITLES.length?TITLES[i+1][0]:lo;return {n:i+1,title:TITLES[i][1],pct:hi>lo?(x-lo)/(hi-lo)*100:100,next:hi>lo?hi-x:0};}
+  const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  function streak(){const set=new Set(F.days);let n=0;const d=new Date();if(!set.has(today()))d.setDate(d.getDate()-1);
+    for(;;){const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(!set.has(k))break;n++;d.setDate(d.getDate()-1);}return n;}
+  function markDay(){const t=today();if(F.days[F.days.length-1]!==t){F.days.push(t);F.days=F.days.slice(-90);save();}}
+  let lastLevel=null;
+  function renderHud(){const x=xp(),lv=level(x),st=streak();
+    $('hud').innerHTML=`<b>LV ${lv.n}</b><span>${lv.title}</span><div class="xpbar" title="${x} XP${lv.next?' · '+lv.next+' to the next level':''}"><i style="width:${lv.pct}%"></i></div>${st>1?`<span class="streak" title="Days studied in a row">${st}-day streak</span>`:''}`;
+    if(lastLevel!==null&&lv.n>lastLevel){toast('Level up','Level '+lv.n+': '+lv.title,'Keep going.','▲');SFX.clear();}lastLevel=lv.n;}
+
+  // trophies
+  const ACH=[['first','First Clear','Pass your first lab.'],['nohelp','No Hand-Holding','Pass a lab with the guide off and the walkthrough closed.'],['flawless','Flawless','Pass a lab without a single rejected command.'],['srank','S Rank','Earn an S on any lab.'],
+    ['combo10','Combo x10','Enter 10 valid commands in a row.'],['tracer','Tracer','Get your first successful ping.'],['bouncer','Bouncer','Watch an ACL drop a packet.'],['subnet','Subnet Sniper','Get 30 subnetting fields right.'],
+    ['theory','Theory Check','Answer every theory question correctly.'],['half','Halfway There','Pass half of the labs.'],['all','Full Clear','Pass every lab.'],['streak3','Three-Day Streak','Study three days in a row.']];
+  function toast(kicker,title,sub,icon){const t=document.createElement('div');t.className='toast';t.innerHTML=`<i>${icon||'★'}</i><small>${kicker}</small><b>${title}</b><span>${sub}</span>`;$('toasts').appendChild(t);setTimeout(()=>t.remove(),4800);}
+  const fresh=[];
+  function unlock(id){if(F.ach[id])return;F.ach[id]=Date.now();save();const a=ACH.find(a=>a[0]===id);fresh.push(a[1]);toast('Trophy unlocked',a[1],a[2]);SFX.ach();renderHud();}
+  function checkGlobal(){const passed=LABS.filter(l=>progress[l.title]).length;if(passed>=Math.ceil(LABS.length/2))unlock('half');if(passed===LABS.length)unlock('all');
+    if(progress.drill&&progress.drill.r>=30)unlock('subnet');if(typeof QUIZ!=='undefined'&&QUIZ.every((q,i)=>(progress.quiz||{})[i]===true))unlock('theory');if(streak()>=3)unlock('streak3');renderHud();}
+  $('trophies').onclick=()=>{const x=xp(),lv=level(x);
+    dialog('Trophy case',`<div class="result"><div class="stamp rS" style="font-size:96px;animation:none">${lv.n}</div><div><div class="eyebrow">Level ${lv.n}</div><h2 style="margin:0 0 6px">${lv.title}</h2><p>${x} XP${lv.next?' · '+lv.next+' XP to the next level':' · top level reached'}${streak()>1?' · '+streak()+'-day streak':''}</p></div></div>
+      <h3>Trophies ${Object.keys(F.ach).length}/${ACH.length}</h3><div class="trophy-grid">${ACH.map(a=>`<div class="trophy${F.ach[a[0]]?'':' locked'}"><i>${F.ach[a[0]]?'★':'☆'}</i><b>${a[1]}</b><span>${a[2]}</span></div>`).join('')}</div>
+      <h3>Stage ranks</h3><div class="table-wrap"><table><thead><tr><th>Lab</th><th>Status</th><th>Best rank</th></tr></thead><tbody>${LABS.map(l=>`<tr><td>${l.title}</td><td>${progress[l.title]?'Passed':'Not yet'}</td><td>${F.ranks[l.title]||'—'}</td></tr>`).join('')}</tbody></table></div>
+      <p style="margin-top:14px">Ranks come from a clean run: start a lab over, then finish it quickly, with few rejected commands, and without the guide or walkthrough.</p>`);};
+
+  // per-lab run: time, commands, mistakes, help used
+  let combo=0;
+  const run=()=>cur&&cur.lab?F.runs[cur.lab.title]:null;
+  function ensureRun(isFresh){const t=cur.lab.title;if(isFresh||!F.runs[t]||!cur.journal.length)F.runs[t]={sec:0,cmds:0,errs:0,help:false,walk:false,max:0,done:false,valid:!cur.journal.length};save();}
+  function renderRunHud(){if(cur.view!=='lab')return;const r=run(),t=cur.lab.title,el=$('runHud');if(!r)return;
+    el.textContent=!r.valid?(F.ranks[t]?'Best rank '+F.ranks[t]:'Start over to play for a rank'):r.done?'Cleared · rank '+(r.rank||F.ranks[t]||'—'):`${mmss(r.sec)} · ${r.cmds} cmds · ${r.errs} rejected`;}
+  function renderCombo(broke){const el=$('combo');el.className='';void el.offsetWidth;if(broke){el.textContent='Combo break';el.className='break';setTimeout(()=>{if(el.className==='break')el.textContent='';},700);return;}
+    el.textContent=combo>=3?'Combo ×'+combo:'';if(combo>=3)el.className='pop';}
+  setInterval(()=>{if(!cur||cur.view!=='lab'||document.visibilityState!=='visible')return;const r=run();if(!r||r.done||!r.valid||!r.cmds)return;
+    r.sec++;r.help=r.help||guideOn||guidePop;r.walk=r.walk||!!cur.showSol;if(r.sec%5===0)save();renderRunHud();},1000);
+  const closeResult=()=>{$('resultCard').hidden=true;};
+  const ol0=openLab;openLab=function(idx,isFresh){closeResult();ol0(idx,isFresh);combo=0;ensureRun(!!isFresh);renderCombo();renderRunHud();};
+  const ex0=execute;execute=function(line){if(!cur||cur.view!=='lab'||!line.trim())return ex0(line);
+    const s=cur.sess[cur.sel],n0=s.lines.length;ex0(line);const r=run();if(!r)return;
+    const bad=s.lines.slice(n0+1).some(l=>/^% (Invalid|Incomplete|Ambiguous|Unrecognized|Bad|Please)|^%Inconsistent|^Command rejected|^Bad mask/.test(l));
+    markDay();if(!r.done&&r.valid){r.cmds++;if(bad)r.errs++;r.help=r.help||guideOn||guidePop;}
+    if(bad){const had=combo>=3;combo=0;SFX.err();renderCombo(had);}
+    else{combo++;if(r.valid&&combo>r.max)r.max=combo;if(combo>=3)SFX.combo(combo);else SFX.key();if(combo>=10)unlock('combo10');renderCombo();}
+    if(TRACE){if(TRACE.ok){SFX.ok();unlock('tracer');}else{SFX.fail();if(TRACE.f.blocked||(TRACE.r&&TRACE.r.blocked))unlock('bouncer');}}
+    save();renderRunHud();};
+  const cel0=celebrate;celebrate=function(){cel0();SFX.clear();const lab=cur.lab,t=lab.title,r=run(),before=xp()-(F.cleared[t]?0:100),snap=cur;F.cleared[t]=true;fresh.length=0;unlock('first');
+    if(r&&r.valid&&!r.done&&r.cmds>0){r.done=true;r.help=r.help||guideOn||guidePop;r.walk=r.walk||!!cur.showSol;
+      const par=Object.values(lab.solution).reduce((a,c)=>a+c.length,0),parSec=par*12;
+      const score=100-Math.min(30,r.errs*6)-Math.min(20,Math.max(0,r.cmds-Math.ceil(par*1.3)))-Math.min(20,Math.floor(Math.max(0,r.sec-parSec)/20))-(r.help?15:0)-(r.walk?25:0);
+      const rank=score>=95?'S':score>=85?'A':score>=70?'B':score>=55?'C':'D',prev=F.ranks[t];r.rank=rank;
+      if(!prev||ORDER.indexOf(rank)>ORDER.indexOf(prev))F.ranks[t]=rank;
+      if(!r.help&&!r.walk)unlock('nohelp');if(r.errs===0)unlock('flawless');if(rank==='S')unlock('srank');
+      save();checkGlobal();const gain=xp()-before,got=fresh.slice();
+      setTimeout(()=>{if(cur!==snap||cur.view!=='lab')return;
+        $('resultBody').innerHTML=`<div class="result"><div class="stamp r${rank}">${rank}</div><div class="rrows">
+          <div style="--i:0"><span>Time</span><b>${mmss(r.sec)} <small>par ${mmss(parSec)}</small></b></div>
+          <div style="--i:1"><span>Commands</span><b>${r.cmds} <small>par ${par}</small></b></div>
+          <div style="--i:2"><span>Rejected commands</span><b>${r.errs}</b></div>
+          <div style="--i:3"><span>Best combo</span><b>×${r.max}</b></div>
+          <div style="--i:4"><span>Help used</span><b>${r.walk?'Walkthrough':r.help?'Guide':'None'}</b></div></div></div>
+          <p class="xpgain">${gain>0?'+'+gain+' XP':'No new XP · beat your best rank to earn more'}${prev&&prev!==F.ranks[t]?` · best rank ${prev} → ${F.ranks[t]}`:prev?` · best rank ${F.ranks[t]}`:''}</p>
+          ${got.length?`<p>Trophies unlocked: <b>${got.join(', ')}</b></p>`:''}
+          <div class="actions"><button class="btn primary" id="rNext">Next lab</button><button class="btn" id="rRetry">Retry for a better rank</button></div>`;
+        $('resultCard').hidden=false;$('rNext').onclick=()=>{closeResult();const n=$('nextLab');if(n)n.click();};$('rRetry').onclick=()=>{closeResult();openLab(snap.idx,true);};},1500);
+    }else{save();checkGlobal();}
+    renderRunHud();};
+  $('resultClose').onclick=closeResult;
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeResult();});
+  document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#dCheck,[data-answer]')){markDay();setTimeout(checkGlobal,60);}});
+
+  // rank badges in the lab library
+  const lib0=library;library=function(){lib0();const deco=()=>$('dialogBody').querySelectorAll('.lab-card[data-lab]').forEach(c=>{const rk=F.ranks[LABS[+c.dataset.lab].title];if(rk&&!c.querySelector('.rankbadge'))c.insertAdjacentHTML('afterbegin',`<i class="rankbadge r${rk}">${rk}</i>`);});
+    deco();const q=$('labSearch');if(q)q.addEventListener('input',()=>setTimeout(deco,0));};
+  $('library').onclick=library;
+
+  // device details on hover
+  const tip=$('tip');let tipDev=null;
+  $('topo').addEventListener('pointermove',e=>{const g=e.target.closest&&e.target.closest('[data-dev]');if(!g||document.body.dataset.cur||cur.view!=='lab'){tip.hidden=true;tipDev=null;return;}
+    const d=cur.net.devs[g.dataset.dev];if(!d)return;
+    if(tipDev!==g.dataset.dev||tip.hidden){tipDev=g.dataset.dev;
+      const rows=Object.values(d.ifs).filter(i=>i.link||i.ip!==null).slice(0,9).map(i=>{const up=ifUp(cur.net,d,i);return `<tr><td>${shortIf(i.name)}</td><td>${i.ip!==null?n2ip(i.ip)+'/'+i.len:'no address'}</td><td class="${up?'good':'bad'}">${up?'up':'down'}</td></tr>`;}).join('');
+      tip.innerHTML=`<b>${esc(d.hostname)}</b><span>${d.type==='pc'?(d.services?'Server':'Host'):d.type==='router'?'Router':'Switch'}${d.type!=='router'&&d.gw!=null?' · gateway '+n2ip(d.gw):''}</span><table>${rows}</table>`;tip.hidden=false;}
+    tip.style.left=Math.min(innerWidth-280,e.clientX+16)+'px';tip.style.top=Math.min(innerHeight-tip.offsetHeight-10,e.clientY+20)+'px';});
+  $('topo').addEventListener('pointerleave',()=>{tip.hidden=true;tipDev=null;});
+  $('topo').addEventListener('pointerdown',()=>{tip.hidden=true;tipDev=null;});
+
+  for(const l of LABS)if(progress[l.title])F.cleared[l.title]=true;
+  ensureRun(false);renderHud();renderRunHud();checkGlobal();
 })();
 
 </script>
