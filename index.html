@@ -3,8 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>CCNA Lab Bench</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<title>Lab4Net · CCNA Lab Bench</title>
 <style>
 :root{
   --bg:#060a13; --panel:rgba(13,21,37,.82); --line:#1d2b47; --ink:#dce8ff; --muted:#8496ba;
@@ -153,26 +152,70 @@ summary{cursor:pointer;color:var(--am);font:600 13px var(--hud);width:max-conten
   #console{height:400px;flex:none}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important}}
+/* Lab4Net learning workspace. All assets remain local and dependency-free. */
+:root{--bg:#080e19;--panel:#101a2b;--line:#25344b;--ink:#e9eef8;--muted:#a0afc6;--cy:#63deee;--vi:#b4a5ff;--up:#79e4b1;--down:#ff93a6;--am:#f1cf8a;--term:#080d16;--ui:system-ui,-apple-system,"Segoe UI",sans-serif;--hud:var(--ui);--mono:ui-monospace,"Cascadia Code",Consolas,monospace}
+body{background:radial-gradient(ellipse at 80% 0,rgba(92,82,180,.1),transparent 55%),var(--bg);font-size:14px}
+[hidden]{display:none!important}
+header{gap:16px;padding:15px 24px;background:#0c1422;backdrop-filter:none;flex-wrap:wrap}
+header::after{background:linear-gradient(90deg,var(--cy),var(--vi),transparent);opacity:.35}
+h1{font-size:21px;letter-spacing:-.04em;gap:9px}h1 .p{animation:none}h1 svg{width:28px;height:28px}
+.brand-sub{font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-top:6px}
+#labs{flex:1 1 200px;max-width:300px;border-radius:8px;padding:9px 12px;font-size:13px;background:#152035}
+.header-actions{display:flex;gap:8px}.small-btn{border:1px solid var(--line);background:#152035;border-radius:7px;padding:7px 11px;color:var(--ink);font-size:12px;min-height:36px}.small-btn:hover{border-color:var(--cy)}
+#meter{gap:10px;min-width:150px;flex-direction:column;align-items:flex-end}#meter span{margin:0;font-size:11px;font-weight:500;color:var(--muted)}
+.progressbar{height:4px;width:140px;border-radius:4px;background:var(--line);overflow:hidden}.progressbar span{display:block;height:100%;background:var(--up)}
+.workspace-bar{display:flex;align-items:center;justify-content:space-between;padding:11px 24px;border-bottom:1px solid #172339;color:var(--muted);font-size:11px;gap:12px}.workspace-bar b{color:var(--ink);font-weight:500}.workspace-bar span:first-child{letter-spacing:.04em}.workspace-bar #saveStatus{color:var(--up)}
+main{grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:18px;padding:18px 24px 24px;max-width:1800px;width:100%;margin:auto}
+#brief{border-radius:12px;padding:24px;background:linear-gradient(150deg,#142037,#101a2b);backdrop-filter:none;scrollbar-gutter:stable}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--cy);display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}
+.eyebrow span{color:var(--muted)}#brief h2{font-size:26px;line-height:1.2;letter-spacing:-.04em;background:none;color:var(--ink);margin-bottom:12px}
+#brief p{line-height:1.65;font-size:13px}#brief h3{font-size:11px;text-transform:uppercase;letter-spacing:.09em;margin-top:24px;justify-content:space-between}#brief h3::after{display:none}
+.lesson-tip{font-size:12px;line-height:1.7;padding:12px 14px;background:#15283a;border:1px solid #2c4659;border-radius:8px;color:#bbcedf;margin:16px 0}.lesson-tip b{color:var(--cy);font-weight:600}.lesson-tip p{margin:6px 0 0!important}
+details{color:#d2c5a9;border-left:0;padding-left:0;font-size:12px;line-height:1.65}summary{font-size:11px;padding:6px 0;min-height:32px;max-width:100%;width:auto}.addressing{margin:18px 0}.addressing summary{color:var(--ink);font-weight:600;font-size:12px}.table-wrap{overflow-x:auto}table{font-size:11px}th{font-size:10px}td{padding:6px 6px 6px 0}td:last-child{font-size:10px}
+#brief ol>li{padding:0;display:flex;gap:10px;margin:0;padding:13px 0;border-bottom:1px solid #25344b}#brief ol>li::before{display:none}.tasks>li>div{flex:1;min-width:0;font-size:13px;line-height:1.6}.task-check{position:relative;display:flex;align-items:flex-start;cursor:pointer;flex:0 0 32px;min-height:32px}.task-check input{position:absolute;opacity:0;width:32px;height:32px;margin:0}.task-check span{display:grid;place-items:center;width:30px;height:30px;border-radius:7px;background:#192b40;border:1px solid #334960;font:600 10px var(--mono);color:var(--cy)}.task-check input:focus-visible+span{outline:2px solid var(--cy);outline-offset:3px}.task-check input:checked+span{background:#183e37;color:var(--up);border-color:var(--up)}.checked>div{color:#b1c4cf}
+.btn{clip-path:none;border-radius:8px;font-size:12px;letter-spacing:0;padding:10px 13px;min-height:40px;transition:background .15s}.btn.primary{background:var(--cy);color:#061923}.btn:disabled{opacity:.45;cursor:default}.actions{gap:8px}.sol code{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;border-radius:4px}.sol span{font-size:12px}.sol{margin-bottom:12px}
+#bench{gap:14px}.panel-title{display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--line)}.panel-title b{font-size:11px;color:var(--ink);font-weight:600}.legend{font-size:10px;letter-spacing:0;text-transform:none}.legend .good{color:var(--up)}.legend .bad{color:var(--down)}
+#mapPanel{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0c1728}#topo{border:0;border-radius:0;animation:none;background:radial-gradient(ellipse at center,rgba(68,120,167,.05),transparent 70%),radial-gradient(#26374a 1px,transparent 1px);background-size:auto,18px 18px}#topo svg{max-height:31vh;min-height:180px}.hud::before,.hud::after{display:none}
+.wire.flow{animation:none;opacity:.35;stroke-dasharray:none;filter:none}.wire.base{stroke:#496378;stroke-width:2}.dev.sel .body{fill:#174158;filter:drop-shadow(0 0 4px rgba(99,222,238,.35))}.selring{animation:none;stroke-dasharray:none;opacity:.6;stroke-width:1}.dev .body{fill:#17273e}.dev text{font-size:11px}.led.on{filter:none}.port{font-size:8px}
+#trace:empty{display:none}#trace{padding:12px 16px;border-top:1px solid var(--line);font-size:12px;background:#0d1928}.trace-title{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;font-weight:600}.trace-title .small-btn{font-weight:400;flex:none}.trace-path{margin-top:6px;color:var(--muted);font-family:var(--mono);font-size:11px;overflow-wrap:anywhere}.trace-path b{font-family:var(--ui);margin-right:6px;color:var(--ink)}#trace p{margin:8px 0 0;font-size:11px;color:var(--muted)}.good{color:var(--up)}.bad{color:var(--down)}
+#console{border-radius:12px;min-height:280px}.console-toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#101a2b;border-bottom:1px solid var(--line);gap:12px;font-size:11px}.console-toolbar>div{display:flex;gap:6px;align-items:center}.mode-pill{padding:4px 8px;border-radius:5px;background:#25243e;color:#d0c5ff;font-size:10px}.device-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cy);margin-right:7px}.device-dot.switch{background:var(--vi)}.device-dot.pc{background:#b8c6d8}#tabs{padding:0 10px;background:#101a2b;gap:8px}.tab{padding:12px 9px;min-height:44px;font-size:12px}#term{font-size:12px;line-height:1.65;padding:15px 18px;scrollbar-gutter:stable}#inrow{padding:7px 0;gap:8px}#tin{min-height:24px}#hint{font-size:11px;line-height:1.6;padding:10px 16px;min-height:39px}#hint.why{color:var(--am)}
+#practice{border:1px solid var(--line);border-radius:12px;padding:32px;overflow-y:auto;background:#101a2b}.big{font-size:clamp(20px,3vw,36px);text-shadow:none;margin:28px 0}.drill{max-width:560px}.drill label{grid-template-columns:150px minmax(0,1fr) 20px;margin-bottom:12px}.drill input{min-height:40px;border-radius:7px}.drill p{font-size:12px}.quiz-options{display:grid;gap:12px;margin:24px 0}.quiz-option{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--line);background:#152237;border-radius:9px;padding:16px;font-size:14px;min-height:56px}.quiz-option span{color:var(--muted);font:12px var(--mono)}.quiz-option:hover:not(:disabled){border-color:var(--cy)}.quiz-option.correct{border-color:var(--up);background:#15332c}.quiz-option.incorrect{border-color:var(--down);background:#35212f}.quiz-option:disabled{cursor:default}
+dialog{color:var(--ink);background:#101a2b;border:1px solid #35465f;border-radius:16px;width:min(860px,calc(100vw - 28px));max-height:88dvh;padding:0;box-shadow:0 30px 100px #0009}dialog::backdrop{background:#030812cc;backdrop-filter:blur(6px)}.dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#101a2b;z-index:1}.dialog-heading h2{font-size:20px;letter-spacing:-.03em;margin:0}#dialogBody{padding:20px 24px}#dialogBody>p{color:var(--muted);font-size:13px;line-height:1.7;margin-top:0}#dialogBody h3{font-size:11px;color:var(--cy);text-transform:uppercase;letter-spacing:.1em;margin-top:24px}.search{width:100%;border:1px solid #3c4e66;border-radius:8px;background:#0a1322;color:var(--ink);padding:12px 14px;font:13px var(--ui);min-height:44px}.search::placeholder{color:var(--muted)}.lab-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.lab-card{display:flex;flex-direction:column;text-align:left;border:1px solid var(--line);border-radius:10px;padding:18px;background:#152237;gap:9px}.lab-card:hover{border-color:var(--cy);background:#1a2c40}.lab-card .eyebrow{width:100%;margin:0;font-size:9px}.lab-card b{font-size:16px;font-weight:600}.lab-card>span:not(.eyebrow){font-size:12px;color:var(--muted);line-height:1.6}.lab-card small{color:var(--cy);font-size:10px}.practice-buttons{display:flex;gap:12px;margin-top:24px}.reference-tools{display:flex;align-items:center;gap:12px}.reference-tools label{white-space:nowrap;font-size:12px}#cmdList{display:grid;gap:8px;margin-top:18px}.command-card{text-align:left;background:#142137;border:1px solid var(--line);border-radius:7px;padding:12px;display:grid;gap:6px}.command-card:hover{border-color:var(--cy)}.command-card code{background:none;padding:0;overflow-wrap:anywhere}.command-card small{color:var(--vi);font-size:10px}.command-card span{font-size:12px;color:var(--muted)}.help-steps p{line-height:1.8;font-size:13px;color:var(--muted)}.help-steps b{color:var(--ink)}kbd{background:#223048;border:1px solid #40516b;border-radius:4px;padding:2px 5px;font:11px var(--mono)}.paste-preview{white-space:pre-wrap;max-height:40vh;overflow:auto;background:var(--term);padding:16px;border-radius:8px;font-size:12px}.skip{position:absolute;left:16px;top:-100px;z-index:10;background:var(--cy);color:#08101b;padding:10px}.skip:focus{top:10px}
+#notice{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#213b4e;border:1px solid var(--cy);border-radius:8px;padding:9px 16px;max-width:90vw;font-size:12px;z-index:5}#notice:empty{display:none}
+.mobile-nav{display:none}
+@media(min-width:861px){main{height:calc(100dvh - 121px);min-height:550px}body{height:100dvh;overflow:auto}}
+@media(max-width:1100px){header{padding:12px 16px;gap:10px}.header-actions{gap:5px}#meter{min-width:100px}.progressbar{width:100px}main{padding:14px;gap:14px;grid-template-columns:310px minmax(0,1fr)}#brief{padding:18px}#deviceInfo{display:none}}
+@media(max-width:860px){body{height:auto}header{padding:14px;gap:12px}#labs{order:3;max-width:none;flex-basis:100%}.header-actions{order:4;width:100%;justify-content:space-between}.header-actions .small-btn{flex:1}#meter{margin-left:auto}.workspace-bar{padding:10px 14px;font-size:10px}main{grid-template-columns:minmax(0,1fr);padding:12px;gap:12px}#brief{overflow:visible}#bench{min-height:600px}#console{height:390px}#topo svg{min-height:160px;max-height:none}#practice{padding:20px}.lab-grid{grid-template-columns:1fr}.dialog-heading{padding:16px}#dialogBody{padding:16px}.drill label{grid-template-columns:120px minmax(0,1fr) 18px;font-size:12px}.drill input{font-size:12px}.panel-title{padding:12px;font-size:9px}.legend{font-size:9px}.console-toolbar{padding:8px}.mode-pill{font-size:9px}.console-toolbar .small-btn{padding:6px 8px;font-size:10px}#term{padding:12px;font-size:11px}#brief h2{font-size:25px}.reference-tools{flex-wrap:wrap}.practice-buttons{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.fxlabel{opacity:1}.burst,.trail{display:none}}
+@media(max-width:860px){.mobile-nav{display:flex;position:sticky;top:0;z-index:3;gap:8px;padding:8px 12px;background:#0c1422;border-bottom:1px solid var(--line)}.mobile-nav button{flex:1;min-height:44px}.mobile-nav button[aria-pressed="true"]{background:#204359;border-color:var(--cy);color:var(--cy)}body.mobile-network #brief{display:none}body:not(.mobile-network) #bench{display:none}body.mobile-network #bench{min-height:0}}
+
 </style>
 </head>
 <body>
+<a class="skip" href="#brief">Skip to mission</a>
 <header>
-  <h1><svg viewBox="0 0 26 26" aria-hidden="true"><path class="l" fill="none" d="M5 20L13 6L21 20Z"/><circle class="n" cx="5" cy="20" r="2.6"/><circle class="n" cx="21" cy="20" r="2.6"/><circle class="p" cx="13" cy="6" r="2.8"/></svg>CCNA Lab Bench</h1>
+  <div><h1><svg viewBox="0 0 26 26" aria-hidden="true"><path class="l" fill="none" d="M5 20L13 6L21 20Z"/><circle class="n" cx="5" cy="20" r="2.6"/><circle class="n" cx="21" cy="20" r="2.6"/><circle class="p" cx="13" cy="6" r="2.8"/></svg>Lab4Net</h1><div class="brand-sub">CCNA Lab Bench</div></div>
   <select id="labs" aria-label="Choose a lab"></select>
-  <div id="meter" aria-label="Lab progress"></div>
+  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="transfer">Transfer progress</button></div>
+  <div id="meter"></div>
 </header>
+<div class="workspace-bar"><span>LEARNING WORKSPACE / <b id="workspaceTitle"></b></span><span id="saveStatus" role="status">Saved on this browser</span></div>
+<nav id="mobileNav" class="mobile-nav" aria-label="Workspace panels"><button class="small-btn" id="missionView" aria-pressed="true">Mission &amp; tasks</button><button class="small-btn" id="networkView" aria-pressed="false">Topology &amp; console</button></nav>
 <main>
-  <section id="brief"></section>
-  <section id="bench">
-    <div id="topo" class="hud"></div>
-    <div id="console" class="hud">
-      <div class="scan"></div>
-      <div id="tabs" role="tablist"></div>
-      <div id="term"><pre id="tout"></pre><div id="inrow"><span id="prompt"></span><input id="tin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Device console input"></div></div>
+  <section id="brief" aria-label="Lab mission" tabindex="-1"></section>
+  <section id="bench" aria-label="Network workspace">
+    <div id="mapPanel"><div class="panel-title"><b>Live topology</b><span class="legend"><span class="good">●</span> Link up &nbsp; <span class="bad">●</span> Link down · Select a device</span></div><div id="topo"></div><div id="trace" aria-live="polite"></div></div>
+    <div id="console">
+      <div class="console-toolbar"><div><span id="mode" class="mode-pill"></span><span id="deviceInfo"></span></div><div><button id="reference" class="small-btn">Command guide</button><button id="clearConsole" class="small-btn">Clear</button></div></div>
+      <div id="tabs" role="tablist" aria-label="Device consoles"></div>
+      <div id="term" role="tabpanel" tabindex="0"><pre id="tout"></pre><div id="inrow"><span id="prompt"></span><input id="tin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Device console input" aria-describedby="hint"></div></div>
       <div id="hint"></div>
     </div>
   </section>
+  <section id="practice" aria-label="Practice workspace" hidden></section>
 </main>
+<dialog id="dialog" aria-labelledby="dialogTitle"><div class="dialog-heading"><h2 id="dialogTitle"></h2><button class="small-btn" id="closeDialog" aria-label="Close dialog">Close ×</button></div><div id="dialogBody"></div></dialog>
+<div id="notice" role="status" onclick="this.textContent=''" title="Click to dismiss"></div>
 <script>
 //ENGINE-START
 const ip2n=s=>{const p=String(s).split('.');if(p.length!==4)return null;let n=0;for(const x of p){if(!/^\d+$/.test(x)||+x>255)return null;n=n*256+ +x;}return n;};
@@ -210,30 +253,31 @@ function ifUp(net,d,i){
 function l2peers(net,d,i){
   const out=[];if(i.name.startsWith('Loopback')||!ifUp(net,d,i))return out;
   const seen=new Set();
-  function flood(sw,vlan,inPort){
+  function flood(sw,vlan,inPort,path){
     const k=sw.name+'|'+vlan;if(seen.has(k))return;seen.add(k);
     if(!sw.vlans[vlan])return;
-    const svi=sw.ifs['Vlan'+vlan];if(svi&&svi!==i&&!svi.shutdown&&svi.ip!==null)out.push({dev:sw,ifc:svi});
+    const svi=sw.ifs['Vlan'+vlan];if(svi&&svi!==i&&!svi.shutdown&&svi.ip!==null)out.push({dev:sw,ifc:svi,path});
     for(const p of Object.values(sw.ifs)){
       if(p===inPort||!p.link||p.name.startsWith('Vlan')||!ifUp(net,sw,p))continue;
       let tag=null;
       if(p.mode==='trunk'){if(!allowed(p,vlan))continue;tag=vlan===p.native?null:vlan;}
       else if(p.accessVlan!==vlan)continue;
-      deliver(net.devs[p.link.dev],p.link.ifn,tag);
+      deliver(net.devs[p.link.dev],p.link.ifn,tag,path);
     }
   }
-  function deliver(dev,ifn,tag){
+  function deliver(dev,ifn,tag,previous){
+    const path=previous.concat(dev.name);
     const port=dev.ifs[ifn];
     if(dev.type==='switch'){
       let vlan;
       if(port.mode==='trunk'){vlan=tag===null?port.native:tag;if(!allowed(port,vlan))return;}
       else{if(tag!==null&&tag!==port.accessVlan)return;vlan=port.accessVlan;}
-      flood(dev,vlan,port);
-    }else if(tag===null){if(port.ip!==null&&port!==i)out.push({dev,ifc:port});}
-    else for(const s of Object.values(dev.ifs))if(s.name.startsWith(ifn+'.')&&s.dot1q===tag&&!s.shutdown&&s!==i)out.push({dev,ifc:s});
+      flood(dev,vlan,port,path);
+    }else if(tag===null){if(port.ip!==null&&port!==i)out.push({dev,ifc:port,path});}
+    else for(const s of Object.values(dev.ifs))if(s.name.startsWith(ifn+'.')&&s.dot1q===tag&&!s.shutdown&&s!==i)out.push({dev,ifc:s,path});
   }
-  if(d.type==='switch')flood(d,+i.name.slice(4),null);
-  else{const p=phys(d,i);const tag=p===i?null:i.dot1q;if(p!==i&&tag==null)return out;deliver(net.devs[p.link.dev],p.link.ifn,tag);}
+  if(d.type==='switch')flood(d,+i.name.slice(4),null,[d.name]);
+  else{const p=phys(d,i);const tag=p===i?null:i.dot1q;if(p!==i&&tag==null)return out;deliver(net.devs[p.link.dev],p.link.ifn,tag,[d.name]);}
   return out;
 }
 function connected(net,d){const r=[];for(const i of Object.values(d.ifs))if(i.ip!==null&&ifUp(net,d,i))r.push({code:'C',net:netOf(i.ip,i.len),len:i.len,ifc:i,nh:null,ad:0});return r;}
@@ -575,16 +619,17 @@ function natIn(d,pk){const N=d.nat;if(!N)return;const st=N.statics.find(s=>s.glo
 // packet forwarding with ACL + NAT
 function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},pk0);hops.path=[src.name];
   for(let t=0;t<20;t++){
-    if(d.type==='router'&&inIf){if(inIf.aclIn&&!aclPermit(d,inIf.aclIn,pk))return {ok:false,hops,blocked:d};if(inIf.nat==='outside')natIn(d,pk);}
+    if(d.type==='router'&&inIf){if(inIf.aclIn&&!aclPermit(d,inIf.aclIn,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+inIf.aclIn+' inbound on '+shortIf(inIf.name)};if(inIf.nat==='outside')natIn(d,pk);}
     if(ownsIp(net,d,pk.dst))return {ok:true,hops,dest:d,pk};
-    if(t>0&&d.type!=='router')return {ok:false,hops};
-    const h=nextHop(net,d,pk.dst);if(!h)return {ok:false,hops};
+    if(t>0&&d.type!=='router')return {ok:false,hops,reason:'Destination is not a router'};
+    const h=nextHop(net,d,pk.dst);if(!h)return {ok:false,hops,reason:'No usable route to '+n2ip(pk.dst)};
     if(pk.src==null)pk.src=h.ifc.ip;
     if(d.type==='router'){if(inIf&&inIf.nat==='inside'&&h.ifc.nat==='outside')natOut(d,pk);
-      if(t>0&&h.ifc.aclOut&&!aclPermit(d,h.ifc.aclOut,pk))return {ok:false,hops,blocked:d};}
+      if(t>0&&h.ifc.aclOut&&!aclPermit(d,h.ifc.aclOut,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+h.ifc.aclOut+' outbound on '+shortIf(h.ifc.name)};}
     const peer=l2peers(net,d,h.ifc).find(p=>p.ifc.ip===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
-    if(!peer)return {ok:false,hops};hops.push(h.nh);d=peer.dev;hops.path.push(d.name);inIf=peer.ifc;}
-  return {ok:false,hops};}
+    if(!peer)return {ok:false,hops,reason:'Next hop '+n2ip(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links, VLANs and addressing'};
+    hops.push(h.nh);hops.path.push(...peer.path.slice(1));d=peer.dev;inIf=peer.ifc;}
+  return {ok:false,hops,reason:'Hop limit reached; check for a routing loop'};}
 function listens(d,port){if(d.services)return d.services.includes(port);if(d.type==='pc')return false;const v=d.lines.vty,tr=(v.transport||'all').toLowerCase();
   if(port===23)return (tr.includes('telnet')||tr==='all')&&!!v.login&&(v.local?!!(d.users&&d.users.length):!!v.password);
   if(port===22)return (tr.includes('ssh')||tr==='all')&&!!d.rsa&&!!v.local&&!!(d.users&&d.users.length);return false;}
@@ -895,56 +940,126 @@ LABS.push(
  checks:[['Domain name is set',n=>!!n.devs.R1.domain],['User admin exists with a hashed secret',n=>(n.devs.R1.users||[]).some(u=>u.name==='admin'&&u.kind==='secret')],['RSA keys are at least 2048 bits',n=>n.devs.R1.rsa>=2048],['SSH version 2 is forced',n=>n.devs.R1.sshv===2],['VTY lines use local login and SSH only',n=>{const v=n.devs.R1.lines.vty;return !!v.local&&(v.transport||'').trim().toLowerCase()==='ssh';}],['PC1 can reach R1 over SSH',n=>T(n,'PC1','192.168.1.1',22)],['Telnet to R1 is refused',n=>!T(n,'PC1','192.168.1.1',23)]],
  solution:{R1:['enable','configure terminal','ip domain-name lab.local','username admin privilege 15 secret S3cure-Pass','crypto key generate rsa modulus 2048','ip ssh version 2','line vty 0 4','login local','transport input ssh','end'],PC1:['ssh -l admin 192.168.1.1','telnet 192.168.1.1']}}
 );
+
+LABS.push({title:'Static NAT: publish a server',group:'IP services',
+ brief:'Publish an inside web server using a fixed public address. Unlike PAT, the mapping exists before an inside host sends traffic. The ISP already routes the public block to R1.',
+ pos:{WEB:[70,125],R1:[235,125],ISP:[400,125],CLIENT:[545,125]},start:'R1',
+ build(){const n=mkNet([srv('WEB','192.168.1.10',24,'192.168.1.1',[80]),mkRouter('R1'),mkRouter('ISP'),mkPC('CLIENT','198.51.100.10',24,'198.51.100.1')]);
+  link(n,'WEB','f0','R1','g0/0');link(n,'R1','g0/1','ISP','g0/0');link(n,'ISP','g0/1','CLIENT','f0');
+  setIp(n,'R1','g0/0','192.168.1.1',24);setIp(n,'R1','g0/1','203.0.113.2',30);setIp(n,'ISP','g0/0','203.0.113.1',30);setIp(n,'ISP','g0/1','198.51.100.1',24);
+  st(n,'ISP','203.0.113.8',29,'203.0.113.2');return n;},
+ addr:[['WEB','Inside local','192.168.1.10/24'],['R1','G0/0 (inside)','192.168.1.1/24'],['R1','G0/1 (outside)','203.0.113.2/30'],['ISP','Transit next hop','203.0.113.1/30'],['WEB','Inside global (published)','203.0.113.10'],['CLIENT','Outside host','198.51.100.10/24']],
+ tasks:['On R1, add a default route toward the ISP at <code>203.0.113.1</code>.','Mark R1 G0/0 as NAT inside and G0/1 as NAT outside.','Create a static inside-source mapping from <code>192.168.1.10</code> to <code>203.0.113.10</code>.','Before sending traffic, inspect <code>show ip nat translations</code>.','From CLIENT, ping <code>203.0.113.10</code> and open <code>telnet 203.0.113.10 80</code>.'],
+ why:['The server must reply to the outside client. Translating an address does not create a route; R1 still needs a path to the outside network.','These labels define the translation boundary. Incoming traffic to the public mapping is translated on the outside, and the server’s replies are translated when leaving the inside.','Static NAT is a permanent one-to-one mapping. The public address represents the server, even when no dynamic translation has been created.','Unlike PAT, the static entry appears immediately. Inside local is the real private address; inside global is the address seen from outside.','The ISP routes the published block toward R1. R1 translates the destination, forwards to WEB, and translates the reply source back. NAT alone does not filter access; use an ACL for policy.'],
+ checks:[['R1 has a default route to the ISP',n=>n.devs.R1.statics.some(s=>s.len===0&&s.nh===ip2n('203.0.113.1'))],['Inside and outside interfaces are marked',n=>IF(n,'R1','g0/0').nat==='inside'&&IF(n,'R1','g0/1').nat==='outside'],['The static mapping uses the specified addresses',n=>!!n.devs.R1.nat&&n.devs.R1.nat.statics.some(s=>s.local===ip2n('192.168.1.10')&&s.global===ip2n('203.0.113.10'))],['Outside CLIENT can ping the public server address',n=>P(n,'CLIENT','203.0.113.10')],['Outside CLIENT can reach TCP port 80',n=>T(n,'CLIENT','203.0.113.10',80)]],
+ solution:{R1:['enable','configure terminal','ip route 0.0.0.0 0.0.0.0 203.0.113.1','interface g0/0','ip nat inside','interface g0/1','ip nat outside','exit','ip nat inside source static 192.168.1.10 203.0.113.10','end','show ip nat translations'],CLIENT:['ping 203.0.113.10','telnet 203.0.113.10 80']}
+});
 //ENGINE-END
 
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
-const REDUCED=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
-const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-let cur=null,progress={},fxToken=0;
-try{progress=JSON.parse(localStorage.getItem('ccna-bench-v2')||'{}')||{};}catch(e){progress={};}
-const persist=()=>{try{localStorage.setItem('ccna-bench-v2',JSON.stringify(progress));}catch(e){}};
+const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
+let REDUCED=motion.matches;
+motion.addEventListener?.('change',e=>{REDUCED=e.matches;if(REDUCED)fxToken++;});
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const GROUPS=['Fundamentals','Switching','Routing','IP services','Security'];
-const HINT='Type ? for available commands, Tab to complete, ↑ for history. Abbreviations work (conf t, sh ip int br). Pings are traced on the map.';
-
-function openLab(idx){const lab=LABS[idx],net=lab.build(),sess={};
-  for(const n in net.devs){const d=net.devs[n];sess[n]={mode:d.type==='pc'?'pc':'user',ctx:null,lines:[d.type==='pc'?'Host command prompt (ipconfig, ping, tracert, telnet, ssh)':d.hostname+' con0 is now available',''],hist:[],hi:0,fresh:0};}
-  cur={view:'lab',idx,lab,net,sess,sel:lab.start,graded:null,showSol:false,drillQ:null,intro:true,links:{}};fxToken++;$('hint').textContent=HINT;$('hint').className='';renderAll();}
-function renderAll(){renderLabs();renderBrief();drawTopo();renderTerm();}
-function renderLabs(){let h='';
-  GROUPS.forEach(g=>{h+=`<optgroup label="${g}">`+LABS.map((l,i)=>l.group===g?`<option value="${i}"${cur.view==='lab'&&i===cur.idx?' selected':''}>${progress[l.title]?'✓ ':''}${l.title}</option>`:'').join('')+'</optgroup>';});
-  h+=`<optgroup label="Practice"><option value="drill"${cur.view==='drill'?' selected':''}>Subnetting drill</option></optgroup>`;$('labs').innerHTML=h;
-  const order=GROUPS.flatMap(g=>LABS.filter(l=>l.group===g));
-  $('meter').innerHTML=order.map(l=>`<i class="${progress[l.title]?'on':''}" title="${l.title}"></i>`).join('')+`<span>${order.filter(l=>progress[l.title]).length}/${LABS.length} passed</span>`;}
-function renderBrief(){if(cur.view==='drill')return renderDrill();const l=cur.lab;
-  let h=`<h2>${l.title}</h2><p>${l.brief}</p><h3>Addressing</h3><table><tr><th>Device</th><th>Interface</th><th>Address</th></tr>${l.addr.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table><h3>Tasks</h3><ol>${l.tasks.map((t,k)=>`<li>${t}${l.why&&l.why[k]?`<details><summary>Why this step</summary>${l.why[k]}</details>`:''}</li>`).join('')}</ol>
-  <div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol">${cur.showSol?'Hide solution':'Show solution'}</button><button class="btn" id="bReset">Reset lab</button></div><div id="grade">`;
-  if(cur.graded){const ok=cur.graded.filter(g=>g[1]).length,all=ok===cur.graded.length;h+=`<strong class="${all?'done':''}">${ok} of ${cur.graded.length} checks passed${all?'. Lab complete.':''}</strong><ul>${cur.graded.map((g,k)=>`<li class="${g[1]?'ok':'no'}" style="--i:${k}">${g[0]}</li>`).join('')}</ul>`;}
+const HINT='? commands · Tab complete · ↑↓ history · Ctrl+Z end · Ctrl+L clear';
+const MODE={user:'User EXEC',priv:'Privileged EXEC',config:'Global configuration',if:'Interface configuration',vlan:'VLAN configuration',line:'Line configuration',ospf:'OSPF configuration',acl:'ACL configuration',dhcp:'DHCP pool configuration',pc:'Host console'};
+let cur=null,progress={},drafts={},lastLab=0,fxToken=0,quizIndex=0,quizAnswer=null;
+try{const p=JSON.parse(localStorage.getItem('ccna-bench-v2')||'{}');if(p&&typeof p==='object')progress=p;}catch(e){}
+try{const p=JSON.parse(localStorage.getItem('lab4net-workspace-v1')||'{}');if(p&&typeof p.drafts==='object')drafts=p.drafts;lastLab=Number.isInteger(p.lastLab)?p.lastLab:0;}catch(e){}
+function persist(){try{localStorage.setItem('ccna-bench-v2',JSON.stringify(progress));localStorage.setItem('lab4net-workspace-v1',JSON.stringify({drafts,lastLab}));$('saveStatus').textContent='Saved on this browser';}catch(e){$('saveStatus').textContent='Storage unavailable · Export to keep work';}}
+function saveWork(){if(cur?.view==='lab'){drafts[cur.lab.title]={journal:cur.journal,tasks:Array.from({length:cur.lab.tasks.length},(_,i)=>!!cur.tasks[i])};lastLab=cur.idx;}persist();}
+function notify(text){$('notice').textContent=text;}
+function sessions(net){const sess={};for(const [n,d] of Object.entries(net.devs))sess[n]={mode:d.type==='pc'?'pc':'user',ctx:null,lines:[d.type==='pc'?'Host console · ipconfig, ping, tracert, telnet, ssh':d.hostname+' console ready',''],hist:[],hi:0,fresh:0};return sess;}
+function push(s,lines){s.lines.push(...lines);if(s.lines.length>600)s.lines.splice(0,s.lines.length-600);}
+function replay(lab,draft){const net=lab.build(),sess=sessions(net);const journal=draft?.journal||[];
+  if(!Array.isArray(journal)||journal.length>5000)throw Error('Invalid command history');
+  for(const entry of journal){if(!entry||!Object.hasOwn(net.devs,entry.device)||typeof entry.line!=='string'||entry.line.length>512||/[\r\n]/.test(entry.line))throw Error('Invalid saved command');
+    const d=net.devs[entry.device],s=sess[entry.device];push(s,['\u0001'+promptOf(d,s)+entry.line,...execLine(net,d,s,entry.line).join('\n').split('\n')]);s.hist.push(entry.line);s.hi=s.hist.length;}
+  TRACE=null;return {net,sess,journal:journal.map(e=>({device:e.device,line:e.line}))};}
+function openLab(idx,fresh=false){if(cur?.view==='lab'&&!fresh)saveWork();const lab=LABS[idx];let state;
+  try{state=replay(lab,fresh?null:drafts[lab.title]);}catch(e){state=replay(lab,null);notify('Could not restore this lab. A fresh topology is ready.');}
+  cur={view:'lab',idx,lab,...state,sel:lab.start,graded:null,showSol:false,tasks:fresh?[]:(drafts[lab.title]?.tasks||[]),intro:true,links:{},trace:null};
+  fxToken++;mobilePanel(false);$('tin').value='';$('hint').textContent=HINT;$('hint').className='';$('trace').innerHTML='';renderAll();saveWork();}
+function renderAll(){renderLabs();renderBrief();drawTopo();renderTerm();$('bench').hidden=cur.view!=='lab';$('practice').hidden=cur.view==='lab';$('mobileNav').hidden=cur.view!=='lab';if(cur.view!=='lab')mobilePanel(false);}
+function renderLabs(){let h='';for(const g of GROUPS)h+=`<optgroup label="${g}">`+LABS.map((l,i)=>l.group===g?`<option value="${i}"${cur.view==='lab'&&i===cur.idx?' selected':''}>${progress[l.title]?'✓ ':''}${l.title}</option>`:'').join('')+'</optgroup>';
+  h+=`<optgroup label="Practice"><option value="drill"${cur.view==='drill'?' selected':''}>Subnetting drill</option><option value="quiz"${cur.view==='quiz'?' selected':''}>Theory check</option></optgroup>`;$('labs').innerHTML=h;
+  const count=LABS.filter(l=>progress[l.title]).length;$('meter').innerHTML=`<div class="progressbar" role="progressbar" aria-label="Labs passed" aria-valuemin="0" aria-valuemax="${LABS.length}" aria-valuenow="${count}"><span style="width:${count/LABS.length*100}%"></span></div><span>${count} / ${LABS.length} passed</span>`;
+  $('workspaceTitle').textContent=cur.view==='lab'?cur.lab.title:cur.view==='drill'?'Subnetting drill':'Theory check';}
+function renderBrief(){if(cur.view==='drill')return renderDrill();if(cur.view==='quiz')return renderQuiz();const l=cur.lab,done=cur.tasks.filter(Boolean).length;
+  let h=`<div class="eyebrow">${l.group} <span>LAB ${String(cur.idx+1).padStart(2,'0')}</span></div><h2>${l.title}</h2><p>${l.brief}</p><div class="lesson-tip"><b>Configure → verify → explain</b><br>Use the tasks as a guide. Grade checks the actual network, independently of your checklist.</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details></div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
+  if(cur.graded){const ok=cur.graded.filter(g=>g[1]).length,all=ok===cur.graded.length;h+=`<strong class="${all?'done':''}">${all?'✓ Lab complete':`${ok} / ${cur.graded.length} checks passed`}</strong><p>${all?'You built a working network. Try explaining why it works before moving on.':'Use the failed checks below to narrow your next change. Your work is saved.'}</p><ul>${cur.graded.map((g,k)=>`<li class="${g[1]?'ok':'no'}" style="--i:${k}">${g[0]}</li>`).join('')}</ul>${all?'<button class="btn primary" id="nextLab">Next unpassed lab →</button>':''}`;}
   h+='</div><div id="solution">';
-  if(cur.showSol)h+=Object.entries(l.solution).map(([d,c])=>`<h3>${d}</h3>`+c.map(x=>{const w=whyOf(x);return `<div class="sol"><code>${x}</code>${w?`<span>${w}</span>`:''}</div>`;}).join('')).join('');
+  if(cur.showSol)h+=`<div class="lesson-tip">Read one device at a time, predict what each command changes, then type it yourself. This is one working approach.</div>`+Object.entries(l.solution).map(([d,c])=>`<h3>${d}</h3>`+c.map(x=>`<div class="sol"><code>${esc(x)}</code>${whyOf(x)?`<span>${whyOf(x)}</span>`:''}</div>`).join('')).join('');
   $('brief').innerHTML=h+'</div>';
-  $('bGrade').onclick=()=>{cur.graded=cur.lab.checks.map(([t,f])=>{let ok=false;try{ok=!!f(cur.net);}catch(e){}return [t,ok];});const all=cur.graded.every(g=>g[1]);
-    if(all){progress[cur.lab.title]=true;persist();}renderLabs();renderBrief();const g=$('grade');if(g.scrollIntoView)g.scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});if(all)celebrate();};
+  $('brief').querySelectorAll('[data-task]').forEach(x=>x.onchange=()=>{cur.tasks[+x.dataset.task]=x.checked;saveWork();const scroll=$('brief').scrollTop;renderBrief();$('brief').scrollTop=scroll;});
+  $('bGrade').onclick=()=>{cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});if(cur.graded.every(g=>g[1])){progress[l.title]=true;persist();celebrate();}renderLabs();renderBrief();$('grade').scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});};
   $('bSol').onclick=()=>{cur.showSol=!cur.showSol;renderBrief();};
-  $('bReset').onclick=()=>openLab(cur.idx);}
-
+  $('bReset').onclick=()=>{dialog('Start this lab over?',`<p>This removes this lab’s saved commands and checklist. Its earned pass stays in your progress.</p><button class="btn primary" id="confirmReset">Start with a fresh network</button>`);$('confirmReset').onclick=()=>{$('dialog').close();openLab(cur.idx,true);notify('Lab reset. Previously earned progress kept.');};};
+  if($('nextLab'))$('nextLab').onclick=()=>{const next=LABS.findIndex((l,i)=>i>cur.idx&&!progress[l.title]);const first=LABS.findIndex(l=>!progress[l.title]);openLab(next>=0?next:first>=0?first:0);};}
+function lineClass(l){if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';if(/^%|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
+function renderTerm(){if(cur.view!=='lab')return;const {net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],n=s.lines.length,fresh=s.fresh||0;s.fresh=0;
+  $('tabs').innerHTML=Object.keys(net.devs).map(x=>`<button class="tab" role="tab" id="tab-${x}" aria-controls="term" tabindex="${x===sel?0:-1}" data-dev="${x}" aria-selected="${x===sel}"><span class="device-dot ${net.devs[x].type}"></span>${esc(net.devs[x].hostname)}</button>`).join('');
+  $('term').setAttribute('aria-labelledby','tab-'+sel);$('tout').innerHTML=s.lines.map((l,k)=>`<span class="${l[0]==='\u0001'?'cmd':lineClass(l)}${k>=n-fresh?' new':''}">${esc(l[0]==='\u0001'?l.slice(1):l)}</span>`).join('\n');
+  $('prompt').textContent=promptOf(d,s);$('mode').textContent=MODE[s.mode]||s.mode;$('term').scrollTop=$('term').scrollHeight;
+  $('deviceInfo').textContent=`${d.hostname} · ${d.type==='pc'?'host':d.type} · ${Object.values(d.ifs).filter(i=>ifUp(net,d,i)).length} interfaces up`;}
+function select(n){cur.sel=n;$('tin').value='';drawTopo();renderTerm();$('tin').focus({preventScroll:true});}
+function mobilePanel(network){document.body.classList.toggle('mobile-network',network);$('missionView').setAttribute('aria-pressed',String(!network));$('networkView').setAttribute('aria-pressed',String(network));if(cur?.view==='lab')renderTerm();}
+function execute(line){if(cur.view!=='lab')return;const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];TRACE=null;
+  if(line.length>512){notify('Keep each command under 512 characters.');return;}
+  if(cur.journal.length>=5000){notify('This lab has reached its saved command limit. Export your work, then start over.');return;}
+  push(s,['\u0001'+promptOf(d,s)+line]);if(line.trim()){s.hist.push(line);s.last=null;const out=execLine(net,d,s,line);push(s,out.join('\n').split('\n'));cur.journal.push({device:sel,line});const w=s.last&&WHYC[s.last];$('hint').textContent=w?'Why: '+w:HINT;$('hint').className=w?'why':'';}
+  s.hi=s.hist.length;if(cur.graded){cur.graded=null;$('grade').innerHTML='<p>Commands run since grading. Grade again to check the current network.</p>';}drawTopo();renderTerm();if(TRACE){cur.trace=TRACE;renderTrace();playTrace(TRACE);}saveWork();}
+function renderTrace(){const T=cur.trace;if(!T)return;const last=p=>p.hops.path.at(-1);const result=T.ok?'Reply received':T.refused?'Destination port closed':!T.f.ok?T.f.reason:T.r?'Reply failed: '+(T.r.reason||'did not return to source'):'No reply';
+  $('trace').innerHTML=`<div class="trace-title ${T.ok?'good':'bad'}">${T.ok?'✓':'!'} ${esc(result)}<button class="small-btn" id="replayTrace">Replay</button></div><div class="trace-path"><b>Request</b> ${T.f.hops.path.map(esc).join(' → ')}${!T.f.ok?` <span class="bad">· stopped at ${esc(last(T.f))}</span>`:''}</div>${T.r?`<div class="trace-path"><b>Reply</b> ${T.r.hops.path.map(esc).join(' → ')}</div>`:''}<p>${T.ok?'Both directions succeeded. A request reaching the destination alone is not enough.':T.refused?'The network path works, but the destination is not listening on that port.':T.f.blocked||T.r?.blocked?'Read the ACL in order. The first matching rule wins; unmatched traffic is denied.':'Verify interface state and addressing first, then the next hop and the return route.'}</p><p>Last connectivity test · Run the command again after changing configuration.</p>`;$('replayTrace').onclick=()=>playTrace(cur.trace);}
+function dialog(title,body){$('dialogTitle').textContent=title;$('dialogBody').innerHTML=body;if(!$('dialog').open)$('dialog').showModal();}
+function library(){dialog('Choose your next mission',`<p>Build the fundamentals, then move through switching, routing, services and security. Reopen any lab to resume your work.</p><input id="labSearch" class="search" placeholder="Find a lab or topic…" aria-label="Search labs"><div id="labCards"></div><div class="practice-buttons"><button class="btn" data-practice="drill">Subnetting drill →</button><button class="btn" data-practice="quiz">Theory check →</button></div>`);
+  const cards=()=>{const q=$('labSearch').value.toLowerCase();$('labCards').innerHTML=GROUPS.map(g=>{const matches=LABS.map((l,i)=>({l,i})).filter(({l})=>l.group===g&&(l.title+' '+l.brief+' '+g).toLowerCase().includes(q));return matches.length?`<h3>${g}</h3><div class="lab-grid">${matches.map(({l,i})=>`<button class="lab-card" data-lab="${i}"><span class="eyebrow">${String(i+1).padStart(2,'0')} <span>${progress[l.title]?'✓ PASSED':drafts[l.title]?.journal.length?'RESUME':'READY'}</span></span><b>${l.title}</b><span>${l.brief}</span><small>${l.tasks.length} tasks · ${Object.keys(l.build().devs).length} devices</small></button>`).join('')}</div>`:'';}).join('')||'<p>No labs match. Try “routing” or “security”.</p>';
+    $('labCards').querySelectorAll('[data-lab]').forEach(b=>b.onclick=()=>{$('dialog').close();openLab(+b.dataset.lab);});};cards();$('labSearch').oninput=cards;$('dialogBody').querySelectorAll('[data-practice]').forEach(b=>b.onclick=()=>{$('dialog').close();openPractice(b.dataset.practice);});}
+function reference(){if(cur.view!=='lab')return;const d=cur.net.devs[cur.sel],s=cur.sess[cur.sel];dialog('Command field guide',`<p>Commands supported by this simulator for <b>${esc(d.hostname)}</b>. Choose a command to place its syntax in the console; replace placeholders before pressing Enter.</p><div class="reference-tools"><input id="cmdSearch" class="search" placeholder="Search commands or explanations…" aria-label="Search commands"><label><input type="checkbox" id="allModes"> All modes</label></div><div id="cmdList"></div>`);
+  const render=()=>{const q=$('cmdSearch').value.toLowerCase(),all=$('allModes').checked;const list=CMDS.filter(c=>(!c.types||c.types.includes(d.type))&&(all||c.modes.includes(s.mode))&&(c.pat.join(' ')+' '+(WHYC[c.pat.join(' ')]||'')).toLowerCase().includes(q));
+    $('cmdList').innerHTML=list.map((c,i)=>`<button class="command-card" data-command="${i}"><code>${esc(c.pat.join(' '))}</code><small>${c.modes.map(m=>MODE[m]||m).join(' · ')}</small><span>${WHYC[c.pat.join(' ')]||'Use ? in the console to explore its arguments.'}</span></button>`).join('')||'<p>No matching commands in this mode. Try “All modes”.</p>';
+    $('cmdList').querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>{$('tin').value=list[+b.dataset.command].pat.join(' ');$('dialog').close();$('tin').focus();});};render();$('cmdSearch').oninput=render;$('allModes').onchange=render;}
+function help(){dialog('Your network, your reasoning',`<div class="help-steps"><p><b>01 · Read the mission.</b> The address plan is your source of truth. Check off tasks as you work; open “Why this step” to understand the purpose.</p><p><b>02 · Take the console.</b> Click a device or its tab. Type <code>enable</code>, then <code>configure terminal</code> to start configuring a router or switch. Use the field guide for supported syntax.</p><p><b>03 · Prove it works.</b> Run show commands and test connectivity. Packet results show both the request and reply, including where forwarding fails.</p><p><b>04 · Grade and reflect.</b> Grading checks configuration and reachability, not your checkboxes. A walkthrough explains one working solution.</p></div><h3>Console shortcuts</h3><p><kbd>?</kbd> context help · <kbd>Tab</kbd> completion · <kbd>↑ ↓</kbd> history<br><kbd>Ctrl+Z</kbd> privileged mode · <kbd>Ctrl+L</kbd> clear display</p><h3>Keep your work</h3><p>Commands, task marks and passes save in this browser. Use Transfer progress to export a JSON backup and import it on another device. The file includes your simulated configurations.</p><div class="lesson-tip">This is an educational IOS-style model, not a full IOS emulator. Timing, authentication, STP and services are simplified. SSH and Telnet test a connection; they do not open an interactive remote shell.</div>`);}
+function transfer(){dialog('Take your progress with you',`<p>Move your passed labs, task marks, theory results and saved configurations between browsers. Import merges earned passes and replaces saved work only for labs included in the file.</p><div class="actions"><button class="btn primary" id="export">Export backup</button><label class="btn">Import backup<input type="file" id="import" accept="application/json,.json" hidden></label></div><p id="transferStatus" role="status"></p>`);
+  $('export').onclick=()=>{saveWork();const url=URL.createObjectURL(new Blob([JSON.stringify({format:'lab4net',version:1,progress,drafts,lastLab},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='lab4net-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('transferStatus').textContent='Backup exported. Import it on your other device to continue.';};
+  $('import').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024)throw Error('Backup exceeds 5 MB');const p=JSON.parse(await file.text());if(p.format!=='lab4net'||p.version!==1||!p.progress||!p.drafts)throw Error('Not a supported Lab4Net backup');const clean={};for(const l of LABS){const d=p.drafts[l.title];if(d){replay(l,d);if(!Array.isArray(d.tasks)||d.tasks.length>l.tasks.length||d.tasks.some(x=>typeof x!=='boolean'))throw Error('Invalid task checklist');clean[l.title]={journal:d.journal,tasks:d.tasks};}}
+      saveWork();for(const l of LABS)if(p.progress[l.title]===true)progress[l.title]=true;if(p.progress.drill&&Number.isInteger(p.progress.drill.r)&&Number.isInteger(p.progress.drill.t)&&p.progress.drill.r>=0&&p.progress.drill.t>=p.progress.drill.r)progress.drill=p.progress.drill;
+      if(p.progress.quiz&&typeof p.progress.quiz==='object'){progress.quiz={...(progress.quiz||{})};QUIZ.forEach((q,i)=>{if(typeof p.progress.quiz[i]==='boolean')progress.quiz[i]=p.progress.quiz[i];});}Object.assign(drafts,clean);persist();const idx=cur.idx;cur=null;openLab(idx);
+      $('transferStatus').textContent='Backup imported. Earned passes merged and saved labs restored.';
+    }catch(err){$('transferStatus').textContent='Import failed: '+err.message;}e.target.value='';};}
 const bcOf=q=>(netOf(q.ip,q.len)|~lenMask(q.len))>>>0;
 const DF=[['Network address',q=>n2ip(netOf(q.ip,q.len))],['Broadcast address',q=>n2ip(bcOf(q))],['First usable host',q=>n2ip(netOf(q.ip,q.len)+1)],['Last usable host',q=>n2ip(bcOf(q)-1)],['Subnet mask',q=>n2ip(lenMask(q.len))],['Usable hosts',q=>String(2**(32-q.len)-2)]];
-function newDrill(){const len=8+Math.floor(Math.random()*23);let a=1+Math.floor(Math.random()*223);if(a===127)a=172;cur.drillQ={ip:(a*16777216+Math.floor(Math.random()*16777216))>>>0,len,done:null};}
-function drillWhy(q){const m=lenMask(q.len),mask=n2ip(m);
-  if(q.len%8===0)return `A /${q.len} mask is ${mask}, which ends on an octet boundary. The first ${q.len/8} octet(s) are the network and the rest are host bits. All host bits 0 gives the network address, all 1 gives the broadcast, and the usable hosts sit between them.`;
-  const k=Math.floor(q.len/8),sh=24-8*k,oct=(m>>>sh)&255,blk=256-oct,val=(q.ip>>>sh)&255,start=Math.floor(val/blk)*blk;
-  return `A /${q.len} mask is ${mask}. The interesting octet is octet ${k+1}, where the mask is ${oct}. Block size is 256 − ${oct} = ${blk}, so subnets start at multiples of ${blk} in that octet. ${val} falls in the block that starts at ${start}; the next block starts at ${start+blk}. The network address has that octet set to ${start} and later octets 0. The broadcast is one below the next network. Usable hosts = 2^${32-q.len} − 2 = ${2**(32-q.len)-2}.`;}
-function renderDrill(){const q=cur.drillQ,s=progress.drill||{r:0,t:0};
-  let h=`<h2>Subnetting drill</h2><p>Work it out on paper, then check. ${s.t?s.r+' of '+s.t+' answers correct so far.':''}</p><div class="big">${n2ip(q.ip)}/${q.len}</div><div class="drill">`;
-  DF.forEach(([lab,f],k)=>{const r=q.done?q.done[k]:null;h+=`<label>${lab}<input id="d${k}" autocomplete="off" inputmode="decimal" value="${r?r.v:''}"><span class="${r?(r.ok?'ok':'no'):''}">${r?(r.ok?'✓':'✗'):''}</span></label>`+(r&&!r.ok?`<p>Answer: <code>${f(q)}</code></p>`:'');});
-  h+=`</div><div class="actions"><button class="btn primary" id="dCheck">Check answers</button><button class="btn" id="dNext">New question</button></div>`;
-  if(q.done)h+=`<h3>How to get there</h3><p>${drillWhy(q)}</p>`;
-  $('brief').innerHTML=h;
-  $('dCheck').onclick=()=>{const first=!q.done;q.done=DF.map(([,f],k)=>{const v=$('d'+k).value.replace(/[^0-9.]/g,'');return {v,ok:v===f(q)};});
-    if(first){const s=progress.drill||{r:0,t:0};s.t+=DF.length;s.r+=q.done.filter(x=>x.ok).length;progress.drill=s;persist();}renderDrill();};
-  $('dNext').onclick=()=>{newDrill();renderDrill();};}
-
-function drawTopo(){const{lab,net}=cur;let h=`<svg viewBox="0 0 600 245" class="${cur.intro?'intro':''}" role="img" aria-label="Lab topology">`;cur.intro=false;
+function newDrill(){const range=$('drillLevel')?.value||cur.drillLevel||'all';cur.drillLevel=range;const len=range==='starter'?[24,25,26][Math.floor(Math.random()*3)]:range==='links'?[27,28,29,30][Math.floor(Math.random()*4)]:8+Math.floor(Math.random()*23);let a=1+Math.floor(Math.random()*223);if(a===127)a=172;cur.drillQ={ip:(a*16777216+Math.floor(Math.random()*16777216))>>>0,len,done:null};}
+function drillWhy(q){const m=lenMask(q.len),mask=n2ip(m);if(q.len%8===0)return `/${q.len} = ${mask}. The first ${q.len/8} octets are network bits. Set all host bits to 0 for the network and to 1 for the broadcast. The usable hosts sit between them.`;const k=Math.floor(q.len/8),sh=24-8*k,oct=(m>>>sh)&255,blk=256-oct,val=(q.ip>>>sh)&255,start=Math.floor(val/blk)*blk;return `/${q.len} = ${mask}. In octet ${k+1}, block size = 256 − ${oct} = ${blk}. ${val} lies in the block starting at ${start}. Set later octets to 0 for the network. The broadcast is one address below the next block. Usable hosts = 2^${32-q.len} − 2 = ${2**(32-q.len)-2}.`;}
+function renderDrill(){const q=cur.drillQ,s=progress.drill||{r:0,t:0};$('brief').innerHTML=`<div class="eyebrow">Practice · IPv4</div><h2>Subnetting, one block at a time.</h2><p>Predict the network boundaries before you calculate the hosts.</p><div class="lesson-tip"><b>The block method</b><br>1. Convert the prefix to a mask.<br>2. Subtract the interesting mask octet from 256.<br>3. Find the block containing the given address.<br>4. Network = block start; broadcast = next block − 1.</div><h3>Your practice</h3><p>${s.r} / ${s.t} fields correct on first attempts.</p><p>These drills use /8 through /30 networks. /31 point-to-point links and /32 host routes use different host rules.</p>`;
+  let h=`<div class="eyebrow">SUBNETTING WORKSPACE</div><label>Prefix range <select id="drillLevel"><option value="all">Mixed /8–/30</option><option value="starter">Warm-up /24–/26</option><option value="links">Small networks /27–/30</option></select></label><div class="big">${n2ip(q.ip)}/${q.len}</div><div class="drill">`;
+  DF.forEach(([lab,f],k)=>{const r=q.done?.[k];h+=`<label>${lab}<input id="d${k}" autocomplete="off" inputmode="decimal" value="${r?esc(r.v):''}"><span class="${r?(r.ok?'ok':'no'):''}" aria-label="${r?(r.ok?'Correct':'Incorrect'):''}">${r?(r.ok?'✓':'✗'):''}</span></label>${r&&!r.ok?`<p>Answer: <code>${f(q)}</code></p>`:''}`;});h+=`</div><div class="actions"><button class="btn primary" id="dCheck">Check answers</button><button class="btn" id="dNext">New question</button></div><div role="status">${q.done?`<h3>Why these answers</h3><p>${drillWhy(q)}</p>`:''}</div>`;$('practice').innerHTML=h;$('drillLevel').value=cur.drillLevel||'all';$('drillLevel').onchange=()=>{newDrill();renderDrill();};
+  $('dCheck').onclick=()=>{const first=!q.done;q.done=DF.map(([,f],k)=>{const v=$('d'+k).value.trim();return {v,ok:v===f(q)};});if(first){s.t+=DF.length;s.r+=q.done.filter(x=>x.ok).length;progress.drill=s;persist();}renderDrill();};$('dNext').onclick=()=>{newDrill();renderDrill();};}
+const QUIZ=[
+  ['Automation','Which HTTP verb normally retrieves a resource without changing it?',['GET','POST','DELETE','PATCH'],0,'GET reads a resource. POST submits data, DELETE removes a resource, and PATCH applies a partial update.'],
+  ['Automation','Which is valid JSON?',['{"enabled": true, "vlans": [10,20]}',"{'enabled': True}",'{enabled: true}','{"enabled": true,}'],0,'JSON uses double-quoted keys and strings, lowercase booleans, and no trailing commas. Arrays hold ordered values.'],
+  ['Automation','A controller uses a southbound API to communicate with…',['network devices','business applications','a user’s web browser','an external ticketing app'],0,'Southbound interfaces connect the controller to the devices it manages. Northbound APIs expose capabilities to applications.'],
+  ['Network fundamentals','Which plane forwards packets using the installed forwarding table?',['Data plane','Control plane','Management plane','Application plane'],0,'The data plane forwards traffic. The control plane builds forwarding information, and the management plane supports configuration and monitoring.'],
+  ['Wireless','What does an SSID identify?',['A wireless network name','A client MAC address','A radio channel frequency','An encryption key'],0,'The SSID names a wireless network. It does not provide encryption or uniquely identify an individual access point.'],
+  ['Wireless','Why choose nonoverlapping channels for neighboring access points?',['To reduce radio interference','To double the number of IP addresses','To eliminate authentication','To enable routing'],0,'Nearby radios sharing spectrum contend with or interfere with each other. Channel planning reduces this; it does not change the IP subnet.'],
+  ['Security','Which AAA function determines what an authenticated user may do?',['Authorization','Authentication','Accounting','Address resolution'],0,'Authentication establishes identity. Authorization grants permissions. Accounting records activity.'],
+  ['IP services','Which protocol synchronizes device clocks?',['NTP','SNMP','DNS','DHCP'],0,'NTP synchronizes time. Accurate clocks help correlate logs and diagnose events across multiple devices.'],
+  ['IP services','A syslog severity of 0 means…',['Emergency','Debugging','Informational','Warning'],0,'Syslog uses 0 for emergency through 7 for debugging. Lower numbers mean greater severity; a threshold includes that level and more severe messages.'],
+  ['IP services','What is the usual purpose of SNMP?',['Monitor and manage devices','Resolve hostnames','Encrypt a VPN','Assign addresses'],0,'SNMP exposes device information for monitoring and management. DNS resolves names; DHCP leases addresses.'],
+  ['Routing','Why use a first hop redundancy protocol?',['Keep a usable default gateway when one router fails','Bundle switch uplinks','Encrypt packets','Replace all dynamic routing'],0,'Protocols such as HSRP let routers share a virtual gateway. Hosts keep the same default gateway address when the active router changes.'],
+  ['IPv6','Which IPv6 address type is used only on the local link?',['Link-local','Global unicast','IPv4 broadcast','Public multicast'],0,'IPv6 link-local addresses use FE80::/10 and are not forwarded by routers. They support local communication, including neighbor discovery.'],
+  ['IPv6','How does IPv6 reach all nodes on a link without broadcast?',['Multicast','An IPv4 directed broadcast','NAT overload','A default static route'],0,'IPv6 has no broadcast address. Multicast groups serve one-to-many functions; FF02::1 is the all-nodes group on the local link.'],
+  ['Network fundamentals','Which transport provides ordered delivery and retransmission?',['TCP','UDP','ICMP','ARP'],0,'TCP tracks a connection, orders bytes and retransmits lost data. UDP does not provide those guarantees by itself.'],
+  ['IP services','What is the difference between shaping and policing?',['Shaping buffers excess traffic; policing may drop or remark it','Both always encrypt traffic','Policing queues everything indefinitely','Shaping changes a subnet mask'],0,'Shaping smooths traffic by delaying it in a queue. Policing enforces a rate by dropping or remarking excess traffic according to policy.'],
+  ['Security','What distinguishes a site-to-site VPN from a remote-access VPN?',['It connects networks through VPN gateways','It requires no authentication','It replaces Ethernet switching','It can carry only web traffic'],0,'A site-to-site VPN connects networks at different locations. Remote access connects an individual client to a network. Both require appropriate security.']
+];
+function renderQuiz(){const q=QUIZ[quizIndex],results=progress.quiz||{},known=QUIZ.filter((_,i)=>results[i]===true).length;const order=[0,1,2,3].map((_,i)=>(i+quizIndex%4)%4);
+  $('brief').innerHTML=`<div class="eyebrow">Practice · Beyond the CLI</div><h2>Explain the network.</h2><p>Short concept checks for topics that need more than a configuration lab.</p><div class="lesson-tip">Choose an answer, then read the reasoning. An incorrect answer is a topic to revisit, not a penalty.</div><h3>Recall progress</h3><p>${known} / ${QUIZ.length} concepts answered correctly.</p><p>Supplementary practice across wireless, services, security, IPv6 and automation. This is not a full exam bank.</p><button class="btn" id="reviewQuiz">Review missed concepts</button>`;
+  $('practice').innerHTML=`<div class="eyebrow">${q[0]} <span>${quizIndex+1} / ${QUIZ.length}</span></div><h2>${q[1]}</h2><div class="quiz-options">${order.map(i=>`<button class="quiz-option ${quizAnswer===i?(i===q[3]?'correct':'incorrect'):quizAnswer!==null&&i===q[3]?'correct':''}" data-answer="${i}"${quizAnswer!==null?' disabled':''}><span>${String.fromCharCode(65+order.indexOf(i))}</span>${esc(q[2][i])}</button>`).join('')}</div><div role="status">${quizAnswer!==null?`<div class="lesson-tip"><b>${quizAnswer===q[3]?'Correct.':'Revisit this concept.'}</b><p>${q[4]}</p></div>`:''}</div><div class="actions"><button class="btn" id="quizPrev"${quizIndex===0?' disabled':''}>← Previous</button><button class="btn primary" id="quizNext">${quizIndex===QUIZ.length-1?'Back to first':'Next concept →'}</button></div>`;
+  $('practice').querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>{quizAnswer=+b.dataset.answer;progress.quiz=progress.quiz||{};progress.quiz[quizIndex]=quizAnswer===q[3];persist();renderQuiz();});$('quizNext').onclick=()=>{quizIndex=(quizIndex+1)%QUIZ.length;quizAnswer=null;renderQuiz();};$('quizPrev').onclick=()=>{quizIndex=Math.max(0,quizIndex-1);quizAnswer=null;renderQuiz();};$('reviewQuiz').onclick=()=>{const i=QUIZ.findIndex((_,i)=>results[i]===false);quizIndex=i>=0?i:QUIZ.findIndex((_,i)=>results[i]!==true);if(quizIndex<0)quizIndex=0;quizAnswer=null;renderQuiz();};}
+function openPractice(view){if(cur.view==='lab')saveWork();fxToken++;cur.view=view;if(view==='drill'&&!cur.drillQ)newDrill();renderAll();}
+function drawTopo(){if(cur.view!=='lab')return;const{lab,net}=cur;let h=`<svg viewBox="0 0 600 245" class="${cur.intro?'intro':''}" role="group" aria-label="Interactive lab topology">`;cur.intro=false;
   const cnt={},seen={},pk=l=>[l.a,l.b].sort().join('|');net.links.forEach(l=>{cnt[pk(l)]=(cnt[pk(l)]||0)+1;});
   for(const l of net.links){const k=pk(l),idx=seen[k]=(seen[k]??-1)+1,off=(idx-(cnt[k]-1)/2)*16;
     let[ax,ay]=lab.pos[l.a],[bx,by]=lab.pos[l.b];const A=net.devs[l.a],B=net.devs[l.b],up=ifUp(net,A,A.ifs[l.ai])&&ifUp(net,B,B.ifs[l.bi]);
@@ -965,56 +1080,38 @@ function drawTopo(){const{lab,net}=cur;let h=`<svg viewBox="0 0 600 245" class="
 
 // packet animation over the topology
 const fxLayer=()=>document.querySelector('#topo #fx');
-function l2path(net,a,b){if(a===b)return [a];const prev={[a]:null},q=[a];
-  while(q.length){const u=q.shift();for(const i of Object.values(net.devs[u].ifs)){if(!i.link)continue;const v=i.link.dev;if(v in prev||(v!==b&&net.devs[v].type!=='switch'))continue;prev[v]=u;
-    if(v===b){const p=[];let x=b;while(x!==null){p.unshift(x);x=prev[x];}return p;}q.push(v);}}
-  return [a,b];}
-function waypoints(path){const out=[path[0]];for(let k=1;k<path.length;k++)out.push(...l2path(cur.net,path[k-1],path[k]).slice(1));return out;}
 function burst(name,cls,label){const g=fxLayer();if(!g)return;const[x,y]=cur.lab.pos[name];
   g.insertAdjacentHTML('beforeend',`<circle class="burst ${cls}" cx="${x}" cy="${y}" r="${cls==='hop'?24:30}"/>`+(label?`<text class="fxlabel ${cls}" x="${Math.min(520,Math.max(80,x))}" y="${y<60?y+56:y-36}">${label}</text>`:''));}
 function fly(names,cls,tok){return new Promise(res=>{const g=fxLayer();if(!g||names.length<2||REDUCED)return res();
   const pts=names.map(n=>cur.lab.pos[n]),dot=document.createElementNS(NS,'circle');dot.setAttribute('r',4.5);dot.setAttribute('class','pkt '+cls);dot.setAttribute('cx',pts[0][0]);dot.setAttribute('cy',pts[0][1]);g.appendChild(dot);
-  let seg=0,t0=null;const step=ts=>{if(tok!==fxToken||!dot.isConnected)return res();if(t0===null)t0=ts;const a=pts[seg],b=pts[seg+1],dur=Math.max(200,Math.hypot(b[0]-a[0],b[1]-a[1])*2.4),k=Math.min(1,(ts-t0)/dur);
+  let seg=0,t0=null;const step=ts=>{if(tok!==fxToken||!dot.isConnected){dot.remove();return res();}if(t0===null)t0=ts;const a=pts[seg],b=pts[seg+1],dur=Math.max(200,Math.hypot(b[0]-a[0],b[1]-a[1])*2.4),k=Math.min(1,(ts-t0)/dur);
     dot.setAttribute('cx',a[0]+(b[0]-a[0])*k);dot.setAttribute('cy',a[1]+(b[1]-a[1])*k);
     if(k>=1){g.insertAdjacentHTML('afterbegin',`<line class="trail ${cls}" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"/>`);seg++;t0=null;
       if(seg>=pts.length-1){dot.remove();return res();}burst(names[seg],'hop');}
     requestAnimationFrame(step);};requestAnimationFrame(step);});}
 async function playTrace(T){const tok=++fxToken,g=fxLayer();if(!g)return;g.innerHTML='';
-  const fp=waypoints(T.f.hops.path),end=fp[fp.length-1];await fly(fp,'req',tok);if(tok!==fxToken)return;
+  const fp=T.f.hops.path,end=fp[fp.length-1];await fly(fp,'req',tok);if(tok!==fxToken)return;
   if(!T.f.ok)return burst(end,'bad',T.f.blocked?'Blocked by ACL':'No path from here');
   if(T.refused)return burst(end,'warn','Port closed');
   if(!T.r)return burst(end,'good','');
-  const rp=waypoints(T.r.hops.path),e2=rp[rp.length-1];await fly(rp,'rep',tok);if(tok!==fxToken)return;
+  const rp=T.r.hops.path,e2=rp[rp.length-1];await fly(rp,'rep',tok);if(tok!==fxToken)return;
   if(T.ok)burst(e2,'good','Reply received');else burst(e2,'bad',T.r.blocked?'Reply blocked by ACL':'Reply has no route back');}
-function celebrate(){Object.keys(cur.net.devs).forEach((n,k)=>setTimeout(()=>burst(n,'good',''),k*120));}
+function celebrate(){if(REDUCED)return;const tok=fxToken;Object.keys(cur.net.devs).forEach((n,k)=>setTimeout(()=>{if(tok===fxToken)burst(n,'good','');},k*120));}
 
-function lineClass(l){if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';
-  if(/^%|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
-function renderTerm(){const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],n=s.lines.length,fresh=s.fresh||0;s.fresh=0;
-  $('tabs').innerHTML=Object.keys(net.devs).map(x=>`<button class="tab" role="tab" data-dev="${x}" aria-selected="${x===sel}">${net.devs[x].type==='pc'?x:esc(net.devs[x].hostname)}</button>`).join('');
-  $('tout').innerHTML=s.lines.map((l,k)=>{const cmd=l[0]==='\u0001',c=cmd?'cmd':lineClass(l),nw=k>=n-fresh;
-    return `<span class="${c}${nw?' new':''}"${nw?` style="--i:${Math.min(k-(n-fresh),28)}"`:''}>${esc(cmd?l.slice(1):l)}</span>`;}).join('\n');
-  $('prompt').textContent=promptOf(d,s);$('term').scrollTop=$('term').scrollHeight;}
-function push(s,lines){s.lines.push(...lines);if(s.lines.length>600)s.lines.splice(0,s.lines.length-600);}
-function select(n){cur.sel=n;drawTopo();renderTerm();$('tin').focus({preventScroll:true});}
 
-$('labs').addEventListener('change',e=>{if(e.target.value==='drill'){cur.view='drill';if(!cur.drillQ)newDrill();renderLabs();renderBrief();}else openLab(+e.target.value);});
-$('tabs').addEventListener('click',e=>{const b=e.target.closest('[data-dev]');if(b)select(b.dataset.dev);});
-$('topo').addEventListener('click',e=>{const g=e.target.closest('[data-dev]');if(g)select(g.dataset.dev);});
-$('topo').addEventListener('keydown',e=>{const g=e.target.closest('[data-dev]');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select(g.dataset.dev);}});
-$('term').addEventListener('click',()=>{if(!String(window.getSelection()))$('tin').focus({preventScroll:true});});
-const tin=$('tin');
-tin.addEventListener('input',()=>{if(!tin.value.includes('?'))return;const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];const line=tin.value.replace(/\?/g,'');
-  const c=candidates(d,s.mode,line),add=['\u0001'+promptOf(d,s)+line+'?'].concat(c.length?c.map(x=>'  '+x):['% Unrecognized command']);push(s,add);s.fresh=add.length;tin.value=line;renderTerm();});
-tin.addEventListener('keydown',e=>{const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];
-  if(e.key==='Enter'){const line=tin.value;tin.value='';const n0=s.lines.length;push(s,['\u0001'+promptOf(d,s)+line]);TRACE=null;
-    if(line.trim()){s.hist.push(line);s.last=null;const o=execLine(net,d,s,line);if(o.length)push(s,o.join('\n').split('\n'));
-      const w=s.last&&WHYC[s.last],h=$('hint');h.textContent=w?'Why: '+w:HINT;h.className='';if(w){void h.offsetWidth;h.className='why';}}
-    s.fresh=Math.max(1,s.lines.length-n0);s.hi=s.hist.length;drawTopo();renderTerm();if(TRACE)playTrace(TRACE);}
-  else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}
-  else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}
-  else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}});
-openLab(0);
+$('labs').onchange=e=>{if(['drill','quiz'].includes(e.target.value))openPractice(e.target.value);else openLab(+e.target.value);};
+$('library').onclick=library;$('help').onclick=help;$('transfer').onclick=transfer;$('reference').onclick=reference;
+$('missionView').onclick=()=>mobilePanel(false);$('networkView').onclick=()=>mobilePanel(true);window.addEventListener('resize',()=>{if(cur?.view==='lab')$('term').scrollTop=$('term').scrollHeight;});
+$('closeDialog').onclick=()=>$('dialog').close();$('dialog').onclick=e=>{if(e.target===$('dialog')){const r=$('dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('dialog').close();}};
+$('tabs').onclick=e=>{const b=e.target.closest('[data-dev]');if(b)select(b.dataset.dev);};
+$('tabs').onkeydown=e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const names=Object.keys(cur.net.devs),i=names.indexOf(cur.sel);const next=e.key==='Home'?0:e.key==='End'?names.length-1:(i+(e.key==='ArrowRight'?1:-1)+names.length)%names.length;select(names[next]);$('tab-'+names[next]).focus();}};
+$('topo').onclick=e=>{const g=e.target.closest('[data-dev]');if(g)select(g.dataset.dev);};$('topo').onkeydown=e=>{const g=e.target.closest('[data-dev]');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select(g.dataset.dev);}};
+$('clearConsole').onclick=()=>{cur.sess[cur.sel].lines=[];renderTerm();};$('term').onclick=()=>{if(!String(window.getSelection()))$('tin').focus({preventScroll:true});};
+const tin=$('tin');tin.oninput=()=>{if(!tin.value.includes('?'))return;const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],line=tin.value.replace(/\?/g,'');const c=candidates(d,s.mode,line);push(s,['\u0001'+promptOf(d,s)+line+'?',...(c.length?c.map(x=>'  '+x):['% Unrecognized command'])]);tin.value=line;renderTerm();};
+tin.onkeydown=e=>{const s=cur.sess[cur.sel],d=cur.net.devs[cur.sel];if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(d.type!=='pc'&&!['user','priv'].includes(s.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
+tin.onpaste=e=>{const text=e.clipboardData.getData('text');if(!/[\r\n]/.test(text))return;e.preventDefault();const lines=text.split(/\r?\n/).filter(x=>x.trim());if(lines.length>100||lines.some(x=>x.length>512)){notify('Paste up to 100 commands, each under 512 characters.');return;}dialog('Review pasted commands',`<p>Run these ${lines.length} commands on <b>${esc(cur.net.devs[cur.sel].hostname)}</b> in the order shown.</p><pre class="paste-preview">${esc(lines.join('\n'))}</pre><button class="btn primary" id="runPaste">Run commands</button>`);$('runPaste').onclick=()=>{$('dialog').close();lines.forEach(execute);tin.value='';tin.focus();};};
+openLab(Math.max(0,Math.min(LABS.length-1,lastLab)));
+
 </script>
 </body>
 </html>
