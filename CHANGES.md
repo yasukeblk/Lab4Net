@@ -6,11 +6,12 @@ Kept from ChatGPT's branch, unchanged in behaviour: saved work per lab (command 
 
 Changed:
 
-- New visual direction: a retro PC / video game desktop. Dithered desktop background, hard-edged windows with solid title bars and drop shadows, a menu bar with a clock, a DOS-style path line, and an amber CRT console with scanlines.
-- Fonts are embedded in the page (VT323 for the console and interface labels, IBM Plex Sans for reading text), so the look is identical offline. No external requests.
-- Topology devices are pixel sprites (router, switch, PC, server). The selected device gets a blinking targeting reticle.
-- Animations are back, in stepped retro style: marching pixels on live links, a square packet sprite that hops along the real forwarding path, pixel bursts on success and failure, a shake on the device where a packet dies, and a "LAB CLEAR!" banner when a lab is passed. All of it is disabled under reduced motion.
-- A short boot screen is shown once per browser session (skipped under reduced motion).
+- New visual direction: a remastered arcade game, in the spirit of a classic brought back with modern art and lighting. Neon night palette, a city skyline behind the workspace, dark panels with soft shadows and coloured glows, gradient title bars colour-coded per window (mission, map, console), and bold italic arcade lettering.
+- The console stays a retro amber CRT with scanlines and glass shading, and the DOS-style path line and boot screen remain, so the old-machine roots still show.
+- Fonts are embedded in the page (Barlow Condensed italic for display, VT323 for the console, IBM Plex Sans for reading text), so the look is identical offline. No external requests.
+- Topology devices are redrawn as bold-outlined, shaded illustrations with ground shadows. The selected device gets a bobbing marker and a pulsing ring.
+- Animations are smooth and punchy: glowing cables with moving light, a glowing packet with a light trail along the real forwarding path, comic hit-sparks on success and failure, a shake on the device where a packet dies, and a "LAB CLEAR!" banner. All of it is disabled under reduced motion.
+- Added step-by-step instructions, NetSim style: under every task, the exact commands to type, each shown with the prompt you should be at. A switch above the checklist turns them on or off and the choice is remembered. Clicking a command places it in the right device's console without running it. tests/labs.cjs also follows the instructions for every lab and checks the result grades as a pass.
 - Fixed: commands with no output no longer add a blank line to the console.
 - Desktop is the primary target. The phone layout from ChatGPT's branch is kept and still passes its overflow checks.
 
