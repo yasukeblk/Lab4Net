@@ -1,0 +1,7 @@
+services:
+  ccna-lab-bench:
+    build: .
+    container_name: ccna-lab-bench
+    ports:
+      - "8080:80"
+    restart: unless-stopped
