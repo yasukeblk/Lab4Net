@@ -1,4 +1,23 @@
-# Lab4Net improvements
+# Lab4Net changes
+
+## Retro redesign and merge (Claude, on top of the chatgpt/improvements branch)
+
+Kept from ChatGPT's branch, unchanged in behaviour: saved work per lab (command journal replay), progress export/import, the lab library, the command guide, the trace panel with failure reasons and replay, grade invalidation after new commands, the task checklist, console shortcuts and paste review, the Static NAT lab, the theory check, the subnetting prefix ranges, offline operation, and the three test files plus the CI workflow.
+
+Changed:
+
+- New visual direction: a retro PC / video game desktop. Dithered desktop background, hard-edged windows with solid title bars and drop shadows, a menu bar with a clock, a DOS-style path line, and an amber CRT console with scanlines.
+- Fonts are embedded in the page (VT323 for the console and interface labels, IBM Plex Sans for reading text), so the look is identical offline. No external requests.
+- Topology devices are pixel sprites (router, switch, PC, server). The selected device gets a blinking targeting reticle.
+- Animations are back, in stepped retro style: marching pixels on live links, a square packet sprite that hops along the real forwarding path, pixel bursts on success and failure, a shake on the device where a packet dies, and a "LAB CLEAR!" banner when a lab is passed. All of it is disabled under reduced motion.
+- A short boot screen is shown once per browser session (skipped under reduced motion).
+- Fixed: commands with no output no longer add a blank line to the console.
+- Desktop is the primary target. The phone layout from ChatGPT's branch is kept and still passes its overflow checks.
+
+Verification: tests/labs.cjs (15 labs, 85 checks), tests/forwarding.cjs and tests/ui.cjs all pass. The browser suite was run in headless Chromium at 1440x1000 and 390x844.
+
+---
+
 
 ## Learning and interaction
 
