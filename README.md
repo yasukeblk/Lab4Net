@@ -1,6 +1,6 @@
 # Lab4Net · CCNA Lab Bench
 
-A single-page CCNA learning workspace. Open `index.html` directly in a modern browser, or serve it with nginx. All simulator code, styles and content live in that file; no build, runtime dependencies, external fonts or backend are required.
+A single-page CCNA learning workspace. Open `index.html` directly in a modern browser, or serve it with nginx. All simulator code, styles and content live in that file; no build, external fonts or simulator backend are required. Optional **Operator AI** uses a Python standard-library relay on the server to connect to OpenAI.
 
 ## Learning workspace
 
@@ -30,7 +30,43 @@ The project autosaves separately from graded labs and resumes after reopening th
 
 Matrix sandbox saves use `lab4net-sandbox-events-v1` to avoid clashes with other branches' sandbox formats. Supported older Matrix saves migrate automatically. An incompatible save is preserved and offered through **Download previous save**, while a fresh sandbox opens. The recovery file for main's format can be restored in that version. Lab progress is unaffected; clearing browser storage is unnecessary.
 
-Projects support up to 10,000 edits, 5,000 commands and 5 MB imports. Reopening replays actions in order, preserving configuration modes and DHCP acquisition before later cable changes. Local storage remains per browser/origin. This uses the same simplified IPv4 learning engine as the labs, rather than full Packet Tracer protocol/device coverage; IPv6 forwarding, wireless simulation and hardware/module customization are not included.
+Projects support up to 10,000 edits, 5,000 commands and 5 MB imports. Reopening replays actions in order, preserving configuration modes and DHCP acquisition before later cable changes. Local storage remains per browser/origin. This uses the same simplified IPv4 learning engine as the labs, rather than full Packet Tracer protocol/device coverage; IPv6 forwarding, wireless simulation and interchangeable hardware modules are not included. Model-specific hardware profiles are available as described below.
+
+## Operator AI
+
+Open **Operator AI** in the header for an embedded network tutor. It receives the current workspace, actual device configurations, physical/logical interface state, routes, ACL/NAT data, Junos candidate changes, current lab objectives/check results, the lab catalog and the simulator's supported command reference. It can explain application navigation, teach the next step, and reason about your simulated configuration.
+
+- **Inspect connectivity** chooses a source, IPv4 destination and ping/SSH/Telnet protocol. It runs the real forwarding engine on a cloned network, reports request/reply paths and failures, and includes that fresh evidence with your next question. It does not change NAT state, console journals or your last animated packet result.
+- A question mentioning an IPv4 address (or one uniquely named, addressed destination device) automatically inspects it from the selected console when there is no current explicit inspection. If source/destination are ambiguous, select them in the inspection form.
+- Answers offer explained commands through **Place in console**. Review and press Enter yourself. A changed configuration invalidates old command proposals; ask again for current guidance. Navigation buttons open UI controls; **New / starter** opens the menu before any replacement.
+- Wide mode and horizontal resize give the conversation more space on desktop. On a phone it becomes a full-height panel. Close it to return to the console. Enter sends; Shift+Enter adds a line. **Stop** cancels waiting in the browser, though the upstream request may already be running and billed.
+- Conversation stays in this tab's memory, not localStorage or a server database. **Clear chat** clears conversation and inspection. Each question uses a new snapshot. Historical packet tests are labeled historical; stale inspections are dropped.
+- With no server/key, navigation and local inspection still work, and chat clearly reports that OpenAI is not configured. The static file performs no assistant network requests until you open the panel; local-file mode never calls the API.
+
+### Enable OpenAI on the Debian container
+
+Update the preview branch and install as usual:
+
+    cd /opt/lab4net
+    git pull
+    bash install-lxc.sh
+    nano /etc/lab4net/assistant.env
+
+In that **server-only** file set `OPENAI_API_KEY` to your API key. The default `LAB4NET_AI_MODEL=gpt-4.1-mini` is configurable; choose a model supporting structured output in the Responses API. Optionally set `LAB4NET_AI_TOKEN` to a shared access token, then enter that token in the app's **Connection settings**. Never enter an OpenAI key in the browser or commit it to Git.
+
+    systemctl restart lab4net-assistant
+    systemctl status lab4net-assistant --no-pager
+    curl http://127.0.0.1:8787/api/assistant/status
+
+Reload the app and open **Operator AI**. The panel should show **OPENAI** with your model name. The relay binds only to localhost; nginx proxies `/api/assistant/`. The installer preserves `/etc/lab4net/assistant.env` across updates, copies the Python relay to `/opt/lab4net-assistant`, and manages a `www-data` systemd service. It installs the app's default nginx site; if you maintain a customized TLS/reverse-proxy site, retain your custom configuration and add the assistant location from `deploy/nginx-lxc.conf`.
+
+The relay accepts same-origin JSON requests, has a 400 KB request cap, two simultaneous model calls and a container-wide 12-question/minute limit. It stores no conversations and does not log request bodies. It sends `store:false` to the [OpenAI Responses API](https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create), with [structured output](https://developers.openai.com/api/docs/guides/structured-outputs). [GPT-4.1 Mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini) is the initial default, not a requirement. API billing belongs to your server key; no ChatGPT subscription integration is included.
+
+Configuration credential fields and credential command lines are redacted before transmission, with a second redaction pass on the relay. Arbitrary descriptions or pasted prose can still contain secrets that automated redaction cannot identify: use fictional lab values. Questions, redacted network state and recent conversation go to OpenAI when you send. `store:false` does not promise zero provider retention; see [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data). Use an access token and HTTPS/authentication if you expose the service beyond your trusted home network; the relay is not an account system or public multi-user gateway.
+
+### Docker assistant settings
+
+Copy `assistant.env.example` to `.env` beside `docker-compose.yml`, fill in the server values, then run `docker compose up -d --build`. Compose adds an internal Python relay container without exposing its port. The nginx-only Docker image still serves the simulator if the relay is absent; AI reports unavailable. Neither image contains your API key, and `.env` is excluded from Git and build context.
 
 ## Option A: plain LXC on Proxmox (simplest)
 
@@ -86,8 +122,10 @@ The lab test extracts only the code between the ENGINE markers, creates every la
     node tests/forwarding.cjs
     node tests/sandbox.cjs
     node tests/hardware.cjs
+    node tests/operator.cjs
+    python3 tests/assistant_server_test.py
 
-GitHub Actions runs all four dependency-free checks on pushes and pull requests.
+GitHub Actions runs all five dependency-free Node checks, Python relay tests and installer shell syntax checks on pushes and pull requests.
 
 Optional browser integration tests use Playwright:
 
@@ -98,6 +136,7 @@ Optional browser integration tests use Playwright:
     node tests/sandbox-ui.cjs
     node tests/sandbox-storage.cjs
     node tests/hardware-ui.cjs
+    node tests/operator-ui.cjs
 
 Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge browser. The browser suite opens the local file, grades every lab, checks command/session restoration and backup import/export, and exercises the library, guide, practices, phone layout and reduced motion. The sandbox suite covers actual editor controls, cabling, configuration/position restoration, project transfer, packet paths and phone use. The Matrix suite additionally checks rain preferences, pop-out guidance, window dragging/resizing/restoration and common desktop resolutions. `LAB4NET_SCREENSHOTS` optionally specifies a directory for desktop and phone captures.
 

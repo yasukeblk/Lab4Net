@@ -14,3 +14,9 @@ jobs:
       - run: node tests/forwarding.cjs
       - run: node tests/sandbox.cjs
       - run: node tests/hardware.cjs
+      - run: node tests/operator.cjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tests/assistant_server_test.py
+      - run: bash -n install-lxc.sh

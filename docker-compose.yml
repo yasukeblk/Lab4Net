@@ -1,4 +1,16 @@
 services:
+  assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile.assistant
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LAB4NET_AI_MODEL: ${LAB4NET_AI_MODEL:-gpt-4.1-mini}
+      LAB4NET_AI_TOKEN: ${LAB4NET_AI_TOKEN:-}
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
   ccna-lab-bench:
     build: .
     container_name: ccna-lab-bench

@@ -1,0 +1,6 @@
+FROM python:3.12-alpine
+WORKDIR /app
+COPY assistant_server.py .
+ENV LAB4NET_AI_HOST=0.0.0.0 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER 65534:65534
+CMD ["python3", "assistant_server.py"]

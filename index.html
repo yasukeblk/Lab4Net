@@ -178,6 +178,18 @@ input:disabled{cursor:default}
 .hw-exercise{margin:22px 0;border:1px solid #35573e;padding:12px}.hw-exercise>summary{line-height:1.6;width:auto}.hw-exercise>p{margin-top:12px!important;font-size:12px}.hw-task{margin:18px 0;font-size:13px}.hw-task>details{font-size:12px;margin-top:6px}
 @media(max-width:860px){#commitState{font-size:8px;padding:2px}.console-toolbar>div:first-child{flex-wrap:wrap}}
 
+
+/* Operator keeps the Matrix console language, with a separate conversation workspace. */
+#operator{position:fixed;z-index:90;right:18px;top:92px;bottom:18px;width:440px;max-width:calc(100vw - 36px);display:flex;flex-direction:column;border:1px solid #44865a;background:#051009;box-shadow:0 12px 80px #000d;color:var(--text);resize:horizontal;overflow:hidden;min-width:320px}
+#operator.wide{width:720px}#operator[hidden]{display:none}#operator .panel-title{flex:none;display:flex;gap:8px;justify-content:space-between;padding:12px}#operator .panel-title>div{display:flex;gap:6px}
+.op-meta{padding:10px 16px;border-bottom:1px solid #254735;font:10px/1.6 var(--mono);color:var(--muted)}#opConnection{color:#7df0a0;font-size:10px}#opContext{overflow-wrap:anywhere}
+#opQuick{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid #254735}
+#opMessages{flex:1;min-height:90px;overflow-y:auto;padding:16px;overscroll-behavior:contain}.op-message{font:13px/1.65 var(--ui);padding:14px;margin-bottom:14px;border:1px solid #254735;background:#091d10;overflow-wrap:anywhere}.op-message.user{background:#132518;border-color:#41654b;margin-left:34px}.op-message .eyebrow{display:block;margin-bottom:9px;font-size:9px}.op-message code{white-space:pre-wrap}.op-message>.small-btn{margin:10px 6px 0 0}.op-command{margin-top:14px;padding:10px;border:1px solid #385b41;background:#020805}.op-command>span{display:block;font:10px var(--mono);color:#89b697;margin-bottom:4px}.op-command>code{font:12px/1.6 var(--mono);color:#b5ffca}.op-command p{margin:6px 0;font-size:12px;color:var(--muted)}
+#opInspectForm{border-top:1px solid #254735;padding:10px 16px;max-height:36%;overflow:auto}#opInspectForm summary{width:auto;font-size:11px}#opInspectForm label{font:10px var(--mono);display:block;margin-top:8px;color:var(--muted)}.op-probe-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}#operator input,#operator select,#operator textarea{width:100%;min-width:0;box-sizing:border-box;margin:4px 0 0;font-size:12px}#opInspectForm button{margin-top:8px}#opEvidence{font:11px/1.5 var(--mono);white-space:pre-wrap;margin:8px 0;color:#b0e7bf}
+#opForm{padding:12px 16px;border-top:1px solid #35573e;background:#0d1e12}#opForm textarea{height:66px;resize:vertical;max-height:180px;font:13px/1.5 var(--ui)}#opForm .actions{margin:8px 0;display:flex;justify-content:space-between}#opActivity{font:10px/1.5 var(--mono);color:var(--muted)}#operator:focus-within{border-color:#74bb8b}#assistantToggle[aria-expanded=true]{background:#1c3f28}
+#operator textarea,#operator input{background:#020805;color:#d2f3dd;border:1px solid #41654b;padding:8px}#operator textarea::placeholder,#operator input::placeholder{color:#769b80}#operator textarea:focus,#operator input:focus{outline:1px solid #98efb3;border-color:#98efb3}
+@media(max-width:860px){#operator,#operator.wide{top:12px;bottom:12px;right:8px;width:calc(100vw - 16px);max-width:calc(100vw - 16px);min-width:0;resize:none}#opQuick{padding:8px}#opInspectForm{max-height:33%}.op-message{font-size:13px}#operator .panel-title{padding:10px}}
+
 </style>
 </head>
 <body>
@@ -186,7 +198,7 @@ input:disabled{cursor:default}
 <div id="boot" aria-hidden="true"><pre></pre></div>
 <header>
   <h1><svg viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path class="w" d="M7 5h2v3H7zM3 8h10v1H3zM3 9h1v2H3zM12 9h1v2h-1z"/><path class="w" d="M6 2h4v3H6zM2 11h3v3H2zM11 11h3v3h-3z"/><path class="l" d="M7 3h2v1H7z"/></svg>Lab4Net</h1>
-  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="sandbox">Sandbox</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="transfer">Transfer progress</button><button class="small-btn" id="resetLayout">Reset layout</button><button class="small-btn" id="rainToggle" aria-pressed="true" title="Toggle ambient digital rain">Rain on</button></div>
+  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="sandbox">Sandbox</button><button class="small-btn" id="assistantToggle" aria-expanded="false" aria-controls="operator">Operator AI</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="transfer">Transfer progress</button><button class="small-btn" id="resetLayout">Reset layout</button><button class="small-btn" id="rainToggle" aria-pressed="true" title="Toggle ambient digital rain">Rain on</button></div>
   <select id="labs" aria-label="Choose a lab"></select>
   <div id="meter"></div>
   <span id="clock" aria-hidden="true"></span>
@@ -210,6 +222,16 @@ input:disabled{cursor:default}
 </main>
 <dialog id="dialog" aria-labelledby="dialogTitle"><div class="dialog-heading"><h2 id="dialogTitle"></h2><button class="small-btn" id="closeDialog" aria-label="Close dialog">Close ×</button></div><div id="dialogBody"></div></dialog>
 <div id="notice" role="status" onclick="this.textContent=''" title="Click to dismiss"></div>
+
+<aside id="operator" hidden role="dialog" aria-modal="false" aria-labelledby="opTitle">
+ <div class="panel-title"><b id="opTitle">OPERATOR / NETWORK TUTOR</b><div><button class="small-btn" id="opWide" aria-pressed="false" aria-label="Toggle wide assistant">↔</button><button class="small-btn" id="opClose" aria-label="Close assistant">×</button></div></div>
+ <div class="op-meta"><div id="opConnection" role="status">NOT CONNECTED</div><div id="opContext"></div><button class="small-btn" id="opSettings">Connection settings</button></div>
+ <div id="opQuick"><button class="small-btn" data-nav="sandbox">Open sandbox</button><button class="small-btn" data-nav="newSandbox">New / starter</button><button class="small-btn" data-question="What should I do next in this workspace? Explain why.">Next step</button><button class="small-btn" data-question="Help me troubleshoot connectivity using my inspection or the last test. Explain the cause and the next verification command.">Troubleshoot</button></div>
+ <div id="opMessages" role="log" aria-label="Assistant conversation" aria-live="polite" aria-relevant="additions"></div>
+ <form id="opInspectForm"><details><summary>Inspect connectivity · read only</summary><div class="op-probe-fields"><label>From device<select id="opSource" aria-label="Inspection source"></select></label><label>Protocol<select id="opProtocol"><option value="icmp">Ping</option><option value="ssh">SSH</option><option value="telnet">Telnet</option></select></label></div><label>Destination IPv4<input id="opTarget" placeholder="192.168.1.20" autocomplete="off"></label><button class="small-btn" id="opInspect">Inspect path</button><pre id="opEvidence" role="status"></pre></details></form>
+ <form id="opForm"><label class="sr-only" for="opQuestion">Ask Operator</label><textarea id="opQuestion" maxlength="4000" placeholder="Why can’t this switch reach PC2?" aria-label="Ask Operator"></textarea><div class="actions"><div><button class="btn primary" id="opSend">Send ↵</button><button class="small-btn" id="opStop" type="button" hidden>Stop</button></div><button class="small-btn" id="opClear" type="button">Clear chat</button></div><div id="opActivity" role="status">Commands are suggestions. Nothing runs automatically.</div></form>
+</aside>
+
 <script>
 //ENGINE-START
 const ip2n=s=>{const p=String(s).split('.');if(p.length!==4)return null;let n=0;for(const x of p){if(!/^\d+$/.test(x)||+x>255)return null;n=n*256+ +x;}return n;};
@@ -1538,6 +1560,120 @@ function hardwareStarter(){
   {op:'command',device:'PC1',line:'ipconfig /ip 192.168.10.10 255.255.255.0'},{op:'command',device:'PC2',line:'ipconfig /ip 192.168.10.20 255.255.255.0'}
  ]};
 }
+
+//OPERATOR-START
+// Snapshots and inspections are data-only. They never execute on the learner's network.
+const OPERATOR_MANUAL={
+ navigation:{sandbox:'Header Sandbox opens the saved free-build workspace.',newSandbox:'Sandbox → New / starter opens Empty canvas, Working LAN, or Cisco + Juniper VLAN exercise. Export first before replacing a project.',library:'Lab library searches all labs. Choose a lab to open its mission, address plan and checklist.',reference:'Command guide beside the console searches supported commands and reasons, for current or all modes.',help:'How to use explains console shortcuts and learning workflow.',transfer:'Transfer progress exports/imports lab progress and drafts. Sandbox Export/Import project uses a separate project file.'},
+ interface:'Mission/address plan and objectives remain visible independently of step-by-step instructions. Toggle step instructions or Pop out guide in lab checklist. Desktop panels can drag/resize; Reset layout restores them. Phone uses Mission & tasks / Topology & console. Click a device/tab to select its console. Commands are Enter, Tab completion, ? help, arrow history. Rain on/off controls ambient animation; reduced motion pauses effects.',
+ learning:'Grade lab evaluates actual configuration rather than checklist marks. Every task has Why this step. Walkthrough reveals one solution. Theory check and subnetting drill are available in the lab selector/library. Progress is browser/origin-local; transfer JSON to another device.',
+ sandbox:'Up to 16 devices, free-port cable builder, drag or arrow-key positions, host IP form, connectivity probe, ordered autosave, Undo, Export/Import. Generic router ports start shut; generic switch ports start in VLAN 1. Hardware catalog offers Catalyst 2960-24TT-L IOS and EX2300-24T Junos. Expand Front panel to choose a free port. Fixed 10G Juniper uplinks cannot connect to 1G copper.',
+ limitations:'This is an educational simulator, not real IOS/Junos firmware or a physical network. IPv4 only; no HSRP, IPv6 forwarding, real DHCP traffic timing or throughput. STP/EtherChannel/port security/authentication are simplified. SSH/Telnet test connection results, not interactive remote shells. Junos supports full ELS set/delete statements, VLANs/trunks/native VLAN/descriptions/shutdown, management IRB, candidate commit/check/rollback and show/ping, not hierarchical edit, routing/firewall filters/Virtual Chassis. Server AI key stays on server; assistant actions navigate or insert commands, never run them automatically.'
+};
+function operatorRedact(value){
+ if(Array.isArray(value))return value.map(operatorRedact);
+ if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,/password|secret|token|private.?key|community|^users$/i.test(k)?'[redacted]':operatorRedact(v)]));
+ if(typeof value==='string')return value.split('\n').map(line=>/^\s*(?:\S*[#>]\s*)?(?:enable (?:secret|password)|username \S+ (?:secret|password)|password|snmp-server community)\s+/i.test(line)&&!/<[^>]+>/.test(line)?'[credential line redacted]':line).join('\n').replace(/\bsk-[A-Za-z0-9_-]{8,}/g,'[key redacted]');
+ return value;
+}
+function operatorLeg(p){return p?{ok:p.ok,reason:p.reason||null,blocked:!!p.blocked,stoppedAt:p.ok?null:p.hops.path.at(-1),path:Array.from(p.hops.path),nextHops:p.hops.map(n2ip),destination:p.dest?.name||null,sourceIPv4:p.pk?.src==null?null:n2ip(p.pk.src),destinationIPv4:p.pk?.dst==null?null:n2ip(p.pk.dst)}:null;}
+function operatorInspect(net,source,target,protocol='icmp'){
+ if(!net?.devs[source]||!isIp(target)||!['icmp','ssh','telnet'].includes(protocol))throw Error('Choose a device and a valid destination IPv4 address.');
+ const copy=JSON.parse(JSON.stringify(net)),oldTrace=TRACE,oldLive=LIVE;
+ try{LIVE=true;TRACE=null;reach(copy,copy.devs[source],ip2n(target),protocol==='icmp'?'icmp':'tcp',protocol==='ssh'?22:protocol==='telnet'?23:0);
+  const t=TRACE;return {source,target,protocol,ok:t.ok,refused:!!t.refused,request:operatorLeg(t.f),reply:operatorLeg(t.r),readOnly:true};
+ }finally{TRACE=oldTrace;LIVE=oldLive;}
+}
+function operatorSnapshot(workspace,diagnostic=null){
+ const lab=workspace.view==='lab'&&!workspace.sandbox?workspace.lab:null;
+ const result={app:'Lab4Net / CCNA Lab Bench',capturedAt:new Date().toISOString(),view:workspace.sandbox?'sandbox':workspace.view,selectedDevice:workspace.sel||null,manual:OPERATOR_MANUAL,
+  labCatalog:LABS.map(l=>({title:l.title,group:l.group,brief:l.brief,tasks:l.tasks,why:l.why})),
+  lab:lab?{title:lab.title,brief:lab.brief,addressPlan:lab.addr,tasks:lab.tasks.map((task,i)=>({task,why:lab.why[i],markedDone:!!workspace.tasks[i]})),checks:lab.checks.map(([label,fn])=>{try{return {label,passed:!!fn(JSON.parse(JSON.stringify(workspace.net)))}}catch(e){return {label,passed:false}}})}:null,
+  supportedCommands:CMDS.map(c=>({syntax:c.pat.join(' '),modes:c.modes,types:c.types||['router','switch','pc'],why:WHYC[c.pat.join(' ')]||null})),
+  junosCommands:JUNOS_COMMANDS.map(([mode,syntax,why])=>({mode,syntax,why})),diagnostic};
+ if(workspace.view==='lab'){
+  const clone=JSON.parse(JSON.stringify(workspace.net));result.network=operatorRedact(clone);
+  result.devices=Object.values(workspace.net.devs).map(d=>({name:d.name,hostname:d.hostname,type:d.type,model:d.model||'generic',os:d.os||'ios',mode:workspace.sess[d.name].mode,
+   interfaces:Object.values(d.ifs).map(i=>({name:i.displayName||i.name,ipv4:i.ip===null?null:n2ip(i.ip),prefix:i.len,up:ifUp(workspace.net,d,i),shutdown:i.shutdown,peer:i.link,mode:i.mode,accessVlan:i.accessVlan,nativeVlan:i.native,allowedVlans:i.allowed,aclIn:i.aclIn,aclOut:i.aclOut})),
+   configuration:operatorRedact(execLine(clone,clone.devs[d.name],{mode:d.os==='junos'?'junos-op':d.type==='pc'?'pc':'priv'},d.os==='junos'?'show configuration | display set':d.type==='pc'?'ipconfig':'show running-config').join('\n')),
+   authentication:{localUsersConfigured:!!d.users?.length,vtyLogin:!!d.lines?.vty?.login,vtyLocal:!!d.lines?.vty?.local,rsaConfigured:!!d.rsa},candidate:operatorRedact(workspace.sess[d.name].candidate||null),
+   uncommitted:!!(d.os==='junos'&&workspace.sess[d.name].candidate&&junosLines(workspace.sess[d.name].candidate).join('\n')!==junosLines(d.junosActive).join('\n'))}));
+  const t=workspace.trace;result.lastTest=t?{historical:true,ok:t.ok,refused:t.refused,request:operatorLeg(t.f),reply:operatorLeg(t.r)}:null;
+ }
+ return operatorRedact(result);
+}
+//OPERATOR-END
+
+// Operator is optional: no service requests until the learner opens it.
+const operator={messages:[],history:[],busy:false,status:null,controller:null,token:'',inspection:null,inspectionKey:null};
+function operatorKey(){return JSON.stringify({view:cur.view,sandbox:cur.sandbox,idx:cur.idx,net:cur.net,sess:cur.view==='lab'?Object.fromEntries(Object.entries(cur.sess).map(([n,s])=>[n,{candidate:s.candidate}])):null});}
+function operatorText(text){return esc(String(text)).replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>');}
+function operatorContext(){const names=cur.view==='lab'?Object.keys(cur.net.devs):[];$('opContext').textContent=(cur.sandbox?'Sandbox':cur.view==='lab'?cur.lab.title:cur.view==='quiz'?'Theory check':'Subnetting drill')+' · '+names.length+' devices'+(cur.sel?' · selected '+cur.sel:'');
+ const old=$('opSource').value;$('opSource').innerHTML=names.map(n=>`<option value="${n}">${esc(n)}</option>`).join('');$('opSource').value=names.includes(old)?old:cur.sel||names[0]||'';$('opInspect').disabled=!names.length;
+ if(operator.inspection&&operator.inspectionKey!==operatorKey()){$('opEvidence').textContent='Network changed since inspection. Inspect again for current results.';operator.inspection=null;}
+}
+function operatorRender(){
+ $('opMessages').innerHTML=operator.messages.map((m,i)=>`<article class="op-message ${m.role}"><span class="eyebrow">${m.role==='user'?'YOU':m.local?'LOCAL GUIDE':'OPERATOR'}${m.at?' · '+esc(m.at):''}</span><div>${operatorText(m.answer)}</div>${m.commands?.map((c,k)=>`<div class="op-command"><span>${esc(c.device)}</span><code>${esc(c.line)}</code><p>${esc(c.why)}</p><button class="small-btn" data-op-command="${i}:${k}">Place in console</button></div>`).join('')||''}${m.actions?.map((a,k)=>`<button class="small-btn" data-op-action="${i}:${k}">${esc(a.label)}</button>`).join('')||''}</article>`).join('');
+ $('opMessages').querySelectorAll('[data-op-command]').forEach(b=>b.onclick=()=>{const [i,k]=b.dataset.opCommand.split(':').map(Number),m=operator.messages[i],c=m.commands[k];if(m.key!==operatorKey()){notify('Workspace changed. Ask again before using this command.');return;}if(cur.view!=='lab'||!cur.net.devs[c.device]){notify('That device is no longer available.');return;}select(c.device);$('tin').value=c.line;mobilePanel(true);$('tin').focus({preventScroll:true});notify('Command placed in '+c.device+' console. Review it, then press Enter.');});
+ $('opMessages').querySelectorAll('[data-op-action]').forEach(b=>b.onclick=()=>{const [i,k]=b.dataset.opAction.split(':').map(Number);operatorNavigate(operator.messages[i].actions[k].id);});
+ $('opMessages').scrollTop=$('opMessages').scrollHeight;
+ $('opSend').disabled=operator.busy;$('opStop').hidden=!operator.busy;$('opQuestion').disabled=operator.busy;$('opClear').disabled=operator.busy;
+ $('opActivity').textContent=operator.busy?'Reading the current workspace…':'Commands are suggestions. Nothing runs automatically.';
+}
+function operatorNavigate(id){
+ const actions={sandbox:()=>openSandbox(),newSandbox:()=>{if(!cur.sandbox)openSandbox();$('sbNew').click();},library,reference:()=>{if(cur.view==='lab'&&cur.sel)reference();else notify('Open a device console first.');},help,transfer};
+ if(actions[id]){actions[id]();operatorContext();}
+}
+function operatorLocal(answer,actions=[]){operator.messages.push({role:'assistant',local:true,answer,actions,at:new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})});operatorRender();}
+async function operatorStatus(){
+ if(location.protocol==='file:'){operator.status={configured:false};$('opConnection').textContent='LOCAL FILE · guide and inspection available';return;}
+ $('opConnection').textContent='CHECKING CONNECTION';
+ try{const r=await fetch('/api/assistant/status',{cache:'no-store',signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error();operator.status=await r.json();$('opConnection').textContent=operator.status.configured?'OPENAI · '+operator.status.model:'OPENAI NOT CONFIGURED';}catch(e){operator.status={configured:false};$('opConnection').textContent='ASSISTANT SERVICE UNAVAILABLE';}
+}
+async function operatorAsk(question){
+ if(operator.busy||!question.trim())return;question=question.trim().slice(0,4000);operatorContext();
+ operator.messages.push({role:'user',answer:question});operator.busy=true;operatorRender();$('opQuestion').value='';
+ const key=operatorKey();
+ try{
+  if(!operator.status?.configured){operatorLocal('AI chat needs the container connection. Open Connection settings for setup. You can already use the navigation shortcuts and Inspect connectivity to get a read-only result from the simulator.',[{id:'sandbox',label:'Open sandbox'},{id:'newSandbox',label:'New / starter'},{id:'library',label:'Lab library'}]);return;}
+  let diagnostic=operator.inspectionKey===key?operator.inspection:null;
+  const mentioned=cur.view==='lab'?Object.values(cur.net.devs).filter(d=>d.name!==cur.sel&&[d.name,d.hostname].some(n=>question.toLowerCase().split(/[^a-z0-9_.-]+/).includes(n.toLowerCase()))):[];
+  const host=mentioned.length===1?Object.values(mentioned[0].ifs).find(i=>i.ip!==null):null;
+  const ip=question.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/)?.[0]||(host?n2ip(host.ip):null);
+  if(!diagnostic&&cur.view==='lab'&&cur.sel&&ip&&isIp(ip))diagnostic=operatorInspect(cur.net,cur.sel,ip,/\bssh\b/i.test(question)?'ssh':/\btelnet\b/i.test(question)?'telnet':'icmp');
+  const snapshot=operatorSnapshot(cur,diagnostic);
+  operator.controller=new AbortController();const timeout=setTimeout(()=>operator.controller?.abort('timeout'),90000);
+  let response,data;try{response=await fetch('/api/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json','X-Lab4Net-Client':'assistant',...(operator.token?{Authorization:'Bearer '+operator.token}:{})},body:JSON.stringify({question:operatorRedact(question),snapshot,history:operator.history.slice(-10)}),signal:operator.controller.signal});data=await response.json();}finally{clearTimeout(timeout);}
+  if(!response.ok)throw Error(data.error||'The assistant connection failed.');
+  if(typeof data.answer!=='string')throw Error('The assistant returned an invalid answer.');
+  const commands=Array.isArray(data.commands)?data.commands.slice(0,8).filter(c=>c&&typeof c.device==='string'&&snapshot.devices?.some(d=>d.name===c.device)&&typeof c.line==='string'&&c.line.length<=400&&!/[\r\n\x00-\x1f]/.test(c.line)&&typeof c.why==='string'):[];
+  const actions=Array.isArray(data.actions)?data.actions.slice(0,3).filter(a=>a&&Object.hasOwn(OPERATOR_MANUAL.navigation,a.id)&&typeof a.label==='string'):[];
+  operator.messages.push({role:'assistant',answer:data.answer,commands,actions,key,at:new Date(snapshot.capturedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})});
+  operator.history.push({role:'user',content:operatorRedact(question)},{role:'assistant',content:operatorRedact(data.answer).slice(0,8000)});operator.history=operator.history.slice(-10);
+  if(key!==operatorKey())operatorLocal('The workspace changed while I answered. This reply describes the earlier snapshot; ask again for current guidance.');
+ }catch(e){operatorLocal(e.name==='AbortError'||operator.controller?.signal.aborted?'Request stopped. Your configuration is unchanged.':e.message||'Assistant unavailable. Try again.');}
+ finally{operator.busy=false;operator.controller=null;operatorRender();}
+}
+function operatorSettings(){
+ dialog('Connect Operator',`<p>The OpenAI key belongs on your Debian container. Never put it in this browser or your lab configuration.</p><p>Run the updated installer, edit <code>/etc/lab4net/assistant.env</code>, set <code>OPENAI_API_KEY</code>, then run <code>systemctl restart lab4net-assistant</code>. The default model is <code>gpt-4.1-mini</code>; change <code>LAB4NET_AI_MODEL</code> to use another model that supports structured Responses output.</p><p>Each question sends a fresh, credential-redacted network snapshot, lab/command reference and recent conversation to OpenAI. Chat is kept only in this tab. API use is billed to your server key. Automated redaction cannot recognize credentials pasted into arbitrary descriptions or prose: use fictional lab values.</p><label>Optional assistant access token<input id="opToken" type="password" autocomplete="off" placeholder="Only if LAB4NET_AI_TOKEN is set on the server"></label><p>This is your server’s access token, never your OpenAI key. It stays in this tab’s memory.</p><button class="btn primary" id="opSaveToken">Use token / recheck connection</button>`);
+ $('opToken').value=operator.token;$('opSaveToken').onclick=()=>{operator.token=$('opToken').value;$('dialog').close();operatorStatus();};
+}
+$('assistantToggle').onclick=()=>{const open=$('operator').hidden;$('operator').hidden=!open;$('assistantToggle').setAttribute('aria-expanded',String(open));if(open){operatorContext();operatorStatus();if(!operator.messages.length)operatorLocal('I’m Operator, your network tutor. Ask about the app, the current lab, or a device. For connectivity questions, choose a source and destination below so I can use a fresh simulator result.');$('opQuestion').focus();}};
+$('opClose').onclick=()=>{$('operator').hidden=true;$('assistantToggle').setAttribute('aria-expanded','false');$('assistantToggle').focus();};
+$('operator').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();$('opClose').click();}});
+$('opWide').onclick=()=>{$('operator').classList.toggle('wide');$('opWide').setAttribute('aria-pressed',String($('operator').classList.contains('wide')));};
+$('opSettings').onclick=operatorSettings;
+$('opForm').onsubmit=e=>{e.preventDefault();operatorAsk($('opQuestion').value);};
+$('opQuestion').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();operatorAsk(e.target.value);}};
+$('opStop').onclick=()=>operator.controller?.abort();
+$('opClear').onclick=()=>{if(operator.busy)return;operator.messages=[];operator.history=[];operator.inspection=null;$('opEvidence').textContent='';operatorRender();};
+$('opQuick').querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>operatorNavigate(b.dataset.nav));
+$('opQuick').querySelectorAll('[data-question]').forEach(b=>b.onclick=()=>operatorAsk(b.dataset.question));
+$('opInspectForm').onsubmit=e=>{e.preventDefault();operatorContext();try{const result=operatorInspect(cur.net,$('opSource').value,$('opTarget').value.trim(),$('opProtocol').value);operator.inspection=result;operator.inspectionKey=operatorKey();const f=result.request,r=result.reply;
+ $('opEvidence').textContent=(result.ok?'Reachable':result.refused?'Destination port closed':!f.ok?f.reason:r?.reason||'Reply did not return')+' · '+result.source+' → '+result.target+'\nRequest: '+f.path.join(' → ')+'\nReply: '+(r?r.path.join(' → '):'none')+'\nRead-only inspection on a cloned network. Included with your next question.';
+ }catch(e){operator.inspection=null;$('opEvidence').textContent=e.message;}};
+// Keep the visible context current without polling the AI service.
+setInterval(()=>{if(!$('operator').hidden&&!operator.busy)operatorContext();},1500);
 
 </script>
 </body>
