@@ -14,9 +14,9 @@ Motion includes device boot sequences, link pulses, window transitions, packet t
 
 Each lab has a command-by-command guide showing the target device, expected IOS prompt, exact command, next prompt when it changes, and the reason for the command. **Back**, **Next** and **Jump to step** navigate without changing the network. Successfully entering the exact displayed command advances the guide automatically; use Next after an abbreviated equivalent.
 
-- **Instructions ON/OFF** shows or hides the mission/instruction panel. Turning it off gives the network workspace the full width. Grading remains available from the console's **Grade** button.
+- **Instructions ON/OFF** shows or hides only the step-by-step command-guide card. Separate **General information**, **Address plan** and **Your objectives** cards remain available, with task checkboxes and their why explanations. Grading remains available in the mission panel and from the console's **Grade** button.
 - **Pop out** opens instructions in a separate resizable browser window, suitable for a second monitor. It follows the active lab and step, includes the address plan and task explanations, and can grade the lab at the final step.
-- **Dock** returns instructions to the workspace. Closing the window also restores the docked panel. If a browser blocks the pop-up, the app keeps the instructions docked and explains how to allow it.
+- **Dock** returns the guide card to the workspace. Closing the window also restores it. The general-information and objective cards remain in the main workspace while the guide is popped out. If a browser blocks the pop-up, the app keeps the guide docked and explains how to allow it.
 - Your show/hide preference and each lab's current step are remembered locally. The guide presents one working solution; it does not execute commands or treat step navigation as grading.
 
 - 15 configurable labs with a live topology, IOS-style device consoles, independent grading and an explained walkthrough.

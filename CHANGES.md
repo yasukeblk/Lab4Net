@@ -1,10 +1,17 @@
 # Lab4Net improvements
 
+## Keep the mission separate from optional instructions
+
+- Split the mission into independent General information, Address plan, Your objectives and Step-by-step guide cards. The objectives retain their checkboxes and why explanations, with their own scroll area on desktop.
+- Instructions OFF now hides only the detailed command-guide card. General information, addressing, objectives and grading remain available. Popping the guide into its own window likewise leaves the mission cards in place.
+- Kept phone mission/network navigation available when instructions are off or popped out. Turning the guide back on scrolls to its card; turning it off returns to the mission information.
+- Updated browser coverage to assert that mission cards and objective text remain available across toggling, reload and popping out. Instruction-window and full browser regression suites pass. The simulator engine remains unchanged; all 15 labs / 85 grading checks pass.
+
 ## Toggleable step-by-step instructions
 
 - Added a command-by-command guide for all 15 labs, generated from each lab's tested solution. Every command identifies the device, expected prompt/mode, command, changed prompt and why explanation. A final verification/grading step keeps configuration and proof separate.
 - Added Back, Next and Jump controls. Navigation does not execute commands. Successfully entering the exact expected command advances the guide; rejected commands do not. Abbreviated equivalents can be followed with Next.
-- Added an Instructions ON/OFF control to the workspace bar. Hiding instructions gives the topology and console full width. A console Grade button keeps grading available and shows detailed results when the mission panel is hidden.
+- Added an Instructions ON/OFF control to the workspace bar. The later card separation above limits this control to the detailed guide. A console Grade button keeps grading available and can show detailed results while using a maximized console.
 - Added a real separate browser window for the instructions, with live lab/step synchronization, device selection, address-plan/task explanations and final-step grading. Dock returns it to the workspace; closing it also restores the panel, including browsers that skip unload callbacks. Blocked pop-ups leave the instructions in place and display recovery guidance.
 - Saved visibility preferences and per-lab guide bookmarks locally. The guide follows the active lab; it pauses with explanatory text during subnetting/theory practice. The simulator and its grading functions are unchanged.
 - Verification: 15 labs / 85 checks pass; forwarding and existing browser suites pass. New `tests/instructions.cjs` passes all 15 guide lengths, navigation without execution, automatic advancement, rejected-command behavior, saved state, popup synchronization/grading, docking, native window closure, popup blocking and phone layout. No browser errors. Visually inspected docked and popped-out instructions.
