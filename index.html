@@ -644,7 +644,8 @@ function nextHop(net,d,dst){const rt=routes(net,d);let best=null;
   if(!best)return null;let ifc=best.ifc;const nh=best.nh==null?dst:best.nh;
   if(!ifc){const c=rt.find(c=>c.code==='C'&&netOf(nh,c.len)===c.net);if(!c)return null;ifc=c.ifc;}
   return {ifc,nh,proxy:best.code==='S'&&best.nh==null,route:best};}
-const ownsIp=(net,d,ip)=>Object.values(d.ifs).some(i=>i.ip===ip&&ifUp(net,d,i));
+// The active HSRP router also owns its group's virtual IP.
+const ownsIp=(net,d,ip)=>Object.values(d.ifs).some(i=>(i.ip===ip||hsrpVip(net,d,i)===ip)&&ifUp(net,d,i));
 function tracePath(net,src,dst){let d=src,hops=[],srcIp=null;
   for(let t=0;t<20;t++){
     if(ownsIp(net,d,dst))return {ok:true,hops,srcIp,dest:d};
@@ -1040,7 +1041,7 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
     if(pk.src==null)pk.src=h.ifc.ip;
     if(isL3(d)){if(inIf&&inIf.nat==='inside'&&h.ifc.nat==='outside'){const why=natOut(d,pk);if(why)return {ok:false,hops,blocked:d,reason:why};}
       if(t>0&&h.ifc.aclOut&&!aclPermit(d,h.ifc.aclOut,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+h.ifc.aclOut+' outbound on '+shortIf(h.ifc.name)};}
-    let hopIp=h.nh,peer=l2peers(net,d,h.ifc).find(p=>p.ifc.ip===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
+    let hopIp=h.nh,peer=l2peers(net,d,h.ifc).find(p=>p.ifc.ip===h.nh||hsrpVip(net,p.dev,p.ifc)===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
     // An exit-interface-only static route ARPs for the destination itself; a router on the segment with a route to it answers (proxy ARP).
     if(!peer&&h.proxy){peer=l2peers(net,d,h.ifc).find(p=>p.dev.type==='router'&&p.ifc.proxyArp!==false&&(x=>!!x&&x.ifc!==p.ifc)(nextHop(net,p.dev,h.nh)));if(peer)hopIp=peer.ifc.ip;}
     if(!peer)return {ok:false,hops,reason:'Next hop '+n2ip(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links, VLANs and addressing'};
@@ -1220,6 +1221,7 @@ function ifExtra(i,d0){const L=[];if(i.helper!=null)L.push(' ip helper-address '
   if(i.chan)L.push(' channel-group '+i.chan+' mode '+i.chanMode);
   if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');}
   if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.voiceVlan!=null)L.push(' switchport voice vlan '+i.voiceVlan);if(i.snoopRate)L.push(' ip dhcp snooping limit rate '+i.snoopRate);if(i.daiTrust)L.push(' ip arp inspection trust');if(i.snoopTrust)L.push(' ip dhcp snooping trust');if(i.relayTrust)L.push(' ip dhcp relay information trusted');if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
+  if(i.hsrpV2)L.push(' standby version 2');for(const g of i.hsrp||[]){if(g.ip!=null)L.push(' standby '+g.grp+' ip '+n2ip(g.ip));if(g.prio!==100)L.push(' standby '+g.grp+' priority '+g.prio);if(g.preempt)L.push(' standby '+g.grp+' preempt');}
   if(i.ospfNet)L.push(' ip ospf network '+i.ospfNet);if(i.ospfPrio!=null)L.push(' ip ospf priority '+i.ospfPrio);if(i.ospfCost!=null)L.push(' ip ospf cost '+i.ospfCost);if(i.ospfArea!=null&&d0.ospf)L.push(' ip ospf '+d0.ospf.pid+' area '+i.ospfArea);return L;}
 function globalExtra(d){const L=[];
   if(d.tz)L.push('clock timezone '+d.tz.name+' '+d.tz.off);if(d.cdp===false)L.push('no cdp run');if(d.lldp&&d.type!=='pc')L.push('lldp run');
@@ -2503,6 +2505,79 @@ addLab({title:'IPv6 static and default routes',group:'IPv6',
   'HQ: ipv6 route 2001:db8:acad:99::1/128 2001:db8:acad:12::2 | do ping 2001:db8:acad:99::1',
   'BR: # refused: a link-local next hop needs an interface | ipv6 route ::/0 fe80::1 10 | ipv6 route ::/0 g0/2 fe80::1 10 | end ; HQ: ipv6 route 2001:db8:acad:20::/64 g0/2 fe80::2 10 | end | show ipv6 route static',
   'HQ: configure terminal | interface g0/1 | shutdown | end | show ipv6 route static ; BR: show ipv6 route static ; PC2: ping 2001:db8:acad:10::10 ; HQ: configure terminal | interface g0/1 | no shutdown | end']);
+
+// ----- phase 3, lab 21
+// HSRP. Members of a group are routers with that group configured on an up interface in the same subnet.
+// The active router is the highest priority, then highest interface address, when the group first forms. After
+// that it keeps the role (no pre-emption) unless a better router has "preempt", or the active router leaves.
+// State lives on the network so it persists between commands; the active router answers for the virtual IP.
+const hsrpKey=(i,g)=>netOf(i.ip,i.len)+'/'+i.len+'#'+g.grp;
+function hsrpElect(net){const st=net.hsrp||(net.hsrp={}),groups=new Map();
+  for(const d of Object.values(net.devs)){if(!isL3(d))continue;for(const i of Object.values(d.ifs)){if(!i.hsrp||i.ip===null||!ifUp(net,d,i))continue;
+    for(const g of i.hsrp){if(g.ip==null)continue;const k=hsrpKey(i,g);if(!groups.has(k))groups.set(k,[]);groups.get(k).push({d,i,g});}}}
+  const better=(a,b)=>a.g.prio!==b.g.prio?a.g.prio>b.g.prio:a.i.ip>b.i.ip,id=m=>m.d.name+'|'+m.i.name;
+  for(const [k,mem] of groups){const s=st[k]||(st[k]={active:null,standby:null});
+    // Members must also hear each other: same Layer 2 segment.
+    const best=list=>list.reduce((a,b)=>!a||better(b,a)?b:a,null);
+    let act=mem.find(m=>id(m)===s.active)||null;const top=best(mem);
+    if(!act)act=top;else if(top!==act&&top.g.preempt&&better(top,act))act=top;
+    const sb=best(mem.filter(m=>m!==act));s.active=id(act);s.standby=sb?id(sb):null;}
+  for(const k of Object.keys(st))if(!groups.has(k))delete st[k];}
+function hsrpRole(net,d,i,g){if(!net.hsrp)hsrpElect(net);const s=net.hsrp[hsrpKey(i,g)];if(!s)return 'Init';const me=d.name+'|'+i.name;return s.active===me?'Active':s.standby===me?'Standby':'Listen';}
+function hsrpVip(net,d,i){if(!i.hsrp||i.ip===null)return null;for(const g of i.hsrp)if(g.ip!=null&&hsrpRole(net,d,i,g)==='Active')return g.ip;return null;}
+const vmac=(i,g)=>i.hsrpV2?'0000.0c9f.f'+g.grp.toString(16).padStart(3,'0'):'0000.0c07.ac'+g.grp.toString(16).padStart(2,'0');
+// Re-run the election after every command and log state changes (%HSRP-5-STATECHANGE), on this console or in the other routers' logs.
+{const roles=net=>{const m=new Map();for(const d of Object.values(net.devs))for(const i of Object.values(d.ifs))for(const g of i.hsrp||[])m.set(d.name+'|'+i.name+'|'+g.grp,{d,i,g,r:i.ip!==null&&ifUp(net,d,i)&&g.ip!=null&&net.hsrp&&net.hsrp[hsrpKey(i,g)]?hsrpRole(net,d,i,g):'Init'});return m;};
+ // The messages IOS logs on the way between two states (Listen and Speak are passed through quickly).
+ const steps=(a,b)=>b==='Active'?(a==='Standby'?['Standby -> Active']:['Speak -> Standby','Standby -> Active']):b==='Standby'?(a==='Active'?['Active -> Speak','Speak -> Standby']:['Speak -> Standby']):[a+' -> '+b];
+ const any=net=>Object.values(net.devs).some(x=>Object.values(x.ifs).some(i=>i.hsrp&&i.hsrp.length));
+ const ex0=execLine;execLine=function(net,d,s,line){const had=any(net);if(had&&!net.hsrp)hsrpElect(net);const before=had?roles(net):new Map(),out=ex0(net,d,s,line);if(!had&&!any(net))return out;hsrpElect(net);
+  for(const [k,a] of roles(net)){const b=before.get(k),was=b?b.r:'Init';if(was===a.r)continue;for(const st of steps(was,a.r)){const msg='%HSRP-5-STATECHANGE: '+a.i.name+' Grp '+a.g.grp+' state '+st;if(a.d===d)out.push(msg);else logEvent(net,a.d,msg);}}
+  return out;};}
+const hsrpOf=(i,g)=>{i.hsrp=i.hsrp||[];let x=i.hsrp.find(x=>x.grp===g);if(!x){x={grp:g,ip:null,prio:100,preempt:false};i.hsrp.push(x);}return x;};
+Cn('if','standby <n> ip <ip>',e=>{for(const i of e.s.ctx){if(i.ip===null||netOf(e.args[1],i.len)!==netOf(i.ip,i.len))return e.out('% Address '+n2ip(e.args[1])+' in group '+e.args[0]+' is not in the subnet of '+shortIf(i.name));hsrpOf(i,e.args[0]).ip=e.args[1];}},['router','switch']);
+Cn('if','standby <n> priority <n>',e=>{if(e.args[1]>255)return e.out(BAD);e.s.ctx.forEach(i=>{hsrpOf(i,e.args[0]).prio=e.args[1];});},['router','switch']);
+Cn('if','standby <n> preempt',e=>e.s.ctx.forEach(i=>{hsrpOf(i,e.args[0]).preempt=true;}),['router','switch']);
+Cn('if','no standby <n> preempt',e=>e.s.ctx.forEach(i=>{hsrpOf(i,e.args[0]).preempt=false;}),['router','switch']);
+Cn('if','no standby <n> <rest?>',e=>e.s.ctx.forEach(i=>{i.hsrp=(i.hsrp||[]).filter(x=>x.grp!==e.args[0]);}),['router','switch']);
+Cn('if','standby version <n>',e=>{if(e.args[0]!==1&&e.args[0]!==2)return e.out(BAD);e.s.ctx.forEach(i=>{i.hsrpV2=e.args[0]===2;});},['router','switch']);
+Cn(EX,'show standby brief',e=>{const{net,d,out}=e;out('                     P indicates configured to preempt.','                     |','Interface   Grp  Pri P State   Active          Standby         Virtual IP');
+  for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];for(const g of i.hsrp||[]){const r=ifUp(net,d,i)?hsrpRole(net,d,i,g):'Init',s=(net.hsrp||{})[i.ip!==null?hsrpKey(i,g):'']||{},who=x=>!x?'unknown':x===d.name+'|'+n?'local':n2ip(net.devs[x.split('|')[0]].ifs[x.split('|')[1]].ip);
+    out(pad(shortIf(n),12)+pad(g.grp,5)+pad(g.prio,4)+(g.preempt?'P ':'  ')+pad(r,8)+pad(r==='Init'?'unknown':who(s.active),16)+pad(r==='Init'?'unknown':who(s.standby),16)+(g.ip!=null?n2ip(g.ip):'unknown'));}}},['router','switch']);
+Cn(EX,'show standby',e=>{const{net,d,out}=e;for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];for(const g of i.hsrp||[]){const r=ifUp(net,d,i)?hsrpRole(net,d,i,g):'Init',s=(net.hsrp||{})[i.ip!==null?hsrpKey(i,g):'']||{};
+    const other=x=>{if(!x)return null;const[dn,ifn]=x.split('|');return {ip:net.devs[dn].ifs[ifn].ip,prio:(net.devs[dn].ifs[ifn].hsrp||[]).find(y=>y.grp===g.grp).prio,local:dn===d.name};};const A=other(s.active),S=other(s.standby);
+    out(n+' - Group '+g.grp+(i.hsrpV2?' (version 2)':''),'  State is '+r,'  Virtual IP address is '+(g.ip!=null?n2ip(g.ip):'unknown'),'  Active virtual MAC address is '+(A?vmac(i,g):'unknown')+(r==='Active'?' (MAC In Use)':''),'    Local virtual MAC address is '+vmac(i,g)+' (v'+(i.hsrpV2?2:1)+' default)',
+      '  Hello time 3 sec, hold time 10 sec','  Preemption '+(g.preempt?'enabled':'disabled'),'  Active router is '+(A?(A.local?'local':n2ip(A.ip)+', priority '+A.prio):'unknown'),'  Standby router is '+(S?(S.local?'local':n2ip(S.ip)+', priority '+S.prio):'unknown'),'  Priority '+g.prio+' (configured '+g.prio+')','  Group name is "hsrp-'+shortIf(n)+'-'+g.grp+'" (default)');}}},['router','switch']);
+// Check what happens if a link fails and comes back, without disturbing the lab: election state is restored afterwards.
+function hsrpWhile(n,dev,ifn,fn){const keep=JSON.stringify(n.hsrp||{});try{return whileDown(n,dev,ifn,()=>{hsrpElect(n);return fn();});}finally{n.hsrp=JSON.parse(keep);}}
+CCNA_LAB_MAP['First-hop redundancy with HSRP']=['3.5'];
+Object.assign(WHYC,{
+'standby <n> ip <ip>':'Joins HSRP group n with this virtual IP. Hosts use the virtual IP as their default gateway; whichever router is active answers for it, with a virtual MAC address.',
+'standby <n> priority <n>':'Sets this router\'s priority in the group, 0 to 255, default 100. Highest priority becomes active; the interface IP breaks ties.',
+'standby <n> preempt':'Lets this router take the active role back when it has the higher priority, for example after it reboots or its link returns. Without it, the router that is active stays active.',
+'standby version <n>':'Version 2 allows group numbers up to 4095, uses virtual MAC 0000.0C9F.FXXX instead of 0000.0C07.ACXX, and supports IPv6. Both routers must match.',
+'show standby brief':'One line per group: priority, P if preempt is on, this router\'s state, the active and standby routers, and the virtual IP.',
+'show standby':'Full HSRP detail per group: state, virtual IP and MAC, timers, preemption, and who is active and standby.'});
+addLab({title:'First-hop redundancy with HSRP',group:'Routing',
+ brief:'The LAN has two routers to the core, but every PC can only have one default gateway. Today that gateway address belongs to nobody. Use HSRP so R1 and R2 share a virtual gateway address, R1 normally carries the traffic, and R2 takes over the moment R1\'s LAN link fails.',
+ pos:{PC1:[50,60],PC2:[50,190],SW1:[170,125],R1:[320,60],R2:[320,190],CORE:[470,125],NET:[580,125]},start:'R1',
+ build(){const n=mkNet([mkRouter('R1'),mkRouter('R2'),mkRouter('CORE'),mkSwitch('SW1'),mkPC('PC1','192.168.1.11',24,'192.168.1.1'),mkPC('PC2','192.168.1.12',24,'192.168.1.1'),srv('NET','203.0.113.10',24,'203.0.113.1',[80])]);
+  link(n,'PC1','f0','SW1','f0/1');link(n,'PC2','f0','SW1','f0/2');link(n,'SW1','g0/1','R1','g0/0');link(n,'SW1','g0/2','R2','g0/0');link(n,'R1','g0/1','CORE','g0/0');link(n,'R2','g0/1','CORE','g0/1');link(n,'CORE','g0/2','NET','f0');
+  const o=(rid,nets)=>['router ospf 1','router-id '+rid,...nets.map(x=>'network '+x+' area 0')];
+  cfg(n,{R1:['enable','configure terminal','interface g0/0','ip address 192.168.1.2 255.255.255.0','no shutdown','interface g0/1','ip address 10.0.1.1 255.255.255.252','no shutdown','exit',...o('1.1.1.1',['192.168.1.0 0.0.0.255','10.0.1.0 0.0.0.3']),'passive-interface g0/0','end'],
+   R2:['enable','configure terminal','interface g0/0','ip address 192.168.1.3 255.255.255.0','no shutdown','interface g0/1','ip address 10.0.2.1 255.255.255.252','no shutdown','exit',...o('2.2.2.2',['192.168.1.0 0.0.0.255','10.0.2.0 0.0.0.3']),'passive-interface g0/0','end'],
+   CORE:['enable','configure terminal','interface g0/0','ip address 10.0.1.2 255.255.255.252','no shutdown','interface g0/1','ip address 10.0.2.2 255.255.255.252','no shutdown','interface g0/2','ip address 203.0.113.1 255.255.255.0','no shutdown','exit',...o('3.3.3.3',['10.0.1.0 0.0.0.3','10.0.2.0 0.0.0.3','203.0.113.0 0.0.0.255']),'passive-interface g0/2','end']});return n;},
+ addr:[['PCs','Default gateway (virtual)','192.168.1.1'],['R1 / R2','G0/0 real addresses','192.168.1.2, 192.168.1.3'],['HSRP','Group 1','R1 priority 110, R2 default 100'],['NET','Beyond the core','203.0.113.10']],
+ tasks:['From PC1, ping the gateway 192.168.1.1. It fails: no device owns that address yet.','On R1 G0/0, join HSRP group 1 with virtual IP 192.168.1.1, priority 110, and preempt.','On R2 G0/0, join group 1 with the same virtual IP, keep the default priority, and enable preempt.','Check <code>show standby brief</code> on both routers, then ping the gateway and 203.0.113.10 from both PCs.','Fail R1\'s LAN link: shut down R1 G0/0. Watch R2 take over, and ping 203.0.113.10 from PC1 again.','Bring R1 G0/0 back up. Which router is active now, and why?'],
+ why:['A host can only have one default gateway, and it has no idea there are two routers. If that one address dies, the host is cut off even though a second router is sitting right there.','HSRP makes the virtual IP the gateway instead of either router\'s real address. The higher priority makes R1 the active router. Preempt lets R1 take the role back after a failure.','Both routers must use the same group number and virtual IP. R2 at priority 100 becomes the standby router, ready to take over within the hold time (10 seconds by default).','The active router answers for 192.168.1.1 with the virtual MAC 0000.0C07.AC01. The PCs\' configuration never changes, which is the whole point.','When R1\'s interface goes down, R2 stops hearing R1\'s hellos and becomes active. The PCs keep using 192.168.1.1, and OSPF moves the return traffic to R2.','R1 comes back with the higher priority and preempt on, so it takes the active role back. Without preempt, R2 would have stayed active until it failed itself.'],
+ checks:[['R1 and R2 share virtual IP 192.168.1.1 in group 1',n=>['R1','R2'].every(r=>(IF(n,r,'g0/0').hsrp||[]).some(g=>g.grp===1&&g.ip===ip2n('192.168.1.1')))],['R1 is active with priority 110 and R2 is standby',n=>{const g1=IF(n,'R1','g0/0').hsrp.find(g=>g.grp===1),g2=IF(n,'R2','g0/0').hsrp.find(g=>g.grp===1);return g1.prio===110&&hsrpRole(n,n.devs.R1,IF(n,'R1','g0/0'),g1)==='Active'&&hsrpRole(n,n.devs.R2,IF(n,'R2','g0/0'),g2)==='Standby';}],['R1 has preempt enabled',n=>!!(IF(n,'R1','g0/0').hsrp||[]).find(g=>g.grp===1&&g.preempt)],['Both PCs reach 203.0.113.10 through the virtual gateway',n=>P(n,'PC1','203.0.113.10')&&P(n,'PC2','203.0.113.10')],['With R1\'s LAN link down, R2 is active and PC1 still gets out',n=>hsrpWhile(n,'R1','g0/0',()=>{const g2=IF(n,'R2','g0/0').hsrp.find(g=>g.grp===1);return hsrpRole(n,n.devs.R2,IF(n,'R2','g0/0'),g2)==='Active'&&P(n,'PC1','203.0.113.10');})],['When R1\'s link returns, R1 takes the active role back',n=>{const keep=JSON.stringify(n.hsrp||{});try{whileDown(n,'R1','g0/0',()=>hsrpElect(n));hsrpElect(n);const g1=IF(n,'R1','g0/0').hsrp.find(g=>g.grp===1);return hsrpRole(n,n.devs.R1,IF(n,'R1','g0/0'),g1)==='Active';}finally{n.hsrp=JSON.parse(keep);}}]],
+ solution:{R1:['enable','configure terminal','interface g0/0','standby 1 ip 192.168.1.1','standby 1 priority 110','standby 1 preempt','end'],R2:['enable','configure terminal','interface g0/0','standby 1 ip 192.168.1.1','standby 1 preempt','end']}},
+ ['PC1: # fails: nobody owns the gateway address yet | ping 192.168.1.1',
+  'R1: enable | configure terminal | interface g0/0 | standby 1 ip 192.168.1.1 | standby 1 priority 110 | standby 1 preempt | end',
+  'R2: enable | configure terminal | interface g0/0 | standby 1 ip 192.168.1.1 | standby 1 preempt | end',
+  'R1: show standby brief ; R2: show standby brief ; PC1: ping 192.168.1.1 | ping 203.0.113.10 ; PC2: ping 203.0.113.10',
+  'R1: configure terminal | interface g0/0 | shutdown ; R2: show standby brief ; PC1: ping 203.0.113.10 | tracert 203.0.113.10',
+  'R1: no shutdown | end | show standby']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
