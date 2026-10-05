@@ -2893,6 +2893,16 @@ addIncident({title:'Incident 29: one clock has drifted off',base:'NTP and syslog
  steps:['R2: enable | show clock | show ntp status ; R1: enable | show ntp status','R2: show ntp associations | show running-config','R2: configure terminal | no ntp server 192.168.1.5 | ntp server 192.168.1.50 | end','R2: show ntp associations | show ntp status | show clock'],
  hints:['R1 is synchronised and R2 is not, and they reach the time server through the same path. Look at what R2 is trying to sync to.','show ntp associations on R2 lists the configured server with .INIT. and stratum 16: nothing answers there. Compare the address with the time server in the address plan.','R2 points at 192.168.1.5 instead of 192.168.1.50. Replace the server address.'],
  lesson:'An NTP client only synchronises to a server that actually answers. A wrong server address leaves the clock free-running, and show ntp associations makes it visible with .INIT. and stratum 16.'});
+
+// ----- incident 30
+addIncident({title:'Incident 30: the core stopped routing',base:'Inter-VLAN routing on a Layer 3 switch',start:'DSW1',
+ brief:'After DSW1\'s configuration was restored from an old template, hosts can still reach their own gateways, but nothing crosses between VLANs or leaves the site. The SVIs and the uplink look fine. Find what the template left out.',
+ symptom:['PC1','192.168.20.12'],
+ fault:{DSW1:[...EN,'no ip routing','end']},
+ repair:{DSW1:[...EN,'ip routing','end','show ip route'],PC1:['ping 192.168.20.12']},
+ steps:['PC1: ping 192.168.10.1 | ping 192.168.20.12 ; PC3: ping 203.0.113.1','DSW1: enable | show ip interface brief | show ip route','DSW1: configure terminal | ip routing | end','DSW1: show ip route ; PC1: ping 192.168.20.12 ; PC3: ping 203.0.113.1'],
+ hints:['Each host reaches its own gateway address on DSW1, so the SVIs are up. Anything that needs DSW1 to route fails.','show ip route on DSW1 shows only a default gateway line instead of a routing table: the switch is not routing at all.','IP routing is off. Turn it back on with ip routing; the connected and static routes come straight back.'],
+ lesson:'A Layer 3 switch with routing off still answers on its SVIs, so hosts can ping their gateway and everything looks half alive. show ip route is the giveaway: no routing table, just a default gateway.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
