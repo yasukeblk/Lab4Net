@@ -24,7 +24,7 @@ const {pathToFileURL}=require('node:url');
  // Full-height mission docking catches the former cap even after a snap.
  await begin('brief');await target('workspace','left');await page.mouse.up();after=await tiled();m=await page.locator('main').boundingBox();assert.ok(after.brief.h>m.height*.9);await page.locator('#undoLayout').click();same(before,await tiled());
  // Missing a target cancels instead of leaving overlapping panels.
- const saved=await page.evaluate(()=>localStorage.getItem('lab4net-layout-v2'));await begin('brief');await page.mouse.move(before.console.x+20,before.console.y+65);await page.mouse.up();same(before,await tiled());assert.equal(await page.evaluate(()=>localStorage.getItem('lab4net-layout-v2')),saved);
+ const saved=await page.evaluate(()=>localStorage.getItem('lab4net-layout-v2'));await begin('brief');await page.mouse.move(before.brief.x+before.brief.w*.4,before.brief.y+before.brief.h*.5);await page.mouse.up();same(before,await tiled());assert.equal(await page.evaluate(()=>localStorage.getItem('lab4net-layout-v2')),saved);
  // Accessible panel menu uses the same layout calculation as dragging.
  await page.locator('#brief .window-arrange').click();await page.locator('#arrangeTarget').selectOption('console');await page.locator('[data-place-side="top"]').click();after=await tiled();assert.ok(after.brief.y+after.brief.h<=after.console.y+1);await page.locator('#undoLayout').click();same(before,await tiled());
  // Resize after relative insertion; the affected subtree adjusts without moving unrelated panels.

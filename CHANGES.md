@@ -1,5 +1,14 @@
 # Lab4Net changes
 
+## More assistance during dragging
+
+- Enlarged exact drop buttons and made the full receiving panel a drop area. Hovering toward an edge suggests insertion; its center suggests swapping. Workspace-edge capture is wider, and small button near misses or gaps between panels are caught automatically. When two panels are equally close in a gap, the drag direction selects the recipient.
+- Added magnetic stability around button, panel-region and shared-gutter boundaries to avoid flickering between suggestions on small pointer movements. Exact button hits remain authoritative; moving clearly into another region changes the suggestion. Crowded/invalid splits still show feedback instead of applying a broken arrangement.
+- Added a cursor-side placement hint, receiving-panel outline and highlighted insertion region. Other panels' target buttons hide while a recipient is active, reducing clutter. The source fades during the drag and the complete layout preview remains visible. Successful placement gets a brief confirmation and an Undo reminder. Reduced-motion settings suppress the landing animation.
+- Alt suspends recipient highlighting and smart placement while retaining free-placement guidance. Escape, cancellation and release clean up all assist overlays. Presets, expansion, named saves, shared resizing and undo remain available. Help, README and Operator's interface context describe the assisted areas.
+- Baseline/final lab regression: **21 missions / 119 grading checks / 358 guided commands pass**. New Edge coverage verifies broad edge/center drops without button aiming, shared-gutter capture, stable suggestions, receiving-region/cursor feedback, exact buttons, Undo feedback, Alt/Escape cleanup and phone/reduced motion. Existing docking, layouts, focus, Matrix, curriculum, sandbox, hardware, mocked Operator and full lab browser suites pass. An assisted-drag screenshot was inspected.
+- No simulator, curriculum, deployment or new dependency changes. Smart drops with no reachable destination still cancel; free placement remains available with Alt or the smart-mode toggle. Private Debian, physical touch hardware and Safari were unavailable; tests used local Edge and emulated phone dimensions.
+
 ## Uncapped panels and visible, coordinated docking
 
 - Fixed the Mission briefing expansion bug: `#side #brief` still imposed a 43% maximum height with higher CSS specificity than the desktop override. Saved geometry could request a larger window while the actual rendered panel stayed capped. The desktop selector now removes that cap. Earlier layout tests checked screen bounds/non-overlap but missed the discrepancy between requested and rendered height; the new regression compares both and checks full-height mission docking.
