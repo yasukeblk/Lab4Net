@@ -565,7 +565,7 @@ function l2peers(net,d,i){
   function flood(sw,vlan,inPort,path){
     const k=sw.name+'|'+vlan;if(seen.has(k))return;seen.add(k);
     if(!sw.vlans[vlan])return;
-    const svi=sw.ifs['Vlan'+vlan];if(svi&&svi!==i&&!svi.shutdown&&svi.ip!==null)out.push({dev:sw,ifc:svi,path});
+    const svi=sw.ifs['Vlan'+vlan];if(svi&&svi!==i&&!svi.shutdown&&(svi.ip!==null||svi.v6on))out.push({dev:sw,ifc:svi,path});
     for(const p of Object.values(sw.ifs)){
       if(p===inPort||!p.link||p.name.startsWith('Vlan')||p.routed||!ifUp(net,sw,p))continue;
       let tag=null;
@@ -578,7 +578,7 @@ function l2peers(net,d,i){
     const path=previous.concat(dev.name);
     const port=dev.ifs[ifn];
     // A routed switch port (no switchport) behaves like a router interface.
-    if(dev.type==='switch'&&port.routed){if(tag===null&&port.ip!==null&&port!==i)out.push({dev,ifc:port,path});return;}
+    if(dev.type==='switch'&&port.routed){if(tag===null&&(port.ip!==null||port.v6on)&&port!==i)out.push({dev,ifc:port,path});return;}
     if(dev.type==='switch'){
       let vlan;
       if(port.mode==='trunk'){vlan=tag===null?port.native:tag;if(!allowed(port,vlan))return;}
@@ -590,9 +590,9 @@ function l2peers(net,d,i){
       // if it learned none); the PC port passes untagged frames straight through to the switch port.
       const up=dev.ifs.FastEthernet0,pcp=dev.ifs.FastEthernet1,vv=phoneVlan(net,dev);
       if(port===pcp){if(tag===null&&up.link&&ifUp(net,dev,up))deliver(net.devs[up.link.dev],up.link.ifn,null,path);}
-      else if(tag===null){if(pcp.link&&ifUp(net,dev,pcp))deliver(net.devs[pcp.link.dev],pcp.link.ifn,null,path);if(vv==null&&up.ip!==null&&up!==i)out.push({dev,ifc:up,path});}
+      else if(tag===null){if(pcp.link&&ifUp(net,dev,pcp))deliver(net.devs[pcp.link.dev],pcp.link.ifn,null,path);if(vv==null&&(up.ip!==null||up.v6on)&&up!==i)out.push({dev,ifc:up,path});}
       else if(tag===vv&&up.ip!==null&&up!==i)out.push({dev,ifc:up,path});
-    }else if(tag===null){if(port.ip!==null&&port!==i)out.push({dev,ifc:port,path});}
+    }else if(tag===null){if((port.ip!==null||port.v6on)&&port!==i)out.push({dev,ifc:port,path});}
     else for(const s of Object.values(dev.ifs))if(s.name.startsWith(ifn+'.')&&s.dot1q===tag&&!s.shutdown&&s!==i)out.push({dev,ifc:s,path});
   }
   if(d.type==='switch'&&!i.routed)flood(d,+i.name.slice(4),null,[d.name]);
@@ -840,6 +840,7 @@ function matchPat(pat,toks){const args=[];let i=0;
     if(i>=toks.length)return 'partial';
     const t=toks[i];
     if(p==='<ip>'){if(!isIp(t))return null;args.push(ip2n(t));}
+    else if(p==='<ip6>'){const a=parse6(t);if(a===null)return null;args.push(a);}
     else if(p==='<n>'){if(!/^\d+$/.test(t))return null;args.push(+t);}
     else if(p==='<w>')args.push(t);
     else if(!p.startsWith(t.toLowerCase()))return null;
@@ -860,7 +861,7 @@ function execLine(net,d,s,line){const out=[];const env={net,d,s,out:(...x)=>out.
   return out;}
 function promptOf(d,s){const h=d.hostname;switch(s.mode){case 'pc':return 'C:\\>';case 'user':return h+'>';case 'priv':return h+'#';case 'config':return h+'(config)#';
   case 'if':return h+(s.ctx.length>1?'(config-if-range)#':s.ctx[0].name.includes('.')?'(config-subif)#':'(config-if)#');case 'vlan':return h+'(config-vlan)#';case 'line':return h+'(config-line)#';default:return h+'(config-router)#';}}
-const HELP={'<ip>':'A.B.C.D','<n>':'<number>','<w>':'WORD','<rest>':'LINE','<rest?>':'<cr>'};
+const HELP={'<ip>':'A.B.C.D','<ip6>':'X:X:X:X::X','<n>':'<number>','<w>':'WORD','<rest>':'LINE','<rest?>':'<cr>'};
 function candidates(d,mode,line){const sp=line===''||/\s$/.test(line);const toks=line.trim()?line.trim().split(/\s+/):[];const part=sp?'':toks.pop().toLowerCase();const set=new Set();
   for(const c of CMDS){if(!c.modes.includes(mode)||(c.types&&!c.types.includes(d.type)))continue;const pat=c.pat;let ok=true,rest=false;
     for(let j=0;j<toks.length;j++){const p=pat[j];if(p===undefined){ok=false;break;}if(p.startsWith('<rest')){rest=true;break;}if(p[0]==='<')continue;if(!p.startsWith(toks[j].toLowerCase())){ok=false;break;}}
@@ -1098,7 +1099,7 @@ function snoopPath(net,path){let vlan=null,opt82=false,sws=[];
 // remote server) and any host running a DHCP service. The nearest answer wins, as the first offer would.
 function dhcpCandidates(net,pc){const i=nic(pc),out=[];
   for(const p of l2peers(net,pc,i)){const sp=snoopPath(net,p.path);if(sp.blocked)continue;
-    if(isL3(p.dev)){
+    if(isL3(p.dev)&&p.ifc.ip!==null){
       // An IOS server or relay drops a request carrying option 82 with no relay address unless told to trust it.
       if(sp.opt82&&!p.dev.relayTrustAll&&!p.ifc.relayTrust)continue;
       let o=dhcpOffer(net,p.dev,p.ifc.ip,pc,true),S=p.dev;
@@ -2326,6 +2327,134 @@ addLab({title:'Dynamic ARP Inspection',group:'Security',
 // The printer's MAC is derived from its name, so put the real value into the solution and guide.
 {const L=LABS[LABS.length-1],m=macOf(L.build().devs.PRINTER);L.solution.SW1=L.solution.SW1.map(c=>c.replace('PRINTER-MAC',m));
  STEPS[L.title]=STEPS[L.title].map(t=>t.replace('PRINTER-MAC',m));L.steps=stepsOf(STEPS[L.title]);}
+
+// ---------- IPv6 ----------
+// Addresses are 128-bit BigInts. IOS prints them in upper case, Windows in lower case, both in RFC 5952 short form.
+function parse6(t){t=String(t);if(!/^[0-9a-fA-F:]+$/.test(t))return null;const parts=t.split('::');if(parts.length>2)return null;
+  const side=p=>p===''?[]:p.split(':'),a=side(parts[0]),b=parts.length===2?side(parts[1]):[];
+  if(a.concat(b).some(x=>!/^[0-9a-fA-F]{1,4}$/.test(x)))return null;const n=a.length+b.length;if(parts.length===2?n>7:n!==8)return null;
+  let v=0n;for(const x of a.concat(Array(8-n).fill('0'),b))v=(v<<16n)|BigInt(parseInt(x,16));return v;}
+function fmt6(x,lower){const g=[];for(let k=7;k>=0;k--)g.push(Number((x>>BigInt(k*16))&0xFFFFn));let bs=-1,bl=0;
+  for(let k=0;k<8;){if(g[k]===0){let j=k;while(j<8&&g[j]===0)j++;if(j-k>bl&&j-k>=2){bs=k;bl=j-k;}k=j;}else k++;}
+  const h=v=>v.toString(16),s=bs<0?g.map(h).join(':'):g.slice(0,bs).map(h).join(':')+'::'+g.slice(bs+bl).map(h).join(':');return lower?s:s.toUpperCase();}
+const ALL6=(1n<<128n)-1n,mask6=l=>l===0?0n:(ALL6>>BigInt(128-l))<<BigInt(128-l),net6=(a,l)=>a&mask6(l);
+const LLNET=0xFE80n<<112n,isLL=a=>(a>>118n)===(0xFE80n>>6n);
+// Modified EUI-64: split the MAC, insert FFFE in the middle and flip the universal/local bit.
+function eui64(prefix,mac){const h=mac.replace(/\./g,''),b=h.match(/../g).map(x=>parseInt(x,16));b[0]^=2;
+  return net6(prefix,64)|BigInt('0x'+[b[0],b[1],b[2],0xff,0xfe,b[3],b[4],b[5]].map(x=>x.toString(16).padStart(2,'0')).join(''));}
+// Each physical router or switch port has its own MAC (subinterfaces share their parent's); a host has one.
+function macIf(d,i){if(d.type==='pc')return macOf(d);const p=phys(d,i),names=sortIfs(Object.keys(d.ifs).filter(n=>!n.includes('.'))),k=Math.max(0,names.indexOf(p.name));
+  const h=macOf(d).replace(/\./g,''),last=((parseInt(h.slice(10),16)+k+1)&255).toString(16).padStart(2,'0'),m=h.slice(0,10)+last;return m.slice(0,4)+'.'+m.slice(4,8)+'.'+m.slice(8);}
+const linkLocal=(d,i)=>i.ll??eui64(LLNET,macIf(d,i));
+const has6=(d,i,a)=>!!i.v6on&&((i.v6||[]).some(x=>x.a===a)||linkLocal(d,i)===a);
+const owns6=(net,d,a)=>Object.values(d.ifs).some(i=>ifUp(net,d,i)&&has6(d,i,a));
+const v6router=d=>(d.type==='router'||(d.type==='switch'&&!!d.l3))&&!!d.v6routing;
+function conn6(net,d){const r=[];for(const i of Object.values(d.ifs)){if(!i.v6on||!ifUp(net,d,i))continue;for(const x of i.v6||[])r.push({code:'C',net:net6(x.a,x.len),len:x.len,ifc:i,nh:null,ad:0,addr:x.a});}return r;}
+// One route per prefix, lowest administrative distance. A static is usable when its exit interface is up, or its
+// global next hop sits on a connected prefix. A host routes to its default gateway (usually a link-local address).
+function routes6(net,d){const conn=conn6(net,d);
+  if(d.type==='pc'){const i=nic(d);if(d.gw6!=null&&i.v6on)conn.push({code:'S',net:0n,len:0,nh:d.gw6,ifc:i,ad:1});return conn;}
+  const st=[];for(const s of d.statics6||[]){if(s.ifn){const i=d.ifs[s.ifn];if(!i||!i.v6on||!ifUp(net,d,i))continue;st.push({code:'S',net:s.net,len:s.len,nh:s.nh,ifc:i,ad:s.ad||1});}
+    else if(conn.some(c=>net6(s.nh,c.len)===c.net))st.push({code:'S',net:s.net,len:s.len,nh:s.nh,ad:s.ad||1});}
+  const best=new Map();for(const x of conn.concat(st)){const k=x.net+'/'+x.len,b=best.get(k);if(!b||x.ad<b.ad)best.set(k,x);}return [...best.values()];}
+function nextHop6(net,d,dst){const rt=routes6(net,d);let best=null;for(const r of rt)if(net6(dst,r.len)===r.net&&(!best||r.len>best.len))best=r;if(!best)return null;
+  let ifc=best.ifc;const nh=best.nh??dst;if(!ifc){const c=rt.find(c=>c.code==='C'&&net6(nh,c.len)===c.net);if(!c)return null;ifc=c.ifc;}return {ifc,nh,route:best};}
+function fwd6(net,src,dst){let d=src,srcA=null;const hops=[];hops.path=[src.name];
+  for(let t=0;t<20;t++){if(owns6(net,d,dst))return {ok:true,hops,dest:d,src:srcA};
+    if(t>0&&!v6router(d))return {ok:false,hops,reason:'IPv6 unicast routing is off on '+d.hostname};
+    const h=nextHop6(net,d,dst);if(!h)return {ok:false,hops,reason:'No IPv6 route to '+fmt6(dst)+' on '+d.hostname};
+    if(t===0){const g=(h.ifc.v6||[])[0]||Object.values(d.ifs).flatMap(i=>i.v6on?i.v6||[]:[])[0];srcA=g?g.a:linkLocal(d,h.ifc);}
+    const peer=l2peers(net,d,h.ifc).find(p=>has6(p.dev,p.ifc,h.nh));if(!peer)return {ok:false,hops,reason:'Next hop '+fmt6(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links and addressing'};
+    hops.push(h.nh);hops.path.push(...peer.path.slice(1));d=peer.dev;}
+  return {ok:false,hops,reason:'Hop limit reached; check for a routing loop'};}
+function reach6(net,src,dst){const f=fwd6(net,src,dst);let r=null,ok=false;if(f.ok){if(f.dest===src)ok=true;else{r=fwd6(net,f.dest,f.src);ok=r.ok&&r.dest===src;}}
+  if(LIVE)TRACE={src,f,r,ok,refused:false};return {ok,f,r};}
+// "X/len" with an optional keyword: eui-64 builds the interface ID from the MAC; link-local sets the FE80:: address.
+function v6arg(t){const m=/^([0-9a-fA-F:]+)\/(\d{1,3})$/.exec(t);if(!m)return null;const a=parse6(m[1]),l=+m[2];return a===null||l>128?null:{a,len:l};}
+Cn('if','ipv6 address <rest>',e=>{const t=e.args[0].trim().split(/\s+/),kw=(t[1]||'').toLowerCase();
+  for(const i of e.s.ctx){if(!l3ok(e,i))return e.out(BAD);
+    if(kw&&'link-local'.startsWith(kw)&&kw.length>1){const a=parse6(t[0]);if(a===null||!isLL(a))return e.out('% Invalid link-local address');i.ll=a;i.v6on=true;continue;}
+    const p=v6arg(t[0]);if(!p||t.length>2||(kw&&!'eui-64'.startsWith(kw)))return e.out(BAD);
+    if(kw){if(p.len!==64)return e.out('% Invalid prefix length for EUI-64: must be 64');p.eui=net6(p.a,64);p.a=eui64(p.eui,macIf(e.d,i));}
+    i.v6=(i.v6||[]).filter(x=>x.a!==p.a);i.v6.push(p);i.v6on=true;}},['router','switch']);
+Cn('if','no ipv6 address <rest?>',e=>e.s.ctx.forEach(i=>{const t=(e.args[0]||'').trim();if(!t){i.v6=[];delete i.ll;if(!i.v6en)i.v6on=false;return;}
+  const p=v6arg(t.split(/\s+/)[0]);if(/link-local/i.test(t))delete i.ll;else if(p)i.v6=(i.v6||[]).filter(x=>x.a!==p.a&&!(x.eui!=null&&x.eui===net6(p.a,64)));if(!(i.v6||[]).length&&i.ll==null&&!i.v6en)i.v6on=false;}),['router','switch']);
+Cn('if','ipv6 enable',e=>e.s.ctx.forEach(i=>{i.v6on=true;i.v6en=true;}),['router','switch']);
+Cn('if','no ipv6 enable',e=>e.s.ctx.forEach(i=>{i.v6en=false;if(!(i.v6||[]).length&&i.ll==null)i.v6on=false;}),['router','switch']);
+Cn('config','ipv6 unicast-routing',e=>{if(e.d.type==='switch'&&!e.d.l3)return e.out(BAD);e.d.v6routing=true;},['router','switch']);
+Cn('config','no ipv6 unicast-routing',e=>{e.d.v6routing=false;},['router','switch']);
+// ipv6 route PREFIX/LEN {NEXT-HOP | INTERFACE [NEXT-HOP]} [DISTANCE]
+function parseStatic6(e,rest){const t=rest.trim()?rest.trim().split(/\s+/):[],r={nh:null,ifn:null,ad:1};
+  if(t.length&&parse6(t[0])===null&&!/^\d+$/.test(t[0])){const n=parseIf(t[0]);if(!n||!e.d.ifs[n])return null;r.ifn=n;t.shift();}
+  if(t.length&&parse6(t[0])!==null)r.nh=parse6(t.shift());if(t.length&&/^\d+$/.test(t[0])){r.ad=+t.shift();if(r.ad<1||r.ad>254)return null;}return t.length?null:r;}
+Cn('config','ipv6 route <w> <rest>',e=>{if(e.d.type==='switch'&&!e.d.l3)return e.out(BAD);const p=v6arg(e.args[0]),r=parseStatic6(e,e.args[1]);if(!p||!r||(r.nh==null&&!r.ifn))return e.out(BAD);
+  if(r.nh!=null&&isLL(r.nh)&&!r.ifn)return e.out('% Interface has to be specified for a link-local nexthop');
+  const L=e.d.statics6||(e.d.statics6=[]),net=net6(p.a,p.len),old=L.find(s=>s.net===net&&s.len===p.len&&s.nh===r.nh&&(s.ifn||null)===r.ifn);if(old)old.ad=r.ad;else L.push({net,len:p.len,nh:r.nh,ifn:r.ifn,ad:r.ad});},['router','switch']);
+Cn('config','no ipv6 route <w> <rest?>',e=>{const p=v6arg(e.args[0]);if(!p)return e.out(BAD);const r=parseStatic6(e,e.args[1]||'')||{nh:null,ifn:null},net=net6(p.a,p.len);
+  e.d.statics6=(e.d.statics6||[]).filter(s=>!(s.net===net&&s.len===p.len&&(r.nh==null||s.nh===r.nh)&&(!r.ifn||s.ifn===r.ifn)));},['router','switch']);
+// Hosts: ipv6config (Packet Tracer style) shows, autoconfigures (SLAAC from a router advertisement) or sets an address.
+function slaac(net,pc){const i=nic(pc);for(const p of l2peers(net,pc,i)){if(!v6router(p.dev)||!p.ifc.v6on)continue;const g=(p.ifc.v6||[]).find(x=>x.len===64);if(!g)continue;
+  return {a:eui64(net6(g.a,64),macOf(pc)),len:64,gw:linkLocal(p.dev,p.ifc),from:p.dev};}return null;}
+const v6lines=(d,i)=>{const ll=linkLocal(d,i);return ['   Link-local IPv6 Address . . . . . : '+fmt6(ll,true)+'%11',...(i.v6||[]).map(x=>'   '+(x.auto?'Autoconfiguration IPv6 Address':'IPv6 Address. . . . . . . . . . .')+' : '+fmt6(x.a,true))];};
+Cn('pc','ipv6config',e=>{const d=e.d,i=nic(d);if(!i.v6on)return e.out('','FastEthernet0 Connection:','   IPv6 is not configured. Use ipv6config /autoconfig or ipv6config ADDRESS/LENGTH GATEWAY.','');
+  e.out('','FastEthernet0 Connection:',...v6lines(d,i),'   Default Gateway . . . . . . . . . : '+(d.gw6!=null?fmt6(d.gw6,true)+(isLL(d.gw6)?'%11':''):'::'),'');});
+Cn('pc','ipv6config /autoconfig',e=>{const d=e.d,i=nic(d);i.v6on=true;const s=slaac(e.net,d);if(!s)return e.out('IPv6 autoconfiguration failed: no router advertisement was received.');
+  i.v6=[{a:s.a,len:64,auto:true}];d.gw6=s.gw;e.out('Router advertisement received from '+s.from.hostname+'.',...v6lines(d,i),'   Default Gateway . . . . . . . . . : '+fmt6(s.gw,true)+'%11');});
+Cn('pc','ipv6config <w> <w>',e=>{const p=v6arg(e.args[0]),g=parse6(e.args[1]);if(!p||g===null)return e.out('Invalid IPv6 address or gateway.');const i=nic(e.d);i.v6on=true;i.v6=[{a:p.a,len:p.len}];e.d.gw6=g;});
+{const ipc=CMDS.find(c=>c.modes.includes('pc')&&c.pat.join(' ')==='ipconfig'),f=ipc.fn;
+ ipc.fn=e=>{const o=e.out;let lines=[];e.out=(...x)=>lines.push(...x);f(e);e.out=o;const i=nic(e.d);
+  if(i.v6on){const k=lines.findIndex(l=>/IPv4 Address/.test(l));lines.splice(k,0,...v6lines(e.d,i));const g=lines.findIndex(l=>/Default Gateway/.test(l));if(e.d.gw6!=null)lines.splice(g+1,0,'                                       '+fmt6(e.d.gw6,true)+(isLL(e.d.gw6)?'%11':''));}
+  e.out(...lines);};}
+const pingOut6=(e,ok,a)=>e.out('Type escape sequence to abort.','Sending 5, 100-byte ICMP Echos to '+fmt6(a)+', timeout is 2 seconds:',ok?'!!!!!':'.....',ok?'Success rate is 100 percent (5/5), round-trip min/avg/max = 0/1/2 ms':'Success rate is 0 percent (0/5)');
+Cn(EX,'ping <ip6>',e=>pingOut6(e,reach6(e.net,e.d,e.args[0]).ok,e.args[0]),['router','switch']);
+Cn(EX,'ping ipv6 <ip6>',e=>pingOut6(e,reach6(e.net,e.d,e.args[0]).ok,e.args[0]),['router','switch']);
+Cn('pc','ping <ip6>',e=>{const ok=reach6(e.net,e.d,e.args[0]).ok,a=fmt6(e.args[0],true);e.out('','Pinging '+a+' with 32 bytes of data:');for(let k=0;k<4;k++)e.out(ok?'Reply from '+a+': time<1ms':'Request timed out.');
+  e.out('','Ping statistics for '+a+':','    Packets: Sent = 4, Received = '+(ok?4:0)+', Lost = '+(ok?'0 (0% loss)':'4 (100% loss)'),'');});
+Cn(EX,'traceroute <ip6>',e=>{const f=fwd6(e.net,e.d,e.args[0]);e.out('Type escape sequence to abort.','Tracing the route to '+fmt6(e.args[0]),'');f.hops.forEach((h,k)=>e.out('  '+(k+1)+' '+fmt6(h)+' 1 msec 0 msec 1 msec'));if(!f.ok)e.out('  '+(f.hops.length+1)+'  *  *  *');},['router','switch']);
+Cn('pc','tracert <ip6>',e=>{const f=fwd6(e.net,e.d,e.args[0]);e.out('','Tracing route to '+fmt6(e.args[0],true)+' over a maximum of 30 hops:','');f.hops.forEach((h,k)=>e.out('  '+(k+1)+'    <1 ms    <1 ms    <1 ms  '+fmt6(h,true)));e.out(f.ok?'':'  *  Request timed out.','Trace complete.');});
+// Joined multicast groups: all-nodes, all-routers when routing, and a solicited-node group per unicast address.
+function groups6(d,i){const sn=a=>parse6('ff02::1:ff00:0')|(a&0xFFFFFFn),G=[parse6('ff02::1')];if(v6router(d))G.push(parse6('ff02::2'));for(const a of [linkLocal(d,i),...(i.v6||[]).map(x=>x.a)]){const g=sn(a);if(!G.includes(g))G.push(g);}return G;}
+const ifState=(net,d,i)=>(i.shutdown?'administratively down':ifUp(net,d,i)?'up':'down')+'/'+(ifUp(net,d,i)?'up':'down');
+Cn(EX,'show ipv6 interface brief',e=>{const{net,d,out}=e;for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(d.type==='switch'&&!n.startsWith('Vlan')&&!i.routed)continue;
+  out(pad(n,23)+'['+ifState(net,d,i)+']',...(i.v6on?[fmt6(linkLocal(d,i)),...(i.v6||[]).map(x=>fmt6(x.a))]:['unassigned']).map(a=>'    '+a));}},['router','switch']);
+Cn(EX,'show ipv6 interface <rest?>',e=>{const{net,d,out}=e,want=e.args[0]?parseIf(e.args[0]):null;if(e.args[0]&&(!want||!d.ifs[want]))return out(BAD);
+  for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if((want&&n!==want)||(!want&&!i.v6on))continue;
+    out(n+' is '+(i.shutdown?'administratively down':ifUp(net,d,i)?'up':'down')+', line protocol is '+(ifUp(net,d,i)?'up':'down'));if(!i.v6on){out('  IPv6 is not enabled on this interface');continue;}
+    out('  IPv6 is enabled, link-local address is '+fmt6(linkLocal(d,i)),'  No Virtual link-local address(es):');
+    if((i.v6||[]).length)out('  Global unicast address(es):',...i.v6.map(x=>'    '+fmt6(x.a)+', subnet is '+fmt6(net6(x.a,x.len))+'/'+x.len+(x.eui!=null?' [EUI]':'')));else out('  No global unicast address is configured');
+    out('  Joined group address(es):',...groups6(d,i).map(g=>'    '+fmt6(g)),'  MTU is 1500 bytes','  ICMP error messages limited to one every 100 milliseconds','  ICMP redirects are enabled','  ICMP unreachables are sent','  ND DAD is enabled, number of DAD attempts: 1','  ND reachable time is 30000 milliseconds (using 30000)');
+    if(v6router(d))out('  ND advertised reachable time is 0 (unspecified)','  ND advertised retransmit interval is 0 (unspecified)','  ND router advertisements are sent every 200 seconds','  ND router advertisements live for 1800 seconds','  ND advertised default router preference is Medium','  Hosts use stateless autoconfig for addresses.');}},['router','switch']);
+Cn(EX,'show ipv6 route <rest?>',e=>{const{net,d,out}=e,w=(e.args[0]||'').toLowerCase();if(w&&!['static','connected','local'].some(x=>x.startsWith(w)))return out(BAD);
+  const rt=routes6(net,d).sort((a,b)=>a.net<b.net?-1:a.net>b.net?1:a.len-b.len),L=[];
+  for(const r of rt){const p=fmt6(r.net)+'/'+r.len;if(r.code==='C'){L.push(['C',p+' [0/0]','     via '+r.ifc.name+', directly connected']);L.push(['L',fmt6(r.addr)+'/128 [0/0]','     via '+r.ifc.name+', receive']);}
+    else L.push(['S',p+' ['+r.ad+'/0]','     via '+(r.nh!=null?fmt6(r.nh)+(r.ifc?', '+r.ifc.name:''):r.ifc.name+', directly connected')]);}
+  if(Object.values(d.ifs).some(i=>i.v6on))L.push(['L','FF00::/8 [0/0]','     via Null0, receive']);
+  const show=L.filter(x=>!w||x[0]===w[0].toUpperCase());
+  out('IPv6 Routing Table - default - '+L.length+' entries','Codes: C - Connected, L - Local, S - Static','       B - BGP, R - RIP, O - OSPF Intra, OI - OSPF Inter','');show.forEach(([c,a,b])=>out(pad(c,4)+a,b));},['router','switch']);
+// Running config: IPv6 lines after each interface's IPv4 address, unicast-routing before the interfaces, routes after the IPv4 ones.
+{const rc1=runningConfig;runningConfig=function(net,d){const L=rc1(net,d);if(d.type==='pc')return L;const out=[];let cur=null;
+  for(const l of L){if(l.startsWith('interface '))cur=d.ifs[l.slice(10)];
+    if(l.startsWith('interface ')&&d.v6routing&&!out.includes('ipv6 unicast-routing')){out.push('ipv6 unicast-routing','!');}
+    if(l==='line con 0'){for(const s of d.statics6||[])out.push('ipv6 route '+fmt6(s.net)+'/'+s.len+(s.ifn?' '+s.ifn:'')+(s.nh!=null?' '+fmt6(s.nh):'')+(s.ad!==1?' '+s.ad:''));if((d.statics6||[]).length)out.push('!');}
+    out.push(l);
+    if(cur&&(l.startsWith(' ip address ')||l===' no ip address')){if(cur.ll!=null)out.push(' ipv6 address '+fmt6(cur.ll)+' link-local');
+      for(const x of cur.v6||[])out.push(' ipv6 address '+(x.eui!=null?fmt6(x.eui)+'/64 eui-64':fmt6(x.a)+'/'+x.len));if(cur.v6en)out.push(' ipv6 enable');cur=null;}}
+  return out;};}
+Object.assign(WHYC,{
+'ipv6 unicast-routing':'Makes the router forward IPv6 between its interfaces and send router advertisements. Without it a router has IPv6 addresses but behaves like a host.',
+'ipv6 address <rest>':'Gives the interface an IPv6 address with its prefix length. eui-64 builds the last 64 bits from the interface MAC; link-local sets the FE80:: address used to talk to neighbors on this link only.',
+'ipv6 enable':'Turns IPv6 on with just an automatic link-local address, no global address.',
+'ipv6 route <w> <rest>':'An IPv6 static route: to reach this prefix, send to this next hop (or out this interface). ::/0 is the default route. A link-local next hop must name the exit interface, because the same FE80:: address can exist on every link.',
+'show ipv6 interface brief':'Each interface\'s state with its link-local and global IPv6 addresses.',
+'show ipv6 interface <rest?>':'Full IPv6 detail for an interface: link-local and global addresses with their prefixes, [EUI] for EUI-64 addresses, and the multicast groups it has joined.',
+'show ipv6 route <rest?>':'The IPv6 routing table: C connected prefixes, L the router\'s own addresses (/128), S static routes with [distance/metric].',
+'ping <ip6>':'Sends ICMPv6 echo requests. A reply proves both directions work.',
+'traceroute <ip6>':'Lists each IPv6 router on the path.',
+'ipv6config':'Shows the host\'s IPv6 link-local address, global addresses and default gateway.',
+'ipv6config /autoconfig':'SLAAC: the host listens for a router advertisement, takes its /64 prefix, builds the interface ID from its own MAC (EUI-64) and uses the router\'s link-local address as its gateway.',
+'ipv6config <w> <w>':'Sets a static IPv6 address with prefix length, and the default gateway.'});
+
+// ----- phase 3, lab 19
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
@@ -2342,7 +2471,7 @@ const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
 let REDUCED=motion.matches;
 motion.addEventListener?.('change',e=>{REDUCED=e.matches;if(REDUCED)fxToken++;});
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-const GROUPS=['Fundamentals','Switching','Routing','IP services','Security','Troubleshooting'];
+const GROUPS=['Fundamentals','Switching','Routing','IPv6','IP services','Security','Troubleshooting'];
 const HINT='? commands · Tab complete · ↑↓ history · Ctrl+Z end · Ctrl+L clear';
 const MODE={user:'User EXEC',priv:'Privileged EXEC',config:'Global configuration',if:'Interface configuration',vlan:'VLAN configuration',line:'Line configuration',ospf:'OSPF configuration',acl:'ACL configuration',dhcp:'DHCP pool configuration',pc:'Host console'};
 let cur=null,progress={},drafts={},lastLab=0,fxToken=0,quizIndex=0,quizAnswer=null;

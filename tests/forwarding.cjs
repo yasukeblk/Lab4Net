@@ -110,5 +110,43 @@ assert.deepEqual(['R1','R2','R3','R4'].map(role),['DROTHER','DR','DROTHER','BDR'
 // Clearing the DR's process: the BDR (R4) is promoted, R3 becomes BDR, and R2 rejoins as DROTHER.
 ios(net,'R2',['clear ip ospf process']);
 assert.deepEqual(['R1','R2','R3','R4'].map(role),['DROTHER','DROTHER','BDR','DR']);
-console.log('PASS forwarding: outbound route, return route, inbound/outbound ACL, static NAT, closed port, actual VLAN path, link failure, floating static, administrative distance, longest match, proxy ARP, NAT pool exhaustion and overload, voice VLAN tagging and the OSPF DR election.');
+// IPv6 text form: parsing, the RFC 5952 compressed form IOS prints, and EUI-64 interface IDs.
+assert.equal(fmt6(parse6('2001:0DB8:0000:0000:0008:0800:200C:417A')),'2001:DB8::8:800:200C:417A');
+assert.equal(fmt6(parse6('2001:db8:0:0:1:0:0:1')),'2001:DB8::1:0:0:1');
+assert.equal(fmt6(parse6('fe80::1')),'FE80::1');
+assert.equal(fmt6(parse6('::')),'::');
+assert.equal(fmt6(parse6('2001:db8::1'),true),'2001:db8::1');
+assert.equal(parse6('2001:db8::1::2'),null);
+assert.equal(parse6('2001:db8:1:2:3:4:5:6:7'),null);
+assert.equal(parse6('2001:db8::g'),null);
+assert.equal(fmt6(eui64(parse6('2001:db8:acad:1::'),'00e0.b012.3410')),'2001:DB8:ACAD:1:2E0:B0FF:FE12:3410');
+// IPv6 forwarding: a router that has not enabled IPv6 unicast routing does not forward IPv6.
+net=mkNet([mkRouter('R1'),mkRouter('R2'),mkPC('PC1',null,24),mkPC('PC2',null,24)]);
+link(net,'PC1','f0','R1','g0/0');link(net,'R1','g0/1','R2','g0/1');link(net,'R2','g0/0','PC2','f0');
+ios(net,'R1',['configure terminal','ipv6 unicast-routing','interface g0/0','ipv6 address 2001:db8:1::1/64','ipv6 address fe80::1 link-local','no shutdown','interface g0/1','ipv6 address 2001:db8:12::1/64','no shutdown','exit','ipv6 route 2001:db8:2::/64 2001:db8:12::2','end']);
+ios(net,'R2',['configure terminal','interface g0/0','ipv6 address 2001:db8:2::1/64','ipv6 address fe80::2 link-local','no shutdown','interface g0/1','ipv6 address 2001:db8:12::2/64','no shutdown','end']);
+execLine(net,net.devs.PC1,{mode:'pc'},'ipv6config /autoconfig');
+execLine(net,net.devs.PC2,{mode:'pc'},'ipv6config 2001:db8:2::10/64 fe80::2');
+assert.equal(fmt6(nic(net.devs.PC1).v6[0].a),fmt6(eui64(parse6('2001:db8:1::'),macOf(net.devs.PC1))));
+assert.equal(net.devs.PC1.gw6,parse6('fe80::1'));
+result=reach6(net,net.devs.PC1,parse6('2001:db8:2::10'));
+assert.equal(result.ok,false);assert.match(result.f.reason,/IPv6 unicast routing is off on R2/);
+ios(net,'R2',['configure terminal','ipv6 unicast-routing','end']);
+result=reach6(net,net.devs.PC1,parse6('2001:db8:2::10'));
+assert.equal(result.ok,false);assert.match(result.r.reason,/No IPv6 route/);
+// A link-local next hop is only meaningful with an exit interface; IOS insists on one.
+assert.match(execLine(net,net.devs.R2,{mode:'config'},'ipv6 route ::/0 fe80::1').join(' '),/Interface has to be specified/);
+ios(net,'R2',['configure terminal','ipv6 route ::/0 g0/1 fe80::1','end']);
+// The route installs, but nobody answers neighbor discovery for FE80::1 on that link until R1 uses it.
+result=reach6(net,net.devs.PC1,parse6('2001:db8:2::10'));
+assert.equal(result.ok,false);assert.match(result.r.reason,/Next hop FE80::1 unreachable/);
+ios(net,'R1',['configure terminal','interface g0/1','ipv6 address fe80::1 link-local','end']);
+result=reach6(net,net.devs.PC1,parse6('2001:db8:2::10'));
+assert.equal(result.ok,true);assert.deepEqual(Array.from(result.f.hops.path),['PC1','R1','R2','PC2']);
+// Longest match and a floating IPv6 default route.
+ios(net,'R1',['configure terminal','ipv6 route ::/0 2001:db8:12::2 50','end']);
+assert.equal(nextHop6(net,net.devs.R1,parse6('2001:db8:2::10')).route.len,64);
+assert.equal(nextHop6(net,net.devs.R1,parse6('2001:db8:99::1')).route.len,0);
+assert.equal(nextHop6(net,net.devs.R1,parse6('2001:db8:99::1')).route.ad,50);
+console.log('PASS forwarding: outbound route, return route, inbound/outbound ACL, static NAT, closed port, actual VLAN path, link failure, floating static, administrative distance, longest match, proxy ARP, NAT pool exhaustion and overload, voice VLAN tagging, the OSPF DR election, and IPv6 addressing, SLAAC and forwarding.');
 `,context);
