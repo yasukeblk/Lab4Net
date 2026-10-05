@@ -531,6 +531,11 @@ const shortIf=n=>n.replace('FastEthernet','Fa').replace('GigabitEthernet','Gi').
 function sortIfs(names){const key=n=>{const t=IFT.findIndex(t=>n.startsWith(t));return [t].concat((n.match(/\d+/g)||[]).map(Number));};
   return names.slice().sort((a,b)=>{const x=key(a),y=key(b);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]??-1)-(y[i]??-1);if(d)return d;}return 0;});}
 const pad=(s,n)=>String(s).padEnd(n);
+// Cisco type 7, shown once service password-encryption is on. It is a reversible obfuscation, not real encryption.
+const XLAT='dsfd;kfoA,.iyewrkldJKDHSUBsgvca69834ncxv9873254k;fg87';
+function type7(pw){let s=0;for(const c of pw)s=(s+c.charCodeAt(0))%16;let o=String(s).padStart(2,'0');
+  for(let k=0;k<pw.length;k++)o+=(pw.charCodeAt(k)^XLAT.charCodeAt((s+k)%XLAT.length)).toString(16).toUpperCase().padStart(2,'0');return o;}
+const pwText=(d,pw)=>d.svcEnc?'7 '+type7(pw):pw;
 
 function addIf(d,n,o){d.ifs[n]=Object.assign({name:n,ip:null,len:null,shutdown:false,desc:'',link:null,mode:'access',modeSet:false,accessVlan:1,native:1,allowed:'all',dot1q:null},o||{});return d.ifs[n];}
 function mkRouter(name){const d={name,type:'router',hostname:name,ifs:{},statics:[],ospf:null,lines:{con:{},vty:{}}};['0/0','0/1','0/2'].forEach(x=>addIf(d,'GigabitEthernet'+x,{shutdown:true}));return d;}
@@ -584,18 +589,22 @@ function l2peers(net,d,i){
 function connected(net,d){const r=[];for(const i of Object.values(d.ifs))if(i.ip!==null&&ifUp(net,d,i))r.push({code:'C',net:netOf(i.ip,i.len),len:i.len,ifc:i,nh:null,ad:0});return r;}
 function ospfIfs(net,d){if(!d.ospf)return [];const r=[];for(const i of Object.values(d.ifs)){if(i.ip===null||!ifUp(net,d,i))continue;
   const n=d.ospf.networks.find(n=>((i.ip&~n.wild)>>>0)===((n.net&~n.wild)>>>0));if(n)r.push({ifc:i,area:n.area});}return r;}
-function ospfNeighbors(net,d){const res=[];for(const o of ospfIfs(net,d)){if(d.ospf.passive.includes(o.ifc.name))continue;
+const isPassive=(d,n)=>d.ospf.passiveDef?!(d.ospf.nonPassive||[]).includes(n):d.ospf.passive.includes(n);
+function ospfNeighbors(net,d){const res=[];for(const o of ospfIfs(net,d)){if(isPassive(d,o.ifc.name))continue;
   for(const p of l2peers(net,d,o.ifc)){const pd=p.dev;if(pd.type!=='router'||!pd.ospf)continue;
-    const po=ospfIfs(net,pd).find(x=>x.ifc===p.ifc);if(!po||po.area!==o.area||pd.ospf.passive.includes(p.ifc.name))continue;
+    const po=ospfIfs(net,pd).find(x=>x.ifc===p.ifc);if(!po||po.area!==o.area||isPassive(pd,p.ifc.name))continue;
+    if(routerId(pd)===routerId(d))continue;
     if(p.ifc.len!==o.ifc.len||netOf(p.ifc.ip,p.ifc.len)!==netOf(o.ifc.ip,o.ifc.len))continue;
     res.push({dev:pd,ifc:o.ifc,pifc:p.ifc});}}return res;}
-function routerId(d){if(d.ospf&&d.ospf.rid!=null)return d.ospf.rid;const all=Object.values(d.ifs).filter(i=>i.ip!==null);const lo=all.filter(i=>i.name.startsWith('Loopback'));const s=(lo.length?lo:all).map(i=>i.ip);return s.length?Math.max(...s):0;}
+function routerId(d){if(d.ospf&&d.ospf.active!=null)return d.ospf.active;if(d.ospf&&d.ospf.rid!=null)return d.ospf.rid;const all=Object.values(d.ifs).filter(i=>i.ip!==null);const lo=all.filter(i=>i.name.startsWith('Loopback'));const s=(lo.length?lo:all).map(i=>i.ip);return s.length?Math.max(...s):0;}
 function ospfRoutes(net,d){if(!d.ospf)return [];
   const dist=new Map([[d.name,{cost:0,first:null}]]),q=[d];
   while(q.length){const u=q.shift(),du=dist.get(u.name);for(const nb of ospfNeighbors(net,u)){if(dist.has(nb.dev.name))continue;dist.set(nb.dev.name,{cost:du.cost+1,first:du.first||{ifc:nb.ifc,nh:nb.pifc.ip}});q.push(nb.dev);}}
   const own=new Set(connected(net,d).map(c=>c.net+'/'+c.len)),out=[];
-  for(const [name,info] of dist){if(name===d.name)continue;for(const o of ospfIfs(net,net.devs[name])){const nn=netOf(o.ifc.ip,o.ifc.len),k=nn+'/'+o.ifc.len;
-    if(own.has(k)||out.some(x=>x.key===k))continue;out.push({key:k,code:'O',net:nn,len:o.ifc.len,ifc:info.first.ifc,nh:info.first.nh,ad:110,metric:info.cost+1});}}
+  for(const [name,info] of dist){if(name===d.name)continue;for(const o of ospfIfs(net,net.devs[name])){
+    // OSPF advertises a loopback as a /32 host route whatever its configured mask.
+    const lo=o.ifc.name.startsWith('Loopback'),len=lo?32:o.ifc.len,nn=lo?o.ifc.ip:netOf(o.ifc.ip,o.ifc.len),k=nn+'/'+len;
+    if(own.has(k)||out.some(x=>x.key===k))continue;out.push({key:k,code:'O',net:nn,len,ifc:info.first.ifc,nh:info.first.nh,ad:110,metric:info.cost+1});}}
   return out;}
 function routes(net,d){let r=connected(net,d);
   if(d.type==='router'){for(const s of d.statics)if(r.some(c=>c.code==='C'&&netOf(s.nh,c.len)===c.net))r.push({code:'S',net:s.net,len:s.len,nh:s.nh,ad:1});
@@ -623,7 +632,7 @@ function parseVlanList(s){const r=[];for(const part of s.split(',')){const m=/^(
 function runningConfig(net,d){
   const L=['Building configuration...','','Current configuration:','!','version 15.2',(d.svcEnc?'':'no ')+'service password-encryption','!','hostname '+d.hostname,'!'];
   if(d.secret)L.push('enable secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0');
-  if(d.enPass)L.push('enable password '+d.enPass);
+  if(d.enPass)L.push('enable password '+pwText(d,d.enPass));
   if(d.noLookup)L.push('no ip domain-lookup');
   L.push('!');
   for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];L.push('interface '+n);
@@ -637,13 +646,15 @@ function runningConfig(net,d){
     }else L.push(i.ip!==null?' ip address '+n2ip(i.ip)+' '+n2ip(lenMask(i.len)):' no ip address');
     if(i.shutdown)L.push(' shutdown');L.push('!');}
   if(d.ospf){L.push('router ospf '+d.ospf.pid);if(d.ospf.rid!=null)L.push(' router-id '+n2ip(d.ospf.rid));
-    d.ospf.passive.forEach(p=>L.push(' passive-interface '+p));
+    if(d.ospf.passiveDef){L.push(' passive-interface default');(d.ospf.nonPassive||[]).forEach(p=>L.push(' no passive-interface '+p));}else d.ospf.passive.forEach(p=>L.push(' passive-interface '+p));
     d.ospf.networks.forEach(n=>L.push(' network '+n2ip(n.net)+' '+n2ip(n.wild)+' area '+n.area));L.push('!');}
   if(d.type==='switch'&&d.gw!=null)L.push('ip default-gateway '+n2ip(d.gw));
   (d.statics||[]).forEach(s=>L.push('ip route '+n2ip(s.net)+' '+n2ip(lenMask(s.len))+' '+n2ip(s.nh)));
   if(d.banner)L.push('!','banner motd ^C'+d.banner+'^C');
   L.push('!');
-  [['con','line con 0'],['vty','line vty 0 4']].forEach(([k,h])=>{L.push(h);const l=d.lines[k];if(l.password)L.push(' password '+l.password);if(l.login)L.push(' login');if(l.transport)L.push(' transport input '+l.transport);});
+  [['con','line con 0'],['vty','line vty 0 4']].forEach(([k,h])=>{L.push(h);const l=d.lines[k];if(l.aclClass)L.push(' access-class '+l.aclClass+' '+(l.aclDir||'in'));
+    if(l.timeout&&(l.timeout[0]!==10||l.timeout[1]!==0))L.push(' exec-timeout '+l.timeout[0]+' '+l.timeout[1]);
+    if(l.password)L.push(' password '+pwText(d,l.password));if(l.login)L.push(l.local?' login local':' login');if(l.transport)L.push(' transport input '+l.transport);});
   L.push('!','end');return L;}
 
 const CMDS=[];
@@ -709,7 +720,8 @@ C('config','no vlan <n>',e=>{if(e.args[0]!==1)delete e.d.vlans[e.args[0]];},['sw
 C('config','ip route <ip> <ip> <ip>',e=>{const[n,m,nh]=e.args,len=maskLenN(m);if(len===null||netOf(n,len)!==n)return e.out('%Inconsistent address and mask');
   if(!e.d.statics.some(s=>s.net===n&&s.len===len&&s.nh===nh))e.d.statics.push({net:n,len,nh});},['router']);
 C('config','no ip route <ip> <ip> <ip>',e=>{const[n,m,nh]=e.args,len=maskLenN(m);e.d.statics=e.d.statics.filter(s=>!(s.net===n&&s.len===len&&s.nh===nh));},['router']);
-C('config','router ospf <n>',e=>{if(!e.d.ospf)e.d.ospf={pid:e.args[0],rid:null,networks:[],passive:[]};e.s.mode='ospf';},['router']);
+// The router ID is chosen when the process starts and only changes on clear ip ospf process (or a reload).
+C('config','router ospf <n>',e=>{if(!e.d.ospf){e.d.ospf={pid:e.args[0],rid:null,networks:[],passive:[],passiveDef:false,nonPassive:[],active:null};e.d.ospf.active=routerId(e.d)||null;}e.s.mode='ospf';},['router']);
 C('config','no router ospf <n>',e=>{e.d.ospf=null;},['router']);
 C('config','ip default-gateway <ip>',e=>{e.d.gw=e.args[0];},['switch']);
 C(ALLCFG,'end',e=>{e.s.mode='priv';e.s.ctx=null;});
@@ -741,13 +753,16 @@ C('line','password <w>',e=>{e.d.lines[e.s.ctx].password=e.args[0];});
 C('line','login',e=>{e.d.lines[e.s.ctx].login=true;});
 C('line','no login',e=>{e.d.lines[e.s.ctx].login=false;});
 C('line','transport input <rest>',e=>{e.d.lines[e.s.ctx].transport=e.args[0];});
-C('line','exec-timeout <rest>',()=>{});
+C('line','exec-timeout <rest>',e=>{const t=e.args[0].trim().split(/\s+/);if(t.length>2||!t.every(x=>/^\d+$/.test(x)))return e.out(BAD);e.d.lines[e.s.ctx].timeout=[+t[0],t[1]?+t[1]:0];});
 C('line','logging synchronous',()=>{});
-C('ospf','router-id <ip>',e=>{e.d.ospf.rid=e.args[0];});
+C('ospf','router-id <ip>',e=>{const o=e.d.ospf;o.rid=e.args[0];
+  if(o.active!=null&&o.active!==o.rid&&ospfNeighbors(e.net,e.d).length)e.out('% OSPF: Reload or use "clear ip ospf process" command, for this to take effect');else o.active=o.rid;});
 C('ospf','network <ip> <ip> area <n>',e=>{const[n,w,a]=e.args;if(!e.d.ospf.networks.some(x=>x.net===n&&x.wild===w&&x.area===a))e.d.ospf.networks.push({net:n,wild:w,area:a});});
 C('ospf','no network <ip> <ip> area <n>',e=>{const[n,w,a]=e.args;e.d.ospf.networks=e.d.ospf.networks.filter(x=>!(x.net===n&&x.wild===w&&x.area===a));});
-C('ospf','passive-interface <rest>',e=>{const n=parseIf(e.args[0]);if(!n||!e.d.ifs[n])return e.out(BAD);if(!e.d.ospf.passive.includes(n))e.d.ospf.passive.push(n);});
-C('ospf','no passive-interface <rest>',e=>{const n=parseIf(e.args[0]);e.d.ospf.passive=e.d.ospf.passive.filter(p=>p!==n);});
+C('ospf','passive-interface <rest>',e=>{const o=e.d.ospf;o.nonPassive=o.nonPassive||[];if(/^default$/i.test(e.args[0].trim())){o.passiveDef=true;o.nonPassive=[];return;}
+  const n=parseIf(e.args[0]);if(!n||!e.d.ifs[n])return e.out(BAD);if(o.passiveDef)o.nonPassive=o.nonPassive.filter(p=>p!==n);else if(!o.passive.includes(n))o.passive.push(n);});
+C('ospf','no passive-interface <rest>',e=>{const o=e.d.ospf;o.nonPassive=o.nonPassive||[];if(/^default$/i.test(e.args[0].trim())){o.passiveDef=false;o.nonPassive=[];o.passive=[];return;}
+  const n=parseIf(e.args[0]);if(!n||!e.d.ifs[n])return e.out(BAD);if(o.passiveDef){if(!o.nonPassive.includes(n))o.nonPassive.push(n);}else o.passive=o.passive.filter(p=>p!==n);});
 const nic=d=>d.ifs.FastEthernet0;
 C('pc','ipconfig',e=>{const i=nic(e.d);e.out('','FastEthernet0 Connection:','   IPv4 Address. . . . . . . . . . . : '+(i.ip!==null?n2ip(i.ip):'0.0.0.0'),'   Subnet Mask . . . . . . . . . . . : '+(i.ip!==null?n2ip(lenMask(i.len)):'0.0.0.0'),'   Default Gateway . . . . . . . . . : '+(e.d.gw!=null?n2ip(e.d.gw):'0.0.0.0'),'');});
 C('pc','ipconfig /ip <ip> <ip>',e=>{const len=maskLenN(e.args[1]);if(len===null)return e.out('Invalid subnet mask.');nic(e.d).ip=e.args[0];nic(e.d).len=len;});
@@ -855,7 +870,7 @@ const LABS=[
   setIp(n,'R3','g0/0','192.168.3.1',24);setIp(n,'R3','g0/1','10.0.13.2',30);setIp(n,'R3','g0/2','10.0.23.2',30);return n;},
  addr:[['R1','LAN, to R2, to R3','192.168.1.0/24, 10.0.12.0/30, 10.0.13.0/30'],['R2','LAN, to R1, to R3','192.168.2.0/24, 10.0.12.0/30, 10.0.23.0/30'],['R3','LAN, to R1, to R2','192.168.3.0/24, 10.0.13.0/30, 10.0.23.0/30']],
  tasks:['On each router, start OSPF process 1 and set the router ID (<code>1.1.1.1</code>, <code>2.2.2.2</code>, <code>3.3.3.3</code>).','Advertise all three connected networks on each router in area 0 using wildcard masks.','Make each LAN interface (G0/0) passive so hellos aren\'t sent toward hosts.','Verify adjacencies with <code>show ip ospf neighbor</code> and learned routes with <code>show ip route</code>.','Ping PC2 and PC3 from PC1.'],
- checks:[['Router IDs are 1.1.1.1, 2.2.2.2 and 3.3.3.3',n=>['R1','R2','R3'].every((r,k)=>n.devs[r].ospf&&n.devs[r].ospf.rid===ip2n(`${k+1}.${k+1}.${k+1}.${k+1}`))],['Every router has two OSPF neighbors',n=>['R1','R2','R3'].every(r=>ospfNeighbors(n,n.devs[r]).length===2)],['G0/0 is passive on every router',n=>['R1','R2','R3'].every(r=>n.devs[r].ospf&&n.devs[r].ospf.passive.includes('GigabitEthernet0/0'))],['R1 learned 192.168.3.0/24 through OSPF',n=>ospfRoutes(n,n.devs.R1).some(o=>o.net===ip2n('192.168.3.0')&&o.len===24)],['PC1 can ping PC2 and PC3',n=>P(n,'PC1','192.168.2.10')&&P(n,'PC1','192.168.3.10')]],
+ checks:[['Router IDs are 1.1.1.1, 2.2.2.2 and 3.3.3.3',n=>['R1','R2','R3'].every((r,k)=>n.devs[r].ospf&&n.devs[r].ospf.rid===ip2n(`${k+1}.${k+1}.${k+1}.${k+1}`))],['Every router has two OSPF neighbors',n=>['R1','R2','R3'].every(r=>ospfNeighbors(n,n.devs[r]).length===2)],['G0/0 is passive on every router',n=>['R1','R2','R3'].every(r=>n.devs[r].ospf&&isPassive(n.devs[r],'GigabitEthernet0/0'))],['R1 learned 192.168.3.0/24 through OSPF',n=>ospfRoutes(n,n.devs.R1).some(o=>o.net===ip2n('192.168.3.0')&&o.len===24)],['PC1 can ping PC2 and PC3',n=>P(n,'PC1','192.168.2.10')&&P(n,'PC1','192.168.3.10')]],
  solution:{R1:['enable','configure terminal','router ospf 1','router-id 1.1.1.1','network 192.168.1.0 0.0.0.255 area 0','network 10.0.12.0 0.0.0.3 area 0','network 10.0.13.0 0.0.0.3 area 0','passive-interface g0/0','end'],
   R2:['enable','configure terminal','router ospf 1','router-id 2.2.2.2','network 192.168.2.0 0.0.0.255 area 0','network 10.0.12.0 0.0.0.3 area 0','network 10.0.23.0 0.0.0.3 area 0','passive-interface g0/0','end'],
   R3:['enable','configure terminal','router ospf 1','router-id 3.3.3.3','network 192.168.3.0 0.0.0.255 area 0','network 10.0.13.0 0.0.0.3 area 0','network 10.0.23.0 0.0.0.3 area 0','passive-interface g0/0','end','show ip ospf neighbor','show ip route']}}
@@ -893,7 +908,8 @@ C('acl','deny <rest>',e=>aclAdd(e,e.s.ctx,e.d.acls[e.s.ctx].type,'deny',e.args[0
 C('acl','remark <rest>',()=>{});
 C('if','ip access-group <w> <w>',e=>{const dir=['in','out'].find(x=>x.startsWith(e.args[1].toLowerCase()));if(!dir)return e.out(BAD);e.s.ctx.forEach(i=>{i[dir==='in'?'aclIn':'aclOut']=e.args[0];});},['router']);
 C('if','no ip access-group <w> <w>',e=>{const dir=['in','out'].find(x=>x.startsWith(e.args[1].toLowerCase()));e.s.ctx.forEach(i=>{i[dir==='in'?'aclIn':'aclOut']=null;});},['router']);
-C('line','access-class <w> <w>',e=>{e.d.lines[e.s.ctx].aclClass=e.args[0];});
+C('line','access-class <w> <w>',e=>{const dir=['in','out'].find(x=>x.startsWith(e.args[1].toLowerCase()));if(!dir)return e.out(BAD);const l=e.d.lines[e.s.ctx];l.aclClass=e.args[0];l.aclDir=dir;});
+C('line','no access-class <w> <w>',e=>{const l=e.d.lines[e.s.ctx];l.aclClass=null;l.aclDir=null;});
 const showAcl=e=>{for(const[n,a]of Object.entries(e.d.acls||{})){e.out((a.type==='standard'?'Standard':'Extended')+' IP access list '+n);a.entries.forEach((en,k)=>e.out('    '+(k+1)*10+' '+en.text+(en.hits?' ('+en.hits+' matches)':'')));}};
 C(EX,'show access-lists',showAcl);
 C(EX,'show ip access-lists',showAcl);
@@ -934,9 +950,12 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
 function listens(d,port){if(d.services)return d.services.includes(port);if(d.type==='pc')return false;const v=d.lines.vty,tr=(v.transport||'all').toLowerCase();
   if(port===23)return (tr.includes('telnet')||tr==='all')&&!!v.login&&(v.local?!!(d.users&&d.users.length):!!v.password);
   if(port===22)return (tr.includes('ssh')||tr==='all')&&!!d.rsa&&!!v.local&&!!(d.users&&d.users.length);return false;}
+// access-class on the VTY lines filters who may open a Telnet or SSH session to the device itself; a denied source is refused.
+function vtyDenied(d,port,src){if(d.type==='pc'||(port!==22&&port!==23))return false;const v=d.lines.vty;if(!v.aclClass||v.aclDir!=='in')return false;
+  return !aclPermit(d,v.aclClass,{src,dst:0,proto:'tcp',dport:port});}
 function reach(net,src,dst,proto,dport){proto=proto||'icmp';dport=dport||0;const saved=[];for(const n in net.devs){const x=net.devs[n].nat;if(x)saved.push([x,x.table.length]);}
   const f=fwd(net,src,{src:null,dst,proto,sport:50000,dport});let ok=false,refused=false,r=null;
-  if(f.ok){if(proto==='tcp'&&!listens(f.dest,dport))refused=true;else if(f.dest===src)ok=true;
+  if(f.ok){if(proto==='tcp'&&(!listens(f.dest,dport)||vtyDenied(f.dest,dport,f.pk.src)))refused=true;else if(f.dest===src)ok=true;
     else{r=fwd(net,f.dest,{src:f.pk.dst,dst:f.pk.src,proto,sport:dport,dport:f.pk.sport});ok=r.ok&&r.dest===src;}}
   if(!LIVE)saved.forEach(([x,l])=>{x.table.length=l;});
   if(LIVE)TRACE={src,f,r,ok,refused};return {ok,refused,f};}
@@ -995,9 +1014,24 @@ C('line','login local',e=>{const l=e.d.lines[e.s.ctx];l.login=true;l.local=true;
 C(EX,'show ip ssh',e=>e.out(e.d.rsa?'SSH Enabled - version '+(e.d.sshv===2?'2.0':'1.99'):'SSH Disabled - version 1.99'));
 
 // CDP
-C(EX,'show cdp neighbors',e=>{const{net,d,out}=e;out('Device ID        Local Intrfce     Holdtme    Capability  Platform  Port ID');
-  for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(!i.link||!ifUp(net,d,i))continue;const p=net.devs[i.link.dev];if(p.type==='pc')continue;
-    out(pad(p.hostname,17)+pad(shortIf(n),18)+pad(150,11)+pad(p.type==='router'?'R':'S',12)+pad(p.type==='router'?'ISR4321':'2960',10)+shortIf(i.link.ifn));}});
+// A neighbor appears only when both ends run CDP globally and on that interface. Hosts do not send CDP here.
+const cdpOn=(d,i)=>d.type!=='pc'&&d.cdp!==false&&i.cdp!==false;
+function cdpPeers(net,d){const r=[];for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(!i.link||!ifUp(net,d,i)||!cdpOn(d,i))continue;
+  const p=net.devs[i.link.dev],pi=p.ifs[i.link.ifn];if(cdpOn(p,pi))r.push({i,p,pi});}return r;}
+const CDPCAPS=['Capability Codes: R - Router, T - Trans Bridge, B - Source Route Bridge','                  S - Switch, H - Host, I - IGMP, r - Repeater, P - Phone,','                  D - Remote, C - CVTA, M - Two-port Mac Relay',''];
+C(EX,'show cdp neighbors',e=>{const{net,d,out}=e;if(d.cdp===false)return out('% CDP is not enabled');const ps=cdpPeers(net,d);out(...CDPCAPS,'Device ID        Local Intrfce     Holdtme    Capability  Platform  Port ID');
+  ps.forEach(({i,p,pi})=>out(pad(p.hostname,17)+pad(shortIf(i.name),18)+pad(150,11)+pad(p.type==='router'?'R B S I':'S I',12)+pad(p.type==='router'?'ISR4321':'WS-C2960',10)+shortIf(pi.name)));
+  out('','Total cdp entries displayed : '+ps.length);});
+C(EX,'show cdp neighbors detail',e=>{const{net,d,out}=e;if(d.cdp===false)return out('% CDP is not enabled');const ps=cdpPeers(net,d);
+  ps.forEach(({i,p,pi})=>{const mgmt=p.type==='router'?(pi.ip!==null?pi.ip:(Object.values(p.ifs).find(x=>x.ip!==null)||{}).ip):(Object.values(p.ifs).find(x=>x.name.startsWith('Vlan')&&x.ip!==null&&ifUp(net,p,x))||{}).ip;
+    out('-------------------------','Device ID: '+p.hostname,'Entry address(es): ',...(mgmt!=null?['  IP address: '+n2ip(mgmt)]:[]),'Platform: cisco '+(p.type==='router'?'ISR4321/K9':'WS-C2960-24TT-L')+',  Capabilities: '+(p.type==='router'?'Router Source-Route-Bridge Switch IGMP':'Switch IGMP'),
+      'Interface: '+i.name+',  Port ID (outgoing port): '+pi.name,'Holdtime : 150 sec','','Version :','Cisco IOS Software, '+(p.type==='router'?'ISR Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 16.9.4':'C2960 Software (C2960-LANBASEK9-M), Version 15.2(7)E2'),'','advertisement version: 2',...(p.type==='switch'&&pi.mode==='trunk'?['Native VLAN: '+pi.native]:[]),'Duplex: full','');});
+  out('','Total cdp entries displayed : '+ps.length);});
+C(EX,'show cdp',e=>e.out(...(e.d.cdp===false?['% CDP is not enabled']:['Global CDP information:','\tSending CDP packets every 60 seconds','\tSending a holdtime value of 180 seconds','\tSending CDPv2 advertisements is  enabled'])));
+C('config','cdp run',e=>{e.d.cdp=true;});
+C('config','no cdp run',e=>{e.d.cdp=false;});
+C('if','cdp enable',e=>e.s.ctx.forEach(i=>{i.cdp=true;}));
+C('if','no cdp enable',e=>e.s.ctx.forEach(i=>{i.cdp=false;}));
 
 // Spanning tree
 const stpOf=d=>d.stp||(d.stp={prio:{},mode:'pvst'});
@@ -1019,8 +1053,10 @@ function stpCalc(net,v){const sws=Object.values(net.devs).filter(d=>d.type==='sw
       ports[n]={role,cost:cost(p)};}
     info[sw.name]={ports,rp,cost:dist.get(sw.name)};}
   return {root,info};}
-C('config','spanning-tree vlan <n> priority <n>',e=>{if(e.args[1]%4096||e.args[1]>61440)return e.out('% Bridge Priority must be in increments of 4096.','% Allowed values are: 0 4096 8192 12288 ... 61440');stpOf(e.d).prio[e.args[0]]=e.args[1];},['switch']);
-C('config','spanning-tree vlan <n> root <w>',e=>{stpOf(e.d).prio[e.args[0]]='primary'.startsWith(e.args[1].toLowerCase())?24576:28672;},['switch']);
+C('config','spanning-tree vlan <w> priority <n>',e=>{const vl=parseVlanList(e.args[0]);if(!vl)return e.out(BAD);if(e.args[1]%4096||e.args[1]>61440)return e.out('% Bridge Priority must be in increments of 4096.','% Allowed values are: 0 4096 8192 12288 ... 61440');vl.forEach(v=>{stpOf(e.d).prio[v]=e.args[1];});},['switch']);
+// root primary is a macro: 24576, or 4096 below the current root if 24576 would not win. secondary is always 28672.
+C('config','spanning-tree vlan <w> root <w>',e=>{const vl=parseVlanList(e.args[0]),w=e.args[1].toLowerCase(),prim='primary'.startsWith(w);if(!vl||(!prim&&!'secondary'.startsWith(w)))return e.out(BAD);
+  for(const v of vl){let p=prim?24576:28672;if(prim&&e.d.vlans[v]){const r=stpCalc(e.net,v);if(r&&r.root!==e.d&&String(24576+v).padStart(6,'0')+macOf(e.d)>bid(r.root,v))p=Math.max(0,stpPrio(r.root,v)-v-4096);}stpOf(e.d).prio[v]=p;}},['switch']);
 C('config','spanning-tree mode <w>',e=>{const m=['pvst','rapid-pvst'].find(x=>x.startsWith(e.args[0].toLowerCase()));if(!m)return e.out(BAD);stpOf(e.d).mode=m;},['switch']);
 C('if','spanning-tree portfast',e=>{e.s.ctx.forEach(i=>{i.portfast=true;});e.out('%Warning: portfast should only be enabled on ports connected to a single host.');},['switch']);
 C('if','spanning-tree bpduguard enable',e=>e.s.ctx.forEach(i=>{i.bpduguard=true;}),['switch']);
@@ -1051,9 +1087,10 @@ const prompt0=promptOf;promptOf=function(d,s){const h=d.hostname;if(s.mode==='ac
 function ifExtra(i){const L=[];if(i.helper!=null)L.push(' ip helper-address '+n2ip(i.helper));if(i.aclIn)L.push(' ip access-group '+i.aclIn+' in');if(i.aclOut)L.push(' ip access-group '+i.aclOut+' out');if(i.nat)L.push(' ip nat '+i.nat);
   if(i.chan)L.push(' channel-group '+i.chan+' mode '+i.chanMode);
   if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');}
-  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');return L;}
+  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');return L;}
 function globalExtra(d){const L=[];
-  (d.users||[]).forEach(u=>L.push('username '+u.name+(u.priv>1?' privilege '+u.priv:'')+(u.kind==='secret'?' secret 5 $1$mERr$9cTjUIEqNGurQiFU.ZeCi1':' password '+u.pw)));
+  if(d.cdp===false)L.push('no cdp run');
+  (d.users||[]).forEach(u=>L.push('username '+u.name+(u.priv>1?' privilege '+u.priv:'')+(u.kind==='secret'?' secret 5 $1$mERr$9cTjUIEqNGurQiFU.ZeCi1':' password '+pwText(d,u.pw))));
   if(d.domain)L.push('ip domain-name '+d.domain);if(d.sshv)L.push('ip ssh version '+d.sshv);
   if(d.stp){if(d.stp.mode!=='pvst')L.push('spanning-tree mode '+d.stp.mode);for(const v in d.stp.prio)L.push('spanning-tree vlan '+v+' priority '+d.stp.prio[v]);}
   if(d.dhcp){d.dhcp.excluded.forEach(([a,b])=>L.push('ip dhcp excluded-address '+n2ip(a)+(b!==a?' '+n2ip(b):'')));
@@ -1070,6 +1107,28 @@ const rc0=runningConfig;runningConfig=function(net,d){const out=[];let cur=null,
     if(vty&&l===' login'&&d.lines.vty.local){out.push(' login local');continue;}
     out.push(l);}
   return out;};
+
+// ---------- v3 engine: lab library expansion ----------
+C('priv','clear ip ospf process',e=>{const o=e.d.ospf;if(!o)return;const before=ospfNeighbors(e.net,e.d);e.out('Reset ALL OSPF processes? [no]: yes');
+  o.active=null;o.active=routerId(e.d)||null;
+  before.forEach(n=>e.out('%OSPF-5-ADJCHG: Process '+o.pid+', Nbr '+n2ip(routerId(n.dev))+' on '+n.ifc.name+' from FULL to DOWN, Neighbor Down: Interface down or detached'));
+  ospfNeighbors(e.net,e.d).forEach(n=>e.out('%OSPF-5-ADJCHG: Process '+o.pid+', Nbr '+n2ip(routerId(n.dev))+' on '+n.ifc.name+' from LOADING to FULL, Loading Done'));},['router']);
+const passiveList=d=>sortIfs(Object.keys(d.ifs)).filter(n=>isPassive(d,n));
+C(EX,'show ip protocols',e=>{const{net,d,out}=e,o=d.ospf;if(!o)return;const areas=[...new Set(o.networks.map(n=>n.area))];
+  out('*** IP Routing is NSF aware ***','','Routing Protocol is "ospf '+o.pid+'"','  Outgoing update filter list for all interfaces is not set','  Incoming update filter list for all interfaces is not set','  Router ID '+n2ip(routerId(d)),
+    '  Number of areas in this router is '+areas.length+'. '+areas.length+' normal 0 stub 0 nssa','  Maximum path: 4','  Routing for Networks:',...o.networks.map(n=>'    '+n2ip(n.net)+' '+n2ip(n.wild)+' area '+n.area));
+  const pl=passiveList(d);if(pl.length)out('  Passive Interface(s):',...pl.map(n=>'    '+n));
+  out('  Routing Information Sources:','    Gateway         Distance      Last Update',...[...new Set(ospfNeighbors(net,d).map(n=>routerId(n.dev)))].map(r=>'    '+pad(n2ip(r),16)+pad('110',14)+'00:01:12'),'  Distance: (default is 110)');},['router']);
+C(EX,'show ip ospf',e=>{const{net,d,out}=e,o=d.ospf;if(!o)return out('%OSPF: Router process not running');const areas=[...new Set(o.networks.map(n=>n.area))];
+  out(' Routing Process "ospf '+o.pid+'" with ID '+n2ip(routerId(d)),' Supports only single TOS(TOS0) routes',' Reference bandwidth unit is 100 mbps',' Number of areas in this router is '+areas.length+'. '+areas.length+' normal 0 stub 0 nssa');
+  areas.forEach(a=>out('    Area '+(a===0?'BACKBONE(0)':a),'        Number of interfaces in this area is '+ospfIfs(net,d).filter(x=>x.area===a).length));},['router']);
+
+// Native VLAN mismatch: CDP compares the native VLAN on both ends of a trunk and logs the difference.
+function nativeMismatches(net,d){if(d.type!=='switch'||d.cdp===false)return [];
+  return cdpPeers(net,d).filter(x=>x.p.type==='switch'&&x.i.mode==='trunk'&&x.pi.mode==='trunk'&&x.i.native!==x.pi.native)
+    .map(x=>'%CDP-4-NATIVE_VLAN_MISMATCH: Native VLAN mismatch discovered on '+x.i.name+' ('+x.i.native+'), with '+x.p.hostname+' '+x.pi.name+' ('+x.pi.native+').');}
+const execLine0=execLine;execLine=function(net,d,s,line){const before=new Set(nativeMismatches(net,d)),out=execLine0(net,d,s,line);
+  for(const m of nativeMismatches(net,d))if(!before.has(m))out.push(m);return out;};
 
 // record which command pattern ran, for the "why" hint
 CMDS.forEach(c=>{const f=c.fn,k=c.pat.join(' ');c.fn=e=>{e.s.last=k;f(e);};});
@@ -1127,8 +1186,8 @@ const WHYC={
 'username <w> <rest>':'Creates a local account. secret stores a hash; privilege 15 lands the user straight in privileged mode.',
 'crypto key generate rsa <rest?>':'Generates the key pair SSH uses for encryption. Use 2048 bits or more.',
 'ip ssh version <n>':'SSH version 1 has known weaknesses, so force version 2.',
-'spanning-tree vlan <n> root <w>':'Lowers this switch priority so it wins (primary) or comes second (secondary) in the root election, instead of leaving it to the lowest MAC address.',
-'spanning-tree vlan <n> priority <n>':'Sets the bridge priority directly. Lowest wins the root election; values go in steps of 4096.',
+'spanning-tree vlan <w> root <w>':'Lowers this switch priority so it wins (primary) or comes second (secondary) in the root election, instead of leaving it to the lowest MAC address.',
+'spanning-tree vlan <w> priority <n>':'Sets the bridge priority directly. Lowest wins the root election; values go in steps of 4096.',
 'spanning-tree mode <w>':'Rapid PVST+ converges in a second or two instead of the 30-50 seconds classic STP takes.',
 'spanning-tree portfast':'Skips the listening/learning delay on a port that connects to a single host, so the device gets on the network immediately.',
 'spanning-tree bpduguard enable':'If a switch is ever plugged into this host port, the port err-disables instead of letting it affect the topology.',
@@ -1389,13 +1448,15 @@ function openLab(idx,fresh=false){if(cur?.view==='lab'&&!fresh)saveWork();const 
   cur={view:'lab',idx,lab,...state,sel:lab.start,graded:null,showSol:false,tasks:fresh?[]:(drafts[lab.title]?.tasks||[]),intro:true,links:{},trace:null};
   fxToken++;mobilePanel(false);$('tin').value='';$('hint').textContent=HINT;$('hint').className='';$('trace').innerHTML='';renderAll();saveWork();}
 function renderAll(){renderLabs();renderBrief();drawTopo();renderTerm();$('bench').hidden=cur.view!=='lab';$('practice').hidden=cur.view==='lab';$('mobileNav').hidden=cur.view!=='lab';if(cur.view!=='lab')mobilePanel(false);}
+// Build labs are numbered among build labs only; incidents carry their own number.
+function labTag(idx){const l=LABS[idx];if(l.kind==='incident')return 'INCIDENT '+l.title.slice(9,11);return 'LAB '+String(LABS.slice(0,idx+1).filter(x=>x.kind!=='incident').length).padStart(2,'0');}
 function renderLabs(){let h='';for(const g of GROUPS)h+=`<optgroup label="${g}">`+LABS.map((l,i)=>l.group===g?`<option value="${i}"${cur.view==='lab'&&i===cur.idx?' selected':''}>${progress[l.title]?'✓ ':''}${l.title}</option>`:'').join('')+'</optgroup>';
   h+=`<optgroup label="Practice"><option value="drill"${cur.view==='drill'?' selected':''}>Subnetting drill</option><option value="quiz"${cur.view==='quiz'?' selected':''}>Theory check</option></optgroup>`;$('labs').innerHTML=h;
   const count=LABS.filter(l=>progress[l.title]).length;$('meter').innerHTML=`<div class="progressbar" role="progressbar" aria-label="Labs passed" aria-valuemin="0" aria-valuemax="${LABS.length}" aria-valuenow="${count}"><span style="width:${count/LABS.length*100}%"></span></div><span>${count} / ${LABS.length} passed</span>`;
   $('workspaceTitle').textContent=cur.view==='lab'?cur.lab.title:cur.view==='drill'?'Subnetting drill':'Theory check';}
 function renderBrief(){if(cur.view==='drill')return renderDrill();if(cur.view==='quiz')return renderQuiz();const l=cur.lab,done=cur.tasks.filter(Boolean).length;
   const inc=l.kind==='incident';
-  let h=`<div class="eyebrow">${l.group} <span>${inc?'INCIDENT '+l.title.slice(9,11):'LAB '+String(cur.idx+1).padStart(2,'0')}</span></div><h2>${inc?l.title.slice(13).replace(/^./,c=>c.toUpperCase()):l.title}</h2>${ccnaTags(l)}<p>${l.brief}</p><div class="lesson-tip${inc?' inc':''}"><b>${inc?'Reproduce → inspect → repair → verify':'Configure → verify → explain'}</b><br>${inc?'This network was working until something changed. Find the evidence, make the smallest repair and keep everything else working.':'Use the tasks as a guide. Grade checks the actual network, independently of your checklist.'}</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><div class="guide-row"><label class="gswitch"><input type="checkbox" id="guideToggle"${guideOn?' checked':''}><span aria-hidden="true"></span>Step-by-step instructions</label><button class="small-btn" id="guidePopBtn" type="button">${guidePop?'Dock guide':'Pop out guide'}</button></div>${clueHtml(l)}<h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details>${stepsHtml(k)}</div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
+  let h=`<div class="eyebrow">${l.group} <span>${labTag(cur.idx)}</span></div><h2>${inc?l.title.slice(13).replace(/^./,c=>c.toUpperCase()):l.title}</h2>${ccnaTags(l)}<p>${l.brief}</p><div class="lesson-tip${inc?' inc':''}"><b>${inc?'Reproduce → inspect → repair → verify':'Configure → verify → explain'}</b><br>${inc?'This network was working until something changed. Find the evidence, make the smallest repair and keep everything else working.':'Use the tasks as a guide. Grade checks the actual network, independently of your checklist.'}</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><div class="guide-row"><label class="gswitch"><input type="checkbox" id="guideToggle"${guideOn?' checked':''}><span aria-hidden="true"></span>Step-by-step instructions</label><button class="small-btn" id="guidePopBtn" type="button">${guidePop?'Dock guide':'Pop out guide'}</button></div>${clueHtml(l)}<h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details>${stepsHtml(k)}</div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
   if(cur.graded){const ok=cur.graded.filter(g=>g[1]).length,all=ok===cur.graded.length;h+=`<strong class="${all?'done':''}">${all?'✓ Lab complete':`${ok} / ${cur.graded.length} checks passed`}</strong><p>${all?(l.lesson?'<b>Root cause.</b> '+esc(l.lesson):'You built a working network. Try explaining why it works before moving on.'):'Use the failed checks below to narrow your next change. Your work is saved.'}</p><ul>${cur.graded.map((g,k)=>`<li class="${g[1]?'ok':'no'}" style="--i:${k}">${g[0]}</li>`).join('')}</ul>${all?'<button class="btn primary" id="nextLab">Next unpassed lab →</button>':''}`;}
   h+='</div><div id="solution">';
   if(cur.showSol)h+=`<div class="lesson-tip">Read one device at a time, predict what each command changes, then type it yourself. This is one working approach.</div>`+Object.entries(l.solution).map(([d,c])=>`<h3>${d}</h3>`+c.map(x=>`<div class="sol"><code>${esc(x)}</code>${whyOf(x)?`<span>${whyOf(x)}</span>`:''}</div>`).join('')).join('');
@@ -1485,7 +1546,7 @@ function drawTopo(){if(cur.view!=='lab')return;const{lab,net}=cur;let h=`<svg vi
     h+=`<line class="wire ${up?'base':'off'}" ${xy}/>`;if(up)h+=`<line class="wire flow" ${xy}/>`;if(up&&was===false)h+=`<line class="wire flash" ${xy}/>`;
     [[A,l.ai,ax+ux*42,ay+uy*42,1],[B,l.bi,bx-ux*42,by-uy*42,-1]].forEach(([D,ifn,x,y,s])=>{
       h+=`<rect class="led ${up?'on':'off'}" x="${x-ux*11*s-3}" y="${y-uy*11*s-3}" width="6" height="6"/>`;
-      if(D.type!=='pc')h+=`<text class="port" x="${x+px}" y="${y+py+3}">${shortIf(ifn)}</text>`;});}
+      if(D.type!=='pc'&&!lab.hidePorts)h+=`<text class="port" x="${x+px}" y="${y+py+3}">${shortIf(ifn)}</text>`;});}
   Object.keys(net.devs).forEach((n,k)=>{const d=net.devs[n],[x,y]=lab.pos[n],kind=d.type==='pc'?(d.services?'srv':'pc'):d.type;let g;
     g=SPR[kind];
     h+=`<g class="dev ${kind}${n===cur.sel?' sel':''}" data-dev="${n}" transform="translate(${x},${y})" tabindex="0" role="button" aria-label="Open ${n} console"><g class="pop" style="--i:${k}">${n===cur.sel?'<ellipse class="selglow" cx="0" cy="17" rx="34" ry="9"/><path class="selring" d="M-9 -42h18l-9 11z"/>':''}${g}<text y="${LABELY[kind]}">${d.type==='pc'?n:esc(d.hostname)}</text></g></g>`;});
@@ -1547,7 +1608,7 @@ openLab(Math.max(0,Math.min(LABS.length-1,lastLab)));
   t=setInterval(()=>{if(i<lines.length)pre.textContent+=lines[i++]+'\n';else close();},140);b.onclick=close;window.addEventListener('keydown',close);})();
 
 // ---------- pop-out guide window ----------
-function guideHtml(){if(!cur.guide)cur.guide=guideFor(cur.lab);return `<div class="eyebrow">${cur.lab.group} <span>LAB ${String(cur.idx+1).padStart(2,'0')}</span></div><h2>${cur.lab.title}</h2>`+cur.lab.tasks.map((t,k)=>`<div class="gtask"><b>${String(k+1).padStart(2,'0')}</b><div>${t}${stepsBlock(k)}</div></div>`).join('');}
+function guideHtml(){if(!cur.guide)cur.guide=guideFor(cur.lab);return `<div class="eyebrow">${cur.lab.group} <span>${labTag(cur.idx)}</span></div><h2>${cur.lab.title}</h2>`+cur.lab.tasks.map((t,k)=>`<div class="gtask"><b>${String(k+1).padStart(2,'0')}</b><div>${t}${stepsBlock(k)}</div></div>`).join('');}
 function renderGuideWin(){const w=$('guideWin'),show=guidePop&&cur.view==='lab'&&!cur.sandbox&&DESK.matches;w.hidden=!show;if(show)$('guideBody').innerHTML=guideHtml();}
 function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guideHtml());return;}
   guidePop=on;try{localStorage.setItem('lab4net-guide-pop',on?'1':'0');}catch(e){}
