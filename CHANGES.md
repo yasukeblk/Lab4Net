@@ -1,5 +1,35 @@
 # Lab4Net changes
 
+## Lab library, phase 1: seven new labs on the existing engine
+
+New labs, added after the incidents so saved progress is unaffected:
+
+- **Native VLAN and allowed VLANs on trunks** (Switching): move the native VLAN to an unused VLAN on both ends and prune the trunk. Changing one end first shows the real CDP native VLAN mismatch message.
+- **Switch management access** (Fundamentals): a management VLAN, an SVI and a default gateway, then SSH from another subnet. The ping fails until the gateway is set, which is the point of the lab.
+- **Locking down device access** (Security): service password-encryption, an enable secret in place of the enable password, local accounts, exec-timeout, SSH only, an access-class that admits only the admin subnet, and saving the config.
+- **OSPF router IDs and passive interfaces** (Routing): a rogue router on the user LAN is injecting a route. Fix the router IDs (they only take effect after clear ip ospf process), then passive-interface default with the uplink re-opened.
+- **Per-VLAN root bridges** (Switching): DSW1 root for VLAN 10 and backup for 20, DSW2 the other way round, so the access switch blocks a different uplink in each VLAN.
+- **Map an unknown network with CDP** (Switching): the map hides port names. Use CDP to label every link TO-neighbor-port, turn CDP off towards the ISP only, and use the detail view to find a management address.
+- **Small office build** (IP services): a factory-fresh router to a working branch: addressing, default route, DHCP pool and PAT.
+
+Engine changes behind them:
+
+- service password-encryption now really hides line, enable and username passwords as Cisco type 7 in the config. The encoding is the real one, so the strings decode like on a router.
+- exec-timeout is stored and shown in the config. access-class on the VTY lines is now enforced: a denied source gets "Connection refused".
+- CDP: cdp run and cdp enable (and their no forms) are modelled, show cdp neighbors has the real header and totals, and show cdp neighbors detail and show cdp are new. A native VLAN mismatch between two trunk ends is logged the moment it appears.
+- OSPF: passive-interface default with no passive-interface exceptions; the router ID is fixed when the process starts and a new one waits for clear ip ospf process, with the real warning; neighbors with the same router ID refuse to form; loopbacks are advertised as /32; adjacency changes are logged (%OSPF-5-ADJCHG); new show ip protocols and show ip ospf.
+- spanning-tree vlan ... root primary now works like the real macro (24576, or 4096 below the current root if that is not enough) and accepts VLAN lists such as 10,20.
+- no enable password is supported.
+- Accuracy fixes found while building: host pings now show a real TTL (128 from a host, 255 from a router, minus one per router on the way back) instead of always 126, and show ip nat translations has the real five columns with the host's own inside port.
+- Lab numbers in the Mission window and guide now count build labs only, so the first new lab is LAB 16. Incidents keep their INCIDENT number. Labs can hide port names on the map (used by the CDP lab).
+- Every new command has a "why" explanation in the walkthrough and command guide.
+
+Tests: tests/ui.cjs searches the library for a word unique to Single-area OSPF, since "OSPF" now matches two labs. tests/curriculum.cjs reports the real lab count.
+
+Verification: labs.cjs passes 28 labs, 163 checks and 557 guide commands. forwarding.cjs, curriculum.cjs and ui.cjs pass (ui.cjs in Edge through Playwright). Each new lab's guide was also run through the real console in Edge and graded, with no rejected commands and no page errors; the maps were checked at 1440x1000 and the Mission window at 390x844 from screenshots. Two maps had host labels clipped at the bottom and were moved up. Not checked: the container itself, Firefox, Safari.
+
+Not changed: the data path still ignores spanning-tree blocking (the tree is computed and shown, and the labs check it, but pings take any VLAN-valid path).
+
 ## Troubleshooting incidents, clues, CCNA study map and sandbox undo (ideas from ChatGPT's branch, rebuilt on main)
 
 - Six troubleshooting incidents in a new Troubleshooting group. Each one starts from a working lab with one fault added: a PC in the wrong VLAN, a trunk missing a VLAN, a missing return route, the wrong 802.1Q tag on a subinterface, a bad DHCP relay address, and SSH blocked on the VTY lines. The four tasks are reproduce, inspect, repair and verify. Grading uses all of the original lab's checks, so a fix that breaks something else does not pass. Passing shows the root cause.

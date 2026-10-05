@@ -767,7 +767,8 @@ const nic=d=>d.ifs.FastEthernet0;
 C('pc','ipconfig',e=>{const i=nic(e.d);e.out('','FastEthernet0 Connection:','   IPv4 Address. . . . . . . . . . . : '+(i.ip!==null?n2ip(i.ip):'0.0.0.0'),'   Subnet Mask . . . . . . . . . . . : '+(i.ip!==null?n2ip(lenMask(i.len)):'0.0.0.0'),'   Default Gateway . . . . . . . . . : '+(e.d.gw!=null?n2ip(e.d.gw):'0.0.0.0'),'');});
 C('pc','ipconfig /ip <ip> <ip>',e=>{const len=maskLenN(e.args[1]);if(len===null)return e.out('Invalid subnet mask.');nic(e.d).ip=e.args[0];nic(e.d).len=len;});
 C('pc','ipconfig /dg <ip>',e=>{e.d.gw=e.args[0];});
-C('pc','ping <ip>',e=>{const ok=canPing(e.net,e.d,e.args[0]),a=n2ip(e.args[0]);e.out('','Pinging '+a+' with 32 bytes of data:');for(let k=0;k<4;k++)e.out(ok?'Reply from '+a+': bytes=32 time<1ms TTL=126':'Request timed out.');
+// The reply's TTL starts at 128 from a host or 255 from IOS and loses one per router on the way back.
+C('pc','ping <ip>',e=>{const ok=canPing(e.net,e.d,e.args[0]),a=n2ip(e.args[0]),t=TRACE,ttl=ok&&t&&t.r?(t.f.dest.type==='pc'?128:255)-(t.r.hops.length-1):128;e.out('','Pinging '+a+' with 32 bytes of data:');for(let k=0;k<4;k++)e.out(ok?'Reply from '+a+': bytes=32 time<1ms TTL='+ttl:'Request timed out.');
   e.out('','Ping statistics for '+a+':','    Packets: Sent = 4, Received = '+(ok?4:0)+', Lost = '+(ok?'0 (0% loss)':'4 (100% loss)'),'');});
 C('pc','tracert <ip>',e=>{const f=tracePath(e.net,e.d,e.args[0]);e.out('','Tracing route to '+n2ip(e.args[0])+':');f.hops.forEach((h,k)=>e.out('  '+(k+1)+'   <1 ms   <1 ms   <1 ms   '+n2ip(h)));e.out(f.ok?'Trace complete.':'  *   Request timed out.','');});
 
@@ -1458,7 +1459,7 @@ Object.assign(WHYC,{
 'show ip ssh':'Confirms SSH is enabled and which version the device accepts. 1.99 means both versions; 2.0 means version 2 only.'});
 addLab({title:'Switch management access',group:'Fundamentals',
  brief:'The new access switch forwards user traffic fine, but nobody can manage it remotely: it has no management address. Give it one in the management VLAN, make sure it can answer the admin subnet, and allow SSH only.',
- pos:{ADMIN:[60,70],R1:[210,70],SW1:[370,140],PC1:[530,205]},start:'SW1',
+ pos:{ADMIN:[60,75],R1:[210,75],SW1:[380,120],PC1:[530,185]},start:'SW1',
  build(){const n=mkNet([mkRouter('R1'),mkSwitch('SW1'),mkPC('ADMIN','192.168.50.10',24,'192.168.50.1'),mkPC('PC1','192.168.10.20',24,'192.168.10.1')]);
   link(n,'ADMIN','f0','R1','g0/1');link(n,'R1','g0/0','SW1','g0/1');link(n,'SW1','f0/1','PC1','f0');
   cfg(n,{R1:['enable','configure terminal','interface g0/1','ip address 192.168.50.1 255.255.255.0','no shutdown','interface g0/0','no shutdown','interface g0/0.10','encapsulation dot1q 10','ip address 192.168.10.1 255.255.255.0','interface g0/0.99','encapsulation dot1q 99','ip address 192.168.99.1 255.255.255.0','end'],
@@ -1547,7 +1548,7 @@ CCNA_LAB_MAP['Per-VLAN root bridges']=['2.5'];
 const stpRole=(n,sw,v,ifn)=>{const r=stpCalc(n,v),p=r&&r.info[sw]&&r.info[sw].ports[parseIf(ifn)];return p?p.role:null;};
 addLab({title:'Per-VLAN root bridges',group:'Switching',
  brief:'Two distribution switches and one access switch, with VLAN 10 and VLAN 20 on every trunk. Right now the old access switch is root for everything, and one uplink sits idle. Make each distribution switch root for one VLAN and backup for the other, so both uplinks carry traffic.',
- pos:{PC4:[55,50],DSW1:[180,50],DSW2:[420,50],PC3:[545,50],ASW1:[300,160],PC1:[185,215],PC2:[415,215]},start:'ASW1',
+ pos:{PC4:[55,50],DSW1:[180,50],DSW2:[420,50],PC3:[545,50],ASW1:[300,120],PC1:[175,190],PC2:[425,190]},start:'ASW1',
  build(){const a=mkSwitch('DSW1'),b=mkSwitch('DSW2'),c=mkSwitch('ASW1');a.mac='0019.e8a2.3c00';b.mac='0019.e8a2.4d00';c.mac='0009.7c11.0100';
   const n=mkNet([a,b,c,mkPC('PC1','192.168.10.11',24),mkPC('PC2','192.168.20.12',24),mkPC('PC3','192.168.10.13',24),mkPC('PC4','192.168.20.14',24)]);
   link(n,'DSW1','g0/1','DSW2','g0/1');link(n,'DSW1','g0/2','ASW1','g0/1');link(n,'DSW2','g0/2','ASW1','g0/2');

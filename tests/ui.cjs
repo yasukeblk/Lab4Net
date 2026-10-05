@@ -74,7 +74,7 @@ const fs = require('node:fs');
     await page.locator('#closeDialog').click();
     // Searchable library and guide.
     await page.locator('#library').click();
-    await page.locator('#labSearch').fill('OSPF');
+    await page.locator('#labSearch').fill('triangle');
     assert.equal(await page.locator('.lab-card').count(), 1);
     await page.locator('.lab-card').click();
     await page.locator('#reference').click();

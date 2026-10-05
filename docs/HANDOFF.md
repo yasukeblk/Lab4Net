@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of the "Troubleshooting incidents" build on top of `a856918` on `main` (4 Oct 2026). Read this before touching anything.
+State as of lab library phase 1 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -8,7 +8,7 @@ Lab4Net is a browser-based lab simulator for the Cisco CCNA exam, modeled on Bos
 
 It currently has:
 
-- 15 graded build labs (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH)
+- 22 graded build labs: the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phase 1 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build)
 - 6 troubleshooting incidents built from those labs, each with three clues that cost rank points
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
@@ -93,6 +93,9 @@ In file order:
 2. `// ---------- v2 engine`: ACLs, NAT, packet forwarding (`fwd`, `reach`), DHCP, port security, SSH, CDP, spanning tree (`stpCalc`), EtherChannel (`bundled`), `runningConfig` extras, per-command explanations (`WHYC`, `whyOf`), and the later labs.
 3. `// ---------- step-by-step instructions`: `STEPS` (keyed by lab title) and `guideFor`.
 4. `// ---------- CCNA objective map and troubleshooting incidents` (between `//CCNA-CURRICULUM-START` and `//CCNA-CURRICULUM-END`, just before `guideFor`): `CCNA_SCOPE`, `CCNA_DOMAINS`, `CCNA_OBJECTIVES`, `CCNA_LAB_MAP` (sets `l.ccna` and `l.kind='build'`), and `INCIDENTS`. Each incident spec names a `base` lab, a `fault` (commands applied after the base solution), a `repair` (becomes `solution`), its own `steps`, three `hints` and a `lesson`. Incidents are appended to `LABS` with `kind:'incident'`, `group:'Troubleshooting'`, `baseTitle`, and the base lab's `checks`, `pos` and `addr`. Their steps are written inline, not in `STEPS`.
+5. `//LIBRARY-START` to `//LIBRARY-END`, straight after the curriculum block: the lab library expansion. Helpers: `Cn(modes, pattern, fn, types, first)` registers a command after the "why" recorder has already run (so `s.last` still works) and can put it ahead of general patterns; `cfg(net, {dev:[commands]})` configures a fresh build through real IOS commands (it throws if any is rejected, so a typo in a build fails loudly); `addLab(lab, steps)` stores the guide in `STEPS`, sets `ccna` from `CCNA_LAB_MAP` and `kind:'build'`, and appends to `LABS`. New objective IDs, `CCNA_LAB_MAP` entries and `WHYC` entries are added at the top of the block or beside each lab. A lab may set `hidePorts:true` to hide port names on the map.
+
+The `// ---------- v3 engine` section, just before the "why" recorder, holds commands added for the library (`clear ip ospf process`, `show ip protocols`, `show ip ospf`) and an `execLine` wrapper that logs native VLAN mismatches. The library block adds a second `execLine` wrapper that logs OSPF adjacency changes. Other library changes were made in place: `type7`/`pwText` near the top (type 7 passwords), `isPassive` and the router-ID lock (`ospf.active`) beside `ospfNeighbors`/`routerId`, `vtyDenied` beside `reach` (access-class), `cdpPeers` with the CDP commands, and the `root primary` macro with the spanning-tree commands.
 
 Key facts:
 
@@ -100,7 +103,8 @@ Key facts:
 - Commands are registered with `C(modes, pattern, handler, deviceTypes)`. Modes are `user`, `priv`, `config`, `if`, `vlan`, `line`, `ospf`, `acl`, `dhcp`, `pc`. Pattern tokens are literal keywords (prefix-matched, which gives abbreviations) or `<ip>`, `<n>`, `<w>`, `<rest>`, `<rest?>`. The first matching entry wins, so order matters.
 - `execLine(net, device, session, line)` runs one command and returns output lines. A session is `{mode, ctx}`.
 - `reach(net, src, dstIp, proto, port)` forwards a packet and its reply through routing, ACLs and NAT. When called from a live command it records `TRACE`, which the map animation and the trace panel read.
-- Several engine functions are wrapped later in the same section by reassigning the function name (`run`, `ifUp`, `promptOf`, `runningConfig`, `canPing`, `tracePath`). The last definition is the live one.
+- Several engine functions are wrapped later in the same section by reassigning the function name (`run`, `ifUp`, `promptOf`, `runningConfig`, `canPing`, `tracePath`, `execLine`). The last definition is the live one.
+- OSPF state: `ospf.rid` is the configured router-id, `ospf.active` the one in use (set when the process starts, changed by `clear ip ospf process`); `routerId(d)` returns the active one. Use `isPassive(d, ifname)`, not `ospf.passive`, because `passive-interface default` keeps a `nonPassive` list instead.
 
 A lab is an object in `LABS`:
 
@@ -140,7 +144,9 @@ node tests/curriculum.cjs
 node tests/ui.cjs
 ```
 
-Current result: 21 labs, 119 checks, 358 guide commands.
+Current result: 28 labs, 163 checks, 557 guide commands.
+
+On Yasuke's desktop there is no Node install. Claude Code runs the tests with Deno's Node-compatible binary (`%LOCALAPPDATA%\deno\node_compat_bin\node.exe`) and runs `ui.cjs` with Playwright installed by Deno into a folder outside the repo, linked in as `node_modules` (git-ignored), with `LAB4NET_BROWSER_CHANNEL=msedge`.
 
 - `labs.cjs` builds every lab, runs its solution and asserts every check passes, then does the same following the step-by-step instructions. It also runs in GitHub Actions on every push.
 - `forwarding.cjs` covers routing, ACL direction, static NAT, closed ports, VLAN paths and link failure.
@@ -167,6 +173,9 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 
 - The simulator implements the commands the labs need, not all of IOS. Anything else returns "Invalid input".
 - `?` help lists options without descriptions, there is no `^` error marker, ambiguous abbreviations silently take the first match, and there is no `--More--` paging or `| include`.
+- Spanning tree is calculated and shown per VLAN, and labs check it, but the data path ignores blocking: a ping takes any VLAN-valid path.
+- `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. OSPF neighbor states (FULL/DR, FULL/BDR) are not a real DR election yet; phase 2 adds that.
+- Syslog messages (link changes, OSPF adjacency changes, native VLAN mismatch) appear only on the console where the command that caused them was typed.
 - `enable` and line passwords are stored and graded but never prompted for.
 - No IPv6, HSRP or wireless. Switches do not route.
 - Sandbox challenges do not award XP or trophies. Incidents are fixed scenarios, not randomised faults. Sandbox device models are fixed (3 or 5 port routers, 10 or 26 port switches).
@@ -188,6 +197,8 @@ Carry this list forward and keep it in every summary.
 - XP and trophies for sandbox challenges
 - Closer-to-real `?` help: descriptions, the `^` marker, "% Ambiguous command", `| include` and `| begin` (offered, not yet confirmed)
 - Whether the pop-out guide should also open in a separate browser window for a second monitor (waiting on his decision)
-- More incidents (OSPF, ACL, NAT, EtherChannel, port security and spanning tree have none yet), and possibly randomised faults
+- More incidents (OSPF, ACL, NAT, EtherChannel, port security and spanning tree have none yet), and possibly randomised faults (phase 4 of the lab library spec)
+- Lab library phases 2 to 5 from `docs/LESSONS-SPEC.md` (phase 1 is done)
+- Make the data path follow spanning-tree blocking, so a ping's animated path matches `show spanning-tree`
 
 His most recent direction was to fold the best of ChatGPT's branch into `main` (done in the "Troubleshooting incidents" build), "continue to build" on the sandbox, and make the app "more rewarding and fun".

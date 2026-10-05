@@ -23,4 +23,4 @@ for(const spec of INCIDENTS){
  assert.ok(lab.checks.every(([,check])=>check(n)),spec.title+' repair must preserve all original requirements');
  assert.ok(reach(n,n.devs[source],ip2n(target),proto,port).ok,spec.title+' repaired service works');
 }
-console.log('PASS CCNA curriculum: all 21 missions mapped, six actual initial service failures, request/reply diagnosis, minimal repairs preserving original requirements, explained hints and trace isolation.');
+console.log('PASS CCNA curriculum: all '+LABS.length+' missions mapped, six actual initial service failures, request/reply diagnosis, minimal repairs preserving original requirements, explained hints and trace isolation.');
