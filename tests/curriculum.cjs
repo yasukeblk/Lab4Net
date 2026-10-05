@@ -9,9 +9,10 @@ for(const lab of LABS){
  for(const id of lab.ccna)assert.ok(Object.hasOwn(CCNA_OBJECTIVES,id),lab.title+' unknown objective '+id);
 }
 assert.ok(INCIDENTS.length>=6);assert.equal(LABS.filter(l=>l.kind==='incident').length,INCIDENTS.length);
-// Configuration, not counters or logs: a live probe may count ACL matches and log, and an NTP client remembers its last
+// Configuration, not counters, logs or NAT translations: a live probe may count ACL matches, log, and create a
+// translation, and an NTP client remembers its last
 // server. IPv6 addresses are BigInts.
-const COUNTERS=new Set(['ntpLast','hits','misses','fwd','drops','logBuf','trapSent','syslog']);
+const COUNTERS=new Set(['ntpLast','hits','misses','fwd','drops','logBuf','trapSent','syslog','table','dyn']);
 const state=n=>JSON.stringify(n,(k,v)=>COUNTERS.has(k)?undefined:typeof v==='bigint'?v.toString():v);
 for(const spec of INCIDENTS){
  assert.match(spec.title,/^Incident \d\d: /);

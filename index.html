@@ -2813,6 +2813,16 @@ addIncident({title:'Incident 21: addresses, but no internet',base:'Small office 
  steps:['PC1: ipconfig | ping 198.51.100.10 ; R1: enable | ping 198.51.100.10','R1: show running-config | show ip dhcp binding','R1: configure terminal | ip dhcp pool OFFICE | default-router 192.168.1.1 | end','PC1: ipconfig /renew | ping 198.51.100.10 ; PC2: ipconfig /renew | ping 198.51.100.10'],
  hints:['The PCs have addresses in the right subnet, and R1 reaches the internet. Compare the PCs\' full IP settings with the address plan, not just their addresses.','ipconfig on PC1 shows the default gateway it was given. Compare it with R1\'s LAN address, then find where that value comes from in R1\'s DHCP pool.','The OFFICE pool hands out 192.168.1.254 as the default router. Set default-router back to 192.168.1.1, then renew both PCs so they pick it up.'],
  lesson:'DHCP options travel with the lease: a wrong default-router gives every client a dead gateway even though their addresses are fine. Clients only see the corrected value when they renew.'});
+
+// ----- incident 22
+addIncident({title:'Incident 22: the branch crawls home on the backup',base:'Floating static route',start:'R2',
+ brief:'Both links between HQ and the branch are up, yet monitoring shows the branch\'s traffic returning to HQ over the slow backup link. Nothing has failed. Find out why R2 prefers the backup and put traffic back on the primary.',
+ symptom:n=>pathVia(n,'PC2','192.168.1.10','10.0.12.1'),
+ fault:{R2:[...EN,'no ip route 192.168.1.0 255.255.255.0 10.0.12.1','ip route 192.168.1.0 255.255.255.0 10.0.12.5','end']},
+ repair:{R2:[...EN,'no ip route 192.168.1.0 255.255.255.0 10.0.12.5','ip route 192.168.1.0 255.255.255.0 10.0.12.1','end','show ip route'],PC2:['tracert 192.168.1.10']},
+ steps:['PC2: tracert 192.168.1.10 ; PC1: tracert 192.168.2.10','R2: enable | show ip route | show ip route 192.168.1.10 | show running-config','R2: configure terminal | no ip route 192.168.1.0 255.255.255.0 10.0.12.5 | ip route 192.168.1.0 255.255.255.0 10.0.12.1 | end','R2: show ip route ; PC2: tracert 192.168.1.10'],
+ hints:['Traffic toward the branch uses the primary link, traffic back from it does not. Only R2\'s choice is wrong.','show ip route on R2 shows the HQ LAN learned at distance 5, the floating route. show running-config shows a primary route too, so ask why that one is not in the table.','The primary route points at 10.0.12.5, which is not on the link (10.0.12.0/30), so it can never be used and the backup takes over. Point it at R1, 10.0.12.1.'],
+ lesson:'A static route is only installed if its next hop is reachable through a connected network. A typo in the next hop silently disables the route, and a floating route hides the mistake by carrying the traffic over the backup path.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
