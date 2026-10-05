@@ -71,5 +71,44 @@ assert.equal(result.ok,true);assert.equal(result.f.hops[1],ip2n('10.0.12.2'));
 ios(net,'R2',['configure terminal','interface g0/0','no ip proxy-arp','end']);
 result=reach(net,net.devs.PC1,ip2n('192.168.3.10'));
 assert.equal(result.ok,false);assert.match(result.f.reason,/Next hop.*unreachable/);
-console.log('PASS forwarding: outbound route, return route, inbound/outbound ACL, static NAT, closed port, actual VLAN path, link failure, floating static, administrative distance, longest match and proxy ARP.');
+// Dynamic NAT without overload: one pool address per host; the third host is dropped with a reason. Overload shares one address.
+net=LABS.find(l=>l.title==='Dynamic NAT with a pool').build();
+ios(net,'R1',['configure terminal','access-list 1 permit 192.168.1.0 0.0.0.255','interface g0/0','ip nat inside','interface g0/1','ip nat outside','exit','ip nat pool PUBLIC 203.0.113.33 203.0.113.34 netmask 255.255.255.248','ip nat inside source list 1 pool PUBLIC','end']);
+LIVE=true;
+assert.equal(reach(net,net.devs.PC1,ip2n('198.51.100.10')).ok,true);
+assert.equal(reach(net,net.devs.PC2,ip2n('198.51.100.10')).ok,true);
+result=reach(net,net.devs.PC3,ip2n('198.51.100.10'));
+LIVE=false;
+assert.equal(result.ok,false);assert.match(result.f.reason,/NAT pool PUBLIC has no free address/);
+assert.deepEqual(net.devs.R1.nat.dyn.map(m=>n2ip(m.ig)),['203.0.113.33','203.0.113.34']);
+assert.equal(net.devs.R1.nat.misses,1);
+// The ISP can reach a host on its borrowed address while the binding lasts (one-to-one, not PAT).
+assert.equal(reach(net,net.devs.ISP,ip2n('203.0.113.33')).ok,true);
+assert.equal(execLine(net,net.devs.R1,{mode:'config'},'no ip nat inside source list 1 pool PUBLIC')[0],'%Dynamic mapping in use, cannot remove');
+ios(net,'R1',['clear ip nat translation *','configure terminal','no ip nat inside source list 1 pool PUBLIC','ip nat inside source list 1 pool PUBLIC overload','end']);
+LIVE=true;for(const p of ['PC1','PC2','PC3'])assert.equal(reach(net,net.devs[p],ip2n('198.51.100.10')).ok,true);LIVE=false;
+assert.deepEqual([...new Set(net.devs.R1.nat.table.map(x=>n2ip(x.ig)))],['203.0.113.33']);
+assert.deepEqual(net.devs.R1.nat.table.map(x=>x.gport),[1,1024,1025]);
+// Voice VLAN: the phone tags with the VLAN its switch port advertises; the PC behind it stays untagged in the data VLAN.
+net=LABS.find(l=>l.title==='Voice VLAN').build();
+assert.equal(phoneVlan(net,net.devs.PHONE1),null);
+ios(net,'SW1',['configure terminal','vlan 150','name VOICE','interface f0/1','switchport voice vlan 150','end']);
+assert.equal(phoneVlan(net,net.devs.PHONE1),150);
+assert.equal(l2peers(net,net.devs.PHONE1,nic(net.devs.PHONE1)).find(p=>p.dev.name==='R1').ifc.name,'GigabitEthernet0/0.150');
+assert.equal(l2peers(net,net.devs.PC1,nic(net.devs.PC1)).find(p=>p.dev.name==='R1').ifc.name,'GigabitEthernet0/0.10');
+assert.deepEqual(Array.from(l2peers(net,net.devs.PC1,nic(net.devs.PC1)).find(p=>p.dev.name==='R1').path),['PC1','PHONE1','SW1','R1']);
+ios(net,'SW1',['configure terminal','interface f0/1','no cdp enable','end']);
+assert.equal(phoneVlan(net,net.devs.PHONE1),null);
+// OSPF DR election (RFC 2328): no pre-emption by a higher priority, priority 0 gives the role up, and the BDR is promoted.
+net=LABS.find(l=>l.title==='OSPF on a shared segment').build();
+const role=r=>ospfRole(net,net.devs[r],IF(net,r,'g0/0'));
+assert.deepEqual(['R1','R2','R3','R4'].map(role),['DR','BDR','DROTHER','DROTHER']);
+ios(net,'R4',['configure terminal','interface g0/0','ip ospf priority 255','end']);
+assert.deepEqual(['R1','R2','R3','R4'].map(role),['DR','BDR','DROTHER','DROTHER']);
+ios(net,'R1',['configure terminal','interface g0/0','ip ospf priority 0','end']);
+assert.deepEqual(['R1','R2','R3','R4'].map(role),['DROTHER','DR','DROTHER','BDR']);
+// Clearing the DR's process: the BDR (R4) is promoted, R3 becomes BDR, and R2 rejoins as DROTHER.
+ios(net,'R2',['clear ip ospf process']);
+assert.deepEqual(['R1','R2','R3','R4'].map(role),['DROTHER','DROTHER','BDR','DR']);
+console.log('PASS forwarding: outbound route, return route, inbound/outbound ACL, static NAT, closed port, actual VLAN path, link failure, floating static, administrative distance, longest match, proxy ARP, NAT pool exhaustion and overload, voice VLAN tagging and the OSPF DR election.');
 `,context);

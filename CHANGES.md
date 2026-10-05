@@ -1,5 +1,36 @@
 # Lab4Net changes
 
+## Lab library, phase 2: eight labs with engine extensions
+
+New labs, appended after phase 1:
+
+- **Floating static route** (Routing): a backup route at distance 5 that stays out of the routing table until the primary link fails, then takes over and steps back when it returns.
+- **How a router chooses a route** (Routing): OSPF cost moves the preferred path, a /32 host route pins one server to the other path (longest match first), and a /24 backup at distance 130 loses to OSPF's 110.
+- **OSPF on a shared segment** (Routing): four routers on one LAN. Raising a priority changes nothing (no pre-emption); priority 0 makes the DR and BDR give up their roles in turn; the WAN link runs point-to-point with a realistic cost.
+- **LLDP** (Switching): a Linux server that CDP cannot see shows up once LLDP runs; transmit is turned off on its port while receive stays on.
+- **Voice VLAN** (Switching): an IP phone with a PC plugged into it, on one switch port. Before the voice VLAN both land in the data VLAN; after it, the phone renews into the voice subnet and the PC stays in data.
+- **Dynamic NAT with a pool** (IP services): two public addresses for three PCs, so the third fails and the miss counter climbs; IOS refuses to change the rule until the translations are cleared; overload then shares one address.
+- **Named ACLs and sequence numbers** (Security): insert lines between existing ones, delete one line by number, and resequence.
+- **NTP and syslog** (IP services): both routers sync to a stratum 1 server, log with date-and-time stamps, and send only warnings and worse to the syslog server. The eight severity levels are taught in the explanations.
+
+Engine changes behind them:
+
+- The routing table now holds one route per prefix: the lowest administrative distance wins. ip route takes a distance, an exit interface or both, and a name. A route whose next hop is no longer on a connected subnet drops out, which is what makes floating routes work. Exit-interface-only routes on Ethernet work through the neighbor's proxy ARP (no ip proxy-arp turns it off).
+- show ip route ADDRESS (the entry a given address uses, as IOS describes it) and show ip route static, ospf or connected.
+- OSPF uses shortest-path costs: ip ospf cost, auto-cost reference-bandwidth, ip ospf network point-to-point, ip ospf priority and ip ospf PID area N. The DR/BDR election follows RFC 2328 and persists between commands. Neighbor states are the real ones (FULL/DR, FULL/BDR, FULL/DROTHER, 2WAY/DROTHER, FULL/ -). New show ip ospf interface and its brief form.
+- LLDP: lldp run, lldp transmit and receive per port, show lldp, show lldp neighbors (and detail), show lldp interface.
+- IP phones: a new device that bridges a PC behind it, learns its voice VLAN from the switch over CDP and tags its own traffic. Access ports carry a voice VLAN everywhere it matters (forwarding, VLAN interface state, spanning tree, show vlan brief). show interfaces switchport. DHCP option 150.
+- NAT: ip nat pool, pool rules with and without overload, pool exhaustion with a reason in the trace panel, the IOS "Dynamic mapping in use" refusal, show ip nat statistics. PAT keeps a host's own port when it is free, and pings carry an ICMP query ID.
+- ACLs have real sequence numbers: insert with "15 permit ...", delete with "no 30", ip access-list resequence. show access-lists prints standard lists the IOS way.
+- NTP (sync over the real UDP 123 path, stratum, held when the server goes quiet), show clock with the * for unsynchronised time, clock timezone, service timestamps log datetime msec, logging host and trap level, show logging with a log buffer, and a syslog viewer on the log server ("syslog" at its prompt). Link changes are now logged on the device at the far end of a link too, and leaving configuration mode logs %SYS-5-CONFIG_I.
+- An administrative shutdown now logs %LINK-5-CHANGED (administratively down) instead of %LINK-3-UPDOWN, as IOS does.
+
+Tests: tests/forwarding.cjs adds floating static failover, administrative distance against OSPF, longest match against distance, proxy ARP with and without, NAT pool exhaustion and overload, voice VLAN tagging, and the DR election rules.
+
+Verification: labs.cjs passes 36 labs, 203 checks and 749 guide commands. forwarding.cjs, curriculum.cjs and ui.cjs pass (ui.cjs in Edge). Each new lab's guide was run through the real console in Edge and graded, with no rejected commands and no page errors; the maps were checked at 1440x1000 and the Mission window at 390x844. The phone's console tab first showed its CDP name (SEP...); it now shows PHONE1 and only CDP uses the SEP name. Not checked: the container, Firefox, Safari.
+
+Simplified, and recorded in the handoff: equal-cost paths are not load-shared (one is used); an OSPF network-type mismatch stops the adjacency forming, where real IOS forms it but loses routes; the NTP clock stays synchronised as long as its server is configured; syslog messages are shown on the console of the device the command was typed on, and only logged on others.
+
 ## Lab library, phase 1: seven new labs on the existing engine
 
 New labs, added after the incidents so saved progress is unaffected:

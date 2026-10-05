@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of lab library phase 1 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+State as of lab library phase 2 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -8,7 +8,7 @@ Lab4Net is a browser-based lab simulator for the Cisco CCNA exam, modeled on Bos
 
 It currently has:
 
-- 22 graded build labs: the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phase 1 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build)
+- 30 graded build labs: the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phases 1 and 2 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build, floating static routes, how a router chooses a route, OSPF on a shared segment, LLDP, voice VLAN with an IP phone, dynamic NAT with a pool, named ACLs edited by sequence number, NTP and syslog)
 - 6 troubleshooting incidents built from those labs, each with three clues that cost rank points
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
@@ -97,6 +97,15 @@ In file order:
 
 The `// ---------- v3 engine` section, just before the "why" recorder, holds commands added for the library (`clear ip ospf process`, `show ip protocols`, `show ip ospf`) and an `execLine` wrapper that logs native VLAN mismatches. The library block adds a second `execLine` wrapper that logs OSPF adjacency changes. Other library changes were made in place: `type7`/`pwText` near the top (type 7 passwords), `isPassive` and the router-ID lock (`ospf.active`) beside `ospfNeighbors`/`routerId`, `vtyDenied` beside `reach` (access-class), `cdpPeers` with the CDP commands, and the `root primary` macro with the spanning-tree commands.
 
+Phase 2 changed the core in place too:
+
+- Routing: `routes()` builds a real table, one route per prefix with the lowest administrative distance (connected 0, static `ad` default 1, OSPF 110). `staticRoutes()` decides which statics are usable (exit interface up, or next hop on a connected subnet). `nextHop()` does longest match and returns `{ifc, nh, proxy, route}`; `fwd()` uses proxy ARP for exit-interface-only statics. Statics are `{net, len, nh, ifn, ad, name}`.
+- OSPF: `ospfRoutes()` is Dijkstra over `ospfCost()` (interface `ospfCost`, else reference bandwidth `ospf.refBw` / speed). Interfaces may carry `ospfArea` (from `ip ospf PID area N`), `ospfPrio`, `ospfNet` ('point-to-point'). `ospfElect(net)` runs the RFC 2328 election after every command (an `execLine` wrapper in the v3 section) and keeps state in `net.ospfDR[segment]`; `ospfRole(net, d, ifc)` reads it. `ospf.resetting` is set briefly by `clear ip ospf process` so the router leaves every segment.
+- Layer 2: access ports may have `voiceVlan`. Phones are `pc` devices with `phone:true`, a PC port `FastEthernet1` and a CDP name `cdpId`; `phoneVlan()` gives the VLAN a phone tags with, and `l2peers()` bridges through the phone.
+- NAT: `nat.pools`, pool rules `{acl, pool, overload}`, one-to-one bindings in `nat.dyn`, `nat.hits`/`misses`. `natOut()` returns a reason string when it has to drop a packet. Echo requests use query ID 1 as their "port".
+- ACL entries have `seq` and are kept sorted; `aclLine()` formats standard entries for show access-lists.
+- In the library block: `lldpPeers()`, `mkPhone()`, `together(net, fn)` (run checks as if the traffic were simultaneous, then restore NAT and ACL counters), `whileDown(net, dev, ifn, fn)` (run a check with a link shut, then restore it), `udpOk()`, `ntpState()`, `logEvent()` and the outermost `execLine` wrapper, which logs link changes on the far-end device, adds %SYS-5-CONFIG_I, applies timestamps and sends syslog.
+
 Key facts:
 
 - A network is `{devs:{name:device}, links:[...]}`. A device has `type` (`router`, `switch`, `pc`), `hostname`, `ifs` keyed by full interface name, plus feature state (`statics`, `ospf`, `vlans`, `acls`, `nat`, `dhcp`, `stp`, `users`, `lines`). Servers are `pc` devices with a `services` port list.
@@ -144,7 +153,7 @@ node tests/curriculum.cjs
 node tests/ui.cjs
 ```
 
-Current result: 28 labs, 163 checks, 557 guide commands.
+Current result: 36 labs, 203 checks, 749 guide commands.
 
 On Yasuke's desktop there is no Node install. Claude Code runs the tests with Deno's Node-compatible binary (`%LOCALAPPDATA%\deno\node_compat_bin\node.exe`) and runs `ui.cjs` with Playwright installed by Deno into a folder outside the repo, linked in as `node_modules` (git-ignored), with `LAB4NET_BROWSER_CHANNEL=msedge`.
 
@@ -174,8 +183,9 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - The simulator implements the commands the labs need, not all of IOS. Anything else returns "Invalid input".
 - `?` help lists options without descriptions, there is no `^` error marker, ambiguous abbreviations silently take the first match, and there is no `--More--` paging or `| include`.
 - Spanning tree is calculated and shown per VLAN, and labs check it, but the data path ignores blocking: a ping takes any VLAN-valid path.
-- `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. OSPF neighbor states (FULL/DR, FULL/BDR) are not a real DR election yet; phase 2 adds that.
-- Syslog messages (link changes, OSPF adjacency changes, native VLAN mismatch) appear only on the console where the command that caused them was typed.
+- `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. Hello and dead timers are not modelled, and an OSPF network-type mismatch stops the adjacency forming (real IOS forms it but loses routes). Equal-cost paths are not load-shared; one is used.
+- Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
+- show access-lists lists standard entries in sequence order; real IOS may list host entries first.
 - `enable` and line passwords are stored and graded but never prompted for.
 - No IPv6, HSRP or wireless. Switches do not route.
 - Sandbox challenges do not award XP or trophies. Incidents are fixed scenarios, not randomised faults. Sandbox device models are fixed (3 or 5 port routers, 10 or 26 port switches).
@@ -198,7 +208,7 @@ Carry this list forward and keep it in every summary.
 - Closer-to-real `?` help: descriptions, the `^` marker, "% Ambiguous command", `| include` and `| begin` (offered, not yet confirmed)
 - Whether the pop-out guide should also open in a separate browser window for a second monitor (waiting on his decision)
 - More incidents (OSPF, ACL, NAT, EtherChannel, port security and spanning tree have none yet), and possibly randomised faults (phase 4 of the lab library spec)
-- Lab library phases 2 to 5 from `docs/LESSONS-SPEC.md` (phase 1 is done)
+- Lab library phases 3 to 5 from `docs/LESSONS-SPEC.md` (phases 1 and 2 are done)
 - Make the data path follow spanning-tree blocking, so a ping's animated path matches `show spanning-tree`
 
 His most recent direction was to fold the best of ChatGPT's branch into `main` (done in the "Troubleshooting incidents" build), "continue to build" on the sandbox, and make the app "more rewarding and fun".

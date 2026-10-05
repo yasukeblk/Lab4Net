@@ -1102,11 +1102,11 @@ function cdpPeers(net,d){const r=[];for(const n of sortIfs(Object.keys(d.ifs))){
   const p=net.devs[i.link.dev],pi=p.ifs[i.link.ifn];if(cdpOn(p,pi))r.push({i,p,pi});}return r;}
 const CDPCAPS=['Capability Codes: R - Router, T - Trans Bridge, B - Source Route Bridge','                  S - Switch, H - Host, I - IGMP, r - Repeater, P - Phone,','                  D - Remote, C - CVTA, M - Two-port Mac Relay',''];
 C(EX,'show cdp neighbors',e=>{const{net,d,out}=e;if(d.cdp===false)return out('% CDP is not enabled');const ps=cdpPeers(net,d);out(...CDPCAPS,'Device ID        Local Intrfce     Holdtme    Capability  Platform  Port ID');
-  ps.forEach(({i,p,pi})=>out(pad(p.hostname,17)+pad(shortIf(i.name),18)+pad(150,11)+pad(cdpCap(p),12)+pad(cdpPlat(p),10)+(p.phone?'Port 1':shortIf(pi.name))));
+  ps.forEach(({i,p,pi})=>out(pad(p.cdpId||p.hostname,17)+pad(shortIf(i.name),18)+pad(150,11)+pad(cdpCap(p),12)+pad(cdpPlat(p),10)+(p.phone?'Port 1':shortIf(pi.name))));
   out('','Total cdp entries displayed : '+ps.length);});
 C(EX,'show cdp neighbors detail',e=>{const{net,d,out}=e;if(d.cdp===false)return out('% CDP is not enabled');const ps=cdpPeers(net,d);
   ps.forEach(({i,p,pi})=>{const mgmt=p.phone?nic(p).ip:p.type==='router'?(pi.ip!==null?pi.ip:(Object.values(p.ifs).find(x=>x.ip!==null)||{}).ip):(Object.values(p.ifs).find(x=>x.name.startsWith('Vlan')&&x.ip!==null&&ifUp(net,p,x))||{}).ip;
-    out('-------------------------','Device ID: '+p.hostname,'Entry address(es): ',...(mgmt!=null?['  IP address: '+n2ip(mgmt)]:[]),'Platform: '+(p.phone?'Cisco IP Phone 8845':'cisco '+(p.type==='router'?'ISR4321/K9':'WS-C2960-24TT-L'))+',  Capabilities: '+(p.phone?'Host Phone Two-port Mac Relay':p.type==='router'?'Router Source-Route-Bridge Switch IGMP':'Switch IGMP'),
+    out('-------------------------','Device ID: '+(p.cdpId||p.hostname),'Entry address(es): ',...(mgmt!=null?['  IP address: '+n2ip(mgmt)]:[]),'Platform: '+(p.phone?'Cisco IP Phone 8845':'cisco '+(p.type==='router'?'ISR4321/K9':'WS-C2960-24TT-L'))+',  Capabilities: '+(p.phone?'Host Phone Two-port Mac Relay':p.type==='router'?'Router Source-Route-Bridge Switch IGMP':'Switch IGMP'),
       'Interface: '+i.name+',  Port ID (outgoing port): '+(p.phone?'Port 1':pi.name),'Holdtime : 150 sec','','Version :',p.phone?'sip88xx.14-1-1-0001-136':'Cisco IOS Software, '+(p.type==='router'?'ISR Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 16.9.4':'C2960 Software (C2960-LANBASEK9-M), Version 15.2(7)E2'),'','advertisement version: 2',...(p.type==='switch'&&pi.mode==='trunk'?['Native VLAN: '+pi.native]:[]),'Duplex: full','');});
   out('','Total cdp entries displayed : '+ps.length);});
 C(EX,'show cdp',e=>e.out(...(e.d.cdp===false?['% CDP is not enabled']:['Global CDP information:','\tSending CDP packets every 60 seconds','\tSending a holdtime value of 180 seconds','\tSending CDPv2 advertisements is  enabled'])));
@@ -1916,8 +1916,8 @@ addLab({title:'LLDP',group:'Switching',hidePorts:true,
   'SW1: show lldp interface f0/5 | show lldp neighbors']);
 
 // ----- phase 2, lab 12
-// An IP phone: FastEthernet0 is its uplink and its own address, FastEthernet1 the PC port on its back. Its CDP name is SEP + MAC.
-function mkPhone(name){const d=mkPC(name,null,24);d.phone=true;addIf(d,'FastEthernet1');d.hostname='SEP'+macOf(d).replace(/\./g,'').toUpperCase();return d;}
+// An IP phone: FastEthernet0 is its uplink and its own address, FastEthernet1 the PC port on its back. CDP names it SEP + MAC.
+function mkPhone(name){const d=mkPC(name,null,24);d.phone=true;addIf(d,'FastEthernet1');d.cdpId='SEP'+macOf(d).replace(/\./g,'').toUpperCase();return d;}
 {const p0=promptOf;promptOf=function(d,s){return d.phone&&s.mode==='pc'?'Phone>':p0(d,s);};}
 Cn('if','switchport voice vlan <n>',e=>{const v=e.args[0];if(v<1||v>4094)return e.out(BAD);if(!e.d.vlans[v]){e.d.vlans[v]={name:'VLAN'+String(v).padStart(4,'0')};e.out('% Voice VLAN does not exist. Creating vlan '+v);}e.s.ctx.forEach(i=>{i.voiceVlan=v;});},['switch']);
 Cn('if','no switchport voice vlan',e=>e.s.ctx.forEach(i=>{delete i.voiceVlan;}),['switch']);
