@@ -1,5 +1,22 @@
 # Lab4Net changes
 
+## Windows fit where you drop them
+
+Dragging a window by its title bar now places it in the layout instead of leaving it floating over the others. A dashed preview shows where it will land, cyan outlines show what else will move, and a label says what will happen.
+
+- Drop on the middle of another window: the two swap places and sizes.
+- Drop near another window's edge: that window's space is split in half between the two.
+- Drop in empty space: the window grows to fill the empty area around the pointer.
+- A window that sat flush against the space the dragged window left, and is no wider (or taller) than it, grows to fill it.
+- A short nudge returns the window to its place.
+- Resizing an edge that other windows share moves it like a divider: the windows on both sides resize together, and none goes below the minimum size.
+- Hold Alt to place or resize one window freely, as before. The screen-edge half and full snaps are unchanged. Windows slide into place (no animation with reduced motion).
+- How to use explains all of this under "Arrange your windows".
+
+Fixed on the way: the mission window could never be taller than 45% of the screen in the free layout (an older stacked-layout rule outranked the free-layout one), so it was cut short after a resize or swap.
+
+Tests: ui.cjs drags real windows with the mouse: a nudge, a swap, a split with the neighbour filling the space, and a shared-edge resize. Verification: all four tests pass, and swap, split, fill, Alt placement and the layout surviving a reload were checked in Edge at 1440x1000 with screenshots. Not checked: the container, Firefox, Safari.
+
 ## Lab library, phase 5: capstones and theory questions
 
 A new Capstone group, after the incidents. Each capstone starts from factory defaults and is graded on the whole network working, so it pulls several labs together without telling you the order.

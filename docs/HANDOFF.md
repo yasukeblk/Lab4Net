@@ -17,7 +17,7 @@ It currently has:
 - Step-by-step instructions per task (switchable, and can pop out into its own window), plus a "why" for every task and every command
 - A subnetting drill and a 28-question theory check
 - Stage ranks (S to D), XP and levels, combos, trophies, generated sound effects
-- Movable, resizable, snapping windows with a saved layout
+- Movable, resizable, snapping windows with a saved layout. Dropped windows swap, split or fill the space, and shared edges resize like dividers
 - A sandbox: place devices (including a Layer 3 switch), choose ports when cabling, zoom and pan, notes, starter kits, save and load files, undo, and four goal-checked challenges
 
 ## Where everything is
@@ -136,7 +136,7 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 
 1. Guide switch (`stepsHtml`, `stepsBlock`), defined just before the first `openLab` call
 2. Menu clock and boot screen
-3. Pop-out guide window and the window manager (move, resize, snap, saved layout)
+3. Pop-out guide window and the window manager (move, resize, snap, saved layout). On drop, `plan()` decides swap, split or fill (`freeRect()`) and `grow()` lets a flush neighbour take the space left; `links()` finds every window on a resized edge so it moves like a divider; `bounds()` takes the outer edges from where the windows already sit. Alt skips all of it. `ui.cjs` drags real windows to test it
 4. Rewards (ranks, XP, levels, combos, trophies, sound, device hover card)
 5. Troubleshooting clues, CCNA tags and Study map. `ccnaTags`, `clueHtml`, `bindClues`, `clueLevel`, `setClueLevel` and `studyMap` are top-level function declarations so the base `renderBrief` can call them on the first render. This block also wraps `openLab` to hide clues on a fresh start. The rewards block exposes `window.l4nFun = {run, save}` so clue use reaches the current run.
 6. Sandbox (devices, cabling, zoom and pan, notes, kits, challenges, files, undo). Undo keeps up to 80 snapshots of devices, links, notes, challenge and journal; `mark()` runs from `saveDef` and after each sandbox command.

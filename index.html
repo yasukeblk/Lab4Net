@@ -294,7 +294,11 @@ dialog::backdrop{background:rgba(8,6,20,.72);backdrop-filter:blur(5px)}
 #snapV,#snapH,#snapPrev{display:none;position:absolute;pointer-events:none}
 #snapV{top:0;bottom:0;width:2px;background:var(--cy);box-shadow:0 0 12px var(--cy);z-index:9998}
 #snapH{left:0;right:0;height:2px;background:var(--cy);box-shadow:0 0 12px var(--cy);z-index:9998}
-#snapPrev{z-index:9997;border:3px dashed var(--yel);border-radius:12px;background:rgba(255,210,63,.12);box-shadow:0 0 30px rgba(255,210,63,.3)}
+#snapPrev{z-index:9997;border:3px dashed var(--yel);border-radius:12px;background:rgba(255,210,63,.12);box-shadow:0 0 30px rgba(255,210,63,.3);align-items:flex-start;justify-content:center;text-align:center;padding:16px 10px;font:italic 800 18px var(--px);letter-spacing:.06em;text-transform:uppercase;color:var(--yel);text-shadow:0 2px 0 rgba(0,0,0,.6)}
+#snapPrev small{display:block;margin-top:4px;font-size:12px;color:#fff;opacity:.85}
+.snapGhost{display:none;position:absolute;pointer-events:none;z-index:9996;border:2px dashed var(--cy);border-radius:12px;background:rgba(46,230,255,.08)}
+main.free.settle :is(#brief,#checkWin,#practice,#mapPanel,#console,#guideWin).fw{transition:left .2s ease,top .2s ease,width .2s ease,height .2s ease}
+.dragging.planning{opacity:.55}
 .dragging{opacity:.96;box-shadow:var(--lift),0 0 0 2px var(--cy),0 0 34px rgba(46,230,255,.5)!important}
 body[data-cur="move"] main *{cursor:move!important}
 body[data-cur="ns-resize"] main,body[data-cur="ns-resize"] main *{cursor:ns-resize!important}
@@ -304,7 +308,7 @@ body[data-cur="nwse-resize"] main,body[data-cur="nwse-resize"] main *{cursor:nws
 @media (min-width:861px){
   main.free{display:block;position:relative;padding:0}
   main.free #bench,main.free #side{display:contents}
-  main.free #brief{max-height:none}
+  main.free #brief,main.free #side #brief{max-height:none}
   main.free :is(#brief,#checkWin,#practice,#mapPanel,#console,#guideWin).fw{position:absolute;left:var(--x);top:var(--y);width:var(--w);height:var(--h);min-width:0;min-height:0;margin:0;flex:none}
   main.free #guideWin{display:flex}
   main.free #mapPanel{display:flex;flex-direction:column}
@@ -3111,7 +3115,8 @@ function reference(){if(cur.view!=='lab')return;const d=cur.net.devs[cur.sel],s=
   const render=()=>{const q=$('cmdSearch').value.toLowerCase(),all=$('allModes').checked;const list=CMDS.filter(c=>(!c.types||c.types.includes(d.type))&&(all||c.modes.includes(s.mode))&&(c.pat.join(' ')+' '+(WHYC[c.pat.join(' ')]||'')).toLowerCase().includes(q));
     $('cmdList').innerHTML=list.map((c,i)=>`<button class="command-card" data-command="${i}"><code>${esc(c.pat.join(' '))}</code><small>${c.modes.map(m=>MODE[m]||m).join(' · ')}</small><span>${WHYC[c.pat.join(' ')]||'Use ? in the console to explore its arguments.'}</span></button>`).join('')||'<p>No matching commands in this mode. Try “All modes”.</p>';
     $('cmdList').querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>{$('tin').value=list[+b.dataset.command].pat.join(' ');$('dialog').close();$('tin').focus();});};render();$('cmdSearch').oninput=render;$('allModes').onchange=render;}
-function help(){dialog('Your network, your reasoning',`<div class="help-steps"><p><b>01 · Read the mission.</b> The address plan is your source of truth. Check off tasks as you work; open “Why this step” to understand the purpose.</p><p><b>02 · Take the console.</b> Click a device or its tab. Type <code>enable</code>, then <code>configure terminal</code> to start configuring a router or switch. Use the field guide for supported syntax.</p><p><b>03 · Prove it works.</b> Run show commands and test connectivity. Packet results show both the request and reply, including where forwarding fails.</p><p><b>04 · Grade and reflect.</b> Grading checks configuration and reachability, not your checkboxes. A walkthrough explains one working solution.</p></div><h3>Console shortcuts</h3><p><kbd>?</kbd> context help · <kbd>Tab</kbd> completion · <kbd>↑ ↓</kbd> history<br><kbd>Ctrl+Z</kbd> privileged mode · <kbd>Ctrl+L</kbd> clear display</p><h3>Keep your work</h3><p>Commands, task marks and passes save in this browser. Use Transfer progress to export a JSON backup and import it on another device. The file includes your simulated configurations.</p><div class="lesson-tip">This is an educational IOS-style model, not a full IOS emulator. Timing, authentication, STP and services are simplified. SSH and Telnet test a connection; they do not open an interactive remote shell.</div>`);}
+function help(){dialog('Your network, your reasoning',`<div class="help-steps"><p><b>01 · Read the mission.</b> The address plan is your source of truth. Check off tasks as you work; open “Why this step” to understand the purpose.</p><p><b>02 · Take the console.</b> Click a device or its tab. Type <code>enable</code>, then <code>configure terminal</code> to start configuring a router or switch. Use the field guide for supported syntax.</p><p><b>03 · Prove it works.</b> Run show commands and test connectivity. Packet results show both the request and reply, including where forwarding fails.</p><p><b>04 · Grade and reflect.</b> Grading checks configuration and reachability, not your checkboxes. A walkthrough explains one working solution.</p></div><h3>Console shortcuts</h3><p><kbd>?</kbd> context help · <kbd>Tab</kbd> completion · <kbd>↑ ↓</kbd> history<br><kbd>Ctrl+Z</kbd> privileged mode · <kbd>Ctrl+L</kbd> clear display</p><h3>Arrange your windows</h3><p>Drag a window by its title bar. Drop it on the middle of another window to swap them, near another window's edge to split that space, or into empty space to fill it; a window next to the space it left grows to fill it. Drag a shared edge to resize the windows on both sides. Hold <kbd>Alt</kbd> to place or resize one window freely, drag to the screen's left, right or top edge for a half or full screen, and use Reset layout to start again.</p>
+<h3>Keep your work</h3><p>Commands, task marks and passes save in this browser. Use Transfer progress to export a JSON backup and import it on another device. The file includes your simulated configurations.</p><div class="lesson-tip">This is an educational IOS-style model, not a full IOS emulator. Timing, authentication, STP and services are simplified. SSH and Telnet test a connection; they do not open an interactive remote shell.</div>`);}
 function transfer(){dialog('Take your progress with you',`<p>Move your passed labs, task marks, theory results and saved configurations between browsers. Import merges earned passes and replaces saved work only for labs included in the file.</p><div class="actions"><button class="btn primary" id="export">Export backup</button><label class="btn">Import backup<input type="file" id="import" accept="application/json,.json" hidden></label></div><p id="transferStatus" role="status"></p>`);
   $('export').onclick=()=>{saveWork();const url=URL.createObjectURL(new Blob([JSON.stringify({format:'lab4net',version:1,progress,drafts,lastLab},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='lab4net-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('transferStatus').textContent='Backup exported. Import it on your other device to continue.';};
   $('import').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024)throw Error('Backup exceeds 5 MB');const p=JSON.parse(await file.text());if(p.format!=='lab4net'||p.version!==1||!p.progress||!p.drafts)throw Error('Not a supported Lab4Net backup');const clean={};for(const l of LABS){const d=p.drafts[l.title];if(d){replay(l,d);if(!Array.isArray(d.tasks)||d.tasks.length>l.tasks.length||d.tasks.some(x=>typeof x!=='boolean'))throw Error('Invalid task checklist');clean[l.title]={journal:d.journal,tasks:d.tasks};}}
@@ -3277,36 +3282,106 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
       if(!m&&y<r.top+40&&!(e.target.closest&&e.target.closest('button,select,input,a,label,summary')))m='move';
       return {el,mode:m};}
     return null;}
+  const TOL=6,rel=(el,m)=>{const q=el.getBoundingClientRect();return {x:q.left-m.left,y:q.top-m.top,w:q.width,h:q.height};};
+  const ov=(a,b,c,d)=>a<d-1&&c<b-1;
+  // The biggest empty rectangle around (px,py) that keeps GAP from every other window and PAD from the edge.
+  function freeRect(px,py,obs,B){const ex=obs.map(o=>({l:o.x-GAP,r:o.x+o.w+GAP,t:o.y-GAP,b:o.y+o.h+GAP}));
+    if(px<B.l||px>B.r||py<B.t||py>B.b||ex.some(o=>px>o.l&&px<o.r&&py>o.t&&py<o.b))return null;
+    let best=null;
+    for(const l of [B.l,...ex.map(o=>o.r).filter(v=>v<=px)])for(const r of [B.r,...ex.map(o=>o.l).filter(v=>v>=px)]){if(r-l<MINW)continue;let t=B.t,b=B.b,ok=true;
+      for(const o of ex){if(o.l>=r||o.r<=l)continue;if(o.b<=py)t=Math.max(t,o.b);else if(o.t>=py)b=Math.min(b,o.t);else{ok=false;break;}}
+      if(ok&&b-t>=MINH&&(!best||(r-l)*(b-t)>best.w*best.h))best={x:l,y:t,w:r-l,h:b-t};}
+    return best;}
+  // A window that sat flush against the space a window left, and spans no more than it, grows into that space.
+  function grow(P,h,B){
+    for(const [o,q] of P){const rest=[...P].filter(([p])=>p!==o).map(([,v])=>v);
+      const inX=q.x>=h.x-TOL&&q.x+q.w<=h.x+h.w+TOL,inY=q.y>=h.y-TOL&&q.y+q.h<=h.y+h.h+TOL;
+      if(inX&&Math.abs(q.y-(h.y+h.h+GAP))<=TOL){let t=B.t;for(const v of rest)if(ov(q.x,q.x+q.w,v.x,v.x+v.w)&&v.y+v.h<=q.y+1)t=Math.max(t,v.y+v.h+GAP);if(t<q.y-1){q.h+=q.y-t;q.y=t;}}
+      else if(inX&&Math.abs(q.y+q.h+GAP-h.y)<=TOL){let b=B.b;for(const v of rest)if(ov(q.x,q.x+q.w,v.x,v.x+v.w)&&v.y>=q.y+q.h-1)b=Math.min(b,v.y-GAP);if(b>q.y+q.h+1)q.h=b-q.y;}
+      else if(inY&&Math.abs(q.x-(h.x+h.w+GAP))<=TOL){let l=B.l;for(const v of rest)if(ov(q.y,q.y+q.h,v.y,v.y+v.h)&&v.x+v.w<=q.x+1)l=Math.max(l,v.x+v.w+GAP);if(l<q.x-1){q.w+=q.x-l;q.x=l;}}
+      else if(inY&&Math.abs(q.x+q.w+GAP-h.x)<=TOL){let rr=B.r;for(const v of rest)if(ov(q.y,q.y+q.h,v.y,v.y+v.h)&&v.x>=q.x+q.w-1)rr=Math.min(rr,v.x-GAP);if(rr>q.x+q.w+1)q.w=rr-q.x;}}}
+  // Where a dropped window goes: the middle of another window swaps the two, near its edge splits its space,
+  // and empty space is filled. Returns every window's new rectangle, or null to place it freely.
+  function plan(el,px,py){const {m,r,base}=act,W=m.width,H=m.height,P=new Map([...base].map(([o,q])=>[o,{...q}]));P.set(el,{...r});
+    const tgt=[...base.keys()].filter(o=>o!==el).sort((a,b)=>(+b.style.zIndex||0)-(+a.style.zIndex||0)).find(o=>{const q=base.get(o);return px>=q.x&&px<=q.x+q.w&&py>=q.y&&py<=q.y+q.h;});
+    let kind;
+    if(tgt){const T=base.get(tgt),fx=(px-T.x)/T.w,fy=(py-T.y)/T.h,d={w:fx,e:1-fx,n:fy,s:1-fy},side=Object.keys(d).reduce((a,b)=>d[b]<d[a]?b:a),hz=side==='w'||side==='e',half=Math.floor(((hz?T.w:T.h)-GAP)/2);
+      if(d[side]<.28&&half>=(hz?MINW:MINH)){kind='Split';const D={...T},N={...T};
+        if(hz){D.w=half;N.w=T.w-half-GAP;if(side==='w')N.x=T.x+half+GAP;else D.x=T.x+T.w-half;}
+        else{D.h=half;N.h=T.h-half-GAP;if(side==='n')N.y=T.y+half+GAP;else D.y=T.y+T.h-half;}
+        P.set(el,D);P.set(tgt,N);}
+      else{kind='Swap';P.set(el,{...T});P.set(tgt,{...r});}}
+    else{const F=freeRect(px,py,[...base].filter(([o])=>o!==el).map(([,q])=>q),act.B);if(!F)return null;kind='Fill';P.set(el,F);}
+    if(kind!=='Swap')grow(P,r,act.B);
+    return {kind,P};}
+  // Windows whose edges lie on the line being resized (either side of the gap) move with it, like a divider.
+  function links(el,mode,m){const out=[],all=wins(),R=new Map(all.map(o=>[o,rel(o,m)]));
+    for(const c of mode){const hz=c==='w'||c==='e',me=R.get(el),X=c==='w'?me.x:c==='e'?me.x+me.w:c==='n'?me.y:me.y+me.h,far=c==='e'||c==='s'?GAP:-GAP;
+      const lo=q=>hz?q.x:q.y,hi=q=>hz?q.x+q.w:q.y+q.h,plo=q=>hz?q.y:q.x,phi=q=>hz?q.y+q.h:q.x+q.w;
+      const nearEdge=c==='w'||c==='n'?lo:hi,farEdge=c==='w'||c==='n'?hi:lo,farSide={w:'e',e:'w',n:'s',s:'n'}[c];
+      const group=[el];let grew=true;
+      while(grew){grew=false;for(const o of all){if(group.includes(o))continue;const q=R.get(o);
+        const same=Math.abs(nearEdge(q)-X)<=TOL,across=Math.abs(farEdge(q)-(X+far))<=TOL;
+        if((same||across)&&group.some(g=>ov(plo(q),phi(q),plo(R.get(g)),phi(R.get(g))))){group.push(o);out.push({o,line:c,side:same?c:farSide,off:same?0:far,q});grew=true;}}}}
+    return out;}
+  // The outer edges windows fill to: PAD from the screen edge, or a window edge that already sits a little further in.
+  function bounds(R,W,H){const pick=(edge,vals,dir)=>{for(const v of vals)if(dir*(v-edge)>0&&dir*(v-edge)<=8)edge=v;return edge;};const q=[...R.values()];
+    return {l:pick(PAD,q.map(o=>o.x),1),t:pick(PAD,q.map(o=>o.y),1),r:pick(W-PAD,q.map(o=>o.x+o.w),-1),b:pick(H-PAD,q.map(o=>o.y+o.h),-1)};}
+  const ghosts=[];
+  function preview(pl){let i=0;
+    if(pl){const q=pl.P.get(act.el);sp.style.display='flex';sp.style.left=q.x+'px';sp.style.top=q.y+'px';sp.style.width=q.w+'px';sp.style.height=q.h+'px';
+      sp.innerHTML='<div>'+({Swap:'Swap',Split:'Split',Fill:'Fill the space'})[pl.kind]+'<small>Hold Alt to place freely</small></div>';
+      for(const [o,q] of pl.P){if(o===act.el)continue;const b=act.base.get(o);if(Math.abs(b.x-q.x)+Math.abs(b.y-q.y)+Math.abs(b.w-q.w)+Math.abs(b.h-q.h)<2)continue;
+        const g=ghosts[i]||(ghosts[i]=sp.parentElement.appendChild(Object.assign(document.createElement('div'),{className:'snapGhost'})));i++;
+        Object.assign(g.style,{display:'block',left:q.x+'px',top:q.y+'px',width:q.w+'px',height:q.h+'px'});}}
+    for(;i<ghosts.length;i++)ghosts[i].style.display='none';}
   function drag(e){const {el,mode,m,r}=act,dx=e.clientX-act.px,dy=e.clientY-act.py,W=m.width,H=m.height,xs=[PAD,W-PAD],ys=[PAD,H-PAD];
-    for(const o of wins()){if(o===el)continue;const q=o.getBoundingClientRect(),l=q.left-m.left,t=q.top-m.top;xs.push(l,l+q.width,l-GAP,l+q.width+GAP);ys.push(t,t+q.height,t-GAP,t+q.height+GAP);}
+    const lk=mode==='move'||e.altKey?[]:act.links,moving=new Set(act.links.map(k=>k.o));
+    for(const o of wins()){if(o===el||moving.has(o))continue;const q=act.base.get(o)||rel(o,m),l=q.x,t=q.y;xs.push(l,l+q.w,l-GAP,l+q.w+GAP);ys.push(t,t+q.h,t-GAP,t+q.h+GAP);}
     const near=(v,a)=>{if(e.altKey)return null;let b=null;for(const c of a)if(Math.abs(c-v)<=SNAP&&(b===null||Math.abs(c-v)<Math.abs(b-v)))b=c;return b;};
-    let x=r.x,y=r.y,w=r.w,h=r.h,gx=null,gy=null,s;act.snap=null;
+    let x=r.x,y=r.y,w=r.w,h=r.h,gx=null,gy=null,s;act.snap=null;act.plan=null;
     if(mode==='move'){x=r.x+dx;y=r.y+dy;
       if((s=near(x,xs))!==null){x=s;gx=s;}else if((s=near(x+w,xs))!==null){x=s-w;gx=s;}
       if((s=near(y,ys))!==null){y=s;gy=s;}else if((s=near(y+h,ys))!==null){y=s-h;gy=s;}
       x=Math.max(0,Math.min(W-w,x));y=Math.max(0,Math.min(H-h,y));
       const half=(W-2*PAD-GAP)/2,full=H-2*PAD;
       if(e.clientX<=m.left+10)act.snap={x:PAD,y:PAD,w:half,h:full};else if(e.clientX>=m.right-10)act.snap={x:PAD+half+GAP,y:PAD,w:half,h:full};else if(e.clientY<=m.top+10)act.snap={x:PAD,y:PAD,w:W-2*PAD,h:full};
+      else if(!e.altKey)act.plan=plan(el,e.clientX-m.left,e.clientY-m.top);
     }else{let x2=r.x+r.w,y2=r.y+r.h;
       if(mode.includes('w')){x=r.x+dx;if((s=near(x,xs))!==null){x=s;gx=s;}x=Math.max(0,Math.min(x2-MINW,x));}
       if(mode.includes('e')){x2=r.x+r.w+dx;if((s=near(x2,xs))!==null){x2=s;gx=s;}x2=Math.min(W,Math.max(x+MINW,x2));}
       if(mode.includes('n')){y=r.y+dy;if((s=near(y,ys))!==null){y=s;gy=s;}y=Math.max(0,Math.min(y2-MINH,y));}
       if(mode.includes('s')){y2=r.y+r.h+dy;if((s=near(y2,ys))!==null){y2=s;gy=s;}y2=Math.min(H,Math.max(y+MINH,y2));}
-      w=x2-x;h=y2-y;}
+      // keep every window on a moving line at least its minimum size
+      const v={w:x,e:x2,n:y,s:y2};
+      for(const k of lk){const hz=k.line==='w'||k.line==='e',mn=hz?MINW:MINH,q=k.q,lo=hz?q.x:q.y,hi=hz?q.x+q.w:q.y+q.h;
+        v[k.line]=k.side==='w'||k.side==='n'?Math.min(v[k.line],hi-mn-k.off):Math.max(v[k.line],lo+mn-k.off);}
+      x=v.w;x2=v.e;y=v.n;y2=v.s;w=x2-x;h=y2-y;
+      act.lr=new Map();
+      for(const k of act.links){const q=act.lr.get(k.o)||{...k.q};
+        if(lk.length){const val=v[k.line]+k.off;if(k.side==='w'){q.w+=q.x-val;q.x=val;}else if(k.side==='e')q.w=val-q.x;else if(k.side==='n'){q.h+=q.y-val;q.y=val;}else q.h=val-q.y;}
+        act.lr.set(k.o,q);}
+      for(const [o,q] of act.lr)setVars(o,{x:q.x/W,y:q.y/H,w:q.w/W,h:q.h/H});}
     act.cur={x,y,w,h};setVars(el,{x:x/W,y:y/H,w:w/W,h:h/H});
-    sv.style.display=gx!==null&&!act.snap?'block':'none';if(gx!==null)sv.style.left=gx+'px';
-    sh.style.display=gy!==null&&!act.snap?'block':'none';if(gy!==null)sh.style.top=gy+'px';
-    if(act.snap){sp.style.display='block';sp.style.left=act.snap.x+'px';sp.style.top=act.snap.y+'px';sp.style.width=act.snap.w+'px';sp.style.height=act.snap.h+'px';}else sp.style.display='none';}
-  function end(){if(!act)return;const {el,m}=act,f=act.snap||act.cur;
-    if(f){const S=L[view()]||(L[view()]={});S[el.id]={x:f.x/m.width,y:f.y/m.height,w:f.w/m.width,h:f.h/m.height};setVars(el,S[el.id]);save();}
-    el.classList.remove('dragging');sv.style.display=sh.style.display=sp.style.display='none';document.body.style.userSelect='';act=null;
+    const free=!act.snap&&!act.plan;el.classList.toggle('planning',!free);
+    sv.style.display=gx!==null&&free?'block':'none';if(gx!==null)sv.style.left=gx+'px';
+    sh.style.display=gy!==null&&free?'block':'none';if(gy!==null)sh.style.top=gy+'px';
+    if(act.snap){sp.style.display='block';sp.innerHTML='';sp.style.left=act.snap.x+'px';sp.style.top=act.snap.y+'px';sp.style.width=act.snap.w+'px';sp.style.height=act.snap.h+'px';preview(null);}
+    else if(act.plan)preview(act.plan);else{sp.style.display='none';preview(null);}}
+  function end(){if(!act)return;const {el,m}=act,S=L[view()]||(L[view()]={}),put=(o,f)=>{S[o.id]={x:f.x/m.width,y:f.y/m.height,w:f.w/m.width,h:f.h/m.height};setVars(o,S[o.id]);};
+    const f=act.snap||(act.plan&&act.plan.P.get(el))||act.cur;
+    if(f){main.classList.add('settle');clearTimeout(end.t);end.t=setTimeout(()=>main.classList.remove('settle'),260);
+      put(el,f);if(act.plan&&!act.snap)for(const [o,q] of act.plan.P)if(o!==el)put(o,q);
+      if(act.lr)for(const [o,q] of act.lr)put(o,q);save();}
+    el.classList.remove('dragging','planning');sv.style.display=sh.style.display=sp.style.display='none';preview(null);document.body.style.userSelect='';act=null;
     if(cur.view==='lab')$('term').scrollTop=$('term').scrollHeight;}
   main.addEventListener('pointermove',e=>{if(act)return drag(e);const h=hit(e),c=h&&h.mode?CUR[h.mode]:'';if(document.body.dataset.cur!==c)document.body.dataset.cur=c;});
   main.addEventListener('pointerleave',()=>{if(!act)document.body.dataset.cur='';});
   main.addEventListener('pointerdown',e=>{if(e.button)return;const h=hit(e);if(!h)return;h.el.style.zIndex=++z;if(!h.mode)return;
     e.preventDefault();e.stopPropagation();const m=main.getBoundingClientRect(),r=h.el.getBoundingClientRect();
-    act={el:h.el,mode:h.mode,px:e.clientX,py:e.clientY,m,r:{x:r.left-m.left,y:r.top-m.top,w:r.width,h:r.height},snap:null,cur:null};
-    h.el.classList.add('dragging');try{main.setPointerCapture(e.pointerId);}catch(x){}document.body.style.userSelect='none';},true);
+    act={el:h.el,mode:h.mode,px:e.clientX,py:e.clientY,m,r:{x:r.left-m.left,y:r.top-m.top,w:r.width,h:r.height},snap:null,cur:null,plan:null,lr:null,
+      base:new Map(wins().map(o=>[o,rel(o,m)])),links:h.mode==='move'?[]:links(h.el,h.mode,m)};
+    act.B=bounds(act.base,m.width,m.height);h.el.classList.add('dragging');try{main.setPointerCapture(e.pointerId);}catch(x){}document.body.style.userSelect='none';},true);
   main.addEventListener('pointerup',end);main.addEventListener('pointercancel',end);
   $('resetLayout').onclick=()=>{L={};save();for(const el of IDS.map($)){el.classList.remove('fw');el.style.zIndex='';for(const k of ['x','y','w','h'])el.style.removeProperty('--'+k);}main.classList.remove('free');layoutApply();notify('Layout reset to the default.');};
   $('guideClose').onclick=()=>setGuidePop(false);

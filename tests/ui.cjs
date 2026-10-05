@@ -28,6 +28,27 @@ const fs = require('node:fs');
     await page.locator('#tin').fill('ip address 192.168.1.1 255.255.255.0');
     await page.locator('#tin').press('Enter');
     assert.equal(await page.evaluate(() => IF(cur.net,'R1','g0/0').ip), 3232235777);
+    // Windows fit where they are dropped: a nudge returns home, the middle of another window swaps the two,
+    // its edge splits its space (a neighbour grows into the space left), and a shared edge resizes both sides.
+    const rects = () => page.evaluate(() => Object.fromEntries(['brief','checkWin','mapPanel','console'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return [id, [r.x, r.y, r.width, r.height].map(Math.round)]; })));
+    const same = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 3);
+    const dragWin = async (x0, y0, x1, y1) => { await page.mouse.move(x0, y0); await page.mouse.down(); for (let i = 1; i <= 8; i++) await page.mouse.move(x0 + (x1 - x0) * i / 8, y0 + (y1 - y0) * i / 8); await page.mouse.up(); await page.waitForTimeout(300); };
+    const resetLayout = async () => { await page.locator('#resetLayout').click(); await page.waitForTimeout(250); };
+    let W0 = await rects(), W1;
+    await dragWin(W0.mapPanel[0] + 400, W0.mapPanel[1] + 10, W0.mapPanel[0] + 430, W0.mapPanel[1] + 40);
+    W1 = await rects(); assert.ok(same(W1.mapPanel, W0.mapPanel));
+    await dragWin(W0.brief[0] + 300, W0.brief[1] + 10, W0.mapPanel[0] + W0.mapPanel[2] / 2, W0.mapPanel[1] + W0.mapPanel[3] / 2);
+    W1 = await rects(); assert.ok(same(W1.brief, W0.mapPanel) && same(W1.mapPanel, W0.brief));
+    await resetLayout();
+    await dragWin(W0.brief[0] + 300, W0.brief[1] + 10, W0.console[0] + 40, W0.console[1] + W0.console[3] / 2);
+    W1 = await rects();
+    assert.ok(Math.abs(W1.brief[0] - W0.console[0]) <= 3 && W1.console[0] > W0.console[0] + 200);
+    assert.ok(Math.abs(W1.checkWin[1] - W0.brief[1]) <= 3);
+    await resetLayout();
+    await dragWin(W0.mapPanel[0] + 2, W0.mapPanel[1] + 200, W0.mapPanel[0] - 98, W0.mapPanel[1] + 200);
+    W1 = await rects();
+    assert.ok(Math.abs(W1.checkWin[2] - (W0.checkWin[2] - 100)) <= 3 && Math.abs(W1.console[0] - (W0.console[0] - 100)) <= 3);
+    await resetLayout();
     // Every walkthrough through the UI execution path, followed by actual Grade button.
     const count = await page.evaluate(() => LABS.length);
     for (let i = 0; i < count; i++) {
@@ -152,6 +173,6 @@ const fs = require('node:fs');
       await page.screenshot({path:path.join(process.env.LAB4NET_SCREENSHOTS,'desktop.png'),fullPage:true});
     }
     assert.deepEqual(errors, []);
-    console.log(`PASS browser: ${count} lab grades, console restore, task restore, backup round-trip, invalid import, library, guide, capstone guide default, drill, quiz, phone, reduced motion; no page errors.`);
+    console.log(`PASS browser: ${count} lab grades, console restore, task restore, backup round-trip, invalid import, window fitting, library, guide, capstone guide default, drill, quiz, phone, reduced motion; no page errors.`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode=1; });
