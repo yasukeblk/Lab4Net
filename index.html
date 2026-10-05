@@ -1412,6 +1412,44 @@ for(const spec of INCIDENTS){const base=LABS.find(l=>l.title===spec.base);LABS.p
  build(){const net=base.build();incidentCommands(net,base.solution);incidentCommands(net,spec.fault);return net;}
 });}
 //CCNA-CURRICULUM-END
+//LIBRARY-START
+// ---------- lab library expansion (docs/LESSONS-SPEC.md) ----------
+// New labs are appended after the incidents so saved lab indexes stay valid. Each one's guide goes into STEPS,
+// and its CCNA objectives come from CCNA_LAB_MAP like every other build lab.
+// Cn registers a command like C and records it for the "why" hint; first=true puts it ahead of general patterns.
+const Cn=(modes,pat,fn,types,first)=>{C(modes,pat,fn,types);const c=CMDS.pop(),f=c.fn;c.fn=e=>{e.s.last=pat;f(e);};if(first)CMDS.unshift(c);else CMDS.push(c);};
+const cfg=incidentCommands;
+const stepsOf=list=>list.map(t=>t.split(' ; ').map(g=>{const k=g.indexOf(': ');return {dev:g.slice(0,k),cmds:g.slice(k+2).split(' | ')};}));
+function addLab(l,steps){STEPS[l.title]=steps;l.steps=stepsOf(steps);l.ccna=CCNA_LAB_MAP[l.title]||[];l.kind='build';LABS.push(l);}
+const descIs=(n,dev,ifn,want)=>(IF(n,dev,ifn).desc||'').trim().toUpperCase()===want.toUpperCase();
+Object.assign(CCNA_OBJECTIVES,{'2.3':'CDP and LLDP','3.2':'Forwarding decisions','3.5':'First-hop redundancy','1.8':'IPv6 addressing and prefixes','1.9':'IPv6 address types','4.2':'NTP client and server','4.5':'Syslog facilities and levels'});
+Object.assign(CCNA_LAB_MAP,{
+ 'Native VLAN and allowed VLANs on trunks':['2.2']});
+Object.assign(WHYC,{
+'switchport trunk native vlan <n>':'Untagged frames on a trunk belong to the native VLAN. Moving it off VLAN 1 to an unused VLAN defeats double-tagging VLAN hopping. Both ends must agree, or traffic leaks between VLANs.',
+'show interfaces trunk':'Shows which ports are trunking, the native VLAN on each, and which VLANs are allowed and active on them.'});
+
+// ----- phase 1, lab 1
+addLab({title:'Native VLAN and allowed VLANs on trunks',group:'Switching',
+ brief:'Two floor switches share a trunk that still uses the factory defaults: native VLAN 1 and every VLAN allowed. Security wants the native VLAN moved to an unused VLAN, and the test-bench VLAN kept off the trunk so each floor\'s benches stay isolated.',
+ pos:{SW1:[180,70],SW2:[420,70],PC1:[70,195],PC3:[250,195],PC2:[350,195],PC4:[530,195]},start:'SW1',
+ build(){const n=mkNet([mkSwitch('SW1'),mkSwitch('SW2'),mkPC('PC1','192.168.10.11',24),mkPC('PC2','192.168.10.12',24),mkPC('PC3','192.168.30.13',24),mkPC('PC4','192.168.30.14',24)]);
+  link(n,'SW1','g0/1','SW2','g0/1');link(n,'SW1','f0/1','PC1','f0');link(n,'SW2','f0/1','PC2','f0');link(n,'SW1','f0/3','PC3','f0');link(n,'SW2','f0/3','PC4','f0');
+  const base=['enable','configure terminal','vlan 10','name STAFF','vlan 30','name BENCH','interface f0/1','switchport mode access','switchport access vlan 10','interface f0/3','switchport mode access','switchport access vlan 30','interface g0/1','switchport mode trunk','end'];
+  cfg(n,{SW1:base,SW2:base});return n;},
+ addr:[['PC1','SW1 Fa0/1, VLAN 10 STAFF','192.168.10.11/24'],['PC2','SW2 Fa0/1, VLAN 10 STAFF','192.168.10.12/24'],['PC3','SW1 Fa0/3, VLAN 30 BENCH','192.168.30.13/24'],['PC4','SW2 Fa0/3, VLAN 30 BENCH','192.168.30.14/24'],['Trunk','SW1 Gi0/1 to SW2 Gi0/1','Native 99, allowed 10 and 99']],
+ tasks:['Run <code>show interfaces trunk</code> on both switches and note the native VLAN and allowed list. Ping PC4 from PC3: the bench VLAN crosses the trunk today.','On both switches, create VLAN 99 named <code>NATIVE</code>. No host will ever use it.','On SW1, set the native VLAN of Gi0/1 to 99. Read the message that appears.','On SW2, set the native VLAN of Gi0/1 to 99 as well.','On both switches, allow only VLANs 10 and 99 on Gi0/1.','Verify with <code>show interfaces trunk</code>. PC1 should still reach PC2, and PC3 should no longer reach PC4.'],
+ why:['A trunk that works is not necessarily a trunk that is configured well. The defaults carry every VLAN and send VLAN 1 untagged, which is what attackers expect.','The native VLAN should be a VLAN no host is in. Then even if an attacker sends a double-tagged frame, the outer tag strips off into a VLAN with nobody to attack.','Each switch puts untagged frames into its own native VLAN. While the two ends disagree, untagged traffic from VLAN 99 on SW1 lands in VLAN 1 on SW2. CDP spots this and logs a native VLAN mismatch.','With both ends on VLAN 99 the mismatch clears. Always change both ends of a trunk together.','Pruning stops VLANs crossing a link that does not need them. Fewer VLANs on a trunk means less broadcast traffic and a smaller blast radius. The native VLAN stays in the list so untagged control traffic is accepted.','Check both the thing you changed and the things that must keep working. STAFF crosses because VLAN 10 is allowed; BENCH stops at each switch because VLAN 30 is not.'],
+ checks:[['VLAN 99 named NATIVE exists on both switches',n=>vlanIs(n,'SW1',99,'NATIVE')&&vlanIs(n,'SW2',99,'NATIVE')],['Both ends of the trunk use native VLAN 99',n=>IF(n,'SW1','g0/1').native===99&&IF(n,'SW2','g0/1').native===99&&trunk(n,'SW1','g0/1')&&trunk(n,'SW2','g0/1')],['The trunk allows only VLANs 10 and 99 on both switches',n=>trunk(n,'SW1','g0/1',[10,99])&&trunk(n,'SW2','g0/1',[10,99])],['STAFF still crosses: PC1 reaches PC2',n=>P(n,'PC1','192.168.10.12')],['BENCH stays local: PC3 cannot reach PC4',n=>!P(n,'PC3','192.168.30.14')]],
+ solution:{SW1:['enable','configure terminal','vlan 99','name NATIVE','interface g0/1','switchport trunk native vlan 99','switchport trunk allowed vlan 10,99','end','show interfaces trunk'],
+  SW2:['enable','configure terminal','vlan 99','name NATIVE','interface g0/1','switchport trunk native vlan 99','switchport trunk allowed vlan 10,99','end']}},
+ ['SW1: enable | show interfaces trunk ; SW2: enable | show interfaces trunk ; PC3: # VLAN 30 crosses the trunk today | ping 192.168.30.14',
+  'SW1: configure terminal | vlan 99 | name NATIVE | exit ; SW2: configure terminal | vlan 99 | name NATIVE | exit',
+  'SW1: interface g0/1 | switchport trunk native vlan 99 | # a native VLAN mismatch is logged: SW2 still uses VLAN 1',
+  'SW2: interface g0/1 | switchport trunk native vlan 99',
+  'SW1: switchport trunk allowed vlan 10,99 | end ; SW2: switchport trunk allowed vlan 10,99 | end',
+  'SW1: show interfaces trunk ; PC1: ping 192.168.10.12 ; PC3: # this ping should now fail: VLAN 30 stays on each switch | ping 192.168.30.14']);
+//LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
   const out=lab.steps.map(task=>task.map(g=>{const d=net.devs[g.dev],s=sess[g.dev]||(sess[g.dev]={mode:d.type==='pc'?'pc':'user',ctx:null});
