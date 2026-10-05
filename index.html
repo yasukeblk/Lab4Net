@@ -2793,6 +2793,16 @@ addIncident({title:'Incident 19: a whole VLAN fell off one switch',base:'Per-VLA
  steps:['PC2: ping 192.168.20.14 ; PC1: ping 192.168.10.13','DSW1: enable | show vlan brief | show interfaces f0/1 switchport | show spanning-tree vlan 20','DSW1: configure terminal | vlan 20 | name GUEST | end','DSW1: show vlan brief ; ASW1: enable | show spanning-tree vlan 20 ; PC2: ping 192.168.20.14'],
  hints:['VLAN 10 works everywhere and VLAN 20 fails only toward DSW1. Something about VLAN 20 on DSW1 itself has changed.','show vlan brief on DSW1 has no VLAN 20, and show interfaces f0/1 switchport shows its access VLAN as Inactive. show spanning-tree vlan 20 has no instance at all.','VLAN 20 was deleted from DSW1. Create it again with its name; the ports and the spanning-tree priority for it are still configured and come back on their own.'],
  lesson:'Deleting a VLAN does not remove the ports from it: they stay assigned to a VLAN that no longer exists and stop forwarding. Spanning tree for that VLAN disappears from the switch too, which changes the tree on its neighbors.'});
+
+// ----- incident 20
+addIncident({title:'Incident 20: CDP went dark at the edge',base:'Map an unknown network with CDP',start:'R1',
+ brief:'After a security review, someone "hardened" EDGE by turning off CDP. The provider can no longer see EDGE, as intended, but neither can CORE, and the network documentation tool has lost EDGE. Keep the provider blind and restore discovery inside.',
+ symptom:n=>cdpPeers(n,n.devs.SW1).some(x=>x.p===n.devs.R1),
+ fault:{R1:[...EN,'no cdp run','end']},
+ repair:{R1:[...EN,'cdp run','end','show cdp neighbors'],SW1:['enable','show cdp neighbors']},
+ steps:['SW1: enable | show cdp neighbors ; ISP: enable | show cdp neighbors','R1: enable | show cdp | show running-config','R1: configure terminal | cdp run | end','R1: show cdp neighbors ; SW1: show cdp neighbors ; ISP: # still blind, as intended | show cdp neighbors'],
+ hints:['CORE lists ACC-A but no longer EDGE. EDGE is up and forwarding, so this is about CDP on EDGE, not the link.','show cdp on EDGE says CDP is not enabled at all. The interface toward the ISP already has its own no cdp enable in show running-config.','Someone used no cdp run, which turns CDP off everywhere. Turn it back on globally; the per-interface setting on G0/1 keeps the provider blind.'],
+ lesson:'no cdp run disables CDP on every interface, which blinds you to your own network as well. To hide a device from an outsider, disable CDP only on the interface that faces them.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
