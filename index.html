@@ -2923,6 +2923,16 @@ addIncident({title:'Incident 32: the printer fell off again',base:'Dynamic ARP I
  steps:['PRINTER: ping 192.168.10.1 ; PC1: ping 192.168.10.1','SW1: enable | show ip dhcp snooping binding | show ip arp inspection | show cdp neighbors','SW1: configure terminal | no ip source binding '+macOf({name:'PRINTER'})+' vlan 10 192.168.10.5 interface f0/4 | ip source binding '+macOf({name:'PRINTER'})+' vlan 10 192.168.10.5 interface f0/3 | end','PRINTER: ping 192.168.10.1 ; SW1: show ip arp inspection'],
  hints:['Only the printer is cut off, and it still has its fixed address. DAI drops ARPs that do not match a binding exactly, including the port.','show ip dhcp snooping binding lists the printer\'s static entry. Compare its interface with the port the printer is really connected to (the map, or show interfaces status).','The binding says Fa0/4 but the printer is on Fa0/3. Remove the old binding and add it for Fa0/3.'],
  lesson:'A DAI binding ties an address to a MAC, a VLAN and a port. Move a fixed-address device to another port and its static binding has to move too, or DAI drops its ARPs as spoofed.'});
+
+// ----- incident 33
+addIncident({title:'Incident 33: IPv6 stopped at the router',base:'IPv6 addressing',start:'R1',
+ brief:'IPv6 hosts on both LANs still have their addresses and can reach R1\'s interfaces, but nothing crosses between the LANs over IPv6 any more. A change was made on R1 overnight. Restore IPv6 between the LANs.',
+ symptom:n=>reach6(n,n.devs.PC1,parse6('2001:db8:acad:2::10')).ok,
+ fault:{R1:[...EN,'no ipv6 unicast-routing','end']},
+ repair:{R1:[...EN,'ipv6 unicast-routing','end','show ipv6 interface g0/0'],PC1:['ping 2001:db8:acad:2::10']},
+ steps:['PC1: ping 2001:db8:acad:2::10 | ping 2001:db8:acad:1::1','R1: enable | show ipv6 interface brief | show ipv6 interface g0/0','R1: configure terminal | ipv6 unicast-routing | end','R1: show ipv6 interface g0/0 ; PC1: ping 2001:db8:acad:2::10'],
+ hints:['Hosts reach R1\'s own addresses but not the other LAN. R1 is up and addressed, so ask whether it is still willing to forward.','show ipv6 interface g0/0: a router that routes IPv6 joins FF02::2, the all-routers group, and sends router advertisements. Both are missing.','IPv6 unicast routing was turned off. Turn it back on; the addresses were never lost.'],
+ lesson:'Without ipv6 unicast-routing, a router keeps its IPv6 addresses but behaves like a host: it stops forwarding, stops sending router advertisements and leaves the all-routers group. New hosts would not even get a SLAAC prefix.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
