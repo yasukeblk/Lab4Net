@@ -1,5 +1,12 @@
 # Lab4Net changes
 
+## Invalid-command caret repair
+
+- Fixed the IOS error message that referred to a `^` marker without actually printing one. Invalid commands now include a red caret on the preceding line, aligned with the echoed command and its original prompt. Parser errors point to the first rejected token after the longest valid prefix, including invalid IPv4/numeric arguments, wrong-mode commands and extra tokens. Existing incomplete-command messages remain distinct.
+- Preserved leading/repeated spaces and the original nested `do` command text for accurate positioning. Prompt alignment uses the hostname and mode before execution, so saved command replay produces the same diagnostic. Existing command handlers that reject a parsed value also receive a caret; those handlers use the final argument position as a fallback rather than claiming full IOS grammar fidelity. Junos retains its own error reporting.
+- Added engine tests for token positions, spacing, command modes, long hostnames, nested `do`, invalid values, incomplete commands and unchanged device configuration. A local Edge test checks actual rendered character alignment, red styling and saved replay. The existing browser suite grades all 21 missions and checks phone/reduced motion without page errors. Forwarding, sandbox, hardware, Operator context and curriculum tests pass.
+- Baseline/final lab regression: **21 missions / 119 grading checks / 358 guided commands pass**. No curriculum, layout, dependency or deployment changes. Private Debian and physical phones were unavailable; browser verification used local Edge.
+
 ## Requested tall-column workspace
 
 - Added **Tall columns**: Mission and Tasks stand independently from top to bottom on the left, while Topology and Console share equal-height halves of the right-hand column. The left columns each use 28% of available width and the right uses 44%, with consistent gaps. The preset includes an accurate miniature preview and remains adjustable through existing shared dividers.

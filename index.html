@@ -527,7 +527,7 @@ C('config','no router ospf <n>',e=>{e.d.ospf=null;},['router']);
 C('config','ip default-gateway <ip>',e=>{e.d.gw=e.args[0];},['switch']);
 C(ALLCFG,'end',e=>{e.s.mode='priv';e.s.ctx=null;});
 C(ALLCFG,'exit',e=>{e.s.mode=e.s.mode==='config'?'priv':'config';e.s.ctx=null;});
-C(ALLCFG,'do <rest>',e=>run(e,e.args[0],'priv'));
+C(ALLCFG,'do <rest>',e=>run(e,e.rawArgs[0],'priv',e.argOffsets[0]));
 const l3ok=(e,i)=>!(e.d.type==='switch'&&!i.name.startsWith('Vlan'));
 C('if','ip address <ip> <ip>',e=>{const[ip,m]=e.args,len=maskLenN(m);if(len===null)return e.out('Bad mask 0x'+m.toString(16).toUpperCase()+' for address '+n2ip(ip));
   for(const i of e.s.ctx){if(!l3ok(e,i))return e.out(BAD);
@@ -569,25 +569,25 @@ C('pc','ping <ip>',e=>{const ok=canPing(e.net,e.d,e.args[0]),a=n2ip(e.args[0]);e
   e.out('','Ping statistics for '+a+':','    Packets: Sent = 4, Received = '+(ok?4:0)+', Lost = '+(ok?'0 (0% loss)':'4 (100% loss)'),'');});
 C('pc','tracert <ip>',e=>{const f=tracePath(e.net,e.d,e.args[0]);e.out('','Tracing route to '+n2ip(e.args[0])+':');f.hops.forEach((h,k)=>e.out('  '+(k+1)+'   <1 ms   <1 ms   <1 ms   '+n2ip(h)));e.out(f.ok?'Trace complete.':'  *   Request timed out.','');});
 
-function matchPat(pat,toks){const args=[];let i=0;
+function matchPat(pat,toks,diagnostic){const args=[];let i=0;
   for(const p of pat){
     if(p==='<rest>'){if(i>=toks.length)return 'partial';args.push(toks.slice(i).join(' '));return {args};}
     if(p==='<rest?>'){args.push(toks.slice(i).join(' '));return {args};}
     if(i>=toks.length)return 'partial';
     const t=toks[i];
-    if(p==='<ip>'){if(!isIp(t))return null;args.push(ip2n(t));}
-    else if(p==='<n>'){if(!/^\d+$/.test(t))return null;args.push(+t);}
+    if(p==='<ip>'){if(!isIp(t)){if(diagnostic)diagnostic.token=i;return null;}args.push(ip2n(t));}
+    else if(p==='<n>'){if(!/^\d+$/.test(t)){if(diagnostic)diagnostic.token=i;return null;}args.push(+t);}
     else if(p==='<w>')args.push(t);
-    else if(!p.startsWith(t.toLowerCase()))return null;
+    else if(!p.startsWith(t.toLowerCase())){if(diagnostic)diagnostic.token=i;return null;}
     i++;}
-  return i===toks.length?{args}:null;}
-function run(env,line,mode){line=line.trim();if(!line)return;const toks=line.split(/\s+/),{d,s}=env;let partial=false;
-  const find=m=>{for(const c of CMDS){if(!c.modes.includes(m)||(c.types&&!c.types.includes(d.type)))continue;const r=matchPat(c.pat,toks);if(r==='partial')partial=true;else if(r)return {c,args:r.args};}return null;};
+  if(i!==toks.length){if(diagnostic)diagnostic.token=i;return null;}return {args};}
+function run(env,line,mode,offset=0){const words=[...line.matchAll(/\S+/g)];if(!words.length)return;const toks=words.map(w=>w[0]),{d,s}=env;let partial=false,badToken=0;
+  const find=m=>{for(const c of CMDS){if(!c.modes.includes(m)||(c.types&&!c.types.includes(d.type)))continue;const diagnostic={token:0},r=matchPat(c.pat,toks,diagnostic);if(r==='partial')partial=true;else if(r)return {c,args:r.args};else badToken=Math.max(badToken,diagnostic.token);}return null;};
   let m=find(mode);
   if(!m&&!['config','user','priv','pc'].includes(mode)){m=find('config');if(m){s.mode='config';s.ctx=null;}}
-  if(m){env.args=m.args;m.c.fn(env);return;}
-  env.out(partial?'% Incomplete command.':BAD);}
-function execLine(net,d,s,line){if(d.os==='junos'){const was=LIVE;LIVE=true;try{return junosExecLine(net,d,s,line);}finally{LIVE=was;}}const out=[];const env={net,d,s,out:(...x)=>out.push(...x)};
+  if(m){env.args=m.args;env.argOffsets=m.c.pat.flatMap((p,i)=>p[0]==='<'?[offset+(words[i]?.index??line.length)]:[]);env.rawArgs=m.c.pat.flatMap((p,i)=>p[0]==='<'?[p.startsWith('<rest')?line.slice(words[i]?.index??line.length):words[i]?.[0]]:[]);env.errorColumn=offset+words.at(-1).index;m.c.fn(env);return;}
+  env.errorColumn=offset+words[badToken].index;env.out(partial?'% Incomplete command.':BAD);}
+function execLine(net,d,s,line){if(d.os==='junos'){const was=LIVE;LIVE=true;try{return junosExecLine(net,d,s,line);}finally{LIVE=was;}}const out=[],prompt=promptOf(d,s);const env={net,d,s,out:(...x)=>{for(const text of x){if(text===BAD)out.push(' '.repeat(prompt.length+(env.errorColumn||0))+'^');out.push(text);}}};
   const snap=()=>{const m={};for(const n in d.ifs)m[n]=ifUp(net,d,d.ifs[n]);return m;};
   const before=d.type==='pc'?null:snap();
   run(env,line,s.mode);
@@ -679,7 +679,7 @@ IFT.push('Port-channel');
 parseIf=function(str){const value=String(str).replace(/\s+/g,'');if(/^(ge|xe)-\d+\/\d+\/\d+$/i.test(value))return value.toLowerCase();const m=/^([a-z-]+?)([\d\/.]+)$/i.exec(value);if(!m)return null;const t=IFT.find(t=>t.toLowerCase().startsWith(m[1].toLowerCase()));return t?t+m[2]:null;};
 function macOf(d){if(d.mac)return d.mac;let h=7;for(const c of d.name)h=(h*31+c.charCodeAt(0))%65536;const x=h.toString(16).padStart(4,'0');return '00e0.b0'+x.slice(0,2)+'.'+x.slice(2)+'10';}
 let LIVE=false,TRACE=null;
-const run0=run;run=function(env,line,mode){const was=LIVE;LIVE=true;try{run0(env,line,mode);}finally{LIVE=was;}};
+const run0=run;run=function(env,line,mode,offset=0){const was=LIVE;LIVE=true;try{run0(env,line,mode,offset);}finally{LIVE=was;}};
 const SUBX='acl,dhcp';
 C(SUBX,'end',e=>{e.s.mode='priv';e.s.ctx=null;});
 C(SUBX,'exit',e=>{e.s.mode='config';e.s.ctx=null;});
@@ -1363,7 +1363,7 @@ function renderBrief(){if(cur.view==='lab'&&cur.sandbox)return renderSandbox();$
   bindIncidentHints();$('bSol').onclick=()=>{cur.showSol=!cur.showSol;renderBrief();};
   $('bReset').onclick=()=>{dialog('Start this lab over?',`<p>This removes this lab’s saved commands and checklist. Its earned pass stays in your progress.</p><button class="btn primary" id="confirmReset">Start with a fresh network</button>`);$('confirmReset').onclick=()=>{$('dialog').close();openLab(cur.idx,true);notify('Lab reset. Previously earned progress kept.');};};
   if($('nextLab'))$('nextLab').onclick=()=>{const next=LABS.findIndex((l,i)=>i>cur.idx&&!progress[l.title]);const first=LABS.findIndex(l=>!progress[l.title]);openLab(next>=0?next:first>=0?first:0);};}
-function lineClass(l){if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';if(/^%|^error:|^commit failed|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
+function lineClass(l){if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';if(/^\s*\^$|^%|^error:|^commit failed|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
 function renderTerm(){if(cur.view!=='lab')return;const empty=!cur.sel||!cur.net.devs[cur.sel];$('tin').disabled=empty;$('reference').disabled=empty;$('clearConsole').disabled=empty;if(empty){$('tabs').innerHTML='';$('tout').textContent='Add a device from the sandbox palette to open its console.';$('prompt').textContent='';$('mode').textContent='No device';$('deviceInfo').textContent='';$('commitState').hidden=true;$('term').removeAttribute('aria-labelledby');return;}const {net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],n=s.lines.length,fresh=s.fresh||0;s.fresh=0;
   $('tabs').innerHTML=Object.keys(net.devs).map(x=>`<button class="tab" role="tab" id="tab-${x}" aria-controls="term" tabindex="${x===sel?0:-1}" data-dev="${x}" aria-selected="${x===sel}"><span class="device-dot ${net.devs[x].type}"></span>${esc(net.devs[x].hostname)}</button>`).join('');
   $('term').setAttribute('aria-labelledby','tab-'+sel);$('tout').innerHTML=s.lines.map((l,k)=>`<span class="${l[0]==='\u0001'?'cmd':lineClass(l)}${k>=n-fresh?' new':''}">${esc(l[0]==='\u0001'?l.slice(1):l)}</span>`).join('\n');
