@@ -2933,6 +2933,16 @@ addIncident({title:'Incident 33: IPv6 stopped at the router',base:'IPv6 addressi
  steps:['PC1: ping 2001:db8:acad:2::10 | ping 2001:db8:acad:1::1','R1: enable | show ipv6 interface brief | show ipv6 interface g0/0','R1: configure terminal | ipv6 unicast-routing | end','R1: show ipv6 interface g0/0 ; PC1: ping 2001:db8:acad:2::10'],
  hints:['Hosts reach R1\'s own addresses but not the other LAN. R1 is up and addressed, so ask whether it is still willing to forward.','show ipv6 interface g0/0: a router that routes IPv6 joins FF02::2, the all-routers group, and sends router advertisements. Both are missing.','IPv6 unicast routing was turned off. Turn it back on; the addresses were never lost.'],
  lesson:'Without ipv6 unicast-routing, a router keeps its IPv6 addresses but behaves like a host: it stops forwarding, stops sending router advertisements and leaves the all-routers group. New hosts would not even get a SLAAC prefix.'});
+
+// ----- incident 34
+addIncident({title:'Incident 34: the branch answers over the backup',base:'IPv6 static and default routes',start:'HQ',
+ brief:'Both links between HQ and the branch are up, but HQ sends traffic for the branch LAN over the slow link-local-only backup. Branch-bound traffic still arrives, just the long way. Find the route that should be carrying it.',
+ symptom:n=>{const r=reach6(n,n.devs.PC1,parse6('2001:db8:acad:20::20'));return r.ok&&r.f.hops.includes(parse6('2001:db8:acad:12::2'));},
+ fault:{HQ:[...EN,'no ipv6 route 2001:db8:acad:20::/64 2001:db8:acad:12::2','ipv6 route 2001:db8:acad:2::/64 2001:db8:acad:12::2','end']},
+ repair:{HQ:[...EN,'no ipv6 route 2001:db8:acad:2::/64 2001:db8:acad:12::2','ipv6 route 2001:db8:acad:20::/64 2001:db8:acad:12::2','end','show ipv6 route static'],PC1:['ping 2001:db8:acad:20::20']},
+ steps:['PC1: tracert 2001:db8:acad:20::20 ; PC2: tracert 2001:db8:acad:10::10','HQ: enable | show ipv6 route static | show running-config','HQ: configure terminal | no ipv6 route 2001:db8:acad:2::/64 2001:db8:acad:12::2 | ipv6 route 2001:db8:acad:20::/64 2001:db8:acad:12::2 | end','HQ: show ipv6 route static ; PC1: tracert 2001:db8:acad:20::20'],
+ hints:['Traffic from the branch uses the primary link; traffic toward it does not. The difference is on HQ.','show ipv6 route static on HQ shows the branch LAN reached at distance 10 via FE80::2: the floating route. The primary route exists in the config but for a different prefix.','The primary route was typed for 2001:DB8:ACAD:2::/64 instead of 2001:DB8:ACAD:20::/64. Replace it with the correct prefix.'],
+ lesson:'IPv6 prefixes are easy to mistype, and a route to the wrong prefix is accepted without complaint. A floating backup then hides the mistake by carrying the traffic the long way round.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
