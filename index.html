@@ -2903,6 +2903,16 @@ addIncident({title:'Incident 30: the core stopped routing',base:'Inter-VLAN rout
  steps:['PC1: ping 192.168.10.1 | ping 192.168.20.12 ; PC3: ping 203.0.113.1','DSW1: enable | show ip interface brief | show ip route','DSW1: configure terminal | ip routing | end','DSW1: show ip route ; PC1: ping 192.168.20.12 ; PC3: ping 203.0.113.1'],
  hints:['Each host reaches its own gateway address on DSW1, so the SVIs are up. Anything that needs DSW1 to route fails.','show ip route on DSW1 shows only a default gateway line instead of a routing table: the switch is not routing at all.','IP routing is off. Turn it back on with ip routing; the connected and static routes come straight back.'],
  lesson:'A Layer 3 switch with routing off still answers on its SVIs, so hosts can ping their gateway and everything looks half alive. show ip route is the giveaway: no routing table, just a default gateway.'});
+
+// ----- incident 31
+addIncident({title:'Incident 31: snooping shut out the real server',base:'DHCP snooping',start:'SW1',
+ brief:'The rogue server is still silenced, as intended. But after the uplink was re-patched and reconfigured, no client gets an address from R1 either. Find what snooping is now blocking and restore leases for everyone.',
+ symptom:['PC1','203.0.113.10'],
+ fault:{SW1:[...EN,'interface g0/1','no ip dhcp snooping trust','end'],PC1:['ipconfig /release','ipconfig /renew'],PC2:['ipconfig /release','ipconfig /renew']},
+ repair:{SW1:[...EN,'interface g0/1','ip dhcp snooping trust','end','show ip dhcp snooping'],PC1:['ipconfig /renew','ping 203.0.113.10'],PC2:['ipconfig /renew']},
+ steps:['PC1: ipconfig /renew ; PC2: ipconfig /renew','SW1: enable | show ip dhcp snooping | show ip dhcp snooping binding','SW1: configure terminal | interface g0/1 | ip dhcp snooping trust | end','PC1: ipconfig /renew | ping 203.0.113.10 ; PC2: ipconfig /renew ; SW1: show ip dhcp snooping binding'],
+ hints:['Nobody gets a lease, from the rogue or from R1. Snooping is doing its job against the rogue, so look at what else it is blocking.','show ip dhcp snooping lists the trusted ports. The uplink toward R1 is no longer among them, and the binding table is empty.','Gi0/1 lost its trust setting when it was reconfigured. Trust it again, then renew the clients.'],
+ lesson:'Snooping drops every server reply that arrives on an untrusted port, legitimate or not. Re-patching or rebuilding an uplink means re-applying its trust setting, or the real server is silenced along with the rogue.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
