@@ -2863,6 +2863,16 @@ addIncident({title:'Incident 26: the phone cannot get an address',base:'Voice VL
  steps:['PHONE1: ipconfig /renew ; PC1: ping 192.168.10.1','SW1: enable | show interfaces fa0/1 switchport | show vlan brief','SW1: configure terminal | vlan 150 | name VOICE | end','PHONE1: ipconfig /renew | ping 192.168.200.5'],
  hints:['The PC behind the phone works, so the port and the data VLAN are fine. Only the phone\'s own traffic, which is tagged, is affected.','show interfaces fa0/1 switchport shows Voice VLAN 150 as Inactive, and show vlan brief has no VLAN 150.','The voice VLAN was deleted from the switch. Create VLAN 150 again (name VOICE), then renew the phone\'s address.'],
  lesson:'The port still tells the phone to use VLAN 150, so the phone keeps tagging its traffic with it. If the VLAN does not exist on the switch, those frames are dropped and the phone is cut off while the PC behind it carries on.'});
+
+// ----- incident 27
+addIncident({title:'Incident 27: translated, but nobody answers',base:'Dynamic NAT with a pool',start:'R1',
+ brief:'R1 is translating inside traffic, and the translation table fills up as usual, but replies never come back. Someone retyped the NAT pool from a ticket. Compare it with what the ISP actually routes to you and fix it.',
+ symptom:['PC1','198.51.100.10'],
+ fault:{R1:[...EN,'ip nat pool PUBLIC 203.0.113.43 203.0.113.44 netmask 255.255.255.248','end']},
+ repair:{R1:['enable','clear ip nat translation *','configure terminal','ip nat pool PUBLIC 203.0.113.33 203.0.113.34 netmask 255.255.255.248','end','show ip nat statistics'],PC1:['ping 198.51.100.10']},
+ steps:['PC1: ping 198.51.100.10 ; R1: enable | show ip nat translations','R1: show ip nat statistics | show running-config ; ISP: enable | show ip route','R1: clear ip nat translation * | configure terminal | ip nat pool PUBLIC 203.0.113.33 203.0.113.34 netmask 255.255.255.248 | end','PC1: ping 198.51.100.10 ; PC3: ping 198.51.100.10 ; R1: show ip nat translations'],
+ hints:['Translations are being created, so the ACL, the interfaces and the rule are working. The problem is what happens to the replies.','show ip nat statistics shows the pool range. Compare it with the block in the ISP\'s routing table that points to R1.','The pool is 203.0.113.43 to .44, but the ISP only routes 203.0.113.32/29 (.33 to .38) to R1. Clear the translations, then define the pool as .33 to .34 again.'],
+ lesson:'NAT can only use addresses that the outside world routes back to you. IOS also refuses to redefine a pool while translations still use it, so clear them first.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
