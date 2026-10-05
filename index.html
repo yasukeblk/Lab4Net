@@ -2803,6 +2803,16 @@ addIncident({title:'Incident 20: CDP went dark at the edge',base:'Map an unknown
  steps:['SW1: enable | show cdp neighbors ; ISP: enable | show cdp neighbors','R1: enable | show cdp | show running-config','R1: configure terminal | cdp run | end','R1: show cdp neighbors ; SW1: show cdp neighbors ; ISP: # still blind, as intended | show cdp neighbors'],
  hints:['CORE lists ACC-A but no longer EDGE. EDGE is up and forwarding, so this is about CDP on EDGE, not the link.','show cdp on EDGE says CDP is not enabled at all. The interface toward the ISP already has its own no cdp enable in show running-config.','Someone used no cdp run, which turns CDP off everywhere. Turn it back on globally; the per-interface setting on G0/1 keeps the provider blind.'],
  lesson:'no cdp run disables CDP on every interface, which blinds you to your own network as well. To hide a device from an outsider, disable CDP only on the interface that faces them.'});
+
+// ----- incident 21
+addIncident({title:'Incident 21: addresses, but no internet',base:'Small office build',start:'R1',
+ brief:'The branch PCs renewed their leases this morning and now get addresses, but nothing beyond the LAN works, and R1 itself still reaches the internet. Someone edited the DHCP pool. Repair it and get the PCs back online.',
+ symptom:['PC1','198.51.100.10'],
+ fault:{R1:[...EN,'ip dhcp pool OFFICE','default-router 192.168.1.254','end'],PC1:['ipconfig /release','ipconfig /renew'],PC2:['ipconfig /release','ipconfig /renew']},
+ repair:{R1:[...EN,'ip dhcp pool OFFICE','default-router 192.168.1.1','end'],PC1:['ipconfig /renew','ping 198.51.100.10'],PC2:['ipconfig /renew']},
+ steps:['PC1: ipconfig | ping 198.51.100.10 ; R1: enable | ping 198.51.100.10','R1: show running-config | show ip dhcp binding','R1: configure terminal | ip dhcp pool OFFICE | default-router 192.168.1.1 | end','PC1: ipconfig /renew | ping 198.51.100.10 ; PC2: ipconfig /renew | ping 198.51.100.10'],
+ hints:['The PCs have addresses in the right subnet, and R1 reaches the internet. Compare the PCs\' full IP settings with the address plan, not just their addresses.','ipconfig on PC1 shows the default gateway it was given. Compare it with R1\'s LAN address, then find where that value comes from in R1\'s DHCP pool.','The OFFICE pool hands out 192.168.1.254 as the default router. Set default-router back to 192.168.1.1, then renew both PCs so they pick it up.'],
+ lesson:'DHCP options travel with the lease: a wrong default-router gives every client a dead gateway even though their addresses are fine. Clients only see the corrected value when they renew.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
