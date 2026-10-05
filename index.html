@@ -552,12 +552,12 @@ function setIp(net,dev,ifn,ip,len){const i=net.devs[dev].ifs[parseIf(ifn)];i.ip=
 const allowed=(p,v)=>p.allowed==='all'||p.allowed.includes(v);
 const phys=(d,i)=>i.name.includes('.')?d.ifs[i.name.split('.')[0]]:i;
 function ifUp(net,d,i){
-  if(i.shutdown)return false;
+  if(i.shutdown||i.errdis)return false;
   if(i.name.startsWith('Loopback'))return true;
   if(i.name.startsWith('Vlan')){const v=+i.name.slice(4);if(!d.vlans[v])return false;
     return Object.values(d.ifs).some(p=>p.link&&!p.name.startsWith('Vlan')&&!p.routed&&ifUp(net,d,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v));}
-  const p=phys(d,i);if(p.shutdown||!p.link)return false;
-  return !net.devs[p.link.dev].ifs[p.link.ifn].shutdown;
+  const p=phys(d,i);if(p.shutdown||p.errdis||!p.link)return false;
+  const q=net.devs[p.link.dev].ifs[p.link.ifn];return !q.shutdown&&!q.errdis;
 }
 function l2peers(net,d,i){
   const out=[];if(i.name.startsWith('Loopback')||!ifUp(net,d,i))return out;
@@ -603,11 +603,13 @@ function connected(net,d){const r=[];for(const i of Object.values(d.ifs))if(i.ip
 function ospfIfs(net,d){if(!d.ospf)return [];const r=[];for(const i of Object.values(d.ifs)){if(i.ip===null||!ifUp(net,d,i))continue;
   if(i.ospfArea!=null){r.push({ifc:i,area:i.ospfArea});continue;}
   const n=d.ospf.networks.find(n=>((i.ip&~n.wild)>>>0)===((n.net&~n.wild)>>>0));if(n)r.push({ifc:i,area:n.area});}return r;}
+// Hello and dead intervals: dead defaults to four hellos. Both must match for two routers to become neighbors.
+const ospfTimers=i=>{const h=i.ospfHello||10;return [h,i.ospfDead||h*4];};
 const isPassive=(d,n)=>d.ospf.passiveDef?!(d.ospf.nonPassive||[]).includes(n):d.ospf.passive.includes(n);
 function ospfNeighbors(net,d){const res=[];if(d.ospf&&d.ospf.resetting)return res;for(const o of ospfIfs(net,d)){if(isPassive(d,o.ifc.name))continue;
   for(const p of l2peers(net,d,o.ifc)){const pd=p.dev;if(!isL3(pd)||!pd.ospf)continue;
     const po=ospfIfs(net,pd).find(x=>x.ifc===p.ifc);if(!po||po.area!==o.area||isPassive(pd,p.ifc.name)||pd.ospf.resetting)continue;
-    if((o.ifc.ospfNet||'broadcast')!==(p.ifc.ospfNet||'broadcast'))continue;
+    if(ospfTimers(o.ifc).join()!==ospfTimers(p.ifc).join())continue;
     if(routerId(pd)===routerId(d))continue;
     if(p.ifc.len!==o.ifc.len||netOf(p.ifc.ip,p.ifc.len)!==netOf(o.ifc.ip,o.ifc.len))continue;
     res.push({dev:pd,ifc:o.ifc,pifc:p.ifc});}}return res;}
@@ -619,7 +621,7 @@ function ospfRoutes(net,d){if(!d.ospf)return [];
   const dist=new Map([[d.name,{cost:0,first:null}]]),done=new Set();
   for(;;){let u=null;for(const [n,v] of dist)if(!done.has(n)&&(u===null||v.cost<dist.get(u).cost))u=n;if(u===null)break;done.add(u);
     const U=net.devs[u],du=dist.get(u);
-    for(const nb of ospfNeighbors(net,U)){const c=du.cost+ospfCost(U,nb.ifc),cur=dist.get(nb.dev.name);if(!cur||c<cur.cost)dist.set(nb.dev.name,{cost:c,first:du.first||{ifc:nb.ifc,nh:nb.pifc.ip}});}}
+    for(const nb of ospfNeighbors(net,U)){if((nb.ifc.ospfNet||'broadcast')!==(nb.pifc.ospfNet||'broadcast'))continue;const c=du.cost+ospfCost(U,nb.ifc),cur=dist.get(nb.dev.name);if(!cur||c<cur.cost)dist.set(nb.dev.name,{cost:c,first:du.first||{ifc:nb.ifc,nh:nb.pifc.ip}});}}
   const own=new Set(connected(net,d).map(c=>c.net+'/'+c.len)),best=new Map();
   for(const [name,info] of dist){if(name===d.name)continue;const R=net.devs[name];for(const o of ospfIfs(net,R)){
     // OSPF advertises a loopback as a /32 host route whatever its configured mask.
@@ -739,7 +741,7 @@ C(EX,'show interfaces trunk',e=>{const{net,d,out}=e;const t=sortIfs(Object.keys(
   out('','Port        Vlans allowed and active in management domain');t.forEach(i=>out(pad(shortIf(i.name),12)+Object.keys(d.vlans).map(Number).filter(v=>allowed(i,v)).join(',')));},['switch']);
 C(EX,'show interfaces <rest?>',e=>{const{net,d,out}=e;const rest=e.args[0];const names=rest?[parseIf(rest)]:sortIfs(Object.keys(d.ifs));
   for(const n of names){const i=d.ifs[n];if(!i)return out(BAD);const up=ifUp(net,d,i);
-    out(n+' is '+(i.shutdown?'administratively down':up?'up':'down')+', line protocol is '+(up?'up':'down'));if(i.desc)out('  Description: '+i.desc);if(i.ip!==null)out('  Internet address is '+n2ip(i.ip)+'/'+i.len);}});
+    out(n+' is '+(i.shutdown?'administratively down':up?'up':'down')+', line protocol is '+(up?'up':'down')+(i.errdis?' (err-disabled)':''));if(i.desc)out('  Description: '+i.desc);if(i.ip!==null)out('  Internet address is '+n2ip(i.ip)+'/'+i.len);}});
 const save=e=>{e.d.startup=runningConfig(e.net,e.d).slice(2);e.out('Building configuration...','[OK]');};
 C('priv','copy running-config startup-config',save);
 C('priv','write <rest?>',save);
@@ -990,6 +992,7 @@ C('if','ip nat <w>',e=>{const side=['inside','outside'].find(x=>x.startsWith(e.a
 C('if','no ip nat <w>',e=>e.s.ctx.forEach(i=>{i.nat=null;}),['router']);
 C('config','ip nat inside source list <w> interface <rest>',e=>{const t=e.args[1].split(/\s+/);const ov=t.length>1&&'overload'.startsWith(t[t.length-1].toLowerCase());if(ov)t.pop();const n=parseIf(t.join(''));if(!n||!e.d.ifs[n])return e.out(BAD);const N=natOf(e.d);N.rules=N.rules.filter(r=>r.acl!==e.args[0]);N.rules.push({acl:e.args[0],ifn:n,overload:ov});},['router']);
 C('config','ip nat inside source static <ip> <ip>',e=>{natOf(e.d).statics.push({local:e.args[0],global:e.args[1]});},['router']);
+C('config','no ip nat inside source static <ip> <ip>',e=>{const N=natOf(e.d);N.statics=N.statics.filter(s=>!(s.local===e.args[0]&&s.global===e.args[1]));},['router']);
 C('config','no ip nat inside source <rest>',e=>{const N=natOf(e.d);N.rules=[];N.statics=[];N.table=[];},['router']);
 C(EX,'show ip nat translations',e=>{const N=e.d.nat;if(!N||(!N.table.length&&!N.statics.length&&!(N.dyn||[]).length))return;e.out('Pro  Inside global         Inside local          Outside local         Outside global');
   N.statics.concat((N.dyn||[]).map(m=>({global:m.ig,local:m.il}))).forEach(s=>e.out('---  '+pad(n2ip(s.global),22)+pad(n2ip(s.local),22)+pad('---',22)+'---'));
@@ -1125,11 +1128,18 @@ const psOf=i=>i.ps||(i.ps={on:false,max:1,violation:'shutdown',sticky:false});
 C('if','switchport port-security',e=>{for(const i of e.s.ctx){if(!i.modeSet)return e.out('Command rejected: '+shortIf(i.name)+' is a dynamic port.');psOf(i).on=true;}},['switch']);
 C('if','switchport port-security maximum <n>',e=>e.s.ctx.forEach(i=>{psOf(i).max=e.args[0];}),['switch']);
 C('if','switchport port-security violation <w>',e=>{const v=['shutdown','restrict','protect'].find(x=>x.startsWith(e.args[0].toLowerCase()));if(!v)return e.out(BAD);e.s.ctx.forEach(i=>{psOf(i).violation=v;});},['switch']);
-C('if','switchport port-security mac-address sticky',e=>e.s.ctx.forEach(i=>{psOf(i).sticky=true;}),['switch']);
-C(EX,'show port-security <rest?>',e=>{const{net,d,out}=e;out('Secure Port  MaxSecureAddr  CurrentAddr  SecurityViolation  Security Action','-----------  -------------  -----------  -----------------  ---------------');
-  for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(!i.ps||!i.ps.on)continue;const cur=i.ps.sticky&&i.link&&ifUp(net,d,i)?1:0;
-    out(pad(shortIf(n),13)+pad(i.ps.max,15)+pad(cur,13)+pad(0,19)+i.ps.violation[0].toUpperCase()+i.ps.violation.slice(1));
-    if(cur)out('             sticky MAC '+macOf(net.devs[i.link.dev]));}},['switch']);
+// Turning sticky on converts addresses already learned into sticky ones.
+C('if','switchport port-security mac-address sticky',e=>e.s.ctx.forEach(i=>{const P=psOf(i);P.sticky=true;(P.macs||[]).forEach(m=>{if(m.kind==='dynamic')m.kind='sticky';});}),['switch']);
+C(EX,'show port-security <rest?>',e=>{const{net,d,out}=e,rest=(e.args[0]||'').trim();
+  if(/^int/i.test(rest)){const n=parseIf(rest.split(/\s+/).slice(1).join(''));const i=n&&d.ifs[n];if(!i)return out(BAD);const P=i.ps||{on:false,max:1,violation:'shutdown',sticky:false};
+    return out('Port Security              : '+(P.on?'Enabled':'Disabled'),'Port Status                : '+(!P.on?'Secure-down':i.errdis==='psecure-violation'?'Secure-shutdown':ifUp(net,d,i)?'Secure-up':'Secure-down'),'Violation Mode             : '+P.violation[0].toUpperCase()+P.violation.slice(1),'Aging Time                 : 0 mins','Aging Type                 : Absolute','SecureStatic Address Aging : Disabled',
+      'Maximum MAC Addresses      : '+P.max,'Total MAC Addresses        : '+(P.macs||[]).length,'Configured MAC Addresses   : '+(P.macs||[]).filter(m=>m.kind==='static').length,'Sticky MAC Addresses       : '+(P.macs||[]).filter(m=>m.kind==='sticky').length,'Last Source Address:Vlan   : '+(P.last?P.last+':'+i.accessVlan:'0000.0000.0000:0'),'Security Violation Count   : '+(P.viol||0));}
+  if(/^addr/i.test(rest)){out('               Secure Mac Address Table','-----------------------------------------------------------------------------','Vlan    Mac Address       Type                          Ports   Remaining Age','----    -----------       ----                          -----   -------------');
+    for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];for(const m of (i.ps&&i.ps.on&&i.ps.macs)||[])out(pad(i.accessVlan,8)+pad(m.mac,18)+pad(m.kind==='sticky'?'SecureSticky':m.kind==='static'?'SecureConfigured':'SecureDynamic',30)+pad(shortIf(n),8)+'  -');}return;}
+  out('Secure Port  MaxSecureAddr  CurrentAddr  SecurityViolation  Security Action','               (Count)       (Count)          (Count)','---------------------------------------------------------------------------');
+  for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(!i.ps||!i.ps.on)continue;
+    out(pad('    '+shortIf(n),13)+pad(String(i.ps.max).padStart(8),15)+pad(String((i.ps.macs||[]).length).padStart(7),13)+pad(String(i.ps.viol||0).padStart(10),19)+i.ps.violation[0].toUpperCase()+i.ps.violation.slice(1));}
+  out('---------------------------------------------------------------------------');},['switch']);
 
 // SSH
 C('config','ip domain-name <w>',e=>{e.d.domain=e.args[0];});
@@ -1219,15 +1229,15 @@ const prompt0=promptOf;promptOf=function(d,s){const h=d.hostname;if(s.mode==='ac
   if(s.mode==='if'&&s.ctx[0].name.startsWith('Port-channel'))return h+'(config-if)#';return prompt0(d,s);};
 function ifExtra(i,d0){const L=[];if(i.helper!=null)L.push(' ip helper-address '+n2ip(i.helper));if(i.aclIn)L.push(' ip access-group '+i.aclIn+' in');if(i.aclOut)L.push(' ip access-group '+i.aclOut+' out');if(i.nat)L.push(' ip nat '+i.nat);
   if(i.chan)L.push(' channel-group '+i.chan+' mode '+i.chanMode);
-  if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');}
+  if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');for(const m of i.ps.macs||[])if(m.kind!=='dynamic')L.push(' switchport port-security mac-address '+(m.kind==='sticky'?'sticky ':'')+m.mac);}
   if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.voiceVlan!=null)L.push(' switchport voice vlan '+i.voiceVlan);if(i.snoopRate)L.push(' ip dhcp snooping limit rate '+i.snoopRate);if(i.daiTrust)L.push(' ip arp inspection trust');if(i.snoopTrust)L.push(' ip dhcp snooping trust');if(i.relayTrust)L.push(' ip dhcp relay information trusted');if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
   if(i.hsrpV2)L.push(' standby version 2');for(const g of i.hsrp||[]){if(g.ip!=null)L.push(' standby '+g.grp+' ip '+n2ip(g.ip));if(g.prio!==100)L.push(' standby '+g.grp+' priority '+g.prio);if(g.preempt)L.push(' standby '+g.grp+' preempt');}
-  if(i.ospfNet)L.push(' ip ospf network '+i.ospfNet);if(i.ospfPrio!=null)L.push(' ip ospf priority '+i.ospfPrio);if(i.ospfCost!=null)L.push(' ip ospf cost '+i.ospfCost);if(i.ospfArea!=null&&d0.ospf)L.push(' ip ospf '+d0.ospf.pid+' area '+i.ospfArea);return L;}
+  if(i.ospfNet)L.push(' ip ospf network '+i.ospfNet);if(i.ospfPrio!=null)L.push(' ip ospf priority '+i.ospfPrio);if(i.ospfCost!=null)L.push(' ip ospf cost '+i.ospfCost);if(i.ospfHello)L.push(' ip ospf hello-interval '+i.ospfHello);if(i.ospfDead)L.push(' ip ospf dead-interval '+i.ospfDead);if(i.ospfArea!=null&&d0.ospf)L.push(' ip ospf '+d0.ospf.pid+' area '+i.ospfArea);return L;}
 function globalExtra(d){const L=[];
   if(d.tz)L.push('clock timezone '+d.tz.name+' '+d.tz.off);if(d.cdp===false)L.push('no cdp run');if(d.lldp&&d.type!=='pc')L.push('lldp run');
   (d.users||[]).forEach(u=>L.push('username '+u.name+(u.priv>1?' privilege '+u.priv:'')+(u.kind==='secret'?' secret 5 $1$mERr$9cTjUIEqNGurQiFU.ZeCi1':' password '+pwText(d,u.pw))));
   if(d.domain)L.push('ip domain-name '+d.domain);if(d.sshv)L.push('ip ssh version '+d.sshv);
-  if(d.stp){if(d.stp.mode!=='pvst')L.push('spanning-tree mode '+d.stp.mode);for(const v in d.stp.prio)L.push('spanning-tree vlan '+v+' priority '+d.stp.prio[v]);}
+  if(d.stp){if(d.stp.mode!=='pvst')L.push('spanning-tree mode '+d.stp.mode);if(d.stp.bpduDefault)L.push('spanning-tree portfast bpduguard default');for(const v in d.stp.prio)L.push('spanning-tree vlan '+v+' priority '+d.stp.prio[v]);}
   if(d.dhcp){d.dhcp.excluded.forEach(([a,b])=>L.push('ip dhcp excluded-address '+n2ip(a)+(b!==a?' '+n2ip(b):'')));
     for(const[n,p]of Object.entries(d.dhcp.pools)){L.push('ip dhcp pool '+n);if(p.net!==null)L.push(' network '+n2ip(p.net)+' '+n2ip(lenMask(p.len)));if(p.gw!=null)L.push(' default-router '+n2ip(p.gw));if(p.dns!=null)L.push(' dns-server '+n2ip(p.dns));for(const[o,v] of Object.entries(p.opts||{}))L.push(' option '+o+' ip '+n2ip(v));}}
   if(d.nat){d.nat.statics.forEach(s=>L.push('ip nat inside source static '+n2ip(s.local)+' '+n2ip(s.global)));for(const[n,P] of Object.entries(d.nat.pools||{}))L.push('ip nat pool '+n+' '+n2ip(P.start)+' '+n2ip(P.end)+' netmask '+n2ip(lenMask(P.len)));d.nat.rules.forEach(r=>L.push('ip nat inside source list '+r.acl+(r.pool?' pool '+r.pool:' interface '+r.ifn)+(r.overload?' overload':'')));}
@@ -1310,7 +1320,7 @@ C(EX,'show ip ospf interface <rest?>',e=>{const{net,d,out}=e;if(!d.ospf)return;c
       const dr=find(s.dr),bdr=find(s.bdr);
       if(dr)out('  Designated Router (ID) '+n2ip(dr.rid)+', Interface address '+n2ip(dr.ip));
       out(bdr?'  Backup Designated router (ID) '+n2ip(bdr.rid)+', Interface address '+n2ip(bdr.ip):'  No backup designated router on this network');}
-    out('  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5');
+    {const [h,dd]=ospfTimers(i);out('  Timer intervals configured, Hello '+h+', Dead '+dd+', Wait '+dd+', Retransmit 5');}
     if(isPassive(d,i.name)){out('    No Hellos (Passive interface)');continue;}
     const adj=nb.filter(n=>role!=='DROTHER'||['DR','BDR'].includes(ospfRole(net,n.dev,n.pifc)));
     out('  Neighbor Count is '+nb.length+', Adjacent neighbor count is '+adj.length,...adj.map(n=>{const r=role==='P2P'?'':ospfRole(net,n.dev,n.pifc);return '    Adjacent with neighbor '+n2ip(routerId(n.dev))+(r==='DR'?'  (Designated Router)':r==='BDR'?'  (Backup Designated Router)':'');}));}},['router']);
@@ -1427,7 +1437,7 @@ LABS.push(
  addr:[['SW1','Should be root','MAC 0019.e8a2.3c00'],['SW2','Should be backup root','MAC 0019.e8a2.2b00'],['SW3','Oldest switch','MAC 000d.bd11.0a00']],
  tasks:['Run <code>show spanning-tree</code> on each switch and work out which one is root and which port is blocking.','Switch all three to Rapid PVST+.','Make SW1 the primary root for VLAN 1.','Make SW2 the secondary root for VLAN 1.','On the host ports (SW1 Fa0/1 and SW3 Fa0/1), enable PortFast and BPDU Guard.','Run <code>show spanning-tree</code> again and find the blocked port.'],
  why:['With equal priorities the lowest MAC wins, so the oldest switch (SW3) is root by accident. Traffic then takes paths nobody planned.','Classic STP waits 30 to 50 seconds after a change. Rapid PVST+ recovers in about a second.','The root should be your most central, most capable switch, because all paths are calculated toward it. primary sets priority 24576.','If the root fails, you want a chosen switch to take over, not whichever has the lowest MAC. secondary sets priority 28672.','PortFast lets a host port forward immediately. BPDU Guard shuts the port if someone plugs a switch into it, protecting the topology you just designed.','One port in the loop must block. It ends up on the link furthest from the root, on the switch with the worse bridge ID.'],
- checks:[['All three switches run Rapid PVST+',n=>['SW1','SW2','SW3'].every(s=>n.devs[s].stp&&n.devs[s].stp.mode==='rapid-pvst')],['SW1 is the root bridge for VLAN 1',n=>stpCalc(n,1).root===n.devs.SW1],['SW2 is the secondary root (priority 28672)',n=>stpPrio(n.devs.SW2,1)===28673],['Host ports have PortFast and BPDU Guard',n=>[IF(n,'SW1','f0/1'),IF(n,'SW3','f0/1')].every(i=>i.portfast&&i.bpduguard)],['The blocked port is SW3 Gi0/2',n=>stpCalc(n,1).info.SW3.ports['GigabitEthernet0/2'].role==='Altn']],
+ checks:[['All three switches run Rapid PVST+',n=>['SW1','SW2','SW3'].every(s=>n.devs[s].stp&&n.devs[s].stp.mode==='rapid-pvst')],['SW1 is the root bridge for VLAN 1',n=>stpCalc(n,1).root===n.devs.SW1],['SW2 is the secondary root (priority 28672)',n=>stpPrio(n.devs.SW2,1)===28673],['Host ports have PortFast and BPDU Guard',n=>[IF(n,'SW1','f0/1'),IF(n,'SW3','f0/1')].every(i=>i.portfast&&i.bpduguard)],['The blocked port is SW3 Gi0/2',n=>(stpCalc(n,1).info.SW3.ports['GigabitEthernet0/2']||{}).role==='Altn']],
  solution:{SW1:['enable','configure terminal','spanning-tree mode rapid-pvst','spanning-tree vlan 1 root primary','interface f0/1','spanning-tree portfast','spanning-tree bpduguard enable','end','show spanning-tree'],
   SW2:['enable','configure terminal','spanning-tree mode rapid-pvst','spanning-tree vlan 1 root secondary','end'],
   SW3:['enable','configure terminal','spanning-tree mode rapid-pvst','interface f0/1','spanning-tree portfast','spanning-tree bpduguard enable','end','show spanning-tree']}},
@@ -2578,6 +2588,87 @@ addLab({title:'First-hop redundancy with HSRP',group:'Routing',
   'R1: show standby brief ; R2: show standby brief ; PC1: ping 192.168.1.1 | ping 203.0.113.10 ; PC2: ping 203.0.113.10',
   'R1: configure terminal | interface g0/0 | shutdown ; R2: show standby brief ; PC1: ping 203.0.113.10 | tracert 203.0.113.10',
   'R1: no shutdown | end | show standby']);
+
+// ===== phase 4 =====
+// ---------- err-disabled ports: BPDU Guard, EtherChannel misconfiguration, port security ----------
+// Checked after every command. An err-disabled port is down at both ends until "shutdown" then "no shutdown";
+// if the cause is still there, it err-disables again straight away.
+function errScan(net,d0,out){
+  const say=(sw,msg)=>{if(sw===d0){out.push((sw.tsLog?stamp(net,sw):'')+msg);logEvent(net,sw,msg);}else logEvent(net,sw,msg);};
+  const down=(sw,i,why)=>{i.errdis=why;say(sw,'%LINK-3-UPDOWN: Interface '+i.name+', changed state to down');say(sw,'%LINEPROTO-5-UPDOWN: Line protocol on Interface '+i.name+', changed state to down');
+    const pd=i.link&&net.devs[i.link.dev];if(pd&&pd.type!=='pc'){say(pd,'%LINK-3-UPDOWN: Interface '+i.link.ifn+', changed state to down');say(pd,'%LINEPROTO-5-UPDOWN: Line protocol on Interface '+i.link.ifn+', changed state to down');}};
+  for(const sw of Object.values(net.devs)){if(sw.type!=='switch')continue;
+    for(const i of Object.values(sw.ifs)){if(/^(Vlan|Port|Loop)/.test(i.name))continue;const P=i.ps;
+      if(P&&P.macs&&(!i.link||!ifUp0(net,sw,i)))P.macs=P.macs.filter(m=>m.kind!=='dynamic');
+      if(i.shutdown||i.errdis||!i.link)continue;const pd=net.devs[i.link.dev],pi=pd.ifs[i.link.ifn];if(pi.shutdown||pi.errdis)continue;
+      // BPDU Guard: a BPDU from another switch on a guarded port err-disables it.
+      if((i.bpduguard||(sw.stp&&sw.stp.bpduDefault&&i.portfast))&&pd.type==='switch'&&!pi.routed){
+        say(sw,'%SPANTREE-2-BLOCK_BPDUGUARD: Received BPDU on port '+i.name+' with BPDU Guard enabled. Disabling port.');say(sw,'%PM-4-ERR_DISABLE: bpduguard error detected on '+shortIf(i.name)+', putting '+shortIf(i.name)+' in err-disable state');down(sw,i,'bpduguard');continue;}
+      // EtherChannel guard: a bundle forced on while the far end does not bundle statically would loop, so the bundle is err-disabled.
+      if(i.chan&&i.chanMode==='on'&&pd.type==='switch'&&!(pi.chan&&pi.chanMode==='on')){const ms=Object.values(sw.ifs).filter(p=>p.chan===i.chan&&!p.errdis);
+        say(sw,'%SPANTREE-2-CHNL_MISCFG: Detected loop due to etherchannel misconfiguration of '+ms.map(p=>shortIf(p.name)).join(' '));
+        for(const p of ms){say(sw,'%PM-4-ERR_DISABLE: channel-misconfig (STP) error detected on Po'+i.chan+', putting '+shortIf(p.name)+' in err-disable state');down(sw,p,'channel-misconfig');}continue;}
+      // Port security: addresses are learned up to the maximum (sticky ones go into the config); one more is a violation.
+      if(P&&P.on&&pd.type==='pc'){P.macs=P.macs||[];const seen=[macOf(pd)];if(pd.phone){const pcp=pd.ifs.FastEthernet1;if(pcp&&pcp.link)seen.push(macOf(net.devs[pcp.link.dev]));}
+        for(const m of seen){if(P.macs.some(x=>x.mac===m)||(P.blocked||[]).includes(m))continue;if(P.macs.length<P.max){P.macs.push({mac:m,kind:P.sticky?'sticky':'dynamic'});continue;}
+          P.viol=(P.viol||0)+1;P.last=m;
+          if(P.violation==='shutdown'){say(sw,'%PM-4-ERR_DISABLE: psecure-violation error detected on '+shortIf(i.name)+', putting '+shortIf(i.name)+' in err-disable state');
+            say(sw,'%PORT_SECURITY-2-PSECURE_VIOLATION: Security violation occurred, caused by MAC address '+m+' on port '+i.name+'.');down(sw,i,'psecure-violation');break;}
+          (P.blocked||(P.blocked=[])).push(m);if(P.violation==='restrict')say(sw,'%PORT_SECURITY-2-PSECURE_VIOLATION: Security violation occurred, caused by MAC address '+m+' on port '+i.name+'.');}}}}}
+{const ex0=execLine;execLine=function(net,d,s,line){const sh=new Map();for(const x of Object.values(net.devs))for(const i of Object.values(x.ifs))sh.set(i,!!i.shutdown);
+  const out=ex0(net,d,s,line);
+  for(const [i,was] of sh)if(i.shutdown&&!was&&i.errdis){delete i.errdis;if(i.ps)i.ps.blocked=[];}
+  errScan(net,d,out);return out;};}
+// A host whose address port security restricts or protects against gets no frames through.
+{const db0=daiBlock;daiBlock=function(net,path,sender,ifc){const r=db0(net,path,sender,ifc);if(r)return r;
+  for(let k=1;k<path.length-1;k++){const sw=net.devs[path[k]];if(sw.type!=='switch')continue;const p=portTo(net,sw,path[k-1]);if(p&&p.ps&&p.ps.on&&(p.ps.blocked||[]).includes(macOf(sender)))
+    return {sw:sw.name,text:'Port security ('+p.ps.violation+') on '+sw.hostname+' '+shortIf(p.name)+' drops frames from '+macOf(sender)};break;}return null;};}
+const psAdd=(e,kind)=>{const m=parseMac(e.args[0]);if(!m)return e.out(BAD);for(const i of e.s.ctx){const P=psOf(i);P.macs=(P.macs||[]).filter(x=>x.mac!==m);
+  if(P.macs.length>=P.max)return e.out('Total secure mac-addresses on interface '+i.name+' has reached maximum limit.');P.macs.push({mac:m,kind});}};
+Cn('if','switchport port-security mac-address sticky <w>',e=>psAdd(e,'sticky'),['switch']);
+Cn('if','no switchport port-security mac-address sticky <w>',e=>{const m=parseMac(e.args[0]);e.s.ctx.forEach(i=>{const P=psOf(i);P.macs=(P.macs||[]).filter(x=>x.mac!==m);});},['switch']);
+Cn('if','switchport port-security mac-address <w>',e=>psAdd(e,'static'),['switch']);
+Cn('if','no switchport port-security mac-address <w>',e=>{const m=parseMac(e.args[0]);e.s.ctx.forEach(i=>{const P=psOf(i);P.macs=(P.macs||[]).filter(x=>x.mac!==m);});},['switch']);
+Cn('if','no channel-group <rest?>',e=>e.s.ctx.forEach(i=>{delete i.chan;delete i.chanMode;}),['switch']);
+Cn('if','no spanning-tree bpduguard enable',e=>e.s.ctx.forEach(i=>{i.bpduguard=false;}),['switch']);
+Cn('if','no spanning-tree portfast',e=>e.s.ctx.forEach(i=>{i.portfast=false;}),['switch']);
+Cn('config','spanning-tree portfast bpduguard default',e=>{stpOf(e.d).bpduDefault=true;},['switch']);
+Cn('if','ip ospf hello-interval <n>',e=>{if(e.args[0]<1||e.args[0]>65535)return e.out(BAD);e.s.ctx.forEach(i=>{i.ospfHello=e.args[0];});},['router','switch']);
+Cn('if','no ip ospf hello-interval',e=>e.s.ctx.forEach(i=>{delete i.ospfHello;}),['router','switch']);
+Cn('if','ip ospf dead-interval <n>',e=>{if(e.args[0]<1||e.args[0]>65535)return e.out(BAD);e.s.ctx.forEach(i=>{i.ospfDead=e.args[0];});},['router','switch']);
+Cn('if','no ip ospf dead-interval',e=>e.s.ctx.forEach(i=>{delete i.ospfDead;}),['router','switch']);
+Cn(EX,'show interfaces status <rest?>',e=>{const{net,d,out}=e,err=/^err/i.test((e.args[0]||'').trim());if(e.args[0]&&!err)return out(BAD);
+  out(err?'Port      Name               Status       Reason               Err-disabled Vlans':'Port      Name               Status       Vlan       Duplex  Speed Type');
+  for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(/^(Vlan|Loop)/.test(n)||(err&&!i.errdis))continue;const up=ifUp(net,d,i),fe=n.startsWith('Fast');
+    const st=i.errdis?'err-disabled':i.shutdown?'disabled':up?'connected':'notconnect';
+    out(err?pad(shortIf(n),10)+pad((i.desc||'').slice(0,18),19)+pad(st,13)+i.errdis:pad(shortIf(n),10)+pad((i.desc||'').slice(0,18),19)+pad(st,13)+pad(i.routed?'routed':i.mode==='trunk'?'trunk':i.accessVlan,11)+pad(up?'a-full':'auto',8)+pad(up?(fe?'a-100':'a-1000'):'auto',7)+(n.startsWith('Port')?'':fe?'10/100BaseTX':'10/100/1000BaseTX'));}},['switch'],true);
+Object.assign(WHYC,{
+'show interfaces status <rest?>':'One line per switch port: description, status (connected, notconnect, disabled, err-disabled), VLAN, duplex and speed. Add err-disabled to list only those ports and why.',
+'ip ospf hello-interval <n>':'How often this interface sends OSPF hellos. Neighbors must use the same hello and dead intervals or they never become adjacent.',
+'ip ospf dead-interval <n>':'How long to wait without hellos before declaring a neighbor dead; four hellos by default. Must match the neighbor.',
+'no spanning-tree bpduguard enable':'Removes BPDU Guard from the port. On a port that leads to another switch, it should never have been on.',
+'spanning-tree portfast bpduguard default':'Turns BPDU Guard on for every PortFast port automatically.',
+'switchport port-security mac-address sticky <w>':'A sticky address learned earlier and saved in the config. It stays allowed on the port until you remove it.',
+'no switchport port-security mac-address sticky <w>':'Forgets a stored sticky address, for example after the device on that port has been replaced.'});
+
+// ---------- more troubleshooting incidents (phase 4) ----------
+// Built like the original six: the base lab's solution, optional background setup, then the fault. Checks are the base lab's.
+const INC0=LABS.find(l=>l.kind==='incident');
+function addIncident(spec){const base=LABS.find(l=>l.title===spec.base);if(!base)throw Error('No base lab '+spec.base);INCIDENTS.push(spec);
+  LABS.push({title:spec.title,kind:'incident',group:'Troubleshooting',baseTitle:base.title,ccna:base.ccna.slice(),brief:spec.brief,pos:base.pos,start:spec.start,addr:base.addr,hidePorts:base.hidePorts,
+    tasks:INC0.tasks.slice(),why:INC0.why.slice(),hints:spec.hints,lesson:spec.lesson,solution:spec.repair,checks:base.checks,steps:stepsOf(spec.steps),
+    build(){const net=base.build();incidentCommands(net,base.solution);if(spec.setup)incidentCommands(net,spec.setup);incidentCommands(net,spec.fault);return net;}});}
+const EN=['enable','configure terminal'];
+
+// ----- incident 07
+addIncident({title:'Incident 07: one branch fell off the map',base:'Single-area OSPF',start:'PC1',
+ brief:'After a maintenance window, PC1 can still reach PC2 but nothing behind R3 answers. Every interface is up. The design is a single OSPF area 0. Find out why R3 is isolated and put it back in the design.',
+ symptom:['PC1','192.168.3.10'],
+ fault:{R3:[...EN,'router ospf 1','no network 10.0.13.0 0.0.0.3 area 0','no network 10.0.23.0 0.0.0.3 area 0','network 10.0.13.0 0.0.0.3 area 1','network 10.0.23.0 0.0.0.3 area 1','end']},
+ repair:{R3:[...EN,'router ospf 1','no network 10.0.13.0 0.0.0.3 area 1','no network 10.0.23.0 0.0.0.3 area 1','network 10.0.13.0 0.0.0.3 area 0','network 10.0.23.0 0.0.0.3 area 0','end','show ip ospf neighbor'],PC1:['ping 192.168.3.10']},
+ steps:['PC1: ping 192.168.3.10 | ping 192.168.2.10','R1: enable | show ip ospf neighbor ; R3: enable | show ip ospf neighbor | show ip protocols','R3: configure terminal | router ospf 1 | no network 10.0.13.0 0.0.0.3 area 1 | no network 10.0.23.0 0.0.0.3 area 1 | network 10.0.13.0 0.0.0.3 area 0 | network 10.0.23.0 0.0.0.3 area 0 | end','R3: show ip ospf neighbor ; PC1: ping 192.168.3.10 | ping 192.168.2.10'],
+ hints:['PC2 works and PC3 does not, and everything behind R3 is missing at once. Look at R3\'s adjacencies before any single route.','R3 has no OSPF neighbors at all. Compare the area numbers in R3\'s network statements (show ip protocols) with R1\'s and R2\'s.','R3 put both uplinks in area 1 while R1 and R2 use area 0. Remove those statements and add the same networks back in area 0.'],
+ lesson:'Two routers only become neighbors if they agree on the area of the link between them, as well as the subnet and timers. A router whose uplinks sit in the wrong area is an island even though every interface is up.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
