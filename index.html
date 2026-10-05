@@ -2699,6 +2699,16 @@ addIncident({title:'Incident 10: the router can, the hosts cannot',base:'NAT ove
  steps:['PC1: ping 198.51.100.10 ; R1: enable | ping 198.51.100.10','R1: show ip nat translations | show running-config','R1: configure terminal | interface g0/0 | ip nat inside | interface g0/1 | ip nat outside | end','PC1: ping 198.51.100.10 | telnet 198.51.100.10 80 ; R1: show ip nat translations'],
  hints:['R1 reaches the server from its public address; the hosts do not. Their packets leave with a private source the ISP cannot route back to.','show ip nat translations stays empty. In show running-config, check which interface is marked inside and which outside, against the address plan.','The roles are swapped: G0/0 faces the LAN and must be inside, G0/1 faces the ISP and must be outside. The PAT rule itself is correct.'],
  lesson:'NAT only translates traffic that enters an inside interface and leaves an outside one. With the roles reversed nothing matches, so no translation is ever created and the router\'s own traffic is the only thing that still works.'});
+
+// ----- incident 11
+addIncident({title:'Incident 11: the guests lost more than the server',base:'Standard ACL',start:'R2',
+ brief:'Guests are kept away from the server, as intended. But they have also lost R2 itself, which the policy allows. Find where the guest filter is applied and move it so it blocks exactly what it should.',
+ symptom:['PC2','10.0.0.2'],
+ fault:{R2:[...EN,'interface g0/1','no ip access-group 10 out','interface g0/0','ip access-group 10 in','end']},
+ repair:{R2:[...EN,'interface g0/0','no ip access-group 10 in','interface g0/1','ip access-group 10 out','end','show access-lists'],PC2:['ping 10.0.0.2']},
+ steps:['PC2: ping 10.0.0.2 | ping 192.168.3.10 ; PC1: ping 192.168.3.10','R2: enable | show access-lists | show running-config','R2: configure terminal | interface g0/0 | no ip access-group 10 in | interface g0/1 | ip access-group 10 out | end','PC2: ping 10.0.0.2 | # still blocked from the server, as intended | ping 192.168.3.10 ; PC1: ping 192.168.3.10'],
+ hints:['The block itself works; it is catching more than it should. That points at where the filter sits, not what it says.','show access-lists shows ACL 10 matching guest packets. show running-config shows the interface and direction it is applied in. Which interface do guest packets cross on their way to R2\'s address?','ACL 10 is inbound on G0/0, so it stops guests at R2\'s front door. Remove it there and apply it outbound on G0/1, next to the server.'],
+ lesson:'A standard ACL can only see the source address, so its position decides what it blocks. Near the destination it blocks one destination; anywhere earlier on the path it blocks everything behind that point.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
