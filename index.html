@@ -1539,6 +1539,33 @@ addLab({title:'OSPF router IDs and passive interfaces',group:'Routing',
   'R1: configure terminal | router ospf 1 | passive-interface default ; R2: configure terminal | router ospf 1 | passive-interface default',
   'R1: no passive-interface g0/1 | end ; R2: no passive-interface g0/1 | end',
   'R1: show ip ospf neighbor | show ip protocols ; R2: show ip route ; PC1: ping 192.168.2.10']);
+
+// ----- phase 1, lab 5
+CCNA_LAB_MAP['Per-VLAN root bridges']=['2.5'];
+const stpRole=(n,sw,v,ifn)=>{const r=stpCalc(n,v),p=r&&r.info[sw]&&r.info[sw].ports[parseIf(ifn)];return p?p.role:null;};
+addLab({title:'Per-VLAN root bridges',group:'Switching',
+ brief:'Two distribution switches and one access switch, with VLAN 10 and VLAN 20 on every trunk. Right now the old access switch is root for everything, and one uplink sits idle. Make each distribution switch root for one VLAN and backup for the other, so both uplinks carry traffic.',
+ pos:{PC4:[55,50],DSW1:[180,50],DSW2:[420,50],PC3:[545,50],ASW1:[300,160],PC1:[185,215],PC2:[415,215]},start:'ASW1',
+ build(){const a=mkSwitch('DSW1'),b=mkSwitch('DSW2'),c=mkSwitch('ASW1');a.mac='0019.e8a2.3c00';b.mac='0019.e8a2.4d00';c.mac='0009.7c11.0100';
+  const n=mkNet([a,b,c,mkPC('PC1','192.168.10.11',24),mkPC('PC2','192.168.20.12',24),mkPC('PC3','192.168.10.13',24),mkPC('PC4','192.168.20.14',24)]);
+  link(n,'DSW1','g0/1','DSW2','g0/1');link(n,'DSW1','g0/2','ASW1','g0/1');link(n,'DSW2','g0/2','ASW1','g0/2');
+  link(n,'ASW1','f0/1','PC1','f0');link(n,'ASW1','f0/2','PC2','f0');link(n,'DSW2','f0/1','PC3','f0');link(n,'DSW1','f0/1','PC4','f0');
+  const v=['enable','configure terminal','vlan 10','name STAFF','vlan 20','name GUEST','interface range g0/1 - 2','switchport mode trunk','exit'];
+  cfg(n,{DSW1:v.concat('interface f0/1','switchport mode access','switchport access vlan 20','end'),DSW2:v.concat('interface f0/1','switchport mode access','switchport access vlan 10','end'),
+   ASW1:v.concat('interface f0/1','switchport mode access','switchport access vlan 10','interface f0/2','switchport mode access','switchport access vlan 20','end')});return n;},
+ addr:[['DSW1','Root for VLAN 10, backup for 20','MAC 0019.e8a2.3c00'],['DSW2','Root for VLAN 20, backup for 10','MAC 0019.e8a2.4d00'],['ASW1','Access switch, oldest','MAC 0009.7c11.0100'],['PC1 / PC3','VLAN 10 STAFF','192.168.10.11, .13'],['PC2 / PC4','VLAN 20 GUEST','192.168.20.12, .14']],
+ tasks:['On ASW1, run <code>show spanning-tree vlan 10</code> and <code>show spanning-tree vlan 20</code>. Which switch is root, and why?','Switch all three switches to Rapid PVST+.','On DSW1, make it the primary root for VLAN 10 and the secondary root for VLAN 20.','On DSW2, make it the primary root for VLAN 20 and the secondary root for VLAN 10.','On ASW1, check both VLANs again: the root port for VLAN 10 should be Gi0/1 and for VLAN 20 Gi0/2, with the other uplink blocking in each.','Ping PC3 from PC1 and PC4 from PC2.'],
+ why:['With every priority at the default 32768, the lowest MAC address wins, and the oldest switch usually has it. An access switch as root forces traffic through the weakest box in the network.','Rapid PVST+ runs a separate tree per VLAN, which is what makes per-VLAN roots possible, and it reconverges in about a second instead of 30 to 50.','root primary is a macro, not a value: it sets 24576, or 4096 below the current root if 24576 would not be enough. root secondary sets 28672, so this switch takes over if the primary fails.','Mirroring the roles splits the VLANs across the two distribution switches. Each one is the centre of one tree and the standby for the other.','Each VLAN has its own tree, so each blocks a different uplink. Both uplinks now carry traffic: VLAN 10 on one, VLAN 20 on the other. If either distribution switch fails, its VLAN fails over to the other.','Spanning tree changes paths, never reachability. Hosts in the same VLAN must still reach each other after the change.'],
+ checks:[['All three switches run Rapid PVST+',n=>['DSW1','DSW2','ASW1'].every(s=>n.devs[s].stp&&n.devs[s].stp.mode==='rapid-pvst')],['DSW1 is root for VLAN 10 and DSW2 is root for VLAN 20',n=>stpCalc(n,10).root===n.devs.DSW1&&stpCalc(n,20).root===n.devs.DSW2],['Each distribution switch is secondary root for the other VLAN',n=>stpPrio(n.devs.DSW2,10)===28672+10&&stpPrio(n.devs.DSW1,20)===28672+20],['ASW1 uses Gi0/1 for VLAN 10 and Gi0/2 for VLAN 20, blocking the other uplink',n=>stpRole(n,'ASW1',10,'g0/1')==='Root'&&stpRole(n,'ASW1',10,'g0/2')==='Altn'&&stpRole(n,'ASW1',20,'g0/2')==='Root'&&stpRole(n,'ASW1',20,'g0/1')==='Altn'],['PC1 reaches PC3 and PC2 reaches PC4',n=>P(n,'PC1','192.168.10.13')&&P(n,'PC2','192.168.20.14')]],
+ solution:{DSW1:['enable','configure terminal','spanning-tree mode rapid-pvst','spanning-tree vlan 10 root primary','spanning-tree vlan 20 root secondary','end'],
+  DSW2:['enable','configure terminal','spanning-tree mode rapid-pvst','spanning-tree vlan 20 root primary','spanning-tree vlan 10 root secondary','end'],
+  ASW1:['enable','configure terminal','spanning-tree mode rapid-pvst','end','show spanning-tree vlan 10']}},
+ ['ASW1: enable | show spanning-tree vlan 10 | show spanning-tree vlan 20',
+  'DSW1: enable | configure terminal | spanning-tree mode rapid-pvst ; DSW2: enable | configure terminal | spanning-tree mode rapid-pvst ; ASW1: configure terminal | spanning-tree mode rapid-pvst | end',
+  'DSW1: spanning-tree vlan 10 root primary | spanning-tree vlan 20 root secondary | end',
+  'DSW2: spanning-tree vlan 20 root primary | spanning-tree vlan 10 root secondary | end',
+  'ASW1: # root port Gi0/1, and Gi0/2 Altn BLK | show spanning-tree vlan 10 | # now the other way round | show spanning-tree vlan 20',
+  'PC1: ping 192.168.10.13 ; PC2: ping 192.168.20.14']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
