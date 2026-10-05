@@ -2773,6 +2773,16 @@ addIncident({title:'Incident 17: the admins are locked out',base:'Locking down d
  steps:['ADMIN: ssh -l admin 192.168.10.1 ; PC1: ssh -l admin 192.168.20.1','R1: enable | show access-lists | show running-config','R1: configure terminal | ip access-list standard 10 | no 10 | 10 permit 192.168.10.0 0.0.0.255 | end | copy running-config startup-config','ADMIN: ssh -l admin 192.168.10.1 ; PC1: # still refused, as intended | ssh -l admin 192.168.20.1'],
  hints:['SSH is refused, not timing out, so the router is reachable and something is turning the session away on purpose.','The VTY lines still use access-class 10. Read ACL 10 in show access-lists: which subnet does it permit?','ACL 10 permits the user subnet instead of the admin subnet. Edit line 10 to permit 192.168.10.0/24, then save, because the startup config no longer matches.'],
  lesson:'access-class turns away anyone the ACL does not permit, including the people who wrote it. Numbered ACLs can be edited line by line in ip access-list mode, and any change to a saved hardening config needs saving again.'});
+
+// ----- incident 18
+addIncident({title:'Incident 18: passive by default, silent by mistake',base:'OSPF router IDs and passive interfaces',start:'R2',
+ brief:'The rogue router is still shut out, as intended, but now the two sites cannot reach each other either. Someone added a line to R2\'s OSPF config. Restore the adjacency without opening the user LANs again.',
+ symptom:['PC1','192.168.2.10'],
+ fault:{R2:[...EN,'router ospf 1','passive-interface g0/1','end']},
+ repair:{R2:[...EN,'router ospf 1','no passive-interface g0/1','end','show ip ospf neighbor'],PC1:['ping 192.168.2.10']},
+ steps:['PC1: ping 192.168.2.10','R1: enable | show ip ospf neighbor ; R2: enable | show ip ospf neighbor | show ip protocols','R2: configure terminal | router ospf 1 | no passive-interface g0/1 | end','R2: show ip ospf neighbor ; R1: show ip route ; PC1: ping 192.168.2.10'],
+ hints:['Neither router has any OSPF neighbor now, but both are still running OSPF and the link between them is up.','show ip protocols on R2 lists its passive interfaces. With passive-interface default, the uplink must be the one exception.','R2\'s G0/1 is passive again. Remove that with no passive-interface g0/1; leave the default in place so the LANs stay protected.'],
+ lesson:'A passive interface sends no hellos, so no neighbor can form there. With passive-interface default, every link that needs a neighbor must be listed as an exception, and losing that exception cuts the routers apart.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
