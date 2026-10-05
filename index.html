@@ -1066,18 +1066,44 @@ C('dhcp','lease <rest>',()=>{});
 C('dhcp','domain-name <w>',()=>{});
 C('if','ip helper-address <ip>',e=>e.s.ctx.forEach(i=>{i.helper=e.args[0];}),['router']);
 C(EX,'show ip dhcp binding',e=>{e.out('IP address       Hardware address    Lease expiration     Type');((e.d.dhcp||{}).bindings||[]).forEach(b=>e.out(pad(n2ip(b.ip),17)+pad(b.mac,20)+pad('23 hours',21)+'Automatic'));},['router']);
-function dhcpOffer(net,S,gi,pc){const D=S.dhcp;if(!D)return null;const pool=Object.values(D.pools).find(p=>p.net!==null&&netOf(gi,p.len)===p.net);if(!pool)return null;
+function dhcpOffer(net,S,gi,pc,dry){const D=S.dhcp;if(!D)return null;const pool=Object.values(D.pools).find(p=>p.net!==null&&netOf(gi,p.len)===p.net);if(!pool)return null;
   let b=D.bindings.find(b=>b.client===pc.name&&netOf(b.ip,pool.len)===pool.net);
   if(!b){const used=new Set(D.bindings.map(b=>b.ip));const bc=(pool.net|~lenMask(pool.len))>>>0;
-    for(let ip=pool.net+1;ip<bc;ip++){if(used.has(ip)||D.excluded.some(([lo,hi])=>ip>=lo&&ip<=hi))continue;b={ip,client:pc.name,mac:macOf(pc)};D.bindings.push(b);break;}}
+    for(let ip=pool.net+1;ip<bc;ip++){if(used.has(ip)||D.excluded.some(([lo,hi])=>ip>=lo&&ip<=hi))continue;b={ip,client:pc.name,mac:macOf(pc)};if(!dry)D.bindings.push(b);break;}}
   return b?{ip:b.ip,len:pool.len,gw:pool.gw,dns:pool.dns,server:S}:null;}
-function dhcpRenew(net,pc){const i=nic(pc);i.ip=null;
-  for(const p of l2peers(net,pc,i)){if(!isL3(p.dev))continue;let o=dhcpOffer(net,p.dev,p.ifc.ip,pc);
-    if(!o&&p.ifc.helper!=null){const S=Object.values(net.devs).find(x=>isL3(x)&&ownsIp(net,x,p.ifc.helper));if(S&&reach(net,p.dev,p.ifc.helper).ok&&reach(net,S,p.ifc.ip).ok)o=dhcpOffer(net,S,p.ifc.ip,pc);}
-    if(o){i.ip=o.ip;i.len=o.len;pc.gw=o.gw;return o;}}
-  return null;}
+// The port on a switch that leads to the named neighbour device.
+const portTo=(net,sw,name)=>Object.values(sw.ifs).find(x=>x.link&&x.link.dev===name&&ifUp(net,sw,x));
+// DHCP snooping along a Layer 2 path from the client to the device answering it. Server messages arriving on an
+// untrusted port of a snooping switch are dropped; the switch also inserts option 82 unless told not to.
+function snoopPath(net,path){let vlan=null,opt82=false,sws=[];
+  for(let k=1;k<path.length-1;k++){const sw=net.devs[path[k]];if(sw.type!=='switch')continue;const toC=portTo(net,sw,path[k-1]),toS=portTo(net,sw,path[k+1]);
+    if(vlan===null&&toC&&toC.mode!=='trunk'){const prev=net.devs[path[k-1]];vlan=prev.phone&&phoneVlan(net,prev)!=null?phoneVlan(net,prev):toC.accessVlan;}
+    const sn=sw.snoop;if(!sn||!sn.on||vlan===null||!sn.vlans.includes(vlan))continue;
+    if(!toS||!toS.snoopTrust)return {blocked:sw,vlan};sws.push({sw,port:toC,vlan});if(sn.opt82!==false)opt82=true;}
+  return {blocked:null,opt82,sws,vlan};}
+// Every DHCP server that can answer the client: a router or L3 switch on the segment (its own pool, or a relay to a
+// remote server) and any host running a DHCP service. The nearest answer wins, as the first offer would.
+function dhcpCandidates(net,pc){const i=nic(pc),out=[];
+  for(const p of l2peers(net,pc,i)){const sp=snoopPath(net,p.path);if(sp.blocked)continue;
+    if(isL3(p.dev)){
+      // An IOS server or relay drops a request carrying option 82 with no relay address unless told to trust it.
+      if(sp.opt82&&!p.dev.relayTrustAll&&!p.ifc.relayTrust)continue;
+      let o=dhcpOffer(net,p.dev,p.ifc.ip,pc,true),S=p.dev;
+      if(!o&&p.ifc.helper!=null){S=Object.values(net.devs).find(x=>isL3(x)&&ownsIp(net,x,p.ifc.helper));if(S&&reach(net,p.dev,p.ifc.helper).ok&&reach(net,S,p.ifc.ip).ok)o=dhcpOffer(net,S,p.ifc.ip,pc,true);}
+      if(o)out.push({o,S,gi:p.ifc.ip,p,sp});}
+    else if(p.dev.dhcpServe&&p.dev.services&&p.dev.services.includes(67)){const R=p.dev.dhcpServe;R.leases=R.leases||{};let ip=R.leases[pc.name];
+      if(ip==null){const used=new Set(Object.values(R.leases));for(let a=R.start;a<=R.end;a++)if(!used.has(a)){ip=a;break;}}
+      if(ip!=null)out.push({o:{ip,len:R.len,gw:R.gw,dns:R.dns,server:p.dev},S:p.dev,rogue:true,p,sp});}}
+  out.sort((a,b)=>a.p.path.length-b.p.path.length||(b.rogue?1:0)-(a.rogue?1:0));return out;}
+function dhcpRenew(net,pc){const i=nic(pc);i.ip=null;dropSnoopBindings(net,pc);
+  const c=dhcpCandidates(net,pc)[0];if(!c)return null;let o=c.o;
+  if(c.rogue)c.S.dhcpServe.leases[pc.name]=o.ip;else o=dhcpOffer(net,c.S,c.gi,pc);
+  i.ip=o.ip;i.len=o.len;pc.gw=o.gw;
+  for(const {sw,port,vlan} of c.sp.sws)(sw.snoop.bind||(sw.snoop.bind=[])).push({mac:macOf(pc),ip:o.ip,vlan,ifn:port.name,client:pc.name});
+  return o;}
+function dropSnoopBindings(net,pc){for(const d of Object.values(net.devs))if(d.snoop&&d.snoop.bind)d.snoop.bind=d.snoop.bind.filter(b=>b.client!==pc.name);}
 C('pc','ipconfig /renew',e=>{const o=dhcpRenew(e.net,e.d);if(!o)return e.out('DHCP request failed: no DHCP server answered.');e.out('Lease obtained from '+o.server.hostname+'.','   IPv4 Address. . . : '+n2ip(o.ip),'   Subnet Mask . . . : '+n2ip(lenMask(o.len)),'   Default Gateway . : '+(o.gw!=null?n2ip(o.gw):'(none)'));});
-C('pc','ipconfig /release',e=>{nic(e.d).ip=null;e.d.gw=null;});
+C('pc','ipconfig /release',e=>{nic(e.d).ip=null;e.d.gw=null;dropSnoopBindings(e.net,e.d);});
 
 // Port security
 const psOf=i=>i.ps||(i.ps={on:false,max:1,violation:'shutdown',sticky:false});
@@ -1179,7 +1205,7 @@ const prompt0=promptOf;promptOf=function(d,s){const h=d.hostname;if(s.mode==='ac
 function ifExtra(i,d0){const L=[];if(i.helper!=null)L.push(' ip helper-address '+n2ip(i.helper));if(i.aclIn)L.push(' ip access-group '+i.aclIn+' in');if(i.aclOut)L.push(' ip access-group '+i.aclOut+' out');if(i.nat)L.push(' ip nat '+i.nat);
   if(i.chan)L.push(' channel-group '+i.chan+' mode '+i.chanMode);
   if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');}
-  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.voiceVlan!=null)L.push(' switchport voice vlan '+i.voiceVlan);if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
+  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.voiceVlan!=null)L.push(' switchport voice vlan '+i.voiceVlan);if(i.snoopRate)L.push(' ip dhcp snooping limit rate '+i.snoopRate);if(i.snoopTrust)L.push(' ip dhcp snooping trust');if(i.relayTrust)L.push(' ip dhcp relay information trusted');if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
   if(i.ospfNet)L.push(' ip ospf network '+i.ospfNet);if(i.ospfPrio!=null)L.push(' ip ospf priority '+i.ospfPrio);if(i.ospfCost!=null)L.push(' ip ospf cost '+i.ospfCost);if(i.ospfArea!=null&&d0.ospf)L.push(' ip ospf '+d0.ospf.pid+' area '+i.ospfArea);return L;}
 function globalExtra(d){const L=[];
   if(d.tz)L.push('clock timezone '+d.tz.name+' '+d.tz.off);if(d.cdp===false)L.push('no cdp run');if(d.lldp&&d.type!=='pc')L.push('lldp run');
@@ -1190,6 +1216,8 @@ function globalExtra(d){const L=[];
     for(const[n,p]of Object.entries(d.dhcp.pools)){L.push('ip dhcp pool '+n);if(p.net!==null)L.push(' network '+n2ip(p.net)+' '+n2ip(lenMask(p.len)));if(p.gw!=null)L.push(' default-router '+n2ip(p.gw));if(p.dns!=null)L.push(' dns-server '+n2ip(p.dns));for(const[o,v] of Object.entries(p.opts||{}))L.push(' option '+o+' ip '+n2ip(v));}}
   if(d.nat){d.nat.statics.forEach(s=>L.push('ip nat inside source static '+n2ip(s.local)+' '+n2ip(s.global)));for(const[n,P] of Object.entries(d.nat.pools||{}))L.push('ip nat pool '+n+' '+n2ip(P.start)+' '+n2ip(P.end)+' netmask '+n2ip(lenMask(P.len)));d.nat.rules.forEach(r=>L.push('ip nat inside source list '+r.acl+(r.pool?' pool '+r.pool:' interface '+r.ifn)+(r.overload?' overload':'')));}
   for(const[n,a]of Object.entries(d.acls||{})){if(/^\d+$/.test(n))a.entries.forEach(en=>L.push('access-list '+n+' '+en.text));else{L.push('ip access-list '+a.type+' '+n);a.entries.forEach(en=>L.push(' '+en.text));}}
+  if(d.snoop&&d.snoop.on){if(d.snoop.vlans.length)L.push('ip dhcp snooping vlan '+d.snoop.vlans.join(','));if(d.snoop.opt82===false)L.push('no ip dhcp snooping information option');L.push('ip dhcp snooping');}
+  if(d.relayTrustAll)L.push('ip dhcp relay information trust-all');
   if(d.trapLevel!=null&&d.trapLevel!==6)L.push('logging trap '+SEVN[d.trapLevel]);(d.logHosts||[]).forEach(h=>L.push('logging host '+n2ip(h)));
   if(d.ntpMaster)L.push('ntp master '+d.ntpMaster);(d.ntpServers||[]).forEach(h=>L.push('ntp server '+n2ip(h)));
   if(L.length)L.push('!');return L;}
@@ -2183,6 +2211,57 @@ addLab({title:'Inter-VLAN routing on a Layer 3 switch',group:'Switching',
   'DSW1: interface g0/2 | no switchport | ip address 10.0.0.1 255.255.255.252 | exit',
   'DSW1: ip route 0.0.0.0 0.0.0.0 10.0.0.2 | end',
   'DSW1: show ip route ; PC1: ping 192.168.20.12 | tracert 192.168.20.12 ; PC3: ping 203.0.113.1']);
+
+// ----- phase 3, lab 17
+const snoopOf=d=>d.snoop||(d.snoop={on:false,vlans:[],opt82:true,bind:[]});
+Cn('config','ip dhcp snooping',e=>{snoopOf(e.d).on=true;},['switch']);
+Cn('config','no ip dhcp snooping',e=>{snoopOf(e.d).on=false;},['switch']);
+Cn('config','ip dhcp snooping vlan <rest>',e=>{const l=parseVlanList(e.args[0].replace(/\s+/g,''));if(!l)return e.out(BAD);const S=snoopOf(e.d);S.vlans=[...new Set(S.vlans.concat(l))].sort((a,b)=>a-b);},['switch']);
+Cn('config','no ip dhcp snooping vlan <rest>',e=>{const l=parseVlanList(e.args[0].replace(/\s+/g,''))||[];const S=snoopOf(e.d);S.vlans=S.vlans.filter(v=>!l.includes(v));},['switch']);
+Cn('config','ip dhcp snooping information option',e=>{snoopOf(e.d).opt82=true;},['switch']);
+Cn('config','no ip dhcp snooping information option',e=>{snoopOf(e.d).opt82=false;},['switch']);
+Cn('if','ip dhcp snooping trust',e=>e.s.ctx.forEach(i=>{i.snoopTrust=true;}),['switch']);
+Cn('if','no ip dhcp snooping trust',e=>e.s.ctx.forEach(i=>{i.snoopTrust=false;}),['switch']);
+Cn('if','ip dhcp snooping limit rate <n>',e=>e.s.ctx.forEach(i=>{i.snoopRate=e.args[0];}),['switch']);
+Cn('config','ip dhcp relay information trust-all',e=>{e.d.relayTrustAll=true;},['router','switch']);
+Cn('config','no ip dhcp relay information trust-all',e=>{e.d.relayTrustAll=false;},['router','switch']);
+Cn('if','ip dhcp relay information trusted',e=>e.s.ctx.forEach(i=>{i.relayTrust=true;}),['router','switch']);
+const macColon=m=>m.replace(/\./g,'').toUpperCase().match(/../g).join(':');
+Cn(EX,'show ip dhcp snooping',e=>{const{d,out}=e,S=d.snoop||{on:false,vlans:[],opt82:true};
+  out('Switch DHCP snooping is '+(S.on?'enabled':'disabled'),'Switch DHCP gleaning is disabled','DHCP snooping is configured on following VLANs:',S.vlans.length?S.vlans.join(','):'none','DHCP snooping is operational on following VLANs:',S.on&&S.vlans.length?S.vlans.filter(v=>d.vlans[v]).join(','):'none',
+    'Insertion of option 82 is '+(S.opt82!==false?'enabled':'disabled'),'   circuit-id default format: vlan-mod-port','   remote-id: '+macOf(d)+' (MAC)','Option 82 on untrusted port is not allowed','Verification of hwaddr field is enabled','',
+    'Interface                  Trusted    Allow option    Rate limit (pps)','-----------------------    -------    ------------    ----------------',
+    ...sortIfs(Object.keys(d.ifs)).filter(n=>d.ifs[n].snoopTrust||d.ifs[n].snoopRate).map(n=>pad(n,27)+pad(d.ifs[n].snoopTrust?'yes':'no',11)+pad(d.ifs[n].snoopTrust?'yes':'no',16)+(d.ifs[n].snoopRate||'unlimited')));},['switch']);
+Cn(EX,'show ip dhcp snooping binding',e=>{const B=(e.d.snoop&&e.d.snoop.bind)||[];e.out('MacAddress          IpAddress        Lease(sec)  Type           VLAN  Interface','------------------  ---------------  ----------  -------------  ----  --------------------',
+  ...B.map(b=>pad(macColon(b.mac),20)+pad(n2ip(b.ip),17)+pad(b.static?'infinite':'86400',12)+pad(b.static?'static':'dhcp-snooping',15)+pad(b.vlan,6)+b.ifn),'Total number of bindings: '+B.length);},['switch'],true);
+CCNA_LAB_MAP['DHCP snooping']=['5.7'];
+Object.assign(WHYC,{
+'ip dhcp snooping':'Turns DHCP snooping on globally. It still does nothing until you name the VLANs to protect.',
+'ip dhcp snooping vlan <rest>':'Protects these VLANs: DHCP server messages are only accepted on trusted ports, and every lease handed out is recorded in the binding table.',
+'ip dhcp snooping trust':'Marks the port as leading to legitimate DHCP servers (an uplink). Every other port is untrusted, so a DHCP server plugged into it is silenced.',
+'ip dhcp snooping limit rate <n>':'Caps DHCP messages per second on an untrusted port, so one host cannot exhaust the pool by flooding requests.',
+'no ip dhcp snooping information option':'Stops the switch adding option 82 to client requests. An IOS DHCP server or relay drops requests that carry option 82 without a relay address, so this is often needed when the server is a Cisco router.',
+'ip dhcp relay information trust-all':'Configured on the router: accept requests carrying option 82 from the switch instead of dropping them. The alternative fix to turning option 82 off on the switch.',
+'show ip dhcp snooping':'Shows whether snooping is on, for which VLANs, whether option 82 is inserted, and which ports are trusted.',
+'show ip dhcp snooping binding':'The binding table: each client\'s MAC address, the IP it leased, its VLAN and the switch port it is on. Dynamic ARP Inspection checks against this table.'});
+addLab({title:'DHCP snooping',group:'Security',
+ brief:'Users report they get an address but cannot reach anything. Someone has plugged a laptop running a DHCP server into the access switch, and it answers faster than R1, handing out itself as the default gateway. Protect the VLAN so only the real server can answer, and make sure legitimate clients still get their leases.',
+ pos:{PC1:[60,60],PC2:[60,190],ROGUE:[330,190],SW1:[200,125],R1:[400,125],NET:[545,125]},start:'SW1',
+ build(){const rogue=srv('ROGUE','192.168.10.250',24,null,[67]);rogue.dhcpServe={start:ip2n('192.168.10.200'),end:ip2n('192.168.10.210'),len:24,gw:ip2n('192.168.10.250'),dns:ip2n('192.168.10.250')};
+  const n=mkNet([mkRouter('R1'),mkSwitch('SW1'),mkPC('PC1',null,24),mkPC('PC2',null,24),rogue,srv('NET','203.0.113.10',24,'203.0.113.1',[80])]);
+  link(n,'PC1','f0','SW1','f0/1');link(n,'PC2','f0','SW1','f0/2');link(n,'ROGUE','f0','SW1','f0/5');link(n,'SW1','g0/1','R1','g0/0');link(n,'R1','g0/1','NET','f0');
+  cfg(n,{SW1:['enable','configure terminal','vlan 10','name STAFF','interface range f0/1 - 8','switchport mode access','switchport access vlan 10','interface g0/1','switchport mode access','switchport access vlan 10','end'],
+   R1:['enable','configure terminal','interface g0/0','ip address 192.168.10.1 255.255.255.0','no shutdown','interface g0/1','ip address 203.0.113.1 255.255.255.0','no shutdown','exit','ip dhcp excluded-address 192.168.10.1 192.168.10.10','ip dhcp pool STAFF','network 192.168.10.0 255.255.255.0','default-router 192.168.10.1','dns-server 203.0.113.53','end']});return n;},
+ addr:[['R1','G0/0, real gateway and DHCP server','192.168.10.1/24'],['ROGUE','Unauthorised DHCP server on Fa0/5','192.168.10.250'],['SW1','Uplink to R1','Gi0/1'],['NET','A server beyond R1','203.0.113.10']],
+ tasks:['On PC1, run <code>ipconfig /renew</code>. Who answered, and which gateway did PC1 get? Try to ping 203.0.113.10.','On SW1, turn on DHCP snooping and enable it for VLAN 10.','Trust the uplink to R1, Gi0/1. Leave every other port untrusted.','Renew PC1 again. It fails: read <code>show ip dhcp snooping</code> and work out why the real server stays silent, then fix it on SW1.','Renew PC1 and PC2, ping 203.0.113.10 from both, and look at <code>show ip dhcp snooping binding</code> on SW1.'],
+ why:['DHCP is first come, first served. The rogue laptop sits on the same switch, so its offer arrives first and the client believes it. With the rogue as gateway, all traffic goes to the attacker, or nowhere.','Snooping only protects the VLANs you list. Once on, the switch inspects every DHCP message in those VLANs.','Server messages (offers and acknowledgements) are only allowed in through trusted ports. The uplink leads to the real server; the rogue\'s port, like every user port, is untrusted, so its offers are dropped.','With snooping on, the switch adds option 82 (which port the request came from) but no relay address. A Cisco router acting as DHCP server drops such requests as inconsistent. Turning option 82 off on the switch fixes it here; trusting it on the router would too.','Now only R1 answers, both PCs get a lease with the right gateway, and every lease is recorded per port. That binding table is what Dynamic ARP Inspection uses next.'],
+ checks:[['DHCP snooping is on for VLAN 10',n=>{const S=n.devs.SW1.snoop;return !!S&&S.on&&S.vlans.includes(10);}],['Gi0/1 is trusted and the rogue\'s port Fa0/5 is not',n=>!!IF(n,'SW1','g0/1').snoopTrust&&!IF(n,'SW1','f0/5').snoopTrust],['Requests reach R1: option 82 is off on SW1 or trusted on R1',n=>n.devs.SW1.snoop&&n.devs.SW1.snoop.opt82===false||!!n.devs.R1.relayTrustAll||!!IF(n,'R1','g0/0').relayTrust],['PC1 and PC2 hold leases from R1 with gateway 192.168.10.1',n=>['PC1','PC2'].every(p=>{const ip=nic(n.devs[p]).ip;return ip!==null&&ip>ip2n('192.168.10.10')&&ip<ip2n('192.168.10.200')&&n.devs[p].gw===ip2n('192.168.10.1');})],['A new request can only be answered by R1',n=>{const c=dhcpCandidates(n,n.devs.PC1);return c.length>0&&c.every(x=>x.S===n.devs.R1);}],['SW1 records both leases in its binding table',n=>['PC1','PC2'].every(p=>((n.devs.SW1.snoop||{}).bind||[]).some(b=>b.client===p&&b.ip===nic(n.devs[p]).ip&&b.vlan===10))],['Both PCs reach the server beyond R1',n=>P(n,'PC1','203.0.113.10')&&P(n,'PC2','203.0.113.10')]],
+ solution:{SW1:['enable','configure terminal','ip dhcp snooping','ip dhcp snooping vlan 10','no ip dhcp snooping information option','interface g0/1','ip dhcp snooping trust','end'],PC1:['ipconfig /renew'],PC2:['ipconfig /renew']}},
+ ['PC1: ipconfig /renew | # the rogue answered: the gateway is 192.168.10.250 | ping 203.0.113.10',
+  'SW1: enable | configure terminal | ip dhcp snooping | ip dhcp snooping vlan 10',
+  'SW1: interface g0/1 | ip dhcp snooping trust | exit',
+  'PC1: # no answer now, even from R1 | ipconfig /renew ; SW1: do show ip dhcp snooping | no ip dhcp snooping information option | end',
+  'PC1: ipconfig /renew | ping 203.0.113.10 ; PC2: ipconfig /renew | ping 203.0.113.10 ; SW1: show ip dhcp snooping binding']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
