@@ -1204,7 +1204,7 @@ C('config','spanning-tree mode <w>',e=>{const m=['pvst','rapid-pvst'].find(x=>x.
 C('if','spanning-tree portfast',e=>{e.s.ctx.forEach(i=>{i.portfast=true;});e.out('%Warning: portfast should only be enabled on ports connected to a single host.');},['switch']);
 C('if','spanning-tree bpduguard enable',e=>e.s.ctx.forEach(i=>{i.bpduguard=true;}),['switch']);
 C(EX,'show spanning-tree <rest?>',e=>{const{net,d,out}=e,m=/(\d+)/.exec(e.args[0]||''),vl=m?[+m[1]]:Object.keys(d.vlans).map(Number);
-  for(const v of vl){if(!d.vlans[v])continue;const r=stpCalc(net,v),me=r.info[d.name];
+  for(const v of vl){if(!d.vlans[v]){if(m)out('Spanning tree instance(s) for vlan '+v+' does not exist.');continue;}const r=stpCalc(net,v),me=r.info[d.name];
     out('VLAN'+String(v).padStart(4,'0'),'  Spanning tree enabled protocol '+(d.stp&&d.stp.mode==='rapid-pvst'?'rstp':'ieee'),'  Root ID    Priority    '+stpPrio(r.root,v),'             Address     '+macOf(r.root));
     if(r.root===d)out('             This bridge is the root');else out('             Cost        '+me.cost,'             Port        '+(me.rp?shortIf(me.rp.name):'-'));
     out('','  Bridge ID  Priority    '+stpPrio(d,v)+'  (priority '+(stpPrio(d,v)-v)+' sys-id-ext '+v+')','             Address     '+macOf(d),'','Interface           Role Sts Cost      Type','------------------- ---- --- --------- ----');
@@ -2026,7 +2026,8 @@ addLab({title:'Voice VLAN',group:'Switching',
 Cn('config','ip nat pool <w> <ip> <ip> <rest>',e=>{const[name,a,b,rest]=e.args,t=rest.trim().split(/\s+/),k=(t[0]||'').toLowerCase();let len=null;
   if('netmask'.startsWith(k)&&t[1]&&isIp(t[1]))len=maskLenN(ip2n(t[1]));else if('prefix-length'.startsWith(k)&&/^\d+$/.test(t[1]||''))len=+t[1];
   if(len===null||len<1||len>32||t.length!==2)return e.out(BAD);if(b<a||netOf(a,len)!==netOf(b,len))return e.out('%Pool '+name+' mask '+n2ip(lenMask(len))+' too small; reduce pool size or increase mask');
-  const N=natOf(e.d);(N.pools||(N.pools={}))[name]={start:a,end:b,len};},['router']);
+  const N=natOf(e.d);if(N.pools&&N.pools[name]&&N.rules.some(r=>r.pool===name)&&((N.dyn||[]).length||N.table.length))return e.out('%Pool '+name+' in use, cannot redefine');
+  (N.pools||(N.pools={}))[name]={start:a,end:b,len};},['router']);
 Cn('config','no ip nat pool <w>',e=>{const N=natOf(e.d);if(N.rules.some(r=>r.pool===e.args[0])&&((N.dyn||[]).length||N.table.length))return e.out('%Pool '+e.args[0]+' in use, cannot destroy');if(N.pools)delete N.pools[e.args[0]];},['router']);
 const natBusy=N=>(N.dyn||[]).length>0||N.table.length>0;
 Cn('config','ip nat inside source list <w> pool <w> <rest?>',e=>{const[acl,pool,rest]=e.args,ov=!!rest&&'overload'.startsWith(rest.trim().toLowerCase());if(rest&&!ov)return e.out(BAD);
@@ -2629,6 +2630,7 @@ Cn('if','switchport port-security mac-address sticky <w>',e=>psAdd(e,'sticky'),[
 Cn('if','no switchport port-security mac-address sticky <w>',e=>{const m=parseMac(e.args[0]);e.s.ctx.forEach(i=>{const P=psOf(i);P.macs=(P.macs||[]).filter(x=>x.mac!==m);});},['switch']);
 Cn('if','switchport port-security mac-address <w>',e=>psAdd(e,'static'),['switch']);
 Cn('if','no switchport port-security mac-address <w>',e=>{const m=parseMac(e.args[0]);e.s.ctx.forEach(i=>{const P=psOf(i);P.macs=(P.macs||[]).filter(x=>x.mac!==m);});},['switch']);
+Cn('if','no switchport trunk native vlan',e=>e.s.ctx.forEach(i=>{i.native=1;}),['switch']);
 Cn('if','no channel-group <rest?>',e=>e.s.ctx.forEach(i=>{delete i.chan;delete i.chanMode;}),['switch']);
 Cn('if','no spanning-tree bpduguard enable',e=>e.s.ctx.forEach(i=>{i.bpduguard=false;}),['switch']);
 Cn('if','no spanning-tree portfast',e=>e.s.ctx.forEach(i=>{i.portfast=false;}),['switch']);
@@ -2740,6 +2742,17 @@ addIncident({title:'Incident 14: published, but to the wrong address',base:'Stat
  steps:['CLIENT: ping 203.0.113.10 | telnet 203.0.113.10 80','R1: enable | show ip nat translations | show running-config','R1: configure terminal | no ip nat inside source static 192.168.1.10 203.0.113.11 | ip nat inside source static 192.168.1.10 203.0.113.10 | end','CLIENT: ping 203.0.113.10 | telnet 203.0.113.10 80 ; R1: show ip nat translations'],
  hints:['Packets for 203.0.113.10 reach R1 (the ISP routes the whole block there), but nothing answers. The question is what R1 does with them.','show ip nat translations lists the static pair. Compare its inside global address with the published one in the address plan.','The server is mapped to 203.0.113.11. Remove that entry and map 192.168.1.10 to 203.0.113.10.'],
  lesson:'A static NAT entry is a fixed pair of addresses. If the inside global does not match the address the outside world uses, packets arrive at the router and find no translation, so they go nowhere.'});
+
+// ----- incident 15
+addIncident({title:'Incident 15: the switches cannot manage each other',base:'Native VLAN and allowed VLANs on trunks',start:'SW1',
+ brief:'Both switches have a management address in VLAN 99, the native VLAN on their trunk. Staff traffic is fine, but SW1 can no longer reach SW2\'s management address after someone "reset" SW2\'s trunk settings. Restore management without touching the VLAN plan.',
+ symptom:['SW1','192.168.99.2'],
+ setup:{SW1:[...EN,'interface vlan 99','ip address 192.168.99.1 255.255.255.0','no shutdown','end'],SW2:[...EN,'interface vlan 99','ip address 192.168.99.2 255.255.255.0','no shutdown','end']},
+ fault:{SW2:[...EN,'interface g0/1','no switchport trunk native vlan','end']},
+ repair:{SW2:[...EN,'interface g0/1','switchport trunk native vlan 99','end','show interfaces trunk'],SW1:['enable','ping 192.168.99.2']},
+ steps:['SW1: enable | ping 192.168.99.2 ; PC1: ping 192.168.10.12','SW1: show interfaces trunk ; SW2: enable | show interfaces trunk | show logging','SW2: configure terminal | interface g0/1 | switchport trunk native vlan 99 | end','SW1: ping 192.168.99.2 ; SW2: show interfaces trunk'],
+ hints:['Tagged VLANs still cross the trunk; only the management VLAN, which travels untagged, is broken. That narrows it to how the two ends treat untagged frames.','Compare the Native vlan column of show interfaces trunk on both switches. show logging on SW2 also records a CDP native VLAN mismatch.','SW2\'s Gi0/1 went back to native VLAN 1. Set it to 99 again so untagged frames land in the same VLAN at both ends.'],
+ lesson:'The native VLAN is a per-end setting: each switch drops untagged frames into its own native VLAN. When the ends disagree, untagged traffic lands in the wrong VLAN, and here VLAN 1 is not even allowed on the trunk, so management traffic simply disappears.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
