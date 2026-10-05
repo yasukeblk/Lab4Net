@@ -2823,6 +2823,16 @@ addIncident({title:'Incident 22: the branch crawls home on the backup',base:'Flo
  steps:['PC2: tracert 192.168.1.10 ; PC1: tracert 192.168.2.10','R2: enable | show ip route | show ip route 192.168.1.10 | show running-config','R2: configure terminal | no ip route 192.168.1.0 255.255.255.0 10.0.12.5 | ip route 192.168.1.0 255.255.255.0 10.0.12.1 | end','R2: show ip route ; PC2: tracert 192.168.1.10'],
  hints:['Traffic toward the branch uses the primary link, traffic back from it does not. Only R2\'s choice is wrong.','show ip route on R2 shows the HQ LAN learned at distance 5, the floating route. show running-config shows a primary route too, so ask why that one is not in the table.','The primary route points at 10.0.12.5, which is not on the link (10.0.12.0/30), so it can never be used and the backup takes over. Point it at R1, 10.0.12.1.'],
  lesson:'A static route is only installed if its next hop is reachable through a connected network. A typo in the next hop silently disables the route, and a floating route hides the mistake by carrying the traffic over the backup path.'});
+
+// ----- incident 23
+addIncident({title:'Incident 23: the inspection path took the wrong server',base:'How a router chooses a route',start:'R1',
+ brief:'Security says SRV1\'s traffic is no longer passing through R3\'s inspection, and SRV2\'s traffic now is. Both servers are still reachable. Check which route R1 really uses for each server and correct the policy route.',
+ symptom:n=>pathVia(n,'PC1','10.10.5.10','10.0.13.2')&&pathVia(n,'PC1','10.10.5.20','10.0.12.2'),
+ fault:{R1:[...EN,'no ip route 10.10.5.10 255.255.255.255 10.0.13.2','ip route 10.10.5.20 255.255.255.255 10.0.13.2','end']},
+ repair:{R1:[...EN,'no ip route 10.10.5.20 255.255.255.255 10.0.13.2','ip route 10.10.5.10 255.255.255.255 10.0.13.2','end','show ip route 10.10.5.10'],PC1:['tracert 10.10.5.10']},
+ steps:['PC1: tracert 10.10.5.10 | tracert 10.10.5.20','R1: enable | show ip route 10.10.5.10 | show ip route 10.10.5.20 | show ip route static','R1: configure terminal | no ip route 10.10.5.20 255.255.255.255 10.0.13.2 | ip route 10.10.5.10 255.255.255.255 10.0.13.2 | end','R1: show ip route 10.10.5.10 ; PC1: tracert 10.10.5.10 | tracert 10.10.5.20'],
+ hints:['Nothing is down; the two servers have swapped paths. Look at how R1 decides per destination address.','show ip route 10.10.5.10 and show ip route 10.10.5.20 show which entry each address matches. One of them hits a /32 host route.','The host route was entered for 10.10.5.20 instead of 10.10.5.10. Move it to SRV1\'s address.'],
+ lesson:'The longest matching prefix always wins, so a /32 host route captures exactly one address. Put it on the wrong address and the policy quietly applies to the wrong server while everything still works.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
