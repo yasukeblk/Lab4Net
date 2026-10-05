@@ -532,6 +532,7 @@ function sortIfs(names){const key=n=>{const t=IFT.findIndex(t=>n.startsWith(t));
   return names.slice().sort((a,b)=>{const x=key(a),y=key(b);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]??-1)-(y[i]??-1);if(d)return d;}return 0;});}
 const pad=(s,n)=>String(s).padEnd(n);
 // Cisco type 7, shown once service password-encryption is on. It is a reversible obfuscation, not real encryption.
+const SEVN=['emergencies','alerts','critical','errors','warnings','notifications','informational','debugging'];
 const XLAT='dsfd;kfoA,.iyewrkldJKDHSUBsgvca69834ncxv9873254k;fg87';
 function type7(pw){let s=0;for(const c of pw)s=(s+c.charCodeAt(0))%16;let o=String(s).padStart(2,'0');
   for(let k=0;k<pw.length;k++)o+=(pw.charCodeAt(k)^XLAT.charCodeAt((s+k)%XLAT.length)).toString(16).toUpperCase().padStart(2,'0');return o;}
@@ -653,7 +654,7 @@ function canPing(net,src,dst){const f=tracePath(net,src,dst);if(!f.ok)return fal
 
 function parseVlanList(s){const r=[];for(const part of s.split(',')){const m=/^(\d+)(?:-(\d+))?$/.exec(part.trim());if(!m)return null;const a=+m[1],b=m[2]?+m[2]:a;for(let v=a;v<=b&&v<4095;v++)r.push(v);}return r;}
 function runningConfig(net,d){
-  const L=['Building configuration...','','Current configuration:','!','version 15.2',(d.svcEnc?'':'no ')+'service password-encryption','!','hostname '+d.hostname,'!'];
+  const L=['Building configuration...','','Current configuration:','!','version 15.2',...(d.tsLog?['service timestamps log datetime msec']:[]),(d.svcEnc?'':'no ')+'service password-encryption','!','hostname '+d.hostname,'!'];
   if(d.secret)L.push('enable secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0');
   if(d.enPass)L.push('enable password '+pwText(d,d.enPass));
   if(d.noLookup)L.push('no ip domain-lookup');
@@ -1023,7 +1024,7 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
     if(!peer)return {ok:false,hops,reason:'Next hop '+n2ip(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links, VLANs and addressing'};
     hops.push(hopIp);hops.path.push(...peer.path.slice(1));d=peer.dev;inIf=peer.ifc;}
   return {ok:false,hops,reason:'Hop limit reached; check for a routing loop'};}
-function listens(d,port){if(d.services)return d.services.includes(port);if(d.type==='pc')return false;const v=d.lines.vty,tr=(v.transport||'all').toLowerCase();
+function listens(d,port){if(d.services)return d.services.includes(port);if(d.type==='pc')return false;if(port===123)return !!(d.ntpMaster||(d.ntpServers||[]).length);const v=d.lines.vty,tr=(v.transport||'all').toLowerCase();
   if(port===23)return (tr.includes('telnet')||tr==='all')&&!!v.login&&(v.local?!!(d.users&&d.users.length):!!v.password);
   if(port===22)return (tr.includes('ssh')||tr==='all')&&!!d.rsa&&!!v.local&&!!(d.users&&d.users.length);return false;}
 // access-class on the VTY lines filters who may open a Telnet or SSH session to the device itself; a denied source is refused.
@@ -1171,7 +1172,7 @@ function ifExtra(i,d0){const L=[];if(i.helper!=null)L.push(' ip helper-address '
   if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.voiceVlan!=null)L.push(' switchport voice vlan '+i.voiceVlan);if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
   if(i.ospfNet)L.push(' ip ospf network '+i.ospfNet);if(i.ospfPrio!=null)L.push(' ip ospf priority '+i.ospfPrio);if(i.ospfCost!=null)L.push(' ip ospf cost '+i.ospfCost);if(i.ospfArea!=null&&d0.ospf)L.push(' ip ospf '+d0.ospf.pid+' area '+i.ospfArea);return L;}
 function globalExtra(d){const L=[];
-  if(d.cdp===false)L.push('no cdp run');if(d.lldp&&d.type!=='pc')L.push('lldp run');
+  if(d.tz)L.push('clock timezone '+d.tz.name+' '+d.tz.off);if(d.cdp===false)L.push('no cdp run');if(d.lldp&&d.type!=='pc')L.push('lldp run');
   (d.users||[]).forEach(u=>L.push('username '+u.name+(u.priv>1?' privilege '+u.priv:'')+(u.kind==='secret'?' secret 5 $1$mERr$9cTjUIEqNGurQiFU.ZeCi1':' password '+pwText(d,u.pw))));
   if(d.domain)L.push('ip domain-name '+d.domain);if(d.sshv)L.push('ip ssh version '+d.sshv);
   if(d.stp){if(d.stp.mode!=='pvst')L.push('spanning-tree mode '+d.stp.mode);for(const v in d.stp.prio)L.push('spanning-tree vlan '+v+' priority '+d.stp.prio[v]);}
@@ -1179,6 +1180,8 @@ function globalExtra(d){const L=[];
     for(const[n,p]of Object.entries(d.dhcp.pools)){L.push('ip dhcp pool '+n);if(p.net!==null)L.push(' network '+n2ip(p.net)+' '+n2ip(lenMask(p.len)));if(p.gw!=null)L.push(' default-router '+n2ip(p.gw));if(p.dns!=null)L.push(' dns-server '+n2ip(p.dns));for(const[o,v] of Object.entries(p.opts||{}))L.push(' option '+o+' ip '+n2ip(v));}}
   if(d.nat){d.nat.statics.forEach(s=>L.push('ip nat inside source static '+n2ip(s.local)+' '+n2ip(s.global)));for(const[n,P] of Object.entries(d.nat.pools||{}))L.push('ip nat pool '+n+' '+n2ip(P.start)+' '+n2ip(P.end)+' netmask '+n2ip(lenMask(P.len)));d.nat.rules.forEach(r=>L.push('ip nat inside source list '+r.acl+(r.pool?' pool '+r.pool:' interface '+r.ifn)+(r.overload?' overload':'')));}
   for(const[n,a]of Object.entries(d.acls||{})){if(/^\d+$/.test(n))a.entries.forEach(en=>L.push('access-list '+n+' '+en.text));else{L.push('ip access-list '+a.type+' '+n);a.entries.forEach(en=>L.push(' '+en.text));}}
+  if(d.trapLevel!=null&&d.trapLevel!==6)L.push('logging trap '+SEVN[d.trapLevel]);(d.logHosts||[]).forEach(h=>L.push('logging host '+n2ip(h)));
+  if(d.ntpMaster)L.push('ntp master '+d.ntpMaster);(d.ntpServers||[]).forEach(h=>L.push('ntp server '+n2ip(h)));
   if(L.length)L.push('!');return L;}
 const rc0=runningConfig;runningConfig=function(net,d){const out=[];let cur=null,vty=false;
   for(const l of rc0(net,d)){
@@ -2035,6 +2038,103 @@ addLab({title:'Named ACLs and sequence numbers',group:'Security',
   'R1: no 30 | exit',
   'R1: ip access-list resequence SRV-ACCESS 10 10 | end | show access-lists',
   'PC1: ping 192.168.30.10 ; LAPTOP: ping 192.168.30.10 ; HR: # blocked by the new line 10 | ping 192.168.30.10 ; CONTR: ping 192.168.30.10']);
+
+// ----- phase 2, lab 15
+// Does a UDP service answer? Uses the real forwarding path (routes, ACLs, NAT) without touching the trace panel.
+function udpOk(net,src,ip,port){const keep=TRACE,was=LIVE;LIVE=false;try{const r=reach(net,src,ip,'udp',port);if(!r.ok)return false;const d=r.f.dest;return d.services?d.services.includes(port):listens(d,port);}finally{LIVE=was;TRACE=keep;}}
+const ownerOf=(net,ip)=>Object.values(net.devs).find(x=>Object.values(x.ifs).some(i=>i.ip===ip));
+// NTP: a client syncs to the reachable configured server with the lowest stratum and becomes that stratum plus one.
+// A server device has ntpStratum; a router is a source when it is "ntp master" or is itself synchronised.
+function ntpState(net,d,depth=0){if(d.ntpMaster)return {synced:true,stratum:d.ntpMaster,ref:null,master:true};
+  let best=null;if(depth<5)for(const ip of d.ntpServers||[]){const s=ownerOf(net,ip);if(!s||s===d||!udpOk(net,d,ip,123))continue;
+    const st=s.ntpStratum??(s.type==='router'?(x=>x.synced?x.stratum:16)(ntpState(net,s,depth+1)):16);if(st<16&&(!best||st<best.st))best={ip,st,src:s};}
+  // A clock that has synchronised keeps running on its own for a long time after the server goes quiet,
+  // so it stays synchronised while its server is still configured.
+  if(best){d.ntpLast={stratum:best.st+1,ip:best.ip};return {synced:true,stratum:best.st+1,ref:best.ip,src:best.src};}
+  if(d.ntpLast&&(d.ntpServers||[]).includes(d.ntpLast.ip))return {synced:true,stratum:d.ntpLast.stratum,ref:d.ntpLast.ip,held:true};
+  return {synced:false,stratum:16,ref:null};}
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function devTime(d){const now=new Date(Date.now()+((d.tz&&d.tz.off)||0)*3600000);return now;}
+const hms=t=>[t.getUTCHours(),t.getUTCMinutes(),t.getUTCSeconds()].map(x=>String(x).padStart(2,'0')).join(':')+'.'+String(t.getUTCMilliseconds()).padStart(3,'0');
+// A timestamp starts with * while the clock is not authoritative (not synchronised to NTP).
+const stamp=(net,d)=>{const t=devTime(d);return (ntpState(net,d).synced?'':'*')+MON[t.getUTCMonth()]+' '+String(t.getUTCDate()).padStart(2,' ')+' '+hms(t)+': ';};
+// Syslog: every message goes into the log buffer; those at or below the trap level also go to each logging host over UDP 514.
+const SEV=line=>{const m=/^%[A-Z0-9_]+-(\d)-[A-Z0-9_]+:/.exec(line);return m?+m[1]:null;};
+function logEvent(net,d,msg){const sev=SEV(msg);if(sev===null||d.type==='pc')return;const line=(d.tsLog?stamp(net,d):'')+msg;
+  (d.logBuf||(d.logBuf=[])).push(line);if(d.logBuf.length>200)d.logBuf.shift();
+  if(sev<=(d.trapLevel??6))for(const h of d.logHosts||[]){const s=ownerOf(net,h);if(s&&s.services&&s.services.includes(514)&&udpOk(net,d,h,514)){d.trapSent=(d.trapSent||0)+1;(s.syslog||(s.syslog=[])).push({from:d.hostname,ip:null,sev,line});}}}
+{const ex0=execLine;execLine=function(net,d,s,line){
+  // Interface changes caused on other devices (the far end of a link) are logged there, not on this console.
+  const others=Object.values(net.devs).filter(x=>x!==d&&x.type!=='pc'),snap=x=>{const m={};for(const n in x.ifs)m[n]=ifUp(net,x,x.ifs[n]);return m;},before=new Map(others.map(x=>[x,snap(x)]));
+  const wasCfg=!['user','priv','pc'].includes(s.mode),out=ex0(net,d,s,line);
+  if(wasCfg&&s.mode==='priv'&&d.type!=='pc')out.push('%SYS-5-CONFIG_I: Configured from console by console');
+  for(let k=0;k<out.length;k++)if(SEV(out[k])!==null){logEvent(net,d,out[k]);if(d.tsLog)out[k]=stamp(net,d)+out[k];}
+  for(const x of others){const b=before.get(x),a=snap(x);for(const n in a)if(!!b[n]!==a[n]){const st=a[n]?'up':'down';logEvent(net,x,'%LINK-3-UPDOWN: Interface '+n+', changed state to '+st);logEvent(net,x,'%LINEPROTO-5-UPDOWN: Line protocol on Interface '+n+', changed state to '+st);}}
+  return out;};}
+const sevOf=w=>{w=String(w).toLowerCase();if(/^[0-7]$/.test(w))return +w;const k=SEVN.findIndex(x=>x.startsWith(w));return k<0?null:k;};
+Cn('config','ntp server <ip>',e=>{const L=e.d.ntpServers||(e.d.ntpServers=[]);if(!L.includes(e.args[0]))L.push(e.args[0]);},['router','switch']);
+Cn('config','no ntp server <ip>',e=>{e.d.ntpServers=(e.d.ntpServers||[]).filter(x=>x!==e.args[0]);},['router','switch']);
+Cn('config','ntp master <n>',e=>{if(e.args[0]<1||e.args[0]>15)return e.out(BAD);e.d.ntpMaster=e.args[0];},['router']);
+Cn('config','clock timezone <w> <n>',e=>{e.d.tz={name:e.args[0],off:e.args[1]};},['router','switch']);
+Cn('config','clock timezone <w> -<n>',e=>{},['router','switch']);
+CMDS.pop();
+Cn('config','service timestamps log datetime msec',e=>{e.d.tsLog=true;},['router','switch']);
+Cn('config','service timestamps <rest>',e=>{const t=e.args[0].toLowerCase();if(/^debug/.test(t))return;if(/^log/.test(t))e.d.tsLog=/datetime/.test(t);else e.out(BAD);},['router','switch']);
+Cn('config','no service timestamps <rest?>',e=>{e.d.tsLog=false;},['router','switch']);
+Cn('config','logging host <ip>',e=>{const L=e.d.logHosts||(e.d.logHosts=[]);if(!L.includes(e.args[0]))L.push(e.args[0]);},['router','switch']);
+Cn('config','logging <ip>',e=>{const L=e.d.logHosts||(e.d.logHosts=[]);if(!L.includes(e.args[0]))L.push(e.args[0]);},['router','switch']);
+Cn('config','no logging host <ip>',e=>{e.d.logHosts=(e.d.logHosts||[]).filter(x=>x!==e.args[0]);},['router','switch']);
+Cn('config','logging trap <w>',e=>{const v=sevOf(e.args[0]);if(v===null)return e.out(BAD);e.d.trapLevel=v;},['router','switch']);
+Cn(EX,'show ntp status',e=>{const st=ntpState(e.net,e.d);if(st.synced)e.out('Clock is synchronized, stratum '+st.stratum+', reference is '+(st.master?'127.127.1.1':n2ip(st.ref)));else e.out('Clock is unsynchronized, stratum 16, no reference clock');
+  e.out('nominal freq is 250.0000 Hz, actual freq is 250.0000 Hz, precision is 2**10','ntp uptime is 51200 (1/100 of seconds), resolution is 4000','clock offset is 0.0000 msec, root delay is '+(st.synced?'1.00':'0.00')+' msec','root dispersion is '+(st.synced?'7.85':'0.00')+' msec, peer dispersion is '+(st.synced?'0.12':'0.00')+' msec','system poll interval is 64, '+(st.synced?'last update was 21 sec ago.':'never updated.'));},['router','switch']);
+Cn(EX,'show ntp associations',e=>{const{net,d,out}=e,st=ntpState(net,d);out('','  address         ref clock       st   when   poll reach  delay  offset   disp');
+  if(d.ntpMaster)out('*~127.127.1.1     .LOCL.          '+String(d.ntpMaster-1).padStart(2)+'     12     16   377  0.000   0.000  0.232');
+  for(const ip of d.ntpServers||[]){const s=ownerOf(net,ip),ok=!!s&&udpOk(net,d,ip,123),sst=!ok?16:s.ntpStratum??(s.type==='router'?ntpState(net,s).stratum:16),sel=st.synced&&st.ref===ip;
+    out((sel?'*':' ')+'~'+pad(n2ip(ip),16)+pad(ok&&sst<16?(s.ntpRef?'.'+s.ntpRef+'.':n2ip((ntpState(net,s).ref)??ip)):'.INIT.',16)+String(sst).padStart(2)+'     '+(ok?'21':' -').padStart(2)+'     64   '+(ok?'377':'  0')+'  '+(ok?'1.000   0.000  0.120':'0.000   0.000 15937.'));}
+  out(' * sys.peer, # selected, + candidate, - outlyer, x falseticker, ~ configured');},['router','switch']);
+Cn(EX,'show clock',e=>{const t=devTime(e.d);e.out((ntpState(e.net,e.d).synced?'':'*')+hms(t)+' '+(e.d.tz?e.d.tz.name:'UTC')+' '+DAYS[t.getUTCDay()]+' '+MON[t.getUTCMonth()]+' '+t.getUTCDate()+' '+t.getUTCFullYear());},['router','switch']);
+Cn(EX,'show logging',e=>{const{d,out}=e,lvl=SEVN[d.trapLevel??6],buf=d.logBuf||[];
+  out('Syslog logging: enabled (0 messages dropped, 0 messages rate-limited, 0 flushes, 0 overruns, xml disabled, filtering disabled)','','    Console logging: level debugging, '+buf.length+' messages logged, xml disabled,','                     filtering disabled','    Buffer logging:  level debugging, '+buf.length+' messages logged, xml disabled,','                     filtering disabled','',
+    '    Trap logging: level '+lvl+', '+(d.trapSent||0)+' message lines logged');
+  for(const h of d.logHosts||[])out('        Logging to '+n2ip(h)+'  (udp port 514, audit disabled,','              link up),','              '+(d.trapSent||0)+' message lines logged,','              0 message lines rate-limited,','              xml disabled, sequence number disabled','              filtering disabled');
+  out('','Log Buffer (8192 bytes):','',...buf);},['router','switch']);
+// The syslog server's own viewer.
+Cn('pc','syslog',e=>{if(!(e.d.services||[]).includes(514))return e.out("'syslog' is not recognized as an internal or external command.");const L=e.d.syslog||[];
+  e.out('Syslog server: '+L.length+' message'+(L.length===1?'':'s')+' received','',...(L.length?L.map(m=>pad(m.from,10)+' '+m.line):['(none yet)']));});
+CCNA_LAB_MAP['NTP and syslog']=['4.2','4.5'];
+Object.assign(WHYC,{
+'ntp server <ip>':'Makes this device an NTP client of that server. Once it synchronises it takes the server\'s stratum plus one, and can serve time to others.',
+'ntp master <n>':'Makes the router an authoritative time source at this stratum from its own clock. Only for labs or isolated networks; real networks sync to a proper reference.',
+'show ntp status':'Shows whether the clock is synchronised, its stratum, and which server it is following.',
+'show ntp associations':'Lists the configured NTP servers. * marks the one in use (sys.peer), ~ means configured, st is its stratum and reach is a bitmap of recent replies (377 means all eight).',
+'show clock':'Shows the device time. A leading * means the time is not authoritative: it has not been synchronised.',
+'clock timezone <w> <n>':'Sets the time zone name and offset from UTC used for display and log timestamps.',
+'service timestamps log datetime msec':'Stamps every log message with the date and time to the millisecond instead of uptime, so messages from different devices can be lined up.',
+'logging host <ip>':'Sends log messages to this syslog server (UDP port 514) as well as keeping them on the device.',
+'logging trap <w>':'Sets the most detailed severity sent to the syslog server: 0 emergencies, 1 alerts, 2 critical, 3 errors, 4 warnings, 5 notifications, 6 informational, 7 debugging. warnings sends levels 0 to 4.',
+'show logging':'Shows the logging levels for each destination, how many messages went to the syslog server, and the log buffer itself.',
+'syslog':'On the syslog server: lists the messages it has received, with the sending device.'});
+addLab({title:'NTP and syslog',group:'IP services',
+ brief:'Two routers keep their own unsynchronised clocks and their logs stay on the box, so when something breaks nobody can line events up. Point both at the NTP server, stamp every message with the date and time, and send everything from warnings up to the syslog server, without flooding it with routine notices.',
+ pos:{NTP1:[60,60],LOG1:[60,190],SW1:[190,125],R1:[330,125],R2:[490,125]},start:'R2',
+ build(){const ntp=srv('NTP1','192.168.1.50',24,'192.168.1.1',[123]);ntp.ntpStratum=1;ntp.ntpRef='GPS';const log=srv('LOG1','192.168.1.60',24,'192.168.1.1',[514]);
+  const n=mkNet([mkRouter('R1'),mkRouter('R2'),mkSwitch('SW1'),ntp,log]);link(n,'NTP1','f0','SW1','f0/1');link(n,'LOG1','f0','SW1','f0/2');link(n,'SW1','g0/1','R1','g0/0');link(n,'R1','g0/1','R2','g0/1');
+  cfg(n,{R1:['enable','configure terminal','interface g0/0','ip address 192.168.1.1 255.255.255.0','no shutdown','interface g0/1','ip address 10.0.12.1 255.255.255.252','no shutdown','end'],
+   R2:['enable','configure terminal','interface g0/1','ip address 10.0.12.2 255.255.255.252','no shutdown','interface loopback 0','ip address 2.2.2.2 255.255.255.255','exit','ip route 0.0.0.0 0.0.0.0 10.0.12.1','end']});
+  for(const d of [n.devs.R1,n.devs.R2])delete d.logBuf;return n;},
+ addr:[['NTP1','Stratum 1 time server (GPS)','192.168.1.50'],['LOG1','Syslog server','192.168.1.60'],['R1','G0/0 / G0/1','192.168.1.1, 10.0.12.1'],['R2','G0/1, default route to R1','10.0.12.2']],
+ tasks:['On R2, run <code>show clock</code> and <code>show ntp status</code>. What does the * in front of the time mean?','Make R1 and R2 NTP clients of 192.168.1.50. Check <code>show ntp associations</code> and <code>show ntp status</code> on R2, then <code>show clock</code> again.','On both routers, timestamp log messages with the date and time to the millisecond.','On both routers, send syslog to 192.168.1.60, but only severity warnings (4) and more serious.','On R2, shut down G0/1 (the link to R1) and bring it back up. Read the messages on both routers with <code>show logging</code>.','On LOG1, run <code>syslog</code> to see what arrived. Which messages were not sent, and why?'],
+ why:['A router\'s clock starts from whatever it was set to, or from 1993 after a reload. The * means the time is not authoritative. Logs stamped with a wrong time cannot be matched against other devices.','NTP needs UDP 123 to work end to end. R1 learns time from the stratum 1 server and becomes stratum 2. R2 follows the same server through R1 and also becomes stratum 2. The * in show ntp associations marks the server in use.','Without datetime stamps a message only says how long the router had been up, which is useless when comparing devices. With NTP behind it, the timestamps on every device agree.','Syslog has eight levels: 0 emergencies, 1 alerts, 2 critical, 3 errors, 4 warnings, 5 notifications, 6 informational, 7 debugging. The trap level is the most detailed one sent: warnings sends 0 to 4. The default, informational, would send almost everything.','R2 logs LINK-5-CHANGED (an administrative shutdown, a notification) and R1 logs LINK-3-UPDOWN (an error: its link went down without anyone touching it). Both, and the LINEPROTO-5 messages, stay in each router\'s local buffer regardless.','Only the level 3 messages reached the server; the level 5 ones were filtered by the trap level. Note that R2 could not send its "down" messages at all: the link it needed was the one that was down. That is why important devices also keep a local buffer.'],
+ checks:[['R1 and R2 are synchronised to 192.168.1.50 at stratum 2',n=>['R1','R2'].every(r=>{const s=ntpState(n,n.devs[r]);return s.synced&&s.ref===ip2n('192.168.1.50')&&s.stratum===2;})],['Log messages carry the date and time to the millisecond on both routers',n=>!!n.devs.R1.tsLog&&!!n.devs.R2.tsLog],['Both routers log to 192.168.1.60 at level warnings',n=>['R1','R2'].every(r=>(n.devs[r].logHosts||[]).includes(ip2n('192.168.1.60'))&&n.devs[r].trapLevel===4)],['LOG1 received a LINK-3-UPDOWN error from each router',n=>['R1','R2'].every(r=>(n.devs.LOG1.syslog||[]).some(m=>m.from===n.devs[r].hostname&&/%LINK-3-UPDOWN/.test(m.line)))],['A warning reaches LOG1 but a notification does not',n=>{const L=n.devs.LOG1,keep=(L.syslog||[]).slice(),k1=n.devs.R1.logBuf&&n.devs.R1.logBuf.slice(),sent=n.devs.R1.trapSent;
+   try{L.syslog=[];logEvent(n,n.devs.R1,'%SYS-4-TEST: warning');logEvent(n,n.devs.R1,'%SYS-5-TEST: notice');return L.syslog.length===1&&L.syslog[0].sev===4;}finally{L.syslog=keep;n.devs.R1.logBuf=k1;n.devs.R1.trapSent=sent;}}]],
+ solution:{R1:['enable','configure terminal','ntp server 192.168.1.50','service timestamps log datetime msec','logging trap warnings','logging host 192.168.1.60','end'],
+  R2:['enable','configure terminal','ntp server 192.168.1.50','service timestamps log datetime msec','logging trap warnings','logging host 192.168.1.60','interface g0/1','shutdown','no shutdown','end']}},
+ ['R2: enable | show clock | show ntp status',
+  'R1: enable | configure terminal | ntp server 192.168.1.50 ; R2: configure terminal | ntp server 192.168.1.50 | do show ntp associations | do show ntp status | do show clock',
+  'R1: service timestamps log datetime msec ; R2: service timestamps log datetime msec',
+  'R1: logging trap warnings | logging host 192.168.1.60 | end ; R2: logging trap warnings | logging host 192.168.1.60',
+  'R2: interface g0/1 | shutdown | no shutdown | end | show logging ; R1: show logging',
+  'LOG1: syslog']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
