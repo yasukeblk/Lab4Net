@@ -2719,6 +2719,17 @@ addIncident({title:'Incident 12: the web went quiet',base:'Extended named ACL',s
  steps:['PC1: telnet 192.168.3.10 80 | ping 10.0.0.2','R1: enable | show access-lists','R1: configure terminal | ip access-list extended WEB-ONLY | no 5 | end','PC1: telnet 192.168.3.10 80 | # still blocked, as intended | ping 192.168.3.10 ; R1: show access-lists'],
  hints:['Only HTTP to the server broke; other destinations work. Something now matches web traffic before the permit does.','show access-lists: read the sequence numbers from the top and watch which line\'s counter goes up when you test.','Line 5 denies all IP to the server above the permit at line 10. Delete line 5; the deny at line 20 already does that job after the permit.'],
  lesson:'ACLs are read top-down and the first match wins, so a broad deny placed above a specific permit silently overrides it. The match counters tell you which line is really doing the work.'});
+
+// ----- incident 13
+const PC1MAC=macOf({name:'PC1'});
+addIncident({title:'Incident 13: the new laptop is locked out',base:'Port security',start:'SW1',
+ brief:'PC1\'s old laptop was replaced with a new one on the same desk. The new machine has no network at all, and its switch port light is off. Keep port security exactly as designed, and get the new laptop working.',
+ symptom:['PC1','192.168.1.12'],
+ fault:{SW1:[...EN,'interface f0/1','shutdown','no switchport port-security mac-address sticky '+PC1MAC,'switchport port-security mac-address sticky 0011.2233.4455','no shutdown','end']},
+ repair:{SW1:[...EN,'interface f0/1','shutdown','no switchport port-security mac-address sticky 0011.2233.4455','no shutdown','end','show port-security interface f0/1'],PC1:['ping 192.168.1.12']},
+ steps:['PC1: ping 192.168.1.12 | ipconfig /all','SW1: enable | show interfaces status | show port-security interface f0/1 | show port-security address','SW1: configure terminal | interface f0/1 | shutdown | no switchport port-security mac-address sticky 0011.2233.4455 | no shutdown | end','SW1: show port-security interface f0/1 ; PC1: ping 192.168.1.12'],
+ hints:['Only PC1 is cut off and its port is dark: the switch took the port down on purpose rather than a cable failing.','show interfaces status shows Fa0/1 err-disabled. show port-security interface f0/1 shows a violation, and show port-security address shows the stored address. Compare it with the new laptop\'s MAC from ipconfig /all.','The port still remembers the old laptop\'s sticky address, and allows only one. Remove that sticky entry, then shut and re-enable the port so it learns the new laptop.'],
+ lesson:'Sticky addresses stay in the config until someone removes them, so replacing a device on a port limited to one address is a violation. In shutdown mode the port err-disables and stays down until the old entry is cleared and the port is bounced.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
