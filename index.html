@@ -2873,6 +2873,16 @@ addIncident({title:'Incident 27: translated, but nobody answers',base:'Dynamic N
  steps:['PC1: ping 198.51.100.10 ; R1: enable | show ip nat translations','R1: show ip nat statistics | show running-config ; ISP: enable | show ip route','R1: clear ip nat translation * | configure terminal | ip nat pool PUBLIC 203.0.113.33 203.0.113.34 netmask 255.255.255.248 | end','PC1: ping 198.51.100.10 ; PC3: ping 198.51.100.10 ; R1: show ip nat translations'],
  hints:['Translations are being created, so the ACL, the interfaces and the rule are working. The problem is what happens to the replies.','show ip nat statistics shows the pool range. Compare it with the block in the ISP\'s routing table that points to R1.','The pool is 203.0.113.43 to .44, but the ISP only routes 203.0.113.32/29 (.33 to .38) to R1. Clear the translations, then define the pool as .33 to .34 again.'],
  lesson:'NAT can only use addresses that the outside world routes back to you. IOS also refuses to redefine a pool while translations still use it, so clear them first.'});
+
+// ----- incident 28
+addIncident({title:'Incident 28: the exception that came too late',base:'Named ACLs and sequence numbers',start:'R1',
+ brief:'The contractor laptop lost access to the file server after someone "tidied" the SRV-ACCESS list. Its permit line is still there. Look at where it sits and put it back where it works, keeping the list numbered 10 to 40.',
+ symptom:['LAPTOP','192.168.30.10'],
+ fault:{R1:[...EN,'ip access-list standard SRV-ACCESS','no 30','45 permit host 192.168.20.50','end']},
+ repair:{R1:[...EN,'ip access-list standard SRV-ACCESS','no 45','30 permit host 192.168.20.50','end','show access-lists'],LAPTOP:['ping 192.168.30.10']},
+ steps:['LAPTOP: ping 192.168.30.10 ; PC1: ping 192.168.30.10','R1: enable | show access-lists','R1: configure terminal | ip access-list standard SRV-ACCESS | no 45 | 30 permit host 192.168.20.50 | end','R1: show access-lists ; LAPTOP: ping 192.168.30.10 ; CONTR: # still blocked, as intended | ping 192.168.30.10'],
+ hints:['The laptop\'s permit line exists, yet the laptop is denied. Think about which line its packets meet first.','show access-lists: the laptop\'s permit is now line 45, after line 40, which denies the whole contractor subnet. Watch line 40\'s counter.','Delete line 45 and add the permit back as line 30, between the staff permit and the contractor deny.'],
+ lesson:'An exception only works if it comes before the broader line it is an exception to. Sequence numbers let you put a line exactly where it has to be.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
