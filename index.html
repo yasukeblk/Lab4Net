@@ -2679,6 +2679,16 @@ addIncident({title:'Incident 08: the far switch went dark',base:'Spanning tree: 
  steps:['PC1: ping 192.168.1.12','SW3: enable | show interfaces status | show interfaces status err-disabled | show running-config','SW3: configure terminal | interface range g0/1 - 2 | no spanning-tree bpduguard enable | no spanning-tree portfast | shutdown | no shutdown | end','SW3: show interfaces status ; PC1: ping 192.168.1.12'],
  hints:['Only the host on SW3 is cut off, and both of SW3\'s uplinks are affected together. Something on SW3 itself took them down.','show interfaces status on SW3 lists Gi0/1 and Gi0/2 as err-disabled, and show interfaces status err-disabled gives the reason. show running-config shows what they now share with the host port.','PortFast and BPDU Guard were applied to the uplinks, which hear BPDUs from SW1 and SW2. Remove both from Gi0/1 and Gi0/2, then shut and re-enable the ports to recover them.'],
  lesson:'BPDU Guard belongs on host ports only: any BPDU arriving on a guarded port err-disables it. An err-disabled port stays down until someone shuts and re-enables it, and it trips again at once if the cause is still there.'});
+
+// ----- incident 09
+addIncident({title:'Incident 09: the bundle that took both links',base:'EtherChannel with LACP',start:'PC1',
+ brief:'An engineer "simplified" the EtherChannel on SW2. Now both links between the switches are down and the two PCs cannot reach each other. Restore the bundle with negotiation, the way the design intends.',
+ symptom:['PC1','192.168.10.12'],
+ fault:{SW2:[...EN,'interface range g0/1 - 2','no channel-group 1','channel-group 1 mode on','end']},
+ repair:{SW2:[...EN,'interface range g0/1 - 2','shutdown','no channel-group 1','channel-group 1 mode active','no shutdown','end','show etherchannel summary'],PC1:['ping 192.168.10.12']},
+ steps:['PC1: ping 192.168.10.12','SW2: enable | show etherchannel summary | show interfaces status err-disabled ; SW1: enable | show etherchannel summary','SW2: configure terminal | interface range g0/1 - 2 | shutdown | no channel-group 1 | channel-group 1 mode active | no shutdown | end','SW2: show etherchannel summary ; SW1: show etherchannel summary ; PC1: ping 192.168.10.12'],
+ hints:['Both links failed at the same moment, which rules out a cable. Read what SW2 logged and look at its interface states.','show interfaces status err-disabled on SW2 shows the members err-disabled for channel-misconfig. Compare the channel protocol in show etherchannel summary on both switches.','SW2 forces the bundle with mode on while SW1 negotiates LACP. Remove the channel group, add it back in active mode, then bounce the ports to clear the err-disable.'],
+ lesson:'mode on never negotiates, so it only works against another on. Against an LACP neighbor it could loop, and EtherChannel guard err-disables the bundle instead. Both ends must use the same protocol, and IOS will not switch a member straight from LACP to on or back.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
