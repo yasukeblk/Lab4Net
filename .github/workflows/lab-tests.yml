@@ -12,3 +12,4 @@ jobs:
           node-version: '22'
       - run: node tests/labs.cjs
       - run: node tests/forwarding.cjs
+      - run: node tests/curriculum.cjs

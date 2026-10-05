@@ -452,6 +452,37 @@ ul.plain li{margin-bottom:8px}
   .legend{display:none}
   #deviceInfo{display:none}
 }
+/* troubleshooting incidents, CCNA objective tags, study map, undo */
+.small-btn:disabled{opacity:.45;filter:none;cursor:default}
+.ccna-tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.ccna-tags span{display:inline-flex;align-items:center;gap:6px;font:600 12px/1.2 var(--ui);color:#d9d3f5;background:#120e2b;border:2px solid var(--line);border-radius:6px;padding:3px 8px 3px 3px;box-shadow:0 0 0 1px rgba(46,230,255,.35)}
+.ccna-tags b{font:italic 800 13px/1 var(--px);color:var(--night);background:var(--cy);border-radius:4px;padding:3px 5px}
+.lesson-tip.inc{border-left-color:var(--org);background:rgba(255,138,31,.09)}
+.clues{margin:12px 0 14px;padding:10px 12px;background:linear-gradient(#2a1f12,#1d160f);border:2px solid var(--line);border-radius:10px;box-shadow:0 0 0 1px rgba(255,138,31,.55),0 0 16px rgba(255,138,31,.18)}
+.clues-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.clues-head b{font:italic 800 18px var(--px);letter-spacing:.05em;text-transform:uppercase;color:var(--org);text-shadow:0 0 10px rgba(255,138,31,.5)}
+.clues-head span{font-size:12px;color:var(--muted)}
+.clue{margin:8px 0;padding:7px 10px;background:rgba(0,0,0,.28);border-left:4px solid var(--org);border-radius:0 7px 7px 0;animation:clueIn .35s ease-out both}
+.clue:nth-of-type(3){border-left-color:var(--yel)}.clue:nth-of-type(4){border-left-color:var(--bad)}
+.clue i{font:italic 800 14px var(--px);letter-spacing:.06em;text-transform:uppercase;color:var(--yel)}
+.clue p{margin:2px 0 0;font-size:14px;color:#efe6d6}
+.clues .actions{margin-top:8px;display:flex;gap:10px;flex-wrap:wrap}
+@keyframes clueIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.study-next{margin:12px 0 16px;padding:12px 14px;background:linear-gradient(var(--panel3),#231c52);border:2px solid var(--line);border-radius:10px;box-shadow:0 0 0 1px var(--yel),0 0 16px rgba(255,210,63,.22)}
+.study-next p{margin:8px 0 0;font-size:14px;color:#d9d3f5}
+.study-domains{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.study-domain{padding:10px 12px;background:rgba(0,0,0,.22);border:2px solid var(--line);border-radius:10px;box-shadow:0 0 0 1px rgba(255,255,255,.07)}
+.sd-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.sd-head b{font:italic 800 18px var(--px);letter-spacing:.03em;text-transform:uppercase}
+.sd-head span{font-size:12px;color:var(--yel)}
+.study-domain p{margin:4px 0 8px;font-size:13px;color:var(--muted)}
+.study-meter{height:12px;margin-top:6px;border:2px solid var(--line);border-radius:3px;background:#0c0920;transform:skewX(-18deg);overflow:hidden}
+.study-meter span{display:block;height:100%;background:linear-gradient(90deg,var(--go),var(--cy));box-shadow:0 0 10px var(--go);transition:width .6s}
+.study-links{display:flex;flex-wrap:wrap;gap:8px}
+.study-links .small-btn{font-size:13px}
+.study-links .small-btn.passed{background:linear-gradient(#2f8a55,#1c5a37)}
+.study-note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:620px){.study-domains{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important}.selring,.selglow,.wire.flow,h1 .l,.workspace-bar .cur,.clear{animation:none!important}.fxlabel{opacity:1!important;animation:none!important}}
 </style>
 </head>
@@ -460,7 +491,7 @@ ul.plain li{margin-bottom:8px}
 <div id="boot" aria-hidden="true"><pre></pre></div>
 <header>
   <h1><svg viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path class="w" d="M7 5h2v3H7zM3 8h10v1H3zM3 9h1v2H3zM12 9h1v2h-1z"/><path class="w" d="M6 2h4v3H6zM2 11h3v3H2zM11 11h3v3h-3z"/><path class="l" d="M7 3h2v1H7z"/></svg>Lab4Net</h1>
-  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="trophies">Trophies</button></div>
+  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="studyMap">Study map</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="trophies">Trophies</button></div>
   <select id="labs" aria-label="Choose a lab"></select>
   <div id="hud" aria-label="Level and experience"></div>
   <div id="meter"></div>
@@ -1244,6 +1275,84 @@ const STEPS={
 'Static NAT: publish a server':['R1: enable | configure terminal | ip route 0.0.0.0 0.0.0.0 203.0.113.1','R1: interface g0/0 | ip nat inside | interface g0/1 | ip nat outside | exit','R1: ip nat inside source static 192.168.1.10 203.0.113.10 | end','R1: show ip nat translations','CLIENT: ping 203.0.113.10 | telnet 203.0.113.10 80']
 };
 LABS.forEach(l=>{l.steps=(STEPS[l.title]||[]).map(t=>t.split(' ; ').map(g=>{const k=g.indexOf(': ');return {dev:g.slice(0,k),cmds:g.slice(k+2).split(' | ')};}));});
+//CCNA-CURRICULUM-START
+// ---------- CCNA objective map and troubleshooting incidents (rebuilt from the chatgpt/improvements branch) ----------
+// Objective labels describe what this app practices, not complete exam coverage.
+const CCNA_SCOPE={exam:'200-301',version:'1.1',verified:'2026-10-04',source:'https://learningcontent.cisco.com/documents/marketing/exam-topics/200-301-CCNA-v1.1.pdf',rule:'Graded labs and incidents stay at CCNA 200-301 scope.'};
+const CCNA_DOMAINS=[['1','Network fundamentals',20],['2','Network access',20],['3','IP connectivity',25],['4','IP services',10],['5','Security fundamentals',15],['6','Automation and programmability',10]];
+const CCNA_OBJECTIVES={
+ '1.6':'IPv4 addressing and subnetting','1.10':'Client IP parameters','1.13':'Switching concepts',
+ '2.1':'VLANs and inter-VLAN connectivity','2.2':'Trunks and 802.1Q','2.4':'LACP EtherChannel','2.5':'Rapid PVST+ interpretation',
+ '3.1':'Routing-table interpretation','3.3':'Static routing','3.4':'Single-area OSPFv2',
+ '4.1':'Inside-source NAT','4.3':'DHCP and DNS concepts','4.6':'DHCP client and relay','4.8':'SSH management',
+ '5.3':'Local device access control','5.6':'Access control lists','5.7':'Layer 2 security'};
+const CCNA_LAB_MAP={
+ 'Basic device setup':['1.6','5.3'],'VLANs and access ports':['1.13','2.1'],'802.1Q trunking':['2.1','2.2'],
+ 'Router-on-a-stick':['2.1','2.2'],'Static routing':['3.1','3.3'],'Single-area OSPF':['3.1','3.4'],
+ 'Spanning tree: root bridge and edge ports':['2.5'],'EtherChannel with LACP':['2.4'],
+ 'DHCP server and relay':['1.10','4.3','4.6'],'NAT overload (PAT)':['4.1'],
+ 'Standard ACL':['5.6'],'Extended named ACL':['5.6'],'Port security':['5.7'],
+ 'SSH remote access':['4.8','5.3'],'Static NAT: publish a server':['4.1']};
+LABS.forEach(l=>{l.ccna=CCNA_LAB_MAP[l.title]||[];l.kind='build';});
+const INCIDENTS=[
+ {title:'Incident 01: one Sales PC is isolated',base:'VLANs and access ports',start:'PC1',
+  brief:'PC1 and PC2 should communicate in Sales; Engineering still works. The network is already configured. Find the evidence, repair only the fault, and preserve the intended VLAN separation.',
+  symptom:['PC1','192.168.10.12'],fault:{SW1:['enable','configure terminal','interface f0/2','switchport access vlan 20','end']},
+  repair:{SW1:['enable','configure terminal','interface f0/2','switchport access vlan 10','end','show vlan brief'],PC1:['ping 192.168.10.12'],PC3:['ping 192.168.20.14']},
+  steps:['PC1: ping 192.168.10.12 ; PC3: ping 192.168.20.14','SW1: enable | show vlan brief | show running-config','SW1: configure terminal | interface f0/2 | switchport access vlan 10 | end','PC1: ping 192.168.10.12 ; PC3: ping 192.168.20.14'],
+  hints:['Compare the failed Sales pair with the working Engineering pair. IP subnet membership alone does not place a host into a switch VLAN.','On SW1, inspect show vlan brief and show running-config. Find Fa0/2 and compare PC2’s access VLAN with the address plan.','SW1 Fa0/2 is in VLAN 20. Restore access VLAN 10; do not move the Sales hosts into Engineering.'],
+  lesson:'A host can have the right IP address and an up link while belonging to the wrong broadcast domain. Check both the host subnet and its switch access VLAN.'},
+ {title:'Incident 02: Engineering cannot cross floors',base:'802.1Q trunking',start:'PC2',
+  brief:'Sales works across the two switches, but the Engineering PCs cannot reach each other. The interswitch link must carry only VLANs 10 and 20. Keep both VLANs intact and restore the service.',
+  symptom:['PC2','192.168.20.14'],fault:{SW2:['enable','configure terminal','interface g0/1','switchport trunk allowed vlan 10','end']},
+  repair:{SW2:['enable','configure terminal','interface g0/1','switchport trunk allowed vlan 10,20','end','show interfaces trunk'],PC2:['ping 192.168.20.14'],PC1:['ping 192.168.10.13']},
+  steps:['PC2: ping 192.168.20.14 ; PC1: ping 192.168.10.13','SW1: enable | show interfaces trunk ; SW2: enable | show interfaces trunk','SW2: configure terminal | interface g0/1 | switchport trunk allowed vlan 10,20 | end','PC2: ping 192.168.20.14 ; PC1: ping 192.168.10.13'],
+  hints:['A link can be up and carry one VLAN while dropping another. Compare the working and failing VLAN IDs.','Inspect show interfaces trunk on both switches. A VLAN must be allowed at both ends, not just one.','SW2 Gi0/1 allows only VLAN 10. Restore the allowed list to 10,20, preserving Sales traffic.'],
+  lesson:'A trunk being up is only the first check. Its allowed VLAN set must carry the intended VLAN on both ends.'},
+ {title:'Incident 03: the request arrives, the reply disappears',base:'Static routing',start:'PC1',
+  brief:'The two LANs should communicate through three routers. A ping request can reach the far LAN, but it never returns. The intended design uses a default route from R3 toward R2. Inspect both directions and restore that design.',
+  symptom:['PC1','192.168.3.10'],fault:{R3:['enable','configure terminal','no ip route 0.0.0.0 0.0.0.0 10.0.23.1','end']},
+  repair:{R3:['enable','configure terminal','ip route 0.0.0.0 0.0.0.0 10.0.23.1','end','show ip route'],PC1:['ping 192.168.3.10'],PC2:['ping 192.168.1.10']},
+  steps:['PC1: ping 192.168.3.10','R1: enable | show ip route ; R2: enable | show ip route ; R3: enable | show ip route','R3: configure terminal | ip route 0.0.0.0 0.0.0.0 10.0.23.1 | end','PC1: ping 192.168.3.10 ; PC2: ping 192.168.1.10'],
+  hints:['Read the request and reply paths separately. A delivered request is not proof of bidirectional reachability.','On R3, find a route that covers the original source 192.168.1.10. Use show ip route and check the gateway of last resort.','R3 has no default route. Restore 0.0.0.0/0 via 10.0.23.1, then test from both PCs.'],
+  lesson:'Routing decisions happen again on the return journey. Every router in that direction needs a route covering the reply destination.'},
+ {title:'Incident 04: one VLAN lost its gateway',base:'Router-on-a-stick',start:'PC2',
+  brief:'VLAN 10 can reach its gateway. VLAN 20 cannot, and inter-VLAN pings fail. The physical links are up. Compare switch tagging with the router subinterfaces, then restore the intended design.',
+  symptom:['PC2','192.168.20.1'],fault:{R1:['enable','configure terminal','interface g0/0.20','encapsulation dot1q 30','end']},
+  repair:{R1:['enable','configure terminal','interface g0/0.20','encapsulation dot1q 20','end','show running-config'],PC2:['ping 192.168.20.1'],PC1:['ping 192.168.20.10']},
+  steps:['PC2: ping 192.168.20.1 ; PC1: ping 192.168.10.1','SW1: enable | show interfaces trunk ; R1: enable | show running-config | show ip interface brief','R1: configure terminal | interface g0/0.20 | encapsulation dot1q 20 | end','PC2: ping 192.168.20.1 ; PC1: ping 192.168.20.10'],
+  hints:['Subinterface numbers are names; they do not automatically select the 802.1Q VLAN ID.','Compare SW1’s VLAN 20 trunk traffic with R1’s encapsulation statement under Gi0/0.20.','Gi0/0.20 is tagged for VLAN 30. Restore encapsulation dot1q 20 while preserving its existing address.'],
+  lesson:'Gi0/0.20 could legally use a different tag, but this design requires VLAN 20. The encapsulation command, not the suffix, selects the actual tag.'},
+ {title:'Incident 05: the remote client has no lease',base:'DHCP server and relay',start:'PC3',
+  brief:'Local clients have valid DHCP leases, but remote PC3 cannot obtain one. Preserve the working pools and find the fault between the remote client and the DHCP server.',
+  symptom:['PC3','192.168.10.1'],fault:{R2:['enable','configure terminal','interface g0/1','ip helper-address 10.0.0.99','end'],PC3:['ipconfig /release']},
+  repair:{R2:['enable','configure terminal','interface g0/1','ip helper-address 10.0.0.1','end','show running-config'],PC3:['ipconfig /renew','ipconfig','ping 192.168.10.1']},
+  steps:['PC3: ipconfig | ipconfig /renew ; PC1: ipconfig','R1: enable | show running-config | show ip dhcp binding ; R2: enable | show running-config','R2: configure terminal | interface g0/1 | ip helper-address 10.0.0.1 | end','PC3: ipconfig /renew | ipconfig | ping 192.168.10.1'],
+  hints:['The server works for local clients. Investigate how a client broadcast reaches the server from the other subnet.','Inspect R2’s client-facing Gi0/1 helper address. Compare it with the DHCP server’s transit address on R1.','The helper points at 10.0.0.99. Change it to 10.0.0.1, then renew PC3’s lease. Repairing the relay alone does not give PC3 an address.'],
+  lesson:'The relay belongs on the client-facing interface and points to the reachable DHCP server. After a failed acquisition, renew the client to prove the repair.'},
+ {title:'Incident 06: ping works, SSH does not',base:'SSH remote access',start:'PC1',
+  brief:'PC1 can ping the router, but SSH is unavailable. Retain local authentication and the existing keys. Restore SSH-only management without opening Telnet.',
+  symptom:['PC1','192.168.1.1','tcp',22],fault:{R1:['enable','configure terminal','line vty 0 4','transport input telnet','end']},
+  repair:{R1:['enable','configure terminal','line vty 0 4','transport input ssh','end','show ip ssh'],PC1:['ssh -l admin 192.168.1.1','telnet 192.168.1.1']},
+  steps:['PC1: ping 192.168.1.1 | ssh -l admin 192.168.1.1','R1: enable | show ip ssh | show running-config','R1: configure terminal | line vty 0 4 | transport input ssh | end','PC1: ssh -l admin 192.168.1.1 | telnet 192.168.1.1'],
+  hints:['ICMP reachability and an open SSH service are different requirements. Rebuilding routing is unlikely to fix a refused service.','Inspect the VTY transport setting in show running-config, alongside show ip ssh. Keys and version alone do not permit incoming SSH.','The VTY transport allows Telnet only. Restore transport input ssh; verify SSH succeeds and Telnet is refused.'],
+  lesson:'Remote management requires both network reachability and a permitted listening service. Keep the encrypted service enabled and the cleartext alternative closed.'}
+];
+function incidentCommands(net,commands){
+ const saved=TRACE;try{for(const [name,lines] of Object.entries(commands)){const d=net.devs[name],s={mode:d.type==='pc'?'pc':'user'};for(const line of lines){const out=execLine(net,d,s,line);if(out.some(l=>/^% (Invalid|Incomplete|Ambiguous|Unrecognized)/i.test(l)))throw Error('Incident setup rejected '+line);}}}finally{TRACE=saved;}
+}
+for(const spec of INCIDENTS){const base=LABS.find(l=>l.title===spec.base);LABS.push({
+ title:spec.title,kind:'incident',group:'Troubleshooting',baseTitle:base.title,ccna:base.ccna.slice(),brief:spec.brief,pos:base.pos,start:spec.start,addr:base.addr,tasks:[
+  'Reproduce the reported failure and compare it with a working service.',
+  'Gather evidence from show commands and the address plan before changing configuration.',
+  'Restore the intended configuration with the smallest repair; preserve working services.',
+  'Retest the reported service and confirm the original requirements still hold.'],
+ why:['A controlled test establishes the symptom and separates a general outage from a limited failure.','Evidence narrows the failure domain. Configuration text, interface state and packet paths answer different questions.','Changing unrelated settings can hide the original cause or introduce another fault. Keep the known-good design intact.','A successful repair must restore the service and preserve unrelated requirements, including the return path and security policy.'],
+ hints:spec.hints,lesson:spec.lesson,solution:spec.repair,checks:base.checks,
+ steps:spec.steps.map(t=>t.split(' ; ').map(g=>{const k=g.indexOf(': ');return {dev:g.slice(0,k),cmds:g.slice(k+2).split(' | ')};})),
+ build(){const net=base.build();incidentCommands(net,base.solution);incidentCommands(net,spec.fault);return net;}
+});}
+//CCNA-CURRICULUM-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
   const out=lab.steps.map(task=>task.map(g=>{const d=net.devs[g.dev],s=sess[g.dev]||(sess[g.dev]={mode:d.type==='pc'?'pc':'user',ctx:null});
@@ -1259,7 +1368,7 @@ const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
 let REDUCED=motion.matches;
 motion.addEventListener?.('change',e=>{REDUCED=e.matches;if(REDUCED)fxToken++;});
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-const GROUPS=['Fundamentals','Switching','Routing','IP services','Security'];
+const GROUPS=['Fundamentals','Switching','Routing','IP services','Security','Troubleshooting'];
 const HINT='? commands · Tab complete · ↑↓ history · Ctrl+Z end · Ctrl+L clear';
 const MODE={user:'User EXEC',priv:'Privileged EXEC',config:'Global configuration',if:'Interface configuration',vlan:'VLAN configuration',line:'Line configuration',ospf:'OSPF configuration',acl:'ACL configuration',dhcp:'DHCP pool configuration',pc:'Host console'};
 let cur=null,progress={},drafts={},lastLab=0,fxToken=0,quizIndex=0,quizAnswer=null;
@@ -1285,15 +1394,16 @@ function renderLabs(){let h='';for(const g of GROUPS)h+=`<optgroup label="${g}">
   const count=LABS.filter(l=>progress[l.title]).length;$('meter').innerHTML=`<div class="progressbar" role="progressbar" aria-label="Labs passed" aria-valuemin="0" aria-valuemax="${LABS.length}" aria-valuenow="${count}"><span style="width:${count/LABS.length*100}%"></span></div><span>${count} / ${LABS.length} passed</span>`;
   $('workspaceTitle').textContent=cur.view==='lab'?cur.lab.title:cur.view==='drill'?'Subnetting drill':'Theory check';}
 function renderBrief(){if(cur.view==='drill')return renderDrill();if(cur.view==='quiz')return renderQuiz();const l=cur.lab,done=cur.tasks.filter(Boolean).length;
-  let h=`<div class="eyebrow">${l.group} <span>LAB ${String(cur.idx+1).padStart(2,'0')}</span></div><h2>${l.title}</h2><p>${l.brief}</p><div class="lesson-tip"><b>Configure → verify → explain</b><br>Use the tasks as a guide. Grade checks the actual network, independently of your checklist.</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><div class="guide-row"><label class="gswitch"><input type="checkbox" id="guideToggle"${guideOn?' checked':''}><span aria-hidden="true"></span>Step-by-step instructions</label><button class="small-btn" id="guidePopBtn" type="button">${guidePop?'Dock guide':'Pop out guide'}</button></div><h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details>${stepsHtml(k)}</div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
-  if(cur.graded){const ok=cur.graded.filter(g=>g[1]).length,all=ok===cur.graded.length;h+=`<strong class="${all?'done':''}">${all?'✓ Lab complete':`${ok} / ${cur.graded.length} checks passed`}</strong><p>${all?'You built a working network. Try explaining why it works before moving on.':'Use the failed checks below to narrow your next change. Your work is saved.'}</p><ul>${cur.graded.map((g,k)=>`<li class="${g[1]?'ok':'no'}" style="--i:${k}">${g[0]}</li>`).join('')}</ul>${all?'<button class="btn primary" id="nextLab">Next unpassed lab →</button>':''}`;}
+  const inc=l.kind==='incident';
+  let h=`<div class="eyebrow">${l.group} <span>${inc?'INCIDENT '+l.title.slice(9,11):'LAB '+String(cur.idx+1).padStart(2,'0')}</span></div><h2>${inc?l.title.slice(13).replace(/^./,c=>c.toUpperCase()):l.title}</h2>${ccnaTags(l)}<p>${l.brief}</p><div class="lesson-tip${inc?' inc':''}"><b>${inc?'Reproduce → inspect → repair → verify':'Configure → verify → explain'}</b><br>${inc?'This network was working until something changed. Find the evidence, make the smallest repair and keep everything else working.':'Use the tasks as a guide. Grade checks the actual network, independently of your checklist.'}</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><div class="guide-row"><label class="gswitch"><input type="checkbox" id="guideToggle"${guideOn?' checked':''}><span aria-hidden="true"></span>Step-by-step instructions</label><button class="small-btn" id="guidePopBtn" type="button">${guidePop?'Dock guide':'Pop out guide'}</button></div>${clueHtml(l)}<h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details>${stepsHtml(k)}</div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
+  if(cur.graded){const ok=cur.graded.filter(g=>g[1]).length,all=ok===cur.graded.length;h+=`<strong class="${all?'done':''}">${all?'✓ Lab complete':`${ok} / ${cur.graded.length} checks passed`}</strong><p>${all?(l.lesson?'<b>Root cause.</b> '+esc(l.lesson):'You built a working network. Try explaining why it works before moving on.'):'Use the failed checks below to narrow your next change. Your work is saved.'}</p><ul>${cur.graded.map((g,k)=>`<li class="${g[1]?'ok':'no'}" style="--i:${k}">${g[0]}</li>`).join('')}</ul>${all?'<button class="btn primary" id="nextLab">Next unpassed lab →</button>':''}`;}
   h+='</div><div id="solution">';
   if(cur.showSol)h+=`<div class="lesson-tip">Read one device at a time, predict what each command changes, then type it yourself. This is one working approach.</div>`+Object.entries(l.solution).map(([d,c])=>`<h3>${d}</h3>`+c.map(x=>`<div class="sol"><code>${esc(x)}</code>${whyOf(x)?`<span>${whyOf(x)}</span>`:''}</div>`).join('')).join('');
   {const cut=h.indexOf('<div class="guide-row">'),cb=$('checkBody'),sc=cb.scrollTop;$('brief').innerHTML=h.slice(0,cut);cb.innerHTML=h.slice(cut)+'</div>';cb.scrollTop=sc;}
   $('guideToggle').onchange=e=>{guideOn=e.target.checked;try{localStorage.setItem('lab4net-guide',guideOn?'1':'0');}catch(x){}const sc=$('brief').scrollTop;renderBrief();$('brief').scrollTop=sc;};$('guidePopBtn').onclick=()=>setGuidePop(!guidePop);
   $('checkBody').querySelectorAll('[data-task]').forEach(x=>x.onchange=()=>{cur.tasks[+x.dataset.task]=x.checked;saveWork();const scroll=$('brief').scrollTop;renderBrief();$('brief').scrollTop=scroll;});
   $('bGrade').onclick=()=>{cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});if(cur.graded.every(g=>g[1])){progress[l.title]=true;persist();celebrate();}renderLabs();renderBrief();$('grade').scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});};
-  $('bSol').onclick=()=>{cur.showSol=!cur.showSol;renderBrief();};
+  $('bSol').onclick=()=>{cur.showSol=!cur.showSol;renderBrief();};bindClues();
   $('bReset').onclick=()=>{dialog('Start this lab over?',`<p>This removes this lab’s saved commands and checklist. Its earned pass stays in your progress.</p><button class="btn primary" id="confirmReset">Start with a fresh network</button>`);$('confirmReset').onclick=()=>{$('dialog').close();openLab(cur.idx,true);notify('Lab reset. Previously earned progress kept.');};};
   if($('nextLab'))$('nextLab').onclick=()=>{const next=LABS.findIndex((l,i)=>i>cur.idx&&!progress[l.title]);const first=LABS.findIndex(l=>!progress[l.title]);openLab(next>=0?next:first>=0?first:0);};}
 function lineClass(l){if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';if(/^%|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
@@ -1312,8 +1422,8 @@ function execute(line){if(cur.view!=='lab')return;const{net,sess,sel}=cur,s=sess
 function renderTrace(){const T=cur.trace;if(!T)return;const last=p=>p.hops.path.at(-1);const result=T.ok?'Reply received':T.refused?'Destination port closed':!T.f.ok?T.f.reason:T.r?'Reply failed: '+(T.r.reason||'did not return to source'):'No reply';
   $('trace').innerHTML=`<div class="trace-title ${T.ok?'good':'bad'}">${T.ok?'✓':'!'} ${esc(result)}<button class="small-btn" id="replayTrace">Replay</button></div><div class="trace-path"><b>Request</b> ${T.f.hops.path.map(esc).join(' → ')}${!T.f.ok?` <span class="bad">· stopped at ${esc(last(T.f))}</span>`:''}</div>${T.r?`<div class="trace-path"><b>Reply</b> ${T.r.hops.path.map(esc).join(' → ')}</div>`:''}<p>${T.ok?'Both directions succeeded. A request reaching the destination alone is not enough.':T.refused?'The network path works, but the destination is not listening on that port.':T.f.blocked||T.r?.blocked?'Read the ACL in order. The first matching rule wins; unmatched traffic is denied.':'Verify interface state and addressing first, then the next hop and the return route.'}</p><p>Last connectivity test · Run the command again after changing configuration.</p>`;$('replayTrace').onclick=()=>playTrace(cur.trace);}
 function dialog(title,body){$('dialogTitle').textContent=title;$('dialogBody').innerHTML=body;if(!$('dialog').open)$('dialog').showModal();}
-function library(){dialog('Choose your next mission',`<p>Build the fundamentals, then move through switching, routing, services and security. Reopen any lab to resume your work.</p><input id="labSearch" class="search" placeholder="Find a lab or topic…" aria-label="Search labs"><div id="labCards"></div><div class="practice-buttons"><button class="btn" data-practice="drill">Subnetting drill →</button><button class="btn" data-practice="quiz">Theory check →</button></div>`);
-  const cards=()=>{const q=$('labSearch').value.toLowerCase();$('labCards').innerHTML=GROUPS.map(g=>{const matches=LABS.map((l,i)=>({l,i})).filter(({l})=>l.group===g&&(l.title+' '+l.brief+' '+g).toLowerCase().includes(q));return matches.length?`<h3>${g}</h3><div class="lab-grid">${matches.map(({l,i})=>`<button class="lab-card" data-lab="${i}"><span class="eyebrow">${String(i+1).padStart(2,'0')} <span>${progress[l.title]?'✓ PASSED':drafts[l.title]?.journal.length?'RESUME':'READY'}</span></span><b>${l.title}</b><span>${l.brief}</span><small>${l.tasks.length} tasks · ${Object.keys(l.build().devs).length} devices</small></button>`).join('')}</div>`:'';}).join('')||'<p>No labs match. Try “routing” or “security”.</p>';
+function library(){dialog('Choose your next mission',`<p>Build the fundamentals, then move through switching, routing, services and security. Troubleshooting incidents hand you a broken network to fix. Reopen any lab to resume your work.</p><input id="labSearch" class="search" placeholder="Find a lab, topic or CCNA objective (e.g. 3.4)…" aria-label="Search labs"><div id="labCards"></div><div class="practice-buttons"><button class="btn" data-practice="drill">Subnetting drill →</button><button class="btn" data-practice="quiz">Theory check →</button></div>`);
+  const cards=()=>{const q=$('labSearch').value.toLowerCase();$('labCards').innerHTML=GROUPS.map(g=>{const matches=LABS.map((l,i)=>({l,i})).filter(({l})=>l.group===g&&(l.title+' '+l.brief+' '+g+' '+(l.ccna||[]).map(id=>id+' '+CCNA_OBJECTIVES[id]).join(' ')).toLowerCase().includes(q));return matches.length?`<h3>${g}</h3><div class="lab-grid">${matches.map(({l,i})=>`<button class="lab-card" data-lab="${i}"><span class="eyebrow">${String(i+1).padStart(2,'0')} <span>${progress[l.title]?'✓ PASSED':drafts[l.title]?.journal.length?'RESUME':'READY'}</span></span><b>${l.title}</b><span>${l.brief}</span><small>${l.ccna?.length?'CCNA '+l.ccna.join(' · ')+' · ':''}${l.tasks.length} tasks · ${Object.keys(l.build().devs).length} devices</small></button>`).join('')}</div>`:'';}).join('')||'<p>No labs match. Try “routing” or “security”.</p>';
     $('labCards').querySelectorAll('[data-lab]').forEach(b=>b.onclick=()=>{$('dialog').close();openLab(+b.dataset.lab);});};cards();$('labSearch').oninput=cards;$('dialogBody').querySelectorAll('[data-practice]').forEach(b=>b.onclick=()=>{$('dialog').close();openPractice(b.dataset.practice);});}
 function reference(){if(cur.view!=='lab')return;const d=cur.net.devs[cur.sel],s=cur.sess[cur.sel];dialog('Command field guide',`<p>Commands supported by this simulator for <b>${esc(d.hostname)}</b>. Choose a command to place its syntax in the console; replace placeholders before pressing Enter.</p><div class="reference-tools"><input id="cmdSearch" class="search" placeholder="Search commands or explanations…" aria-label="Search commands"><label><input type="checkbox" id="allModes"> All modes</label></div><div id="cmdList"></div>`);
   const render=()=>{const q=$('cmdSearch').value.toLowerCase(),all=$('allModes').checked;const list=CMDS.filter(c=>(!c.types||c.types.includes(d.type))&&(all||c.modes.includes(s.mode))&&(c.pat.join(' ')+' '+(WHYC[c.pat.join(' ')]||'')).toLowerCase().includes(q));
@@ -1516,6 +1626,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
   const KEY='lab4net-fun-v1';let F={ranks:{},ach:{},days:[],runs:{},cleared:{},sound:true};
   try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object')F=Object.assign(F,p);}catch(e){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(F));}catch(e){}};
+  window.l4nFun={run:()=>run(),save:()=>save()};
   const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 
   // sound (generated, no audio files)
@@ -1546,17 +1657,18 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
   // trophies
   const ACH=[['first','First Clear','Pass your first lab.'],['nohelp','No Hand-Holding','Pass a lab with the guide off and the walkthrough closed.'],['flawless','Flawless','Pass a lab without a single rejected command.'],['srank','S Rank','Earn an S on any lab.'],
     ['combo10','Combo x10','Enter 10 valid commands in a row.'],['tracer','Tracer','Get your first successful ping.'],['bouncer','Bouncer','Watch an ACL drop a packet.'],['subnet','Subnet Sniper','Get 30 subnetting fields right.'],
-    ['theory','Theory Check','Answer every theory question correctly.'],['half','Halfway There','Pass half of the labs.'],['all','Full Clear','Pass every lab.'],['streak3','Three-Day Streak','Study three days in a row.']];
+    ['theory','Theory Check','Answer every theory question correctly.'],['half','Halfway There','Pass half of the labs.'],['all','Full Clear','Pass every lab.'],['streak3','Three-Day Streak','Study three days in a row.'],
+    ['detective','Detective','Solve a troubleshooting incident with no clues, guide or walkthrough.'],['faults','Fault Finder','Solve all six troubleshooting incidents.']];
   function toast(kicker,title,sub,icon){const t=document.createElement('div');t.className='toast';t.innerHTML=`<i>${icon||'★'}</i><small>${kicker}</small><b>${title}</b><span>${sub}</span>`;$('toasts').appendChild(t);setTimeout(()=>t.remove(),4800);}
   const fresh=[];
   function unlock(id){if(F.ach[id])return;F.ach[id]=Date.now();save();const a=ACH.find(a=>a[0]===id);fresh.push(a[1]);toast('Trophy unlocked',a[1],a[2]);SFX.ach();renderHud();}
-  function checkGlobal(){const passed=LABS.filter(l=>progress[l.title]).length;if(passed>=Math.ceil(LABS.length/2))unlock('half');if(passed===LABS.length)unlock('all');
+  function checkGlobal(){const passed=LABS.filter(l=>progress[l.title]).length;if(passed>=Math.ceil(LABS.length/2))unlock('half');if(passed===LABS.length)unlock('all');{const inc=LABS.filter(l=>l.kind==='incident');if(inc.length&&inc.every(l=>progress[l.title]))unlock('faults');}
     if(progress.drill&&progress.drill.r>=30)unlock('subnet');if(typeof QUIZ!=='undefined'&&QUIZ.every((q,i)=>(progress.quiz||{})[i]===true))unlock('theory');if(streak()>=3)unlock('streak3');renderHud();}
   $('trophies').onclick=()=>{const x=xp(),lv=level(x);
     dialog('Trophy case',`<div class="result"><div class="stamp rS" style="font-size:96px;animation:none">${lv.n}</div><div><div class="eyebrow">Level ${lv.n}</div><h2 style="margin:0 0 6px">${lv.title}</h2><p>${x} XP${lv.next?' · '+lv.next+' XP to the next level':' · top level reached'}${streak()>1?' · '+streak()+'-day streak':''}</p></div></div>
       <h3>Trophies ${Object.keys(F.ach).length}/${ACH.length}</h3><div class="trophy-grid">${ACH.map(a=>`<div class="trophy${F.ach[a[0]]?'':' locked'}"><i>${F.ach[a[0]]?'★':'☆'}</i><b>${a[1]}</b><span>${a[2]}</span></div>`).join('')}</div>
       <h3>Stage ranks</h3><div class="table-wrap"><table><thead><tr><th>Lab</th><th>Status</th><th>Best rank</th></tr></thead><tbody>${LABS.map(l=>`<tr><td>${l.title}</td><td>${progress[l.title]?'Passed':'Not yet'}</td><td>${F.ranks[l.title]||'—'}</td></tr>`).join('')}</tbody></table></div>
-      <p style="margin-top:14px">Ranks come from a clean run: start a lab over, then finish it quickly, with few rejected commands, and without the guide or walkthrough.</p>`);};
+      <p style="margin-top:14px">Ranks come from a clean run: start a lab over, then finish it quickly, with few rejected commands, and without the guide, walkthrough or incident clues.</p>`);};
 
   // per-lab run: time, commands, mistakes, help used
   let combo=0;
@@ -1580,11 +1692,12 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
     save();renderRunHud();};
   const cel0=celebrate;celebrate=function(){cel0();SFX.clear();const lab=cur.lab,t=lab.title,r=run(),before=xp()-(F.cleared[t]?0:100),snap=cur;F.cleared[t]=true;fresh.length=0;unlock('first');
     if(r&&r.valid&&!r.done&&r.cmds>0){r.done=true;r.help=r.help||guideOn||guidePop;r.walk=r.walk||!!cur.showSol;
-      const par=Object.values(lab.solution).reduce((a,c)=>a+c.length,0),parSec=par*12;
-      const score=100-Math.min(30,r.errs*6)-Math.min(20,Math.max(0,r.cmds-Math.ceil(par*1.3)))-Math.min(20,Math.floor(Math.max(0,r.sec-parSec)/20))-(r.help?15:0)-(r.walk?25:0);
+      // incidents: par counts the whole investigate-and-repair path, so show commands are not penalised
+      const par=lab.kind==='incident'?lab.steps.flat().reduce((a,g)=>a+g.cmds.filter(c=>c[0]!=='#').length,0):Object.values(lab.solution).reduce((a,c)=>a+c.length,0),parSec=par*12,clues=r.clues||0;
+      const score=100-Math.min(30,r.errs*6)-Math.min(20,Math.max(0,r.cmds-Math.ceil(par*1.3)))-Math.min(20,Math.floor(Math.max(0,r.sec-parSec)/20))-(r.help?15:0)-(r.walk?25:0)-clues*5;
       const rank=score>=95?'S':score>=85?'A':score>=70?'B':score>=55?'C':'D',prev=F.ranks[t];r.rank=rank;
       if(!prev||ORDER.indexOf(rank)>ORDER.indexOf(prev))F.ranks[t]=rank;
-      if(!r.help&&!r.walk)unlock('nohelp');if(r.errs===0)unlock('flawless');if(rank==='S')unlock('srank');
+      if(!r.help&&!r.walk&&!clues){unlock('nohelp');if(lab.kind==='incident')unlock('detective');}if(r.errs===0)unlock('flawless');if(rank==='S')unlock('srank');
       save();checkGlobal();const gain=xp()-before,got=fresh.slice();
       setTimeout(()=>{if(cur!==snap||cur.view!=='lab')return;
         $('resultBody').innerHTML=`<div class="result"><div class="stamp r${rank}">${rank}</div><div class="rrows">
@@ -1592,7 +1705,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
           <div style="--i:1"><span>Commands</span><b>${r.cmds} <small>par ${par}</small></b></div>
           <div style="--i:2"><span>Rejected commands</span><b>${r.errs}</b></div>
           <div style="--i:3"><span>Best combo</span><b>×${r.max}</b></div>
-          <div style="--i:4"><span>Help used</span><b>${r.walk?'Walkthrough':r.help?'Guide':'None'}</b></div></div></div>
+          <div style="--i:4"><span>Help used</span><b>${[r.walk&&'Walkthrough',r.help&&'Guide',clues&&clues+(clues>1?' clues':' clue')].filter(Boolean).join(' + ')||'None'}</b></div></div></div>
           <p class="xpgain">${gain>0?'+'+gain+' XP':'No new XP · beat your best rank to earn more'}${prev&&prev!==F.ranks[t]?` · best rank ${prev} → ${F.ranks[t]}`:prev?` · best rank ${F.ranks[t]}`:''}</p>
           ${got.length?`<p>Trophies unlocked: <b>${got.join(', ')}</b></p>`:''}
           <div class="actions"><button class="btn primary" id="rNext">Next lab</button><button class="btn" id="rRetry">Retry for a better rank</button></div>`;
@@ -1623,6 +1736,35 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
   ensureRun(false);renderHud();renderRunHud();checkGlobal();
 })();
 
+// ---------- troubleshooting clues, CCNA objective tags and study map (ideas from the chatgpt/improvements branch) ----------
+// Function declarations so the base renderBrief can call them on the very first render.
+function ccnaTags(l){if(!l||!l.ccna||!l.ccna.length)return '';return `<div class="ccna-tags" aria-label="CCNA 200-301 objectives">${l.ccna.map(id=>`<span title="CCNA 200-301 v1.1, objective ${id}"><b>${id}</b>${esc(CCNA_OBJECTIVES[id])}</span>`).join('')}</div>`;}
+function clueStore(){if(!window.l4nClues){let m={};try{m=JSON.parse(localStorage.getItem('lab4net-incident-hints')||'{}');if(!m||typeof m!=='object'||Array.isArray(m))m={};}catch(e){m={};}window.l4nClues=m;}return window.l4nClues;}
+function clueLevel(t){const n=clueStore()[t];return Number.isInteger(n)?Math.max(0,Math.min(3,n)):0;}
+function setClueLevel(t,n){clueStore()[t]=n;try{localStorage.setItem('lab4net-incident-hints',JSON.stringify(clueStore()));}catch(e){}
+  const f=window.l4nFun;if(f&&cur&&cur.lab&&cur.lab.title===t){const r=f.run();if(r&&r.valid&&!r.done&&n>(r.clues||0)){r.clues=n;f.save();}}}
+function clueHtml(l){if(l.kind!=='incident')return '';const n=clueLevel(l.title);
+  return `<div class="clues"><div class="clues-head"><b>Clues</b><span>${n}/3 revealed · each costs 5 rank points</span></div>${l.hints.slice(0,n).map((c,i)=>`<div class="clue"><i>${['Direction','Evidence','Repair'][i]}</i><p>${esc(c)}</p></div>`).join('')}<div class="actions"><button class="small-btn" id="clueNext" type="button"${n>=3?' disabled':''}>${n>=3?'All clues revealed':n?'Reveal next clue':'Stuck? Reveal a clue'}</button>${n?'<button class="small-btn" id="clueHide" type="button">Hide clues</button>':''}</div></div>`;}
+function bindClues(){if(!cur||!cur.lab||cur.lab.kind!=='incident')return;const t=cur.lab.title,go=n=>{setClueLevel(t,n);renderBrief();};
+  if($('clueNext'))$('clueNext').onclick=()=>go(Math.min(3,clueLevel(t)+1));if($('clueHide'))$('clueHide').onclick=()=>go(0);}
+function studyMap(){
+  const passed=LABS.filter(l=>progress[l.title]).length,builds=LABS.filter(l=>l.kind==='build'),incs=LABS.filter(l=>l.kind==='incident');
+  const rec=LABS.find(l=>!progress[l.title]&&(l.kind==='build'||progress[l.baseTitle]));
+  const btn=l=>`<button class="small-btn${progress[l.title]?' passed':''}" data-study-lab="${LABS.indexOf(l)}">${progress[l.title]?'✓ ':''}${l.kind==='incident'?'⚠ ':''}${esc(l.kind==='incident'?l.title.slice(0,11):l.title)}</button>`;
+  dialog('CCNA study map',`<p>Your practice mapped to the <b>CCNA 200-301 v${CCNA_SCOPE.version}</b> exam domains. ${passed}/${LABS.length} missions passed: ${builds.filter(l=>progress[l.title]).length}/${builds.length} build labs and ${incs.filter(l=>progress[l.title]).length}/${incs.length} troubleshooting incidents.</p>
+    ${rec?`<div class="study-next"><span class="eyebrow">Next up</span><button class="btn primary" data-study-lab="${LABS.indexOf(rec)}">${esc(rec.title)} →</button><p>${rec.kind==='incident'?'You have passed the lab it is based on. Now find and fix a fault in that same network.':'Build the skill first, then try the incident that breaks it.'}</p></div>`:'<p>Every mission passed. Replay the incidents with the guide off and no clues for a Detective run.</p>'}
+    <div class="study-domains">${CCNA_DOMAINS.map(([id,name,weight])=>{const m=LABS.filter(l=>l.ccna.some(c=>c.startsWith(id+'.'))),done=m.filter(l=>progress[l.title]).length;
+      return `<section class="study-domain"><div class="sd-head"><b>${id}. ${esc(name)}</b><span>${weight}% of the exam</span></div>${m.length?`<div class="study-meter" aria-label="${done} of ${m.length} passed"><span style="width:${done/m.length*100}%"></span></div><p>${done}/${m.length} missions passed</p><div class="study-links">${m.map(btn).join('')}</div>`:`<p>No hands-on lab yet. The theory check has questions on this domain.</p><button class="small-btn" id="studyTheory">Theory check →</button>`}</section>`;}).join('')}</div>
+    <p class="study-note">A mission covers part of an objective, not all of it, so this is a practice map rather than an exam-readiness score. Not simulated yet: IPv6, wireless, HSRP and automation. Domain weights are from Cisco's 200-301 v1.1 exam topics.</p>`);
+  $('dialogBody').querySelectorAll('[data-study-lab]').forEach(b=>b.onclick=()=>{$('dialog').close();openLab(+b.dataset.studyLab);});
+  if($('studyTheory'))$('studyTheory').onclick=()=>{$('dialog').close();openPractice('quiz');};}
+$('studyMap').onclick=studyMap;
+{const olc=openLab;openLab=function(idx,isFresh){const l=LABS[idx];
+  // a fresh run starts with the clues hidden again, so a retry can earn a clean rank
+  if(isFresh&&l&&l.kind==='incident'&&clueLevel(l.title)){clueStore()[l.title]=0;setClueLevel(l.title,0);}
+  olc(idx,isFresh);
+  if(l&&l.kind==='incident'&&window.l4nFun){const r=window.l4nFun.run(),n=clueLevel(l.title);if(r&&r.valid&&!r.done&&n>(r.clues||0)){r.clues=n;window.l4nFun.save();}}};}
+
 // ---------- sandbox: build any topology, Packet Tracer style ----------
 (function(){
   const KEY='lab4net-sandbox-v1',MAX=20,W=1600,H=660,VW=800,VH=330,topo=$('topo'),ctx=$('ctx');
@@ -1636,7 +1778,12 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
     const v=p.view,view=v&&[v.x,v.y,v.w].every(Number.isFinite)?{x:v.x,y:v.y,w:v.w,h:v.w*VH/VW}:null;
     return {devs,links,notes,view,ch:Number.isInteger(p.ch)&&p.ch>=0&&p.ch<4?p.ch:null,chDone:!!p.chDone};};
   try{const c=clean(JSON.parse(localStorage.getItem(KEY)||'null'));if(c)def=c;}catch(e){}
-  const saveDef=()=>{try{localStorage.setItem(KEY,JSON.stringify(def));}catch(e){}};
+  // undo: a snapshot of the build and its command journal after every change (read-only and mode commands fold into the last one)
+  let hist=[];const snap=()=>JSON.stringify({d:def.devs,l:def.links,n:def.notes,c:def.ch,cd:def.chDone,j:cur&&cur.sandbox?cur.journal:[]});
+  function mark(soft){if(!cur||!cur.sandbox)return;const s=snap();if(hist[hist.length-1]===s)return;if(soft&&hist.length)hist[hist.length-1]=s;else{hist.push(s);if(hist.length>80)hist.shift();}const b=$('sbUndo');if(b)b.disabled=hist.length<2;}
+  function undo(){if(!cur||!cur.sandbox||hist.length<2)return;hist.pop();const p=JSON.parse(hist[hist.length-1]);Object.assign(def,{devs:p.d,links:p.l,notes:p.n,ch:p.c,chDone:p.cd});cur.journal=p.j;pick=null;cable=false;closeMenu();rebuild();notify('Undone. '+(hist.length-1)+' more step'+(hist.length===2?'':'s')+' can be undone.');}
+  const READONLY=/^\s*(do\s+)?(sh\w*|ping|traceroute|tracert|telnet|ssh)\b|^\s*ipconfig\s*$|^\s*(en\w*|exit|end|disable|conf\w*(\s+t\w*)?)\s*$/i;
+  const saveDef=()=>{try{localStorage.setItem(KEY,JSON.stringify(def));}catch(e){}mark();};
   const setLast=v=>{try{localStorage.setItem('lab4net-last',v);}catch(e){}};
   function make(d){if(d.type==='router'||d.type==='router5'){const r=mkRouter(d.name);if(d.type==='router5'){addIf(r,'GigabitEthernet0/3',{shutdown:true});addIf(r,'GigabitEthernet0/4',{shutdown:true});}return r;}
     if(d.type==='switch'||d.type==='switch24'){const s=mkSwitch(d.name);if(d.type==='switch24')for(let i=9;i<=24;i++)addIf(s,'FastEthernet0/'+i);return s;}
@@ -1648,7 +1795,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
     return {state,sel:keepSel&&names.has(keepSel)?keepSel:(def.devs[0]?def.devs[0].name:null)};}
   window.openSandbox=function(){if(cur&&cur.view==='lab'&&!cur.sandbox)saveWork();const {state,sel}=load(null);
     cur={view:'lab',idx:-1,lab:SBX,...state,sel,graded:null,showSol:false,tasks:[],intro:true,links:{},trace:null,sandbox:true};
-    fxToken++;mobilePanel(false);$('tin').value='';$('hint').textContent=HINT;$('hint').className='';$('trace').innerHTML='';$('resultCard').hidden=true;cable=false;pick=null;setLast('sandbox');renderAll();saveWork();};
+    fxToken++;mobilePanel(false);$('tin').value='';$('hint').textContent=HINT;$('hint').className='';$('trace').innerHTML='';$('resultCard').hidden=true;cable=false;pick=null;setLast('sandbox');hist=[];mark();renderAll();saveWork();};
   function rebuild(){drafts[SBX.title]={journal:cur.journal,tasks:[]};const {state,sel}=load(cur.sel);Object.assign(cur,state,{sel,links:{},trace:null});$('trace').innerHTML='';saveDef();drawTopo();renderTerm();renderBrief();saveWork();}
   const isHost=n=>{const d=def.devs.find(x=>x.name===n);return !!d&&(d.type==='pc'||d.type==='srv');};
   const ports=d=>sortIfs(Object.keys(d.ifs)).map(n=>d.ifs[n]).filter(i=>/^(Fast|Gigabit)Ethernet[\d\/]+$/.test(i.name));
@@ -1754,7 +1901,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
       <div class="lesson-tip"><b>How it works</b><br>Add devices from the Toolbox and drag them around the map. Turn the cable tool on, click a device and choose its port, then do the same on the other device. Right-click a device or a cable for more actions.</div>
       <h3>Good to know</h3><ul class="plain"><li>Scroll over the map to zoom, and drag empty space to pan. Fit brings everything back into view.</li><li>Router ports start shut down. Bring them up with <code>no shutdown</code>.</li><li>PCs and servers start with no address. Use IP settings in the Toolbox, or type <code>ipconfig /ip 192.168.1.10 255.255.255.0</code> and <code>ipconfig /dg 192.168.1.1</code> in the console.</li><li>Servers listen on TCP port 80, so <code>telnet 192.168.1.20 80</code> tests one.</li><li>Your build and its configuration are saved in this browser. Save to file to keep copies or move them.</li></ul>`;
     cb.innerHTML=(ch?`<h3>Goals <span>${goals.filter(g=>g[1]).length}/${goals.length}</span></h3><ul class="goals">${goals.map(g=>`<li class="${g[1]?'ok':'no'}">${g[0]}</li>`).join('')}</ul>${def.chDone?'<p><b>Challenge complete.</b> Keep building, or pick another one below.</p>':''}<div class="tool-grid"><button class="btn" id="sbLeave">Leave challenge</button></div>`:'')+
-      `<h3>Add a device <span>${def.devs.length}/${MAX}</span></h3><div class="tool-grid">${Object.entries(KIND).map(([k,v])=>`<button class="btn" data-add="${k}">+ ${v[1]}</button>`).join('')}</div>
+      `<div class="tool-grid"><button class="btn" id="sbUndo" title="Undo the last device, cable, note or configuration change (Ctrl+Z on the map)"${hist.length<2?' disabled':''}>↶ Undo</button></div><h3>Add a device <span>${def.devs.length}/${MAX}</span></h3><div class="tool-grid">${Object.entries(KIND).map(([k,v])=>`<button class="btn" data-add="${k}">+ ${v[1]}</button>`).join('')}</div>
       <h3>Selected ${sel?`<span>${esc(sel)}</span>`:''}</h3>${sel?`<div class="tool-grid">${isHost(sel)?'<button class="btn" id="sbIp">IP settings</button>':''}<button class="btn" id="sbFrom">Cable from here</button><button class="btn" id="sbRen">Rename</button><button class="btn" id="sbDel">Delete</button></div>`:'<p>Click a device on the map to select it.</p>'}
       <h3>Cables <span>${def.links.length}</span></h3><div class="tool-grid"><button class="btn${cable?' primary':''}" id="sbCable" aria-pressed="${cable}">Cable tool: ${cable?'on':'off'}</button><button class="btn" id="sbNote">Add a note</button></div>
       <ul class="cable-list">${def.links.map((l,i)=>`<li><span>${esc(l.a)} ${shortIf(l.ai)} ↔ ${esc(l.b)} ${shortIf(l.bi)}</span><button class="small-btn" data-cut="${i}">Remove</button></li>`).join('')||'<li><span>No cables yet.</span></li>'}</ul>
@@ -1763,7 +1910,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
       <h3>Files</h3><div class="tool-grid"><button class="btn" id="sbSave">Save to file</button><label class="btn">Load from file<input type="file" id="sbLoad" accept="application/json,.json" hidden></label></div>
       <h3>Manage</h3><div class="tool-grid"><button class="btn" id="sbWipe">Erase all configuration</button><button class="btn" id="sbClear">Clear the sandbox</button></div>`;
     cb.scrollTop=sc;
-    cb.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>addDev(b.dataset.add));
+    $('sbUndo').onclick=undo;cb.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>addDev(b.dataset.add));
     cb.querySelectorAll('[data-cut]').forEach(b=>b.onclick=()=>{def.links.splice(+b.dataset.cut,1);rebuild();});
     cb.querySelectorAll('[data-kit]').forEach(b=>b.onclick=()=>{const k=KITS[+b.dataset.kit];replaceWith(clean(k[2]),[],k[0]+' loaded. Nothing is configured yet.');});
     cb.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ch,next=clean(KITS[CHALL[i].kit][2]);next.ch=i;replaceWith(next,[],'Challenge started: '+CHALL[i].title+'.');});
@@ -1787,7 +1934,8 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
     if(!def.devs.length)svg.insertAdjacentHTML('beforeend',`<text class="emptyhint" x="${v.x+v.w/2}" y="${v.y+v.h/2}">Add a device, or pick a challenge or starter kit in the Toolbox</text>`);
     if(pick){const g=[...svg.querySelectorAll('.dev')].find(e=>e.dataset.dev===pick.dev);if(g)g.classList.add('pick');}};
   const sel0=select;select=function(n){sel0(n);if(inSbx())renderSandbox();};
-  const ex0=execute;execute=function(line){ex0(line);if(inSbx())afterCmd();};
+  const ex0=execute;execute=function(line){ex0(line);if(inSbx()){afterCmd();mark(READONLY.test(line));}};
+  document.addEventListener('keydown',e=>{if(!inSbx()||!(e.ctrlKey||e.metaKey)||e.shiftKey||e.key.toLowerCase()!=='z')return;const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)||$('dialog').open)return;e.preventDefault();undo();});
   const rl0=renderLabs;renderLabs=function(){rl0();$('labs').insertAdjacentHTML('beforeend','<optgroup label="Free build"><option value="sandbox">Sandbox and challenges</option></optgroup>');if(inSbx())$('labs').value='sandbox';};
   const ol0=openLab;openLab=function(idx,isFresh){if(!(idx>=0))return openSandbox();cable=false;pick=null;closeMenu();setLast('lab');ol0(idx,isFresh);};
   $('labs').onchange=e=>{const v=e.target.value;if(v==='sandbox')openSandbox();else if(['drill','quiz'].includes(v))openPractice(v);else openLab(+v);};
@@ -1821,7 +1969,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
 
 // ---------- backup: include ranks, trophies, layout and the sandbox in Transfer progress ----------
 (function(){
-  const EXTRA=['lab4net-fun-v1','lab4net-sandbox-v1','lab4net-layout-v3','lab4net-guide','lab4net-guide-pop','lab4net-last'];
+  const EXTRA=['lab4net-fun-v1','lab4net-sandbox-v1','lab4net-layout-v3','lab4net-guide','lab4net-guide-pop','lab4net-last','lab4net-incident-hints'];
   const tr0=transfer;transfer=function(){tr0();
     $('export').onclick=()=>{saveWork();const extras={};for(const k of EXTRA){try{const v=localStorage.getItem(k);if(v!=null)extras[k]=v;}catch(e){}}
       const sj=drafts.Sandbox&&Array.isArray(drafts.Sandbox.journal)?drafts.Sandbox.journal:[];

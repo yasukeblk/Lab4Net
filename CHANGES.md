@@ -1,5 +1,20 @@
 # Lab4Net changes
 
+## Troubleshooting incidents, clues, CCNA study map and sandbox undo (ideas from ChatGPT's branch, rebuilt on main)
+
+- Six troubleshooting incidents in a new Troubleshooting group. Each one starts from a working lab with one fault added: a PC in the wrong VLAN, a trunk missing a VLAN, a missing return route, the wrong 802.1Q tag on a subinterface, a bad DHCP relay address, and SSH blocked on the VTY lines. The four tasks are reproduce, inspect, repair and verify. Grading uses all of the original lab's checks, so a fix that breaks something else does not pass. Passing shows the root cause.
+- Each incident has three clues (Direction, Evidence, Repair) that you reveal one at a time. Each clue costs 5 rank points. Starting the incident over hides them again so a retry can earn a clean rank.
+- Ranks for incidents use the whole investigate-and-repair path as par, so show commands are not penalised. The results card lists clues used.
+- Two new trophies: Detective (solve an incident with no clues, guide or walkthrough) and Fault Finder (solve all six incidents).
+- Every lab shows the CCNA 200-301 v1.1 objectives it practises. The lab library search also matches objective numbers, for example "3.4" finds OSPF.
+- New Study map button in the menu bar: the six exam domains with their exam weights, your progress in each, and a suggested next mission. It says plainly that it is a practice map, not a readiness score, and what is not simulated yet.
+- Sandbox Undo: a button at the top of the Toolbox, and Ctrl+Z when the map has focus. It undoes the last device, cable, note, challenge or configuration change. Show, ping and mode commands fold into the step before them, so one press undoes one real change.
+- Transfer progress now also carries which incident clues you have revealed.
+- Not taken from ChatGPT's branch: the AI tutor (needs a server and an OpenAI key, and main is an offline static page), the Juniper switch and Junos commands (not CCNA), the Matrix design, and a separate sandbox ping-probe tool (pinging from a console already does this).
+- Tests: tests/curriculum.cjs (ported from ChatGPT's branch) checks that every lab maps to real objectives, that each incident starts with a real failure and that its repair passes every original check. It now runs in GitHub Actions too. tests/ui.cjs reopens Static NAT for its trace checks, since the incidents now come after it in the lab list.
+
+Verification: labs.cjs passes 21 labs, 119 checks and 358 guide commands. forwarding.cjs, curriculum.cjs and ui.cjs pass. The new features were driven in headless Chromium at 1440x1000 and on a 390x844 phone with reduced motion on (clues, an incident cleared through the console, results card, retry, study map, objective search, sandbox undo by button and by Ctrl+Z, trophies), with no page errors, and the screenshots were checked by eye. Not tested: the Lab4Net container itself, Firefox, Safari.
+
 ## Retro redesign and merge (Claude, on top of the chatgpt/improvements branch)
 
 Kept from ChatGPT's branch, unchanged in behaviour: saved work per lab (command journal replay), progress export/import, the lab library, the command guide, the trace panel with failure reasons and replay, grade invalidation after new commands, the task checklist, console shortcuts and paste review, the Static NAT lab, the theory check, the subnetting prefix ranges, offline operation, and the three test files plus the CI workflow.
