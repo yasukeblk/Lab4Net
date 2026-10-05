@@ -1,5 +1,14 @@
 # Lab4Net changes
 
+## Clearer attention and a more comfortable workspace
+
+- Kept the Matrix identity while separating reading from interaction: brighter neutral text, calmer panel surfaces, better-spaced task cards, amber for the working task/selected map device and green for controls and successful results. Reduced ambient rain intensity and stopped decorative idle cable/selection motion; actual packet-path and completion animations remain, with reduced-motion support.
+- Added a persistent working-task ribbon and active-console label. Choose a task explicitly with **Work on this** or previous/next arrows. The ribbon remains visible with command instructions off or in focus view. Task selection is independent of completion checkboxes and simulator grading; it lasts for the currently open mission, without adding another saved-progress format.
+- Added desktop **Focus view**: full-width map/console with the task still visible. **View task**, **Exit focus** and Escape restore the existing window arrangement. Focus does not save temporary geometry and disables window dragging/resizing until exited. Switching workspaces exits focus. Phone users retain their mission/network navigation and can return directly to the selected task.
+- Made the selected console tab stronger, increased desktop terminal readability and gave command input a distinct outlined surface and focus feedback. Mission information, address plans, why explanations and optional docked/popped-out guides remain available in the normal workspace.
+- Baseline and final lab test: **21 missions / 119 grading checks / 358 guided commands passed**. All six engine suites pass. Edge browser suites pass for full lab grading, Matrix layouts, curriculum, sandbox, hardware and mocked Operator. New attention browser coverage checks task selection without completion, guide-off context, task navigation, focus console commands, unchanged saved geometry, Escape, workspace changes and phone/reduced motion. Desktop screenshots were inspected.
+- Intentionally avoided timers, streak penalties, automatic task completion and additional idle animation: emphasis should follow the learner's work. No curriculum, engine or deployment changes. Could not test the private Debian container, physical phones or Safari; the browser checks used local Edge and emulated phone dimensions. Existing Operator browser checks use a mocked model.
+
 ## CCNA curriculum rule, study map and troubleshooting incidents
 
 - Recorded the CCNA-only graded curriculum/default coaching rule in `AGENTS.md`. Scope is Cisco 200-301 v1.1, verified against the official blueprint on 2026-10-04. Optional Juniper sandbox functionality remains available outside the curriculum. No other certification courses were added.
