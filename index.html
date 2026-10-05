@@ -531,6 +531,8 @@ const shortIf=n=>n.replace('FastEthernet','Fa').replace('GigabitEthernet','Gi').
 function sortIfs(names){const key=n=>{const t=IFT.findIndex(t=>n.startsWith(t));return [t].concat((n.match(/\d+/g)||[]).map(Number));};
   return names.slice().sort((a,b)=>{const x=key(a),y=key(b);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]??-1)-(y[i]??-1);if(d)return d;}return 0;});}
 const pad=(s,n)=>String(s).padEnd(n);
+// A router, or a Layer 3 switch with ip routing on: something that routes between its interfaces.
+const isL3=d=>d.type==='router'||(d.type==='switch'&&!!d.ipRouting);
 // Cisco type 7, shown once service password-encryption is on. It is a reversible obfuscation, not real encryption.
 const SEVN=['emergencies','alerts','critical','errors','warnings','notifications','informational','debugging'];
 const XLAT='dsfd;kfoA,.iyewrkldJKDHSUBsgvca69834ncxv9873254k;fg87';
@@ -553,7 +555,7 @@ function ifUp(net,d,i){
   if(i.shutdown)return false;
   if(i.name.startsWith('Loopback'))return true;
   if(i.name.startsWith('Vlan')){const v=+i.name.slice(4);if(!d.vlans[v])return false;
-    return Object.values(d.ifs).some(p=>p.link&&!p.name.startsWith('Vlan')&&ifUp(net,d,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v));}
+    return Object.values(d.ifs).some(p=>p.link&&!p.name.startsWith('Vlan')&&!p.routed&&ifUp(net,d,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v));}
   const p=phys(d,i);if(p.shutdown||!p.link)return false;
   return !net.devs[p.link.dev].ifs[p.link.ifn].shutdown;
 }
@@ -565,7 +567,7 @@ function l2peers(net,d,i){
     if(!sw.vlans[vlan])return;
     const svi=sw.ifs['Vlan'+vlan];if(svi&&svi!==i&&!svi.shutdown&&svi.ip!==null)out.push({dev:sw,ifc:svi,path});
     for(const p of Object.values(sw.ifs)){
-      if(p===inPort||!p.link||p.name.startsWith('Vlan')||!ifUp(net,sw,p))continue;
+      if(p===inPort||!p.link||p.name.startsWith('Vlan')||p.routed||!ifUp(net,sw,p))continue;
       let tag=null;
       if(p.mode==='trunk'){if(!allowed(p,vlan))continue;tag=vlan===p.native?null:vlan;}
       else if(p.accessVlan!==vlan){if(p.voiceVlan===vlan)tag=vlan;else continue;}
@@ -575,6 +577,8 @@ function l2peers(net,d,i){
   function deliver(dev,ifn,tag,previous){
     const path=previous.concat(dev.name);
     const port=dev.ifs[ifn];
+    // A routed switch port (no switchport) behaves like a router interface.
+    if(dev.type==='switch'&&port.routed){if(tag===null&&port.ip!==null&&port!==i)out.push({dev,ifc:port,path});return;}
     if(dev.type==='switch'){
       let vlan;
       if(port.mode==='trunk'){vlan=tag===null?port.native:tag;if(!allowed(port,vlan))return;}
@@ -591,7 +595,7 @@ function l2peers(net,d,i){
     }else if(tag===null){if(port.ip!==null&&port!==i)out.push({dev,ifc:port,path});}
     else for(const s of Object.values(dev.ifs))if(s.name.startsWith(ifn+'.')&&s.dot1q===tag&&!s.shutdown&&s!==i)out.push({dev,ifc:s,path});
   }
-  if(d.type==='switch')flood(d,+i.name.slice(4),null,[d.name]);
+  if(d.type==='switch'&&!i.routed)flood(d,+i.name.slice(4),null,[d.name]);
   else{const p=phys(d,i);const tag=d.phone?phoneVlan(net,d):p===i?null:i.dot1q;if(!d.phone&&p!==i&&tag==null)return out;deliver(net.devs[p.link.dev],p.link.ifn,tag,[d.name]);}
   return out;
 }
@@ -601,7 +605,7 @@ function ospfIfs(net,d){if(!d.ospf)return [];const r=[];for(const i of Object.va
   const n=d.ospf.networks.find(n=>((i.ip&~n.wild)>>>0)===((n.net&~n.wild)>>>0));if(n)r.push({ifc:i,area:n.area});}return r;}
 const isPassive=(d,n)=>d.ospf.passiveDef?!(d.ospf.nonPassive||[]).includes(n):d.ospf.passive.includes(n);
 function ospfNeighbors(net,d){const res=[];if(d.ospf&&d.ospf.resetting)return res;for(const o of ospfIfs(net,d)){if(isPassive(d,o.ifc.name))continue;
-  for(const p of l2peers(net,d,o.ifc)){const pd=p.dev;if(pd.type!=='router'||!pd.ospf)continue;
+  for(const p of l2peers(net,d,o.ifc)){const pd=p.dev;if(!isL3(pd)||!pd.ospf)continue;
     const po=ospfIfs(net,pd).find(x=>x.ifc===p.ifc);if(!po||po.area!==o.area||isPassive(pd,p.ifc.name)||pd.ospf.resetting)continue;
     if((o.ifc.ospfNet||'broadcast')!==(p.ifc.ospfNet||'broadcast'))continue;
     if(routerId(pd)===routerId(d))continue;
@@ -630,7 +634,7 @@ function staticRoutes(net,d,conn){const r=[];
   return r;}
 // The routing table keeps, per prefix, only the route with the lowest administrative distance.
 function routes(net,d){const conn=connected(net,d);
-  if(d.type!=='router'){if(d.gw!=null)conn.push({code:'S',net:0,len:0,nh:d.gw,ad:1});return conn;}
+  if(!isL3(d)){if(d.gw!=null)conn.push({code:'S',net:0,len:0,nh:d.gw,ad:1});return conn;}
   const best=new Map();
   for(const x of conn.concat(staticRoutes(net,d,conn),ospfRoutes(net,d))){const k=x.net+'/'+x.len,b=best.get(k);if(!b||x.ad<b.ad)best.set(k,x);}
   return [...best.values()];}
@@ -657,13 +661,16 @@ function runningConfig(net,d){
   const L=['Building configuration...','','Current configuration:','!','version 15.2',...(d.tsLog?['service timestamps log datetime msec']:[]),(d.svcEnc?'':'no ')+'service password-encryption','!','hostname '+d.hostname,'!'];
   if(d.secret)L.push('enable secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0');
   if(d.enPass)L.push('enable password '+pwText(d,d.enPass));
+  if(d.type==='switch'&&d.ipRouting)L.push('ip routing');
   if(d.noLookup)L.push('no ip domain-lookup');
   L.push('!');
   for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];L.push('interface '+n);
     if(i.desc)L.push(' description '+i.desc);
     if(i.dot1q!=null)L.push(' encapsulation dot1Q '+i.dot1q);
-    if(d.type==='switch'&&!n.startsWith('Vlan')){
+    if(d.type==='switch'&&i.routed&&!n.startsWith('Vlan'))L.push(' no switchport');
+    if(d.type==='switch'&&!n.startsWith('Vlan')&&!i.routed){
       if(i.accessVlan!==1)L.push(' switchport access vlan '+i.accessVlan);
+      if(i.encap)L.push(' switchport trunk encapsulation '+i.encap);
       if(i.allowed!=='all')L.push(' switchport trunk allowed vlan '+i.allowed.join(','));
       if(i.native!==1)L.push(' switchport trunk native vlan '+i.native);
       if(i.modeSet)L.push(' switchport mode '+i.mode);
@@ -719,7 +726,7 @@ C(EX,'show ip ospf neighbor',e=>{const{net,d,out}=e;if(!d.ospf)return;const nb=o
     const state=p2p?'FULL/  -':role==='DROTHER'&&me==='DROTHER'?'2WAY/DROTHER':'FULL/'+role;
     out(pad(n2ip(routerId(n.dev)),16)+String(p2p?0:ospfPrio(n.pifc)).padStart(3)+'   '+pad(state,16)+'00:00:3'+(n.pifc.ip%10)+'    '+pad(n2ip(n.pifc.ip),16)+n.ifc.name);});},['router']);
 const showVlan=e=>{const{d,out}=e;out('VLAN Name                             Status    Ports','---- -------------------------------- --------- -------------------------------');
-  for(const v of Object.keys(d.vlans).map(Number).sort((a,b)=>a-b)){const ports=sortIfs(Object.keys(d.ifs)).filter(n=>!n.startsWith('Vlan')&&d.ifs[n].mode!=='trunk'&&(d.ifs[n].accessVlan===v||d.ifs[n].voiceVlan===v)).map(shortIf);
+  for(const v of Object.keys(d.vlans).map(Number).sort((a,b)=>a-b)){const ports=sortIfs(Object.keys(d.ifs)).filter(n=>!n.startsWith('Vlan')&&!d.ifs[n].routed&&d.ifs[n].mode!=='trunk'&&(d.ifs[n].accessVlan===v||d.ifs[n].voiceVlan===v)).map(shortIf);
     const head=pad(v,5)+pad(d.vlans[v].name,33)+pad('active',10);
     if(!ports.length)out(head);for(let k=0;k<ports.length;k+=4)out((k?' '.repeat(48):head)+ports.slice(k,k+4).join(', '));}};
 C(EX,'show vlan brief',showVlan,['switch']);
@@ -744,12 +751,13 @@ C('config','enable secret <w>',e=>{e.d.secret=e.args[0];});
 C('config','enable password <w>',e=>{e.d.enPass=e.args[0];});
 C('config','no ip domain-lookup',e=>{e.d.noLookup=true;});
 C('config','ip domain-lookup',e=>{e.d.noLookup=false;});
-C('config','ip routing',()=>{});
+C('config','ip routing',e=>{if(e.d.type==='switch'){if(!e.d.l3)return e.out(BAD);e.d.ipRouting=true;}});
+C('config','no ip routing',e=>{if(e.d.type==='switch'){if(!e.d.l3)return e.out(BAD);e.d.ipRouting=false;}});
 C('config','service password-encryption',e=>{e.d.svcEnc=true;});
 C('config','banner motd <rest>',e=>{const r=e.args[0],del=r[0];let t=r.slice(1);const k=t.indexOf(del);if(k>=0)t=t.slice(0,k);e.d.banner=t;});
 C('config','line console <n>',e=>{e.s.mode='line';e.s.ctx='con';});
 C('config','line vty <n> <n>',e=>{e.s.mode='line';e.s.ctx='vty';});
-C('config','interface range <rest>',e=>{const m=/^([a-z]+)(\d+\/)(\d+)-(\d+)$/i.exec(e.args[0].replace(/\s+/g,''));const list=[];
+C('config','interface range <rest>',e=>{const m=/^([a-z]+)((?:\d+\/)+)(\d+)-(\d+)$/i.exec(e.args[0].replace(/\s+/g,''));const list=[];
   if(m)for(let k=+m[3];k<=+m[4];k++){const i=e.d.ifs[parseIf(m[1]+m[2]+k)];if(i)list.push(i);}
   if(!list.length)return e.out('% Invalid interface range');e.s.mode='if';e.s.ctx=list;},['switch']);
 C('config','interface <rest>',e=>{const{d}=e,n=parseIf(e.args[0]);let i=n&&d.ifs[n];
@@ -778,7 +786,7 @@ C('config','ip default-gateway <ip>',e=>{e.d.gw=e.args[0];},['switch']);
 C(ALLCFG,'end',e=>{e.s.mode='priv';e.s.ctx=null;});
 C(ALLCFG,'exit',e=>{e.s.mode=e.s.mode==='config'?'priv':'config';e.s.ctx=null;});
 C(ALLCFG,'do <rest>',e=>run(e,e.args[0],'priv'));
-const l3ok=(e,i)=>!(e.d.type==='switch'&&!i.name.startsWith('Vlan'));
+const l3ok=(e,i)=>!(e.d.type==='switch'&&!i.name.startsWith('Vlan')&&!i.routed);
 C('if','ip address <ip> <ip>',e=>{const[ip,m]=e.args,len=maskLenN(m);if(len===null)return e.out('Bad mask 0x'+m.toString(16).toUpperCase()+' for address '+n2ip(ip));
   for(const i of e.s.ctx){if(!l3ok(e,i))return e.out(BAD);
     if(i.name.includes('.')&&i.dot1q==null)return e.out('% Configuring IP routing on a LAN subinterface is only allowed if that','subinterface is already configured as part of an IEEE 802.10, IEEE 802.1Q,','or ISL vLAN.');
@@ -788,7 +796,9 @@ C('if','shutdown',e=>e.s.ctx.forEach(i=>{i.shutdown=true;}));
 C('if','no shutdown',e=>e.s.ctx.forEach(i=>{i.shutdown=false;}));
 C('if','description <rest>',e=>e.s.ctx.forEach(i=>{i.desc=e.args[0];}));
 C('if','encapsulation dot1q <n>',e=>{for(const i of e.s.ctx){if(!i.name.includes('.'))return e.out(BAD);i.dot1q=e.args[0];}},['router']);
-C('if','switchport mode <w>',e=>{const w=e.args[0].toLowerCase(),mode=['access','trunk'].find(m=>m.startsWith(w));if(!mode)return e.out(BAD);e.s.ctx.forEach(i=>{i.mode=mode;i.modeSet=true;});},['switch']);
+// A switch that also supports ISL (the Layer 3 models here) needs the trunk encapsulation set before trunk mode.
+C('if','switchport mode <w>',e=>{const w=e.args[0].toLowerCase(),mode=['access','trunk'].find(m=>m.startsWith(w));if(!mode)return e.out(BAD);
+  if(mode==='trunk'&&e.d.l3&&e.s.ctx.some(i=>i.encap!=='dot1q'))return e.out('Command rejected: An interface whose trunk encapsulation is "Auto" can not be configured to "trunk" mode.');e.s.ctx.forEach(i=>{i.mode=mode;i.modeSet=true;});},['switch']);
 C('if','switchport access vlan <n>',e=>{const v=e.args[0];if(!e.d.vlans[v]){e.d.vlans[v]={name:'VLAN'+String(v).padStart(4,'0')};e.out('% Access VLAN does not exist. Creating vlan '+v);}e.s.ctx.forEach(i=>{i.accessVlan=v;});},['switch']);
 C('if','switchport trunk allowed vlan <rest>',e=>{const r=e.args[0].toLowerCase().split(/\s+/);
   for(const i of e.s.ctx){if(r[0]==='all'){i.allowed='all';continue;}
@@ -798,7 +808,7 @@ C('if','switchport trunk allowed vlan <rest>',e=>{const r=e.args[0].toLowerCase(
     else i.allowed=list;}},['switch']);
 C('if','no switchport trunk allowed vlan',e=>e.s.ctx.forEach(i=>{i.allowed='all';}),['switch']);
 C('if','switchport trunk native vlan <n>',e=>e.s.ctx.forEach(i=>{i.native=e.args[0];}),['switch']);
-C('if','switchport trunk encapsulation dot1q',()=>{},['switch']);
+C('if','switchport trunk encapsulation dot1q',e=>e.s.ctx.forEach(i=>{i.encap='dot1q';}),['switch']);
 C('vlan','name <w>',e=>{e.d.vlans[e.s.ctx].name=e.args[0];});
 C('line','password <w>',e=>{e.d.lines[e.s.ctx].password=e.args[0];});
 C('line','login',e=>{e.d.lines[e.s.ctx].login=true;});
@@ -1011,12 +1021,12 @@ function natIn(d,pk){const N=d.nat;if(!N)return;const st=N.statics.find(s=>s.glo
 // packet forwarding with ACL + NAT
 function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},pk0);hops.path=[src.name];
   for(let t=0;t<20;t++){
-    if(d.type==='router'&&inIf){if(inIf.aclIn&&!aclPermit(d,inIf.aclIn,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+inIf.aclIn+' inbound on '+shortIf(inIf.name)};if(inIf.nat==='outside')natIn(d,pk);}
+    if(isL3(d)&&inIf){if(inIf.aclIn&&!aclPermit(d,inIf.aclIn,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+inIf.aclIn+' inbound on '+shortIf(inIf.name)};if(inIf.nat==='outside')natIn(d,pk);}
     if(ownsIp(net,d,pk.dst))return {ok:true,hops,dest:d,pk};
-    if(t>0&&d.type!=='router')return {ok:false,hops,reason:'Destination is not a router'};
+    if(t>0&&!isL3(d))return {ok:false,hops,reason:'Destination is not a router'};
     const h=nextHop(net,d,pk.dst);if(!h)return {ok:false,hops,reason:'No usable route to '+n2ip(pk.dst)};
     if(pk.src==null)pk.src=h.ifc.ip;
-    if(d.type==='router'){if(inIf&&inIf.nat==='inside'&&h.ifc.nat==='outside'){const why=natOut(d,pk);if(why)return {ok:false,hops,blocked:d,reason:why};}
+    if(isL3(d)){if(inIf&&inIf.nat==='inside'&&h.ifc.nat==='outside'){const why=natOut(d,pk);if(why)return {ok:false,hops,blocked:d,reason:why};}
       if(t>0&&h.ifc.aclOut&&!aclPermit(d,h.ifc.aclOut,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+h.ifc.aclOut+' outbound on '+shortIf(h.ifc.name)};}
     let hopIp=h.nh,peer=l2peers(net,d,h.ifc).find(p=>p.ifc.ip===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
     // An exit-interface-only static route ARPs for the destination itself; a router on the segment with a route to it answers (proxy ARP).
@@ -1062,8 +1072,8 @@ function dhcpOffer(net,S,gi,pc){const D=S.dhcp;if(!D)return null;const pool=Obje
     for(let ip=pool.net+1;ip<bc;ip++){if(used.has(ip)||D.excluded.some(([lo,hi])=>ip>=lo&&ip<=hi))continue;b={ip,client:pc.name,mac:macOf(pc)};D.bindings.push(b);break;}}
   return b?{ip:b.ip,len:pool.len,gw:pool.gw,dns:pool.dns,server:S}:null;}
 function dhcpRenew(net,pc){const i=nic(pc);i.ip=null;
-  for(const p of l2peers(net,pc,i)){if(p.dev.type!=='router')continue;let o=dhcpOffer(net,p.dev,p.ifc.ip,pc);
-    if(!o&&p.ifc.helper!=null){const S=Object.values(net.devs).find(x=>x.type==='router'&&ownsIp(net,x,p.ifc.helper));if(S&&reach(net,p.dev,p.ifc.helper).ok&&reach(net,S,p.ifc.ip).ok)o=dhcpOffer(net,S,p.ifc.ip,pc);}
+  for(const p of l2peers(net,pc,i)){if(!isL3(p.dev))continue;let o=dhcpOffer(net,p.dev,p.ifc.ip,pc);
+    if(!o&&p.ifc.helper!=null){const S=Object.values(net.devs).find(x=>isL3(x)&&ownsIp(net,x,p.ifc.helper));if(S&&reach(net,p.dev,p.ifc.helper).ok&&reach(net,S,p.ifc.ip).ok)o=dhcpOffer(net,S,p.ifc.ip,pc);}
     if(o){i.ip=o.ip;i.len=o.len;pc.gw=o.gw;return o;}}
   return null;}
 C('pc','ipconfig /renew',e=>{const o=dhcpRenew(e.net,e.d);if(!o)return e.out('DHCP request failed: no DHCP server answered.');e.out('Lease obtained from '+o.server.hostname+'.','   IPv4 Address. . . : '+n2ip(o.ip),'   Subnet Mask . . . : '+n2ip(lenMask(o.len)),'   Default Gateway . : '+(o.gw!=null?n2ip(o.gw):'(none)'));});
@@ -1094,7 +1104,7 @@ C(EX,'show ip ssh',e=>e.out(e.d.rsa?'SSH Enabled - version '+(e.d.sshv===2?'2.0'
 // CDP
 // A neighbor appears only when both ends run CDP globally and on that interface. Hosts do not send CDP here.
 const cdpOn=(d,i)=>(d.type!=='pc'||!!d.phone)&&d.cdp!==false&&i.cdp!==false;
-const cdpCap=p=>p.phone?'H P M':p.type==='router'?'R B S I':'S I',cdpPlat=p=>p.phone?'IP Phone':p.type==='router'?'ISR4321':'WS-C2960';
+const cdpCap=p=>p.phone?'H P M':p.type==='router'?'R B S I':p.l3?'R S I':'S I',cdpPlat=p=>p.phone?'IP Phone':p.type==='router'?'ISR4321':p.l3?'WS-C3560':'WS-C2960';
 // The voice VLAN a phone uses: the one its switch port advertises over CDP, or none (untagged, so the data VLAN).
 function phoneVlan(net,d){const up=d.ifs.FastEthernet0;if(!up||!up.link)return null;const sw=net.devs[up.link.dev],sp=sw.ifs[up.link.ifn];
   return sw.type==='switch'&&sp.voiceVlan!=null&&sp.mode!=='trunk'&&cdpOn(sw,sp)&&cdpOn(d,up)?sp.voiceVlan:null;}
@@ -1106,7 +1116,7 @@ C(EX,'show cdp neighbors',e=>{const{net,d,out}=e;if(d.cdp===false)return out('% 
   out('','Total cdp entries displayed : '+ps.length);});
 C(EX,'show cdp neighbors detail',e=>{const{net,d,out}=e;if(d.cdp===false)return out('% CDP is not enabled');const ps=cdpPeers(net,d);
   ps.forEach(({i,p,pi})=>{const mgmt=p.phone?nic(p).ip:p.type==='router'?(pi.ip!==null?pi.ip:(Object.values(p.ifs).find(x=>x.ip!==null)||{}).ip):(Object.values(p.ifs).find(x=>x.name.startsWith('Vlan')&&x.ip!==null&&ifUp(net,p,x))||{}).ip;
-    out('-------------------------','Device ID: '+(p.cdpId||p.hostname),'Entry address(es): ',...(mgmt!=null?['  IP address: '+n2ip(mgmt)]:[]),'Platform: '+(p.phone?'Cisco IP Phone 8845':'cisco '+(p.type==='router'?'ISR4321/K9':'WS-C2960-24TT-L'))+',  Capabilities: '+(p.phone?'Host Phone Two-port Mac Relay':p.type==='router'?'Router Source-Route-Bridge Switch IGMP':'Switch IGMP'),
+    out('-------------------------','Device ID: '+(p.cdpId||p.hostname),'Entry address(es): ',...(mgmt!=null?['  IP address: '+n2ip(mgmt)]:[]),'Platform: '+(p.phone?'Cisco IP Phone 8845':'cisco '+(p.type==='router'?'ISR4321/K9':p.l3?'WS-C3560-24PS':'WS-C2960-24TT-L'))+',  Capabilities: '+(p.phone?'Host Phone Two-port Mac Relay':p.type==='router'?'Router Source-Route-Bridge Switch IGMP':'Switch IGMP'),
       'Interface: '+i.name+',  Port ID (outgoing port): '+(p.phone?'Port 1':pi.name),'Holdtime : 150 sec','','Version :',p.phone?'sip88xx.14-1-1-0001-136':'Cisco IOS Software, '+(p.type==='router'?'ISR Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 16.9.4':'C2960 Software (C2960-LANBASEK9-M), Version 15.2(7)E2'),'','advertisement version: 2',...(p.type==='switch'&&pi.mode==='trunk'?['Native VLAN: '+pi.native]:[]),'Duplex: full','');});
   out('','Total cdp entries displayed : '+ps.length);});
 C(EX,'show cdp',e=>e.out(...(e.d.cdp===false?['% CDP is not enabled']:['Global CDP information:','\tSending CDP packets every 60 seconds','\tSending a holdtime value of 180 seconds','\tSending CDPv2 advertisements is  enabled'])));
@@ -1121,7 +1131,7 @@ const stpPrio=(sw,v)=>((sw.stp&&sw.stp.prio[v])??32768)+v;
 const bid=(sw,v)=>String(stpPrio(sw,v)).padStart(6,'0')+macOf(sw);
 function stpCalc(net,v){const sws=Object.values(net.devs).filter(d=>d.type==='switch'&&d.vlans[v]);if(!sws.length)return null;
   const root=sws.reduce((a,b)=>bid(a,v)<bid(b,v)?a:b);
-  const carries=(sw,p)=>!!p.link&&ifUp(net,sw,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v);
+  const carries=(sw,p)=>!!p.link&&!p.routed&&ifUp(net,sw,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v);
   const cost=p=>p.name.startsWith('Gig')?4:19;
   const dist=new Map([[root.name,0]]),todo=new Set(sws.map(s=>s.name));
   while(todo.size){let u=null;for(const n of todo)if(dist.has(n)&&(u===null||dist.get(n)<dist.get(u)))u=n;if(u===null)break;todo.delete(u);const U=net.devs[u];
@@ -1217,7 +1227,7 @@ const segKey=i=>netOf(i.ip,i.len)+'/'+i.len;
 // BDR keeps it), then the DR is the current DR if still eligible, otherwise the BDR is promoted and a new BDR chosen.
 // So a higher priority never pre-empts, but priority 0 or leaving the segment does trigger a change.
 function ospfElect(net){const st=net.ospfDR||(net.ospfDR={}),seen=new Set();
-  for(const d of Object.values(net.devs)){if(d.type!=='router'||!d.ospf||d.ospf.resetting)continue;
+  for(const d of Object.values(net.devs)){if(!isL3(d)||!d.ospf||d.ospf.resetting)continue;
     for(const o of ospfIfs(net,d)){const i=o.ifc;if(ospfType(i)!=='BROADCAST'||isPassive(d,i.name))continue;const k=segKey(i);if(seen.has(k))continue;seen.add(k);
       const mem=[{dev:d,ifc:i}].concat(ospfNeighbors(net,d).filter(n=>n.ifc===i).map(n=>({dev:n.dev,ifc:n.pifc})));
       const s=st[k]||(st[k]={dr:null,bdr:null}),elig=mem.filter(m=>ospfPrio(m.ifc)>0);
@@ -2135,6 +2145,44 @@ addLab({title:'NTP and syslog',group:'IP services',
   'R1: logging trap warnings | logging host 192.168.1.60 | end ; R2: logging trap warnings | logging host 192.168.1.60',
   'R2: interface g0/1 | shutdown | no shutdown | end | show logging ; R1: show logging',
   'LOG1: syslog']);
+
+// ===== phase 3 =====
+// ----- phase 3, lab 16
+// A Catalyst 3560-24PS: 24 FastEthernet and 2 Gigabit ports, classic IOS, so ip routing starts off.
+function mkL3Switch(name){const d=mkSwitch(name);d.l3=true;d.statics=[];for(let k=9;k<=24;k++)addIf(d,'FastEthernet0/'+k);return d;}
+Cn('if','no switchport',e=>{if(!e.d.l3)return e.out(BAD);e.s.ctx.forEach(i=>{if(i.name.startsWith('Vlan')||i.name.startsWith('Port-channel'))return;i.routed=true;i.mode='access';i.modeSet=false;i.accessVlan=1;delete i.voiceVlan;});},['switch']);
+Cn('if','switchport',e=>{if(!e.d.l3)return;e.s.ctx.forEach(i=>{i.routed=false;i.ip=null;i.len=null;});},['switch']);
+// Routing, ACL and relay commands also run on a Layer 3 switch.
+{const L3CMD=/^(no )?(ip route|router ospf|ip ospf|access-list|ip access-list|ip access-group|ip helper-address|clear ip ospf|show ip ospf|show ip protocols|show ip route)/;
+ for(const c of CMDS){const k=c.pat.join(' ');if(!(c.types&&c.types.length===1&&c.types[0]==='router'&&L3CMD.test(k)))continue;c.types=['router','switch'];const f=c.fn;
+  c.fn=k.startsWith('show ip route')?e=>{if(e.d.type==='switch'&&!e.d.ipRouting){e.s.last=k;return e.out('Default gateway is '+(e.d.gw!=null?n2ip(e.d.gw):'not set'),'','Host               Gateway           Last Use    Total Uses  Interface','ICMP redirect cache is empty');}f(e);}
+   :e=>{if(e.d.type==='switch'&&!e.d.l3)return e.out(BAD);f(e);};}}
+CCNA_LAB_MAP['Inter-VLAN routing on a Layer 3 switch']=['2.1','3.3'];
+Object.assign(WHYC,{
+'ip routing':'Turns on IP routing. A Layer 3 switch only routes between its VLANs once this is on; until then it behaves like a Layer 2 switch with a default gateway.',
+'no switchport':'Turns a switch port into a routed port: it leaves every VLAN and takes an IP address itself, like a router interface. Used for links to routers and between Layer 3 switches.',
+'switchport':'Turns a routed port back into a Layer 2 switch port.',
+'switchport trunk encapsulation dot1q':'Switches that also support Cisco\'s old ISL tagging must be told to use 802.1Q before a port can be made a trunk.'});
+addLab({title:'Inter-VLAN routing on a Layer 3 switch',group:'Switching',
+ brief:'The site is outgrowing router-on-a-stick: every packet between VLANs crosses the one router link twice. A Catalyst 3560 has been installed in the core. Make it the gateway for both VLANs and route between them in hardware, with a routed uplink to the edge router for everything else.',
+ pos:{ASW1:[130,90],DSW1:[330,90],R1:[520,90],PC3:[130,195],PC1:[260,195],PC2:[400,195]},start:'DSW1',
+ build(){const n=mkNet([mkL3Switch('DSW1'),mkSwitch('ASW1'),mkRouter('R1'),mkPC('PC1','192.168.10.11',24,'192.168.10.1'),mkPC('PC2','192.168.20.12',24,'192.168.20.1'),mkPC('PC3','192.168.10.13',24,'192.168.10.1')]);
+  link(n,'DSW1','g0/1','ASW1','g0/1');link(n,'DSW1','g0/2','R1','g0/0');link(n,'DSW1','f0/1','PC1','f0');link(n,'DSW1','f0/2','PC2','f0');link(n,'ASW1','f0/1','PC3','f0');
+  const v=['vlan 10','name STAFF','vlan 20','name GUEST'];
+  cfg(n,{DSW1:['enable','configure terminal',...v,'interface f0/1','switchport mode access','switchport access vlan 10','interface f0/2','switchport mode access','switchport access vlan 20','interface g0/1','switchport trunk encapsulation dot1q','switchport mode trunk','end'],
+   ASW1:['enable','configure terminal',...v,'interface f0/1','switchport mode access','switchport access vlan 10','interface g0/1','switchport mode trunk','end'],
+   R1:['enable','configure terminal','interface g0/0','ip address 10.0.0.2 255.255.255.252','no shutdown','interface loopback 0','ip address 203.0.113.1 255.255.255.255','exit','ip route 192.168.0.0 255.255.0.0 10.0.0.1','end']});return n;},
+ addr:[['DSW1','Interface VLAN 10 / VLAN 20','192.168.10.1, 192.168.20.1 /24'],['DSW1','Gi0/2, routed','10.0.0.1/30'],['R1','G0/0 / Loopback 0 (internet)','10.0.0.2, 203.0.113.1'],['PC1 / PC3','VLAN 10','192.168.10.11, .13'],['PC2','VLAN 20','192.168.20.12']],
+ tasks:['On DSW1, run <code>show ip route</code>. From PC1, ping PC2: it fails. Why?','Turn on IP routing on DSW1.','Create interface VLAN 10 (192.168.10.1/24) and interface VLAN 20 (192.168.20.1/24) on DSW1.','Make Gi0/2 a routed port with address 10.0.0.1/30.','Add a default route on DSW1 to R1 (10.0.0.2).','Verify: <code>show ip route</code> on DSW1, PC1 pings PC2, a trace from PC1 to PC2 stays on DSW1, and PC3 reaches the internet address 203.0.113.1.'],
+ why:['With routing off, a Layer 3 switch is just a switch: show ip route only shows a default gateway. PC1 and PC2 are in different VLANs, and nothing routes between them yet.','ip routing is what turns the switch into a router for its own VLAN interfaces. Classic IOS on a 3560 ships with it off.','A switch virtual interface (SVI) is the switch\'s own Layer 3 interface in a VLAN, and the default gateway for its hosts. It comes up as long as the VLAN exists and one port carrying it is up, here an access port or the trunk to ASW1.','A routed port leaves the VLAN world entirely: it is a point-to-point link like a router interface, with no spanning tree and no VLAN to leak into.','Inter-VLAN traffic is now handled on DSW1, but anything else still needs a way out. One default route to the edge router covers it, and R1 already has a route back for 192.168.0.0/16.','The trace shows a single hop, 192.168.10.1, between PC1 and PC2: the switch routes between VLANs itself, without hairpinning through a router. PC3 proves the SVI works across the trunk too.'],
+ checks:[['IP routing is on for DSW1',n=>!!n.devs.DSW1.ipRouting],['VLAN 10 and VLAN 20 interfaces are addressed and up',n=>hasIp(n,'DSW1','vlan10','192.168.10.1',24)&&hasIp(n,'DSW1','vlan20','192.168.20.1',24)&&ifUp(n,n.devs.DSW1,IF(n,'DSW1','vlan10'))&&ifUp(n,n.devs.DSW1,IF(n,'DSW1','vlan20'))],['Gi0/2 is a routed port with 10.0.0.1/30',n=>!!IF(n,'DSW1','g0/2').routed&&hasIp(n,'DSW1','g0/2','10.0.0.1',30)],['DSW1 has a default route to R1',n=>n.devs.DSW1.statics.some(s=>s.len===0&&s.nh===ip2n('10.0.0.2'))],['PC1 reaches PC2 through DSW1 alone',n=>{const f=tracePath(n,n.devs.PC1,ip2n('192.168.20.12'));return P(n,'PC1','192.168.20.12')&&f.ok&&!f.hops.path.includes('R1');}],['PC3 reaches the internet address through DSW1 and R1',n=>P(n,'PC3','203.0.113.1')]],
+ solution:{DSW1:['enable','configure terminal','ip routing','interface vlan 10','ip address 192.168.10.1 255.255.255.0','no shutdown','interface vlan 20','ip address 192.168.20.1 255.255.255.0','no shutdown','interface g0/2','no switchport','ip address 10.0.0.1 255.255.255.252','exit','ip route 0.0.0.0 0.0.0.0 10.0.0.2','end']}},
+ ['DSW1: enable | show ip route ; PC1: # fails: nothing routes between the VLANs yet | ping 192.168.20.12',
+  'DSW1: configure terminal | ip routing',
+  'DSW1: interface vlan 10 | ip address 192.168.10.1 255.255.255.0 | no shutdown | interface vlan 20 | ip address 192.168.20.1 255.255.255.0 | no shutdown',
+  'DSW1: interface g0/2 | no switchport | ip address 10.0.0.1 255.255.255.252 | exit',
+  'DSW1: ip route 0.0.0.0 0.0.0.0 10.0.0.2 | end',
+  'DSW1: show ip route ; PC1: ping 192.168.20.12 | tracert 192.168.20.12 ; PC3: ping 203.0.113.1']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
@@ -2514,7 +2562,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
     const d=cur.net.devs[g.dataset.dev];if(!d)return;
     if(tipDev!==g.dataset.dev||tip.hidden){tipDev=g.dataset.dev;
       const rows=Object.values(d.ifs).filter(i=>i.link||i.ip!==null).slice(0,9).map(i=>{const up=ifUp(cur.net,d,i);return `<tr><td>${shortIf(i.name)}</td><td>${i.ip!==null?n2ip(i.ip)+'/'+i.len:'no address'}</td><td class="${up?'good':'bad'}">${up?'up':'down'}</td></tr>`;}).join('');
-      tip.innerHTML=`<b>${esc(d.hostname)}</b><span>${d.type==='pc'?(d.phone?'IP phone':d.services?'Server':'Host'):d.type==='router'?'Router':'Switch'}${d.type!=='router'&&d.gw!=null?' · gateway '+n2ip(d.gw):''}</span><table>${rows}</table>`;tip.hidden=false;}
+      tip.innerHTML=`<b>${esc(d.hostname)}</b><span>${d.type==='pc'?(d.phone?'IP phone':d.services?'Server':'Host'):d.type==='router'?'Router':d.l3?'Layer 3 switch':'Switch'}${d.type!=='router'&&d.gw!=null?' · gateway '+n2ip(d.gw):''}</span><table>${rows}</table>`;tip.hidden=false;}
     tip.style.left=Math.min(innerWidth-280,e.clientX+16)+'px';tip.style.top=Math.min(innerHeight-tip.offsetHeight-10,e.clientY+20)+'px';});
   $('topo').addEventListener('pointerleave',()=>{tip.hidden=true;tipDev=null;});
   $('topo').addEventListener('pointerdown',()=>{tip.hidden=true;tipDev=null;});
@@ -2556,7 +2604,7 @@ $('studyMap').onclick=studyMap;
 (function(){
   const KEY='lab4net-sandbox-v1',MAX=20,W=1600,H=660,VW=800,VH=330,topo=$('topo'),ctx=$('ctx');
   const blank=()=>({devs:[],links:[],notes:[],view:null,ch:null,chDone:false});let def=blank(),cable=false,pick=null,dragging=null;
-  const KIND={router:['R','Router'],router5:['R','Router, 5 ports'],switch:['SW','Switch'],switch24:['SW','Switch, 24 ports'],pc:['PC','PC'],srv:['SRV','Server']},TYPES=Object.keys(KIND);
+  const KIND={router:['R','Router'],router5:['R','Router, 5 ports'],switch:['SW','Switch'],switch24:['SW','Switch, 24 ports'],l3switch:['DSW','Layer 3 switch'],pc:['PC','PC'],srv:['SRV','Server']},TYPES=Object.keys(KIND);
   const clean=p=>{if(!p||!Array.isArray(p.devs)||!Array.isArray(p.links)||p.devs.length>MAX)return null;const names=new Set(),devs=[];
     for(const d of p.devs){if(!d||typeof d.name!=='string'||!/^[A-Za-z][A-Za-z0-9-]{0,14}$/.test(d.name)||names.has(d.name)||!TYPES.includes(d.type))return null;names.add(d.name);
       devs.push({name:d.name,type:d.type,x:Math.max(34,Math.min(W-34,Math.round(+d.x)||100)),y:Math.max(34,Math.min(H-40,Math.round(+d.y)||100))});}
@@ -2573,6 +2621,7 @@ $('studyMap').onclick=studyMap;
   const saveDef=()=>{try{localStorage.setItem(KEY,JSON.stringify(def));}catch(e){}mark();};
   const setLast=v=>{try{localStorage.setItem('lab4net-last',v);}catch(e){}};
   function make(d){if(d.type==='router'||d.type==='router5'){const r=mkRouter(d.name);if(d.type==='router5'){addIf(r,'GigabitEthernet0/3',{shutdown:true});addIf(r,'GigabitEthernet0/4',{shutdown:true});}return r;}
+    if(d.type==='l3switch')return mkL3Switch(d.name);
     if(d.type==='switch'||d.type==='switch24'){const s=mkSwitch(d.name);if(d.type==='switch24')for(let i=9;i<=24;i++)addIf(s,'FastEthernet0/'+i);return s;}
     const p=mkPC(d.name,null,24);if(d.type==='srv')p.services=[80];return p;}
   const SBX={title:'Sandbox',group:'Free build',brief:'',addr:[],tasks:[],why:[],checks:[],solution:{},steps:[],pos:{},start:null,
