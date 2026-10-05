@@ -2689,6 +2689,16 @@ addIncident({title:'Incident 09: the bundle that took both links',base:'EtherCha
  steps:['PC1: ping 192.168.10.12','SW2: enable | show etherchannel summary | show interfaces status err-disabled ; SW1: enable | show etherchannel summary','SW2: configure terminal | interface range g0/1 - 2 | shutdown | no channel-group 1 | channel-group 1 mode active | no shutdown | end','SW2: show etherchannel summary ; SW1: show etherchannel summary ; PC1: ping 192.168.10.12'],
  hints:['Both links failed at the same moment, which rules out a cable. Read what SW2 logged and look at its interface states.','show interfaces status err-disabled on SW2 shows the members err-disabled for channel-misconfig. Compare the channel protocol in show etherchannel summary on both switches.','SW2 forces the bundle with mode on while SW1 negotiates LACP. Remove the channel group, add it back in active mode, then bounce the ports to clear the err-disable.'],
  lesson:'mode on never negotiates, so it only works against another on. Against an LACP neighbor it could loop, and EtherChannel guard err-disables the bundle instead. Both ends must use the same protocol, and IOS will not switch a member straight from LACP to on or back.'});
+
+// ----- incident 10
+addIncident({title:'Incident 10: the router can, the hosts cannot',base:'NAT overload (PAT)',start:'R1',
+ brief:'Since a change on R1, nobody inside can reach the web server, yet R1 itself pings it fine. The default route and the PAT rule look untouched. Find what stops translation and restore internet access for the LAN.',
+ symptom:['PC1','198.51.100.10'],
+ fault:{R1:[...EN,'interface g0/0','ip nat outside','interface g0/1','ip nat inside','end']},
+ repair:{R1:[...EN,'interface g0/0','ip nat inside','interface g0/1','ip nat outside','end'],PC1:['ping 198.51.100.10','telnet 198.51.100.10 80']},
+ steps:['PC1: ping 198.51.100.10 ; R1: enable | ping 198.51.100.10','R1: show ip nat translations | show running-config','R1: configure terminal | interface g0/0 | ip nat inside | interface g0/1 | ip nat outside | end','PC1: ping 198.51.100.10 | telnet 198.51.100.10 80 ; R1: show ip nat translations'],
+ hints:['R1 reaches the server from its public address; the hosts do not. Their packets leave with a private source the ISP cannot route back to.','show ip nat translations stays empty. In show running-config, check which interface is marked inside and which outside, against the address plan.','The roles are swapped: G0/0 faces the LAN and must be inside, G0/1 faces the ISP and must be outside. The PAT rule itself is correct.'],
+ lesson:'NAT only translates traffic that enters an inside interface and leaves an outside one. With the roles reversed nothing matches, so no translation is ever created and the router\'s own traffic is the only thing that still works.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
