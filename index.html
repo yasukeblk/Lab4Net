@@ -2730,6 +2730,16 @@ addIncident({title:'Incident 13: the new laptop is locked out',base:'Port securi
  steps:['PC1: ping 192.168.1.12 | ipconfig /all','SW1: enable | show interfaces status | show port-security interface f0/1 | show port-security address','SW1: configure terminal | interface f0/1 | shutdown | no switchport port-security mac-address sticky 0011.2233.4455 | no shutdown | end','SW1: show port-security interface f0/1 ; PC1: ping 192.168.1.12'],
  hints:['Only PC1 is cut off and its port is dark: the switch took the port down on purpose rather than a cable failing.','show interfaces status shows Fa0/1 err-disabled. show port-security interface f0/1 shows a violation, and show port-security address shows the stored address. Compare it with the new laptop\'s MAC from ipconfig /all.','The port still remembers the old laptop\'s sticky address, and allows only one. Remove that sticky entry, then shut and re-enable the port so it learns the new laptop.'],
  lesson:'Sticky addresses stay in the config until someone removes them, so replacing a device on a port limited to one address is a violation. In shutdown mode the port err-disables and stays down until the old entry is cleared and the port is bounced.'});
+
+// ----- incident 14
+addIncident({title:'Incident 14: published, but to the wrong address',base:'Static NAT: publish a server',start:'R1',
+ brief:'The public web server stopped answering on 203.0.113.10 after its NAT entry was retyped. The ISP still routes the whole block to R1 and the server is fine inside. Restore the published address.',
+ symptom:['CLIENT','203.0.113.10','tcp',80],
+ fault:{R1:[...EN,'no ip nat inside source static 192.168.1.10 203.0.113.10','ip nat inside source static 192.168.1.10 203.0.113.11','end']},
+ repair:{R1:[...EN,'no ip nat inside source static 192.168.1.10 203.0.113.11','ip nat inside source static 192.168.1.10 203.0.113.10','end','show ip nat translations'],CLIENT:['telnet 203.0.113.10 80']},
+ steps:['CLIENT: ping 203.0.113.10 | telnet 203.0.113.10 80','R1: enable | show ip nat translations | show running-config','R1: configure terminal | no ip nat inside source static 192.168.1.10 203.0.113.11 | ip nat inside source static 192.168.1.10 203.0.113.10 | end','CLIENT: ping 203.0.113.10 | telnet 203.0.113.10 80 ; R1: show ip nat translations'],
+ hints:['Packets for 203.0.113.10 reach R1 (the ISP routes the whole block there), but nothing answers. The question is what R1 does with them.','show ip nat translations lists the static pair. Compare its inside global address with the published one in the address plan.','The server is mapped to 203.0.113.11. Remove that entry and map 192.168.1.10 to 203.0.113.10.'],
+ lesson:'A static NAT entry is a fixed pair of addresses. If the inside global does not match the address the outside world uses, packets arrive at the router and find no translation, so they go nowhere.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
