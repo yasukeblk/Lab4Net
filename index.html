@@ -1502,6 +1502,43 @@ addLab({title:'Locking down device access',group:'Security',
   'R1: line vty 0 4 | access-class 10 in | end',
   'ADMIN: ssh -l admin 192.168.10.1 ; PC1: # refused: the user subnet is not in ACL 10 | ssh -l admin 192.168.20.1',
   'R1: copy running-config startup-config | show startup-config']);
+
+// ----- phase 1, lab 4
+// Adjacency changes are logged on the router where the command was typed, as IOS does.
+{const nbKeys=(net,d)=>d.type==='router'&&d.ospf?new Map(ospfNeighbors(net,d).map(n=>[n2ip(routerId(n.dev))+' on '+n.ifc.name,n])):new Map();
+ const ex0=execLine;execLine=function(net,d,s,line){const before=nbKeys(net,d),out=ex0(net,d,s,line),after=nbKeys(net,d),pid=d.ospf?d.ospf.pid:1;
+  if(/^\s*cl/i.test(line))return out;
+  for(const k of before.keys())if(!after.has(k))out.push('%OSPF-5-ADJCHG: Process '+pid+', Nbr '+k+' from FULL to DOWN, Neighbor Down: Interface down or detached');
+  for(const k of after.keys())if(!before.has(k))out.push('%OSPF-5-ADJCHG: Process '+pid+', Nbr '+k+' from LOADING to FULL, Loading Done');
+  return out;};}
+CCNA_LAB_MAP['OSPF router IDs and passive interfaces']=['3.4'];
+Object.assign(WHYC,{
+'passive-interface <rest>':'Keeps advertising the network but stops sending and receiving hellos on the port, so no neighbor can form there. passive-interface default makes every port passive; then you open only the router-to-router links with no passive-interface.',
+'no passive-interface <rest>':'After passive-interface default, this re-enables hellos on one interface: the links where you expect a neighbor router.',
+'clear ip ospf process':'Restarts OSPF. Neighbors drop and re-form, and the router picks up a newly configured router ID. Disruptive, so do it in a maintenance window.',
+'show ip protocols':'Summarises each routing protocol: its router ID, which networks it runs on, which interfaces are passive, and which routers it is learning from.',
+'show ip ospf':'Shows the OSPF process: its router ID and how many interfaces are in each area.',
+'show ip ospf neighbor':'Lists adjacencies. FULL means the two routers have exchanged their complete databases. A neighbor you did not expect is a red flag.'});
+addLab({title:'OSPF router IDs and passive interfaces',group:'Routing',
+ brief:'OSPF is running between R1 and R2, but nobody set router IDs and every interface sends hellos. Someone has plugged a router into the user LAN and it is now injecting a route into your network. Give the routers fixed IDs and stop OSPF talking on user ports.',
+ pos:{PC1:[45,60],ROGUE:[45,195],SW1:[150,125],R1:[290,125],R2:[430,125],PC2:[555,125]},start:'R1',
+ build(){const n=mkNet([mkRouter('R1'),mkRouter('R2'),mkRouter('ROGUE'),mkSwitch('SW1'),mkPC('PC1','192.168.1.10',24,'192.168.1.1'),mkPC('PC2','192.168.2.10',24,'192.168.2.1')]);
+  link(n,'PC1','f0','SW1','f0/1');link(n,'ROGUE','g0/0','SW1','f0/2');link(n,'SW1','g0/1','R1','g0/0');link(n,'R1','g0/1','R2','g0/1');link(n,'R2','g0/0','PC2','f0');
+  cfg(n,{R1:['enable','configure terminal','interface g0/0','ip address 192.168.1.1 255.255.255.0','no shutdown','interface g0/1','ip address 10.0.12.1 255.255.255.252','no shutdown','router ospf 1','network 192.168.1.0 0.0.0.255 area 0','network 10.0.12.0 0.0.0.3 area 0','end'],
+   R2:['enable','configure terminal','interface g0/0','ip address 192.168.2.1 255.255.255.0','no shutdown','interface g0/1','ip address 10.0.12.2 255.255.255.252','no shutdown','router ospf 1','network 192.168.2.0 0.0.0.255 area 0','network 10.0.12.0 0.0.0.3 area 0','end'],
+   ROGUE:['enable','configure terminal','interface g0/0','ip address 192.168.1.99 255.255.255.0','no shutdown','interface loopback 0','ip address 10.66.66.1 255.255.255.0','router ospf 9','network 0.0.0.0 255.255.255.255 area 0','end']});return n;},
+ addr:[['R1','G0/0 (user LAN) / G0/1','192.168.1.1/24, 10.0.12.1/30'],['R2','G0/0 (user LAN) / G0/1','192.168.2.1/24, 10.0.12.2/30'],['ROGUE','Unauthorised, on R1\'s LAN','192.168.1.99'],['Router IDs','R1 / R2','1.1.1.1 / 2.2.2.2']],
+ tasks:['On R1, run <code>show ip ospf neighbor</code> and <code>show ip protocols</code>: note the router ID R1 chose and the neighbor on the user LAN. On R2, find the rogue route in <code>show ip route</code>.','Set the router IDs: <code>1.1.1.1</code> on R1 and <code>2.2.2.2</code> on R2. Read the message.','Restart OSPF on both routers with <code>clear ip ospf process</code> so the new IDs take effect.','On both routers, make every interface passive with <code>passive-interface default</code>.','Re-enable hellos only on the link between the routers, G0/1, on both routers.','Verify: R1\'s only neighbor is R2, the rogue route is gone from R2, R2 still has a route to R1\'s user LAN, and PC1 can ping PC2.'],
+ why:['Without router-id, OSPF picks the highest loopback address, or failing that the highest active interface address, when the process starts. That ID can surprise you, and neighbors that see a duplicate ID refuse to form at all.','The router ID is how every other router names this one in its database. A fixed, meaningful ID makes neighbor tables and logs readable at a glance.','The ID is chosen once, when the process starts. Changing it on a live router needs a restart of the process, which briefly drops every adjacency.','Any port that sends hellos will accept a neighbor. On a user LAN that means anyone with a router, or a laptop running routing software, can inject routes. Default-passive is the safe starting point.','The networks on passive interfaces are still advertised. Only the links that really have a neighbor router on them need hellos.','Check all three outcomes: the unwanted adjacency is gone, the routes you need are still there, and traffic still flows end to end.'],
+ checks:[['R1 and R2 are running with router IDs 1.1.1.1 and 2.2.2.2',n=>routerId(n.devs.R1)===ip2n('1.1.1.1')&&routerId(n.devs.R2)===ip2n('2.2.2.2')],['Both routers are passive by default, with G0/1 still sending hellos',n=>['R1','R2'].every(r=>{const d=n.devs[r];return !!d.ospf&&!!d.ospf.passiveDef&&isPassive(d,'GigabitEthernet0/0')&&!isPassive(d,'GigabitEthernet0/1');})],['R1\'s only OSPF neighbor is R2',n=>{const nb=ospfNeighbors(n,n.devs.R1);return nb.length===1&&nb[0].dev===n.devs.R2;}],['R2 no longer learns the rogue route to 10.66.66.1',n=>!ospfRoutes(n,n.devs.R2).some(o=>netOf(ip2n('10.66.66.1'),o.len)===o.net)],['R2 still learns R1\'s user LAN, 192.168.1.0/24',n=>ospfRoutes(n,n.devs.R2).some(o=>o.net===ip2n('192.168.1.0')&&o.len===24)],['PC1 can ping PC2',n=>P(n,'PC1','192.168.2.10')]],
+ solution:{R1:['enable','configure terminal','router ospf 1','router-id 1.1.1.1','passive-interface default','no passive-interface g0/1','end','clear ip ospf process'],
+  R2:['enable','configure terminal','router ospf 1','router-id 2.2.2.2','passive-interface default','no passive-interface g0/1','end','clear ip ospf process']}},
+ ['R1: enable | show ip ospf neighbor | show ip protocols ; R2: enable | # look for the O route to 10.66.66.1 | show ip route',
+  'R1: configure terminal | router ospf 1 | router-id 1.1.1.1 ; R2: configure terminal | router ospf 1 | router-id 2.2.2.2',
+  'R1: end | clear ip ospf process ; R2: end | clear ip ospf process ; R1: show ip ospf',
+  'R1: configure terminal | router ospf 1 | passive-interface default ; R2: configure terminal | router ospf 1 | passive-interface default',
+  'R1: no passive-interface g0/1 | end ; R2: no passive-interface g0/1 | end',
+  'R1: show ip ospf neighbor | show ip protocols ; R2: show ip route ; PC1: ping 192.168.2.10']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
