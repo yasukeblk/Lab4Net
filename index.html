@@ -2883,6 +2883,16 @@ addIncident({title:'Incident 28: the exception that came too late',base:'Named A
  steps:['LAPTOP: ping 192.168.30.10 ; PC1: ping 192.168.30.10','R1: enable | show access-lists','R1: configure terminal | ip access-list standard SRV-ACCESS | no 45 | 30 permit host 192.168.20.50 | end','R1: show access-lists ; LAPTOP: ping 192.168.30.10 ; CONTR: # still blocked, as intended | ping 192.168.30.10'],
  hints:['The laptop\'s permit line exists, yet the laptop is denied. Think about which line its packets meet first.','show access-lists: the laptop\'s permit is now line 45, after line 40, which denies the whole contractor subnet. Watch line 40\'s counter.','Delete line 45 and add the permit back as line 30, between the staff permit and the contractor deny.'],
  lesson:'An exception only works if it comes before the broader line it is an exception to. Sequence numbers let you put a line exactly where it has to be.'});
+
+// ----- incident 29
+addIncident({title:'Incident 29: one clock has drifted off',base:'NTP and syslog',start:'R2',
+ brief:'Log messages from R2 no longer line up with R1\'s: R2\'s timestamps carry an asterisk and its clock is drifting. Someone edited R2\'s time settings. Get R2 synchronised to the time server again.',
+ symptom:n=>ntpState(n,n.devs.R2).synced,
+ fault:{R2:[...EN,'no ntp server 192.168.1.50','ntp server 192.168.1.5','end']},
+ repair:{R2:[...EN,'no ntp server 192.168.1.5','ntp server 192.168.1.50','end','show ntp status']},
+ steps:['R2: enable | show clock | show ntp status ; R1: enable | show ntp status','R2: show ntp associations | show running-config','R2: configure terminal | no ntp server 192.168.1.5 | ntp server 192.168.1.50 | end','R2: show ntp associations | show ntp status | show clock'],
+ hints:['R1 is synchronised and R2 is not, and they reach the time server through the same path. Look at what R2 is trying to sync to.','show ntp associations on R2 lists the configured server with .INIT. and stratum 16: nothing answers there. Compare the address with the time server in the address plan.','R2 points at 192.168.1.5 instead of 192.168.1.50. Replace the server address.'],
+ lesson:'An NTP client only synchronises to a server that actually answers. A wrong server address leaves the clock free-running, and show ntp associations makes it visible with .INIT. and stratum 16.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
