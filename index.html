@@ -2833,6 +2833,16 @@ addIncident({title:'Incident 23: the inspection path took the wrong server',base
  steps:['PC1: tracert 10.10.5.10 | tracert 10.10.5.20','R1: enable | show ip route 10.10.5.10 | show ip route 10.10.5.20 | show ip route static','R1: configure terminal | no ip route 10.10.5.20 255.255.255.255 10.0.13.2 | ip route 10.10.5.10 255.255.255.255 10.0.13.2 | end','R1: show ip route 10.10.5.10 ; PC1: tracert 10.10.5.10 | tracert 10.10.5.20'],
  hints:['Nothing is down; the two servers have swapped paths. Look at how R1 decides per destination address.','show ip route 10.10.5.10 and show ip route 10.10.5.20 show which entry each address matches. One of them hits a /32 host route.','The host route was entered for 10.10.5.20 instead of 10.10.5.10. Move it to SRV1\'s address.'],
  lesson:'The longest matching prefix always wins, so a /32 host route captures exactly one address. Put it on the wrong address and the policy quietly applies to the wrong server while everything still works.'});
+
+// ----- incident 24
+addIncident({title:'Incident 24: the branch lost its only neighbor',base:'OSPF on a shared segment',start:'BR',
+ brief:'After someone tuned BR\'s WAN interface "for faster failover", the branch lost every route to the shared LAN. The link is up and both ends are configured for OSPF. Restore the adjacency.',
+ symptom:['PC1','10.0.0.1'],
+ fault:{BR:[...EN,'interface g0/1','ip ospf hello-interval 5','end']},
+ repair:{BR:[...EN,'interface g0/1','no ip ospf hello-interval','end','show ip ospf neighbor'],PC1:['ping 10.0.0.1']},
+ steps:['PC1: ping 10.0.0.1 ; BR: enable | ping 172.16.0.1','BR: show ip ospf neighbor | show ip ospf interface g0/1 ; R4: enable | show ip ospf interface g0/1','BR: configure terminal | interface g0/1 | no ip ospf hello-interval | end','BR: show ip ospf neighbor | show ip route ospf ; PC1: ping 10.0.0.1'],
+ hints:['BR can ping R4 across the WAN, so the link works. The problem is OSPF between them, not IP.','show ip ospf neighbor on BR is empty. Compare the timer line of show ip ospf interface g0/1 on BR and on R4.','BR sends hellos every 5 seconds with a 20-second dead time; R4 uses 10 and 40. Remove the hello-interval change on BR so both ends match.'],
+ lesson:'OSPF neighbors must agree on the hello and dead intervals (as well as area, subnet and authentication), or they never form an adjacency. Change timers on both ends of a link, or not at all.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
