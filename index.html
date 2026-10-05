@@ -2783,6 +2783,16 @@ addIncident({title:'Incident 18: passive by default, silent by mistake',base:'OS
  steps:['PC1: ping 192.168.2.10','R1: enable | show ip ospf neighbor ; R2: enable | show ip ospf neighbor | show ip protocols','R2: configure terminal | router ospf 1 | no passive-interface g0/1 | end','R2: show ip ospf neighbor ; R1: show ip route ; PC1: ping 192.168.2.10'],
  hints:['Neither router has any OSPF neighbor now, but both are still running OSPF and the link between them is up.','show ip protocols on R2 lists its passive interfaces. With passive-interface default, the uplink must be the one exception.','R2\'s G0/1 is passive again. Remove that with no passive-interface g0/1; leave the default in place so the LANs stay protected.'],
  lesson:'A passive interface sends no hellos, so no neighbor can form there. With passive-interface default, every link that needs a neighbor must be listed as an exception, and losing that exception cuts the routers apart.'});
+
+// ----- incident 19
+addIncident({title:'Incident 19: a whole VLAN fell off one switch',base:'Per-VLAN root bridges',start:'DSW1',
+ brief:'During a clean-up, an engineer removed what they thought was an unused VLAN from DSW1. Since then the GUEST host on DSW1 is unreachable and spanning tree for VLAN 20 has changed shape. Restore the VLAN so both trees match the design again.',
+ symptom:['PC2','192.168.20.14'],
+ fault:{DSW1:[...EN,'no vlan 20','end']},
+ repair:{DSW1:[...EN,'vlan 20','name GUEST','end','show vlan brief'],PC2:['ping 192.168.20.14']},
+ steps:['PC2: ping 192.168.20.14 ; PC1: ping 192.168.10.13','DSW1: enable | show vlan brief | show interfaces f0/1 switchport | show spanning-tree vlan 20','DSW1: configure terminal | vlan 20 | name GUEST | end','DSW1: show vlan brief ; ASW1: enable | show spanning-tree vlan 20 ; PC2: ping 192.168.20.14'],
+ hints:['VLAN 10 works everywhere and VLAN 20 fails only toward DSW1. Something about VLAN 20 on DSW1 itself has changed.','show vlan brief on DSW1 has no VLAN 20, and show interfaces f0/1 switchport shows its access VLAN as Inactive. show spanning-tree vlan 20 has no instance at all.','VLAN 20 was deleted from DSW1. Create it again with its name; the ports and the spanning-tree priority for it are still configured and come back on their own.'],
+ lesson:'Deleting a VLAN does not remove the ports from it: they stay assigned to a VLAN that no longer exists and stop forwarding. Spanning tree for that VLAN disappears from the switch too, which changes the tree on its neighbors.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
