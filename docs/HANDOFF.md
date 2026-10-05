@@ -15,7 +15,7 @@ It currently has:
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
 - A network map that animates each ping, telnet or ssh along the path the packet really takes, and labels where and why it fails
 - Step-by-step instructions per task (switchable, and can pop out into its own window), plus a "why" for every task and every command
-- Lessons that teach the concept before the lab (pilot: DHCP only): explanation, a step-through animation on the lab's map, key terms, exam notes, common mistakes and a quick check
+- 54 lessons that teach the concept before the commands: one per build lab (opens on the first visit, with a step-through animation on the lab's map) and 18 topic lessons for exam objectives with no lab, in a Lessons view and on the Study map. Each has key terms, exam notes, common mistakes and a quick check
 - A subnetting drill and a 28-question theory check
 - Stage ranks (S to D), XP and levels, combos, trophies, generated sound effects
 - Movable, resizable, snapping windows with a saved layout. Dropped windows swap, split or fill the space, and shared edges resize like dividers
@@ -143,7 +143,7 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 6. Sandbox (devices, cabling, zoom and pan, notes, kits, challenges, files, undo). Undo keeps up to 80 snapshots of devices, links, notes, challenge and journal; `mark()` runs from `saveDef` and after each sandbox command.
 7. Backup (adds ranks, layout, sandbox and incident clues to Transfer progress)
 8. Capstone guide default
-9. Lessons. `LESSONS` is keyed by build lab title: `name`, `mins`, `sections` ([heading, html]), `story` (steps with `path` of device names, `cls` req/rep, `at`, `label`, `good`/`bad`, `t` title, `x` text), `terms`, `exam`, `mistakes`, `quiz` ([question, options, correct index, explanation]; the display order is rotated). The block wraps `renderBrief` (lesson replaces the mission window's content, or a card is inserted after the CCNA tags) and `openLab` (opens on the lesson until it is read). Incidents use their `baseTitle`'s lesson; capstones have none. `window.lessonFor(lab)` returns a lab's lesson
+9. Lessons. The data sits between `//LESSONS-DATA-START` and `//LESSONS-DATA-END` as `Object.assign(LESSONS,{...})` blocks. Lab lessons are keyed by build lab title; topic lessons have `topic:true` and `ccna` ids and no story. Fields: `name`, `mins`, `sections` ([heading, html]), `story` (lab lessons: steps with `path` of cabled device names, `cls` req/rep, `at`, `label`, `good`/`bad`, `t`, `x`), `terms`, `exam`, `mistakes`, `quiz` ([question, options, correct index, explanation]; the display order is a fixed shuffle per question). The block after the data wraps `renderBrief` (a lab lesson replaces the mission window, or a card is inserted after the CCNA tags; the Lessons view renders the list in the mission window and a topic lesson in the practice window), `openLab` (opens on the lesson until read), `renderLabs` (adds Lessons under Practice) and `studyMap` (adds topic lessons per domain). It also fills in `CCNA_OBJECTIVES` for every v1.1 objective. `window.lessonFor(lab)`, `window.openLesson(key)` and `window.lessonStats()` (used by XP and the Bookworm trophy) are exposed. New lessons follow `docs/LESSON-WRITING.md` and `tests/lessons.cjs`
 
 **The pattern to know:** these blocks do not edit the base functions. They wrap them by reassigning the name, for example `const ex0 = execute; execute = function(line){ ex0(line); ... }`. `renderAll`, `openLab`, `execute`, `celebrate`, `library`, `renderBrief`, `renderTerm`, `drawTopo`, `select`, `renderLabs` and `transfer` are all wrapped, some more than once. The outermost wrapper is the one defined last. Before changing behaviour, grep for every `name=function` to see the whole chain.
 
@@ -151,21 +151,23 @@ Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `la
 
 ## Verifying changes
 
-Run these before every commit. All four pass on `main` at the end of phase 5.
+Run these before every commit. All five pass on `main`.
 
 ```
 node tests/labs.cjs
 node tests/forwarding.cjs
 node tests/curriculum.cjs
+node tests/lessons.cjs
 node tests/ui.cjs
 ```
 
-Current result: 73 labs (36 build, 35 incidents, 2 capstones), 416 checks, 1439 guide commands.
+Current result: 73 labs (36 build, 35 incidents, 2 capstones), 416 checks, 1439 guide commands; 54 lessons (36 lab, 18 topic).
 
 On Yasuke's desktop there is no Node install. Claude Code runs the tests with Deno's Node-compatible binary (`%LOCALAPPDATA%\deno\node_compat_bin\node.exe`) and runs `ui.cjs` with Playwright installed by Deno into a folder outside the repo, linked in as `node_modules` (git-ignored), with `LAB4NET_BROWSER_CHANNEL=msedge`.
 
 - `labs.cjs` builds every lab, runs its solution and asserts every check passes, then does the same following the step-by-step instructions. It also runs in GitHub Actions on every push.
 - `forwarding.cjs` covers routing, ACL direction, static NAT, closed ports, VLAN paths and link failure.
+- `lessons.cjs` checks every lesson (structure, markup, quiz answers, story steps on cabled devices) and that every build lab has one. It also takes draft files as arguments. It runs in GitHub Actions.
 - `curriculum.cjs` checks objective mappings and that every incident starts with a real failing service and is fixed by its repair without breaking any original check. It runs in GitHub Actions.
 - An incident's `symptom` is either `[source, target, proto, port]` (a packet test with `reach`) or a function of the network for services that are not a single packet (CDP or LLDP discovery, NTP, IPv6, a preferred path). The curriculum test checks it fails after the build and works after the repair, and compares configuration before and after the probe, ignoring counters, logs and NAT translations.
 - `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
@@ -210,7 +212,6 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 Carry this list forward and keep it in every summary.
 
 - `enable` and console password prompts
-- Lessons for the other 35 build labs, once Yasuke has reviewed the DHCP pilot (format, length, where it opens)
 - A fuller theory question bank (28 questions so far)
 - XP and trophies for sandbox challenges
 - Closer-to-real `?` help: descriptions, the `^` marker, "% Ambiguous command", `| include` and `| begin` (offered, not yet confirmed)

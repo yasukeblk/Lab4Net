@@ -1,5 +1,23 @@
 # Lab4Net changes
 
+## Lessons for every lab and every exam topic
+
+The DHCP pilot is now the full set: 54 lessons.
+
+- **36 lab lessons**, one for every build lab. Each opens in the mission window the first time you open its lab, until you press Start the lab. It explains the problem the feature solves, how it works and how this lab configures and checks it, using the lab's own devices and addresses. Its "See it happen" story steps through the traffic on the lab's own map (a frame being tagged, a route chosen, an address translated, a port blocking). Then key terms, what the exam expects, common mistakes and a 4 or 5 question quick check. Incidents link to the lesson of the lab they break.
+- **18 topic lessons** for the CCNA 200-301 v1.1 objectives that have no lab: network components and topologies, cabling and interface faults, TCP and UDP, IPv4 addressing and subnetting, how a switch forwards frames, virtualization and the cloud, wireless principles, wireless architectures and AP modes, securing and configuring a WLAN (the controller GUI described step by step), device management and AAA, security concepts, passwords, MFA and VPNs, SNMP, TFTP and FTP, QoS, controller-based networking, REST APIs and JSON, Ansible and Terraform, and AI in network operations.
+- **Lessons view**: a new Lessons entry under Practice in the lab menu lists every lesson by exam domain with what you have read. Topic lessons open beside the list; "Mark read, next lesson" moves through them. Lab lessons (tagged Lab) open in their lab.
+- **Study map**: each exam domain lists its topic lessons. Domains with no lab say the lessons cover them.
+- **Rewards**: 30 XP for each lesson read and 10 for each quick-check answer right. A new trophy, Bookworm, for reading every lesson.
+- Quick-check answers appear in a fixed shuffled order per question, so the right answer is not always in the same place.
+- The objective tags now cover every CCNA v1.1 objective, so topic lessons show theirs.
+
+How they were made: written to one brief (now `docs/LESSON-WRITING.md`), then every lesson was read for accuracy, and specific claims about the labs (for example which address a PC is leased) were checked against the simulator.
+
+Tests: new `tests/lessons.cjs` (also in CI) checks every lesson's structure and allowed markup, that every quiz has four different options and a valid answer, that every story step uses devices on the lab's map that are cabled together, and that every build lab has a lesson. It can also check a draft file before it is added. ui.cjs checks the lesson opening on the first visit, the story, an answer being kept, the incident link and the Lessons view.
+
+Verification: labs, forwarding, curriculum, lessons and ui all pass (ui grades all 73 labs in Edge with every lesson in place). Checked in Edge at 1440x1000 and 390x844 with no page errors. index.html is now about 1.16 MB. Not checked: the container, Firefox, Safari.
+
 ## Lessons: learn the concept before the commands (pilot: DHCP)
 
 The labs taught which commands to type but not the networking behind them. A lab can now have a lesson that teaches the concept first. This is a pilot with one lesson, for DHCP server and relay, so the format can be reviewed before the other labs get theirs.
