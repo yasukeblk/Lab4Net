@@ -943,11 +943,14 @@ C(SUBX,'do <rest>',e=>run(e,e.args[0],'priv'));
 const PORTS={www:80,http:80,https:443,telnet:23,ssh:22,ftp:21,domain:53,smtp:25,tftp:69};
 function addrSpec(t){const a=(t.shift()||'').toLowerCase();if(a==='any')return {net:0,wild:0xFFFFFFFF};if(a==='host'){const h=t.shift()||'';return isIp(h)?{net:ip2n(h),wild:0}:null;}
   if(!isIp(a))return null;if(t.length&&isIp(t[0]))return {net:ip2n(a),wild:ip2n(t.shift())};return {net:ip2n(a),wild:0};}
-function aclAdd(e,name,type,action,rest){const t=rest.trim().split(/\s+/),en={action,proto:'ip',dport:null,text:action+' '+rest.trim(),hits:0};
+// Each entry has a sequence number: the next multiple of 10 unless one is given. Entries are kept in sequence order.
+function aclAdd(e,name,type,action,rest,seq){const t=rest.trim().split(/\s+/),en={action,proto:'ip',dport:null,text:action+' '+rest.trim(),hits:0};
   if(type==='standard'){en.src=addrSpec(t);if(!en.src||t.length)return e.out(BAD);}
   else{en.proto=(t.shift()||'').toLowerCase();if(!['ip','tcp','udp','icmp'].includes(en.proto))return e.out(BAD);en.src=addrSpec(t);en.dst=addrSpec(t);if(!en.src||!en.dst)return e.out(BAD);
     if(t.length){if(t.shift().toLowerCase()!=='eq'||!t.length)return e.out(BAD);const p=t.shift().toLowerCase();en.dport=PORTS[p]??(/^\d+$/.test(p)?+p:null);if(en.dport===null)return e.out(BAD);}}
-  const A=e.d.acls||(e.d.acls={});(A[name]||(A[name]={type,entries:[]})).entries.push(en);}
+  const A=e.d.acls||(e.d.acls={}),acl=A[name]||(A[name]={type,entries:[]});
+  if(seq!=null&&acl.entries.some(x=>x.seq===seq))return e.out('% Duplicate sequence number');
+  en.seq=seq??(acl.entries.length?Math.floor(Math.max(...acl.entries.map(x=>x.seq||0))/10)*10+10:10);acl.entries.push(en);acl.entries.sort((a,b)=>a.seq-b.seq);}
 const hit=(s,ip)=>((ip&~s.wild)>>>0)===((s.net&~s.wild)>>>0);
 function aclPermit(d,name,pk){const acl=d.acls&&d.acls[name];if(!acl)return true;
   for(const en of acl.entries){if(en.proto!=='ip'&&en.proto!==pk.proto)continue;if(!hit(en.src,pk.src))continue;if(en.dst&&!hit(en.dst,pk.dst))continue;if(en.dport!=null&&en.dport!==pk.dport)continue;if(LIVE)en.hits++;return en.action==='permit';}
@@ -962,7 +965,9 @@ C('if','ip access-group <w> <w>',e=>{const dir=['in','out'].find(x=>x.startsWith
 C('if','no ip access-group <w> <w>',e=>{const dir=['in','out'].find(x=>x.startsWith(e.args[1].toLowerCase()));e.s.ctx.forEach(i=>{i[dir==='in'?'aclIn':'aclOut']=null;});},['router']);
 C('line','access-class <w> <w>',e=>{const dir=['in','out'].find(x=>x.startsWith(e.args[1].toLowerCase()));if(!dir)return e.out(BAD);const l=e.d.lines[e.s.ctx];l.aclClass=e.args[0];l.aclDir=dir;});
 C('line','no access-class <w> <w>',e=>{const l=e.d.lines[e.s.ctx];l.aclClass=null;l.aclDir=null;});
-const showAcl=e=>{for(const[n,a]of Object.entries(e.d.acls||{})){e.out((a.type==='standard'?'Standard':'Extended')+' IP access list '+n);a.entries.forEach((en,k)=>e.out('    '+(k+1)*10+' '+en.text+(en.hits?' ('+en.hits+' matches)':'')));}};
+// Standard lists print like IOS: a host as a bare address, a range with ", wildcard bits".
+const aclLine=(a,en)=>{if(a.type!=='standard')return en.text;const s=en.src;return pad(en.action,6)+' '+(s.wild===0xFFFFFFFF?'any':s.wild===0?n2ip(s.net):n2ip(s.net)+', wildcard bits '+n2ip(s.wild));};
+const showAcl=e=>{for(const[n,a]of Object.entries(e.d.acls||{})){e.out((a.type==='standard'?'Standard':'Extended')+' IP access list '+n);a.entries.forEach(en=>e.out('    '+en.seq+' '+aclLine(a,en)+(en.hits?' ('+en.hits+' match'+(en.hits>1?'es':'')+')':'')));}};
 C(EX,'show access-lists',showAcl);
 C(EX,'show ip access-lists',showAcl);
 
@@ -1995,6 +2000,41 @@ addLab({title:'Dynamic NAT with a pool',group:'IP services',
   'PC1: ping 198.51.100.10 ; PC2: ping 198.51.100.10 ; PC3: # this one fails: the pool is empty | ping 198.51.100.10 ; R1: show ip nat translations | show ip nat statistics',
   'R1: configure terminal | # refused while translations exist | no ip nat inside source list 1 pool PUBLIC | do clear ip nat translation * | no ip nat inside source list 1 pool PUBLIC | ip nat inside source list 1 pool PUBLIC overload | end',
   'PC1: ping 198.51.100.10 ; PC2: ping 198.51.100.10 ; PC3: ping 198.51.100.10 ; R1: show ip nat translations']);
+
+// ----- phase 2, lab 14
+Cn('acl','<n> permit <rest>',e=>aclAdd(e,e.s.ctx,e.d.acls[e.s.ctx].type,'permit',e.args[1],e.args[0]));
+Cn('acl','<n> deny <rest>',e=>aclAdd(e,e.s.ctx,e.d.acls[e.s.ctx].type,'deny',e.args[1],e.args[0]));
+Cn('acl','no <n>',e=>{const a=e.d.acls[e.s.ctx];a.entries=a.entries.filter(x=>x.seq!==e.args[0]);});
+Cn('acl','no <w> <rest>',e=>{const w=e.args[0].toLowerCase(),act=['permit','deny'].find(x=>x.startsWith(w));if(!act)return e.out(BAD);const a=e.d.acls[e.s.ctx],txt=(act+' '+e.args[1]).replace(/\s+/g,' ').trim().toLowerCase();
+  a.entries=a.entries.filter(x=>x.text.replace(/\s+/g,' ').trim().toLowerCase()!==txt);});
+// ip access-list resequence NAME START STEP renumbers the entries in their current order.
+Cn('config','ip access-list resequence <w> <n> <n>',e=>{const a=(e.d.acls||{})[e.args[0]];if(!a)return e.out('%Access list '+e.args[0]+' does not exist');a.entries.forEach((x,k)=>{x.seq=e.args[1]+k*e.args[2];});},['router'],true);
+CCNA_LAB_MAP['Named ACLs and sequence numbers']=['5.6'];
+Object.assign(WHYC,{
+'<n> permit <rest>':'Adds a permit line at this sequence number. A number between two existing lines inserts it between them, so you do not have to rebuild the whole list.',
+'<n> deny <rest>':'Adds a deny line at this sequence number, between existing lines if you pick a number between theirs.',
+'no <n>':'Deletes the line with this sequence number, leaving the rest of the ACL in place.',
+'ip access-list resequence <w> <n> <n>':'Renumbers the ACL\'s lines from a start value in even steps, opening gaps again for future insertions.'});
+addLab({title:'Named ACLs and sequence numbers',group:'Security',
+ brief:'R1 filters access to the file server with a named standard ACL. Three change requests have arrived: let one contractor laptop through, block one staff PC, and remove a line for a VPN range that no longer exists. Edit the ACL in place by sequence number instead of deleting and retyping it.',
+ pos:{PC1:[70,50],HR:[70,125],CONTR:[70,195],LAPTOP:[220,195],SW1:[220,110],R1:[380,110],SRV1:[540,110]},start:'R1',
+ build(){const n=mkNet([mkRouter('R1'),mkSwitch('SW1'),mkPC('PC1','192.168.10.10',24,'192.168.10.1'),mkPC('HR','192.168.10.66',24,'192.168.10.1'),mkPC('CONTR','192.168.20.20',24,'192.168.20.1'),mkPC('LAPTOP','192.168.20.50',24,'192.168.20.1'),srv('SRV1','192.168.30.10',24,'192.168.30.1',[445])]);
+  link(n,'PC1','f0','SW1','f0/1');link(n,'HR','f0','SW1','f0/2');link(n,'CONTR','f0','SW1','f0/3');link(n,'LAPTOP','f0','SW1','f0/4');link(n,'SW1','g0/1','R1','g0/0');link(n,'SW1','g0/2','R1','g0/1');link(n,'R1','g0/2','SRV1','f0');
+  cfg(n,{SW1:['enable','configure terminal','vlan 10','name STAFF','vlan 20','name CONTRACTORS','interface range f0/1 - 2','switchport mode access','switchport access vlan 10','interface range f0/3 - 4','switchport mode access','switchport access vlan 20',
+     'interface g0/1','switchport mode access','switchport access vlan 10','interface g0/2','switchport mode access','switchport access vlan 20','end'],
+   R1:['enable','configure terminal','interface g0/0','ip address 192.168.10.1 255.255.255.0','no shutdown','interface g0/1','ip address 192.168.20.1 255.255.255.0','no shutdown','interface g0/2','ip address 192.168.30.1 255.255.255.0','no shutdown','exit',
+     'ip access-list standard SRV-ACCESS','permit 192.168.10.0 0.0.0.255','deny 192.168.20.0 0.0.0.255','permit 172.16.0.0 0.0.255.255','exit','interface g0/2','ip access-group SRV-ACCESS out','end']});return n;},
+ addr:[['PC1 / HR','Staff, VLAN 10','192.168.10.10, 192.168.10.66'],['CONTR / LAPTOP','Contractors, VLAN 20','192.168.20.20, 192.168.20.50'],['SRV1','File server','192.168.30.10'],['ACL','SRV-ACCESS, outbound on R1 G0/2','standard, named']],
+ tasks:['On R1, run <code>show access-lists</code>. Note the sequence numbers. Ping the server from PC1, HR, CONTR and LAPTOP, and look at the match counters again.','The contractor LAPTOP (192.168.20.50) needs the server. Enter the ACL and insert a permit for that host between lines 10 and 20.','HR\'s PC (192.168.10.66) must lose access. Insert a deny for that host before line 10.','The 172.16.0.0/16 VPN range was retired. Delete its line by sequence number.','Renumber the ACL from 10 in steps of 10, then look at it again.','Test: PC1 and LAPTOP reach the server; HR and CONTR do not.'],
+ why:['Every ACL line has a sequence number, usually 10, 20, 30. Lines are checked from the lowest number up and the first match wins. The counters show which line each test hit.','Line 20 denies the whole contractor subnet, so a permit for one laptop only works if it comes first. Sequence 15 puts it between 10 and 20 without touching anything else.','The same logic: line 10 permits the whole staff subnet, so the host deny must come before it. Any number below 10 works.','no followed by a sequence number removes exactly one line. With a numbered ACL edited the old way, no access-list 10 would have deleted the whole list.','After a few insertions the numbers are uneven (5, 10, 15, 20). Resequencing restores even gaps so the next change can be inserted cleanly. The order does not change.','Test every rule you changed and one you did not. The laptop is an exception to line 20, HR is an exception to line 10, and the rest of each subnet behaves as before.'],
+ checks:[['LAPTOP reaches the server and CONTR is still blocked',n=>P(n,'LAPTOP','192.168.30.10')&&!P(n,'CONTR','192.168.30.10')],['HR is blocked and PC1 still reaches the server',n=>!P(n,'HR','192.168.30.10')&&P(n,'PC1','192.168.30.10')],['The retired 172.16.0.0/16 line is gone',n=>!n.devs.R1.acls['SRV-ACCESS'].entries.some(x=>x.src.net===ip2n('172.16.0.0'))],['SRV-ACCESS is renumbered 10, 20, 30, 40 in the right order',n=>{const E=n.devs.R1.acls['SRV-ACCESS'].entries;return E.map(x=>x.seq).join()==='10,20,30,40'&&E[0].action==='deny'&&E[0].src.net===ip2n('192.168.10.66')&&E[0].src.wild===0&&E[2].src.net===ip2n('192.168.20.50')&&E[2].action==='permit';}],['The ACL is still applied outbound on G0/2',n=>IF(n,'R1','g0/2').aclOut==='SRV-ACCESS']],
+ solution:{R1:['enable','configure terminal','ip access-list standard SRV-ACCESS','15 permit host 192.168.20.50','5 deny host 192.168.10.66','no 30','exit','ip access-list resequence SRV-ACCESS 10 10','end']}},
+ ['R1: enable | show access-lists ; PC1: ping 192.168.30.10 ; HR: ping 192.168.30.10 ; CONTR: ping 192.168.30.10 ; LAPTOP: ping 192.168.30.10 ; R1: show access-lists',
+  'R1: configure terminal | ip access-list standard SRV-ACCESS | 15 permit host 192.168.20.50',
+  'R1: 5 deny host 192.168.10.66 | do show access-lists',
+  'R1: no 30 | exit',
+  'R1: ip access-list resequence SRV-ACCESS 10 10 | end | show access-lists',
+  'PC1: ping 192.168.30.10 ; LAPTOP: ping 192.168.30.10 ; HR: # blocked by the new line 10 | ping 192.168.30.10 ; CONTR: ping 192.168.30.10']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
