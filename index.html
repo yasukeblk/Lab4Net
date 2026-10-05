@@ -1018,6 +1018,17 @@ function natIn(d,pk){const N=d.nat;if(!N)return;const st=N.statics.find(s=>s.glo
   const x=N.table.find(x=>x.ig===pk.dst&&x.gport===pk.dport&&x.proto===pk.proto);if(x){pk.dst=x.il;return;}
   const m=(N.dyn||[]).find(m=>m.ig===pk.dst);if(m)pk.dst=m.il;}
 
+// Dynamic ARP Inspection on a Layer 2 path from an ARP sender to its target. On an untrusted port of a switch
+// inspecting the VLAN, the sender's IP and MAC must match a DHCP snooping binding (or a static source binding)
+// for that VLAN and port. Links between switches and toward routers are normally trusted.
+function daiBlock(net,path,sender,ifc){if(!ifc||ifc.ip==null)return null;let vlan=null;
+  for(let k=1;k<path.length-1;k++){const sw=net.devs[path[k]];if(sw.type!=='switch')continue;const toS=portTo(net,sw,path[k-1]);if(!toS)continue;
+    if(vlan===null){if(toS.mode==='trunk')return null;const prev=net.devs[path[k-1]];vlan=prev.phone&&phoneVlan(net,prev)!=null?phoneVlan(net,prev):toS.accessVlan;}
+    const A=sw.dai;if(!A||!A.vlans.includes(vlan)||toS.daiTrust)continue;
+    if(!((sw.snoop&&sw.snoop.bind)||[]).some(b=>b.ip===ifc.ip&&b.mac===macOf(sender)&&b.vlan===vlan&&b.ifn===toS.name)){if(LIVE)A.drops=(A.drops||0)+1;
+      return {sw:sw.name,text:'ARP from '+n2ip(ifc.ip)+' dropped by Dynamic ARP Inspection on '+sw.hostname+' '+shortIf(toS.name)+': no matching binding'};}
+    if(LIVE)A.fwd=(A.fwd||0)+1;}
+  return null;}
 // packet forwarding with ACL + NAT
 function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},pk0);hops.path=[src.name];
   for(let t=0;t<20;t++){
@@ -1032,6 +1043,8 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
     // An exit-interface-only static route ARPs for the destination itself; a router on the segment with a route to it answers (proxy ARP).
     if(!peer&&h.proxy){peer=l2peers(net,d,h.ifc).find(p=>p.dev.type==='router'&&p.ifc.proxyArp!==false&&(x=>!!x&&x.ifc!==p.ifc)(nextHop(net,p.dev,h.nh)));if(peer)hopIp=peer.ifc.ip;}
     if(!peer)return {ok:false,hops,reason:'Next hop '+n2ip(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links, VLANs and addressing'};
+    // Dynamic ARP Inspection: both ends' ARP must pass every switch that inspects their VLAN.
+    {const why=daiBlock(net,peer.path,d,h.ifc)||daiBlock(net,peer.path.slice().reverse(),peer.dev,peer.ifc);if(why)return {ok:false,hops,blocked:net.devs[why.sw],reason:why.text};}
     hops.push(hopIp);hops.path.push(...peer.path.slice(1));d=peer.dev;inIf=peer.ifc;}
   return {ok:false,hops,reason:'Hop limit reached; check for a routing loop'};}
 function listens(d,port){if(d.services)return d.services.includes(port);if(d.type==='pc')return false;if(port===123)return !!(d.ntpMaster||(d.ntpServers||[]).length);const v=d.lines.vty,tr=(v.transport||'all').toLowerCase();
@@ -1205,7 +1218,7 @@ const prompt0=promptOf;promptOf=function(d,s){const h=d.hostname;if(s.mode==='ac
 function ifExtra(i,d0){const L=[];if(i.helper!=null)L.push(' ip helper-address '+n2ip(i.helper));if(i.aclIn)L.push(' ip access-group '+i.aclIn+' in');if(i.aclOut)L.push(' ip access-group '+i.aclOut+' out');if(i.nat)L.push(' ip nat '+i.nat);
   if(i.chan)L.push(' channel-group '+i.chan+' mode '+i.chanMode);
   if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');}
-  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.voiceVlan!=null)L.push(' switchport voice vlan '+i.voiceVlan);if(i.snoopRate)L.push(' ip dhcp snooping limit rate '+i.snoopRate);if(i.snoopTrust)L.push(' ip dhcp snooping trust');if(i.relayTrust)L.push(' ip dhcp relay information trusted');if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
+  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.voiceVlan!=null)L.push(' switchport voice vlan '+i.voiceVlan);if(i.snoopRate)L.push(' ip dhcp snooping limit rate '+i.snoopRate);if(i.daiTrust)L.push(' ip arp inspection trust');if(i.snoopTrust)L.push(' ip dhcp snooping trust');if(i.relayTrust)L.push(' ip dhcp relay information trusted');if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
   if(i.ospfNet)L.push(' ip ospf network '+i.ospfNet);if(i.ospfPrio!=null)L.push(' ip ospf priority '+i.ospfPrio);if(i.ospfCost!=null)L.push(' ip ospf cost '+i.ospfCost);if(i.ospfArea!=null&&d0.ospf)L.push(' ip ospf '+d0.ospf.pid+' area '+i.ospfArea);return L;}
 function globalExtra(d){const L=[];
   if(d.tz)L.push('clock timezone '+d.tz.name+' '+d.tz.off);if(d.cdp===false)L.push('no cdp run');if(d.lldp&&d.type!=='pc')L.push('lldp run');
@@ -1218,6 +1231,7 @@ function globalExtra(d){const L=[];
   for(const[n,a]of Object.entries(d.acls||{})){if(/^\d+$/.test(n))a.entries.forEach(en=>L.push('access-list '+n+' '+en.text));else{L.push('ip access-list '+a.type+' '+n);a.entries.forEach(en=>L.push(' '+en.text));}}
   if(d.snoop&&d.snoop.on){if(d.snoop.vlans.length)L.push('ip dhcp snooping vlan '+d.snoop.vlans.join(','));if(d.snoop.opt82===false)L.push('no ip dhcp snooping information option');L.push('ip dhcp snooping');}
   if(d.relayTrustAll)L.push('ip dhcp relay information trust-all');
+  if(d.dai&&d.dai.vlans.length)L.push('ip arp inspection vlan '+d.dai.vlans.join(','));((d.snoop&&d.snoop.bind)||[]).filter(b=>b.static).forEach(b=>L.push('ip source binding '+b.mac+' vlan '+b.vlan+' '+n2ip(b.ip)+' interface '+b.ifn));
   if(d.trapLevel!=null&&d.trapLevel!==6)L.push('logging trap '+SEVN[d.trapLevel]);(d.logHosts||[]).forEach(h=>L.push('logging host '+n2ip(h)));
   if(d.ntpMaster)L.push('ntp master '+d.ntpMaster);(d.ntpServers||[]).forEach(h=>L.push('ntp server '+n2ip(h)));
   if(L.length)L.push('!');return L;}
@@ -2262,6 +2276,56 @@ addLab({title:'DHCP snooping',group:'Security',
   'SW1: interface g0/1 | ip dhcp snooping trust | exit',
   'PC1: # no answer now, even from R1 | ipconfig /renew ; SW1: do show ip dhcp snooping | no ip dhcp snooping information option | end',
   'PC1: ipconfig /renew | ping 203.0.113.10 ; PC2: ipconfig /renew | ping 203.0.113.10 ; SW1: show ip dhcp snooping binding']);
+
+// ----- phase 3, lab 18
+{const r0=dhcpRenew;dhcpRenew=function(net,pc){const o=r0(net,pc);if(o)pc.dhcpOn=true;return o;};}
+// Accepts H.H.H, or six octets with dashes or colons; returns Cisco's dotted form.
+function parseMac(t){const h=String(t).toLowerCase().replace(/[.:-]/g,'');return /^[0-9a-f]{12}$/.test(h)?h.slice(0,4)+'.'+h.slice(4,8)+'.'+h.slice(8):null;}
+Cn('pc','ipconfig /all',e=>{const d=e.d,i=nic(d),m=macOf(d).replace(/\./g,'').toUpperCase().match(/../g).join('-');
+  e.out('','Windows IP Configuration','','   Host Name . . . . . . . . . . . . : '+d.hostname,'','Ethernet adapter FastEthernet0:','','   Physical Address. . . . . . . . . : '+m,'   DHCP Enabled. . . . . . . . . . . : '+(d.dhcpOn?'Yes':'No'),
+    '   IPv4 Address. . . . . . . . . . . : '+(i.ip!==null?n2ip(i.ip):'0.0.0.0'),'   Subnet Mask . . . . . . . . . . . : '+(i.ip!==null?n2ip(lenMask(i.len)):'0.0.0.0'),'   Default Gateway . . . . . . . . . : '+(d.gw!=null?n2ip(d.gw):'0.0.0.0'),'');},null,true);
+const daiOf=d=>d.dai||(d.dai={vlans:[],drops:0,fwd:0});
+Cn('config','ip arp inspection vlan <rest>',e=>{const l=parseVlanList(e.args[0].replace(/\s+/g,''));if(!l)return e.out(BAD);const A=daiOf(e.d);A.vlans=[...new Set(A.vlans.concat(l))].sort((a,b)=>a-b);},['switch']);
+Cn('config','no ip arp inspection vlan <rest>',e=>{const l=parseVlanList(e.args[0].replace(/\s+/g,''))||[];const A=daiOf(e.d);A.vlans=A.vlans.filter(v=>!l.includes(v));},['switch']);
+Cn('if','ip arp inspection trust',e=>e.s.ctx.forEach(i=>{i.daiTrust=true;}),['switch']);
+Cn('if','no ip arp inspection trust',e=>e.s.ctx.forEach(i=>{i.daiTrust=false;}),['switch']);
+// ip source binding MAC vlan N IP interface IF: a static entry in the binding table, for hosts with fixed addresses.
+Cn('config','ip source binding <w> vlan <n> <ip> interface <rest>',e=>{const mac=parseMac(e.args[0]),n=parseIf(e.args[3]);if(!mac||!n||!e.d.ifs[n])return e.out(BAD);
+  const S=snoopOf(e.d);S.bind=(S.bind||[]).filter(b=>!(b.static&&b.mac===mac));S.bind.push({mac,ip:e.args[2],vlan:e.args[1],ifn:n,static:true,client:null});},['switch']);
+Cn('config','no ip source binding <w> vlan <n> <ip> interface <rest>',e=>{const mac=parseMac(e.args[0]),S=snoopOf(e.d);S.bind=(S.bind||[]).filter(b=>!(b.static&&b.mac===mac));},['switch']);
+Cn(EX,'show ip arp inspection',e=>{const{d,out}=e,A=d.dai||{vlans:[]};out('','Source Mac Validation      : Disabled','Destination Mac Validation : Disabled','IP Address Validation      : Disabled','',' Vlan     Configuration    Operation   ACL Match          Static ACL',' ----     -------------    ---------   ---------          ----------',
+  ...A.vlans.map(v=>pad('  '+v,10)+pad('Enabled',17)+pad(d.vlans[v]?'Active':'Inactive',12)),'',' Vlan     Forwarded        Dropped     DHCP Drops     ACL Drops',' ----     ---------        -------     ----------     ---------',...A.vlans.map(v=>pad('  '+v,10)+pad(A.fwd||0,17)+pad(A.drops||0,12)+pad(A.drops||0,15)+'0'));},['switch']);
+Cn(EX,'show ip arp inspection interfaces',e=>{const{d,out}=e;out('',' Interface        Trust State     Rate (pps)    Burst Interval',' ---------------  -----------     ----------    --------------',
+  ...sortIfs(Object.keys(d.ifs)).filter(n=>!/^(Vlan|Port|Loop)/.test(n)).map(n=>' '+pad(shortIf(n),17)+pad(d.ifs[n].daiTrust?'Trusted':'Untrusted',16)+pad(d.ifs[n].daiTrust?'None':'15',14)+(d.ifs[n].daiTrust?'N/A':'1')));},['switch'],true);
+CCNA_LAB_MAP['Dynamic ARP Inspection']=['5.7'];
+Object.assign(WHYC,{
+'ip arp inspection vlan <rest>':'Turns on Dynamic ARP Inspection for these VLANs: every ARP arriving on an untrusted port is checked against the DHCP snooping binding table, and dropped if the IP and MAC do not match a binding on that port.',
+'ip arp inspection trust':'Skips ARP checks on this port. Trust uplinks to other switches and to the router; their ARPs come from addresses that were never leased on this switch.',
+'ip source binding <w> vlan <n> <ip> interface <rest>':'Adds a static entry to the binding table for a device with a fixed address, such as a printer, so DAI lets its ARPs through.',
+'show ip arp inspection':'Shows which VLANs DAI protects and how many ARP packets were forwarded and dropped.',
+'show ip arp inspection interfaces':'Shows which ports are trusted and the ARP rate limit on the untrusted ones.',
+'ipconfig /all':'Shows everything about the host\'s network adapter, including its physical (MAC) address and whether it uses DHCP.'});
+addLab({title:'Dynamic ARP Inspection',group:'Security',
+ brief:'DHCP snooping is already protecting VLAN 10. Next, stop hosts lying in ARP: a laptop has been given a static address outside DHCP, which is how ARP spoofing attacks start. Turn on Dynamic ARP Inspection without breaking the gateway, and keep the printer, which has a fixed address, working.',
+ pos:{PC1:[60,50],PC2:[60,125],PRINTER:[60,195],ATTACKER:[330,195],SW1:[200,110],R1:[420,110]},start:'SW1',
+ build(){const n=mkNet([mkRouter('R1'),mkSwitch('SW1'),mkPC('PC1',null,24),mkPC('PC2',null,24),mkPC('PRINTER','192.168.10.5',24,'192.168.10.1'),mkPC('ATTACKER','192.168.10.99',24,'192.168.10.1')]);
+  link(n,'PC1','f0','SW1','f0/1');link(n,'PC2','f0','SW1','f0/2');link(n,'PRINTER','f0','SW1','f0/3');link(n,'ATTACKER','f0','SW1','f0/6');link(n,'SW1','g0/1','R1','g0/0');
+  cfg(n,{SW1:['enable','configure terminal','vlan 10','name STAFF','interface range f0/1 - 8','switchport mode access','switchport access vlan 10','interface g0/1','switchport mode access','switchport access vlan 10','ip dhcp snooping trust','exit','ip dhcp snooping','ip dhcp snooping vlan 10','no ip dhcp snooping information option','end'],
+   R1:['enable','configure terminal','interface g0/0','ip address 192.168.10.1 255.255.255.0','no shutdown','exit','ip dhcp excluded-address 192.168.10.1 192.168.10.10','ip dhcp pool STAFF','network 192.168.10.0 255.255.255.0','default-router 192.168.10.1','end'],
+   PC1:['ipconfig /renew'],PC2:['ipconfig /renew']});return n;},
+ addr:[['R1','G0/0, gateway and DHCP server','192.168.10.1/24'],['PC1 / PC2','DHCP clients','leased'],['PRINTER','Fixed address, Fa0/3','192.168.10.5'],['ATTACKER','Static address, bypassed DHCP, Fa0/6','192.168.10.99']],
+ tasks:['On SW1, look at <code>show ip dhcp snooping binding</code>. Which hosts are in it? From ATTACKER, ping the gateway: it works today.','Turn on Dynamic ARP Inspection for VLAN 10. Then ping the gateway from PC1. Why does it fail?','Trust the uplink to R1 for ARP inspection, and test PC1 again.','The printer has stopped working. Find its MAC address (<code>ipconfig /all</code> on PRINTER) and add a static source binding for it on Fa0/3.','Test from PRINTER, PC2 and ATTACKER, and look at <code>show ip arp inspection</code> on SW1.'],
+ why:['The binding table only holds hosts that got their address through DHCP on this switch. The printer and the attacker set their addresses by hand, so they are not in it.','DAI checks every ARP on an untrusted port. PC1\'s own ARP passes, because its binding matches. But R1\'s ARP replies arrive on Gi0/1, and R1\'s address was never leased, so they are dropped too.','Trust the ports that lead to routers and other switches. Only edge ports, where users plug in, need checking.','A device with a fixed address is legitimate but has no lease, so DAI would drop it forever. A static source binding adds it to the table by hand. The MAC address in ipconfig /all uses dashes; IOS wants it as three dotted groups.','The printer works again, the PCs never noticed, and ATTACKER\'s ARPs are dropped: it cannot reach the gateway, and it cannot pretend to be anyone else either. The drop counter shows the inspection at work.'],
+ checks:[['DAI is on for VLAN 10',n=>!!n.devs.SW1.dai&&n.devs.SW1.dai.vlans.includes(10)],['The uplink to R1 is trusted for ARP inspection',n=>!!IF(n,'SW1','g0/1').daiTrust&&!IF(n,'SW1','f0/6').daiTrust],['The printer has a static binding on Fa0/3',n=>((n.devs.SW1.snoop||{}).bind||[]).some(b=>b.static&&b.mac===macOf(n.devs.PRINTER)&&b.ip===ip2n('192.168.10.5')&&b.vlan===10&&b.ifn==='FastEthernet0/3')],['PC1, PC2 and the printer reach the gateway',n=>['PC1','PC2','PRINTER'].every(p=>P(n,p,'192.168.10.1'))],['ATTACKER\'s ARP is dropped by DAI',n=>{const r=reach(n,n.devs.ATTACKER,ip2n('192.168.10.1'));return !r.ok&&/Dynamic ARP Inspection/.test(r.f.reason||'');}]],
+ solution:{SW1:['enable','configure terminal','ip arp inspection vlan 10','interface g0/1','ip arp inspection trust','exit','ip source binding '+'PRINTER-MAC'+' vlan 10 192.168.10.5 interface f0/3','end']}},
+ ['SW1: enable | show ip dhcp snooping binding ; ATTACKER: ping 192.168.10.1',
+  'SW1: configure terminal | ip arp inspection vlan 10 ; PC1: # fails: R1\'s replies arrive on an untrusted port | ping 192.168.10.1',
+  'SW1: interface g0/1 | ip arp inspection trust | exit ; PC1: ping 192.168.10.1',
+  'PRINTER: # note the Physical Address | ipconfig /all ; SW1: ip source binding PRINTER-MAC vlan 10 192.168.10.5 interface f0/3 | end',
+  'PRINTER: ping 192.168.10.1 ; PC2: ping 192.168.10.1 ; ATTACKER: # dropped by DAI | ping 192.168.10.1 ; SW1: show ip arp inspection']);
+// The printer's MAC is derived from its name, so put the real value into the solution and guide.
+{const L=LABS[LABS.length-1],m=macOf(L.build().devs.PRINTER);L.solution.SW1=L.solution.SW1.map(c=>c.replace('PRINTER-MAC',m));
+ STEPS[L.title]=STEPS[L.title].map(t=>t.replace('PRINTER-MAC',m));L.steps=stepsOf(STEPS[L.title]);}
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
