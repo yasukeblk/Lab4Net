@@ -2763,6 +2763,16 @@ addIncident({title:'Incident 16: the switch answers only locally',base:'Switch m
  steps:['ADMIN: ping 192.168.99.2 ; R1: enable | ping 192.168.99.2','SW1: enable | show ip interface brief | show running-config','SW1: configure terminal | ip default-gateway 192.168.99.1 | end','ADMIN: ping 192.168.99.2 | ssh -l netadmin 192.168.99.2'],
  hints:['R1, on the same subnet as SW1\'s management address, can still reach it. Only devices on other subnets cannot, which points at the way back, not the way in.','The VLAN 99 interface is up with the right address. Look for the default gateway in show running-config and compare it with R1\'s address in VLAN 99.','The default gateway points at 192.168.99.254, which does not exist. Set it back to R1, 192.168.99.1.'],
  lesson:'A Layer 2 switch replies to remote managers through its default gateway, exactly like a PC. A wrong gateway leaves the switch reachable from its own subnet and silent to everything else.'});
+
+// ----- incident 17
+addIncident({title:'Incident 17: the admins are locked out',base:'Locking down device access',start:'R1',
+ brief:'After someone edited the VTY filter, the administrators can no longer SSH to R1 from their own subnet, while the rest of the hardening is intact. Fix the filter, and make sure the fix survives a reload.',
+ symptom:['ADMIN','192.168.10.1','tcp',22],
+ fault:{R1:[...EN,'no access-list 10','access-list 10 permit 192.168.20.0 0.0.0.255','end']},
+ repair:{R1:[...EN,'ip access-list standard 10','no 10','10 permit 192.168.10.0 0.0.0.255','end','copy running-config startup-config'],ADMIN:['ssh -l admin 192.168.10.1']},
+ steps:['ADMIN: ssh -l admin 192.168.10.1 ; PC1: ssh -l admin 192.168.20.1','R1: enable | show access-lists | show running-config','R1: configure terminal | ip access-list standard 10 | no 10 | 10 permit 192.168.10.0 0.0.0.255 | end | copy running-config startup-config','ADMIN: ssh -l admin 192.168.10.1 ; PC1: # still refused, as intended | ssh -l admin 192.168.20.1'],
+ hints:['SSH is refused, not timing out, so the router is reachable and something is turning the session away on purpose.','The VTY lines still use access-class 10. Read ACL 10 in show access-lists: which subnet does it permit?','ACL 10 permits the user subnet instead of the admin subnet. Edit line 10 to permit 192.168.10.0/24, then save, because the startup config no longer matches.'],
+ lesson:'access-class turns away anyone the ACL does not permit, including the people who wrote it. Numbered ACLs can be edited line by line in ip access-list mode, and any change to a saved hardening config needs saving again.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
