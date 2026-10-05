@@ -588,11 +588,13 @@ function l2peers(net,d,i){
 }
 function connected(net,d){const r=[];for(const i of Object.values(d.ifs))if(i.ip!==null&&ifUp(net,d,i))r.push({code:'C',net:netOf(i.ip,i.len),len:i.len,ifc:i,nh:null,ad:0});return r;}
 function ospfIfs(net,d){if(!d.ospf)return [];const r=[];for(const i of Object.values(d.ifs)){if(i.ip===null||!ifUp(net,d,i))continue;
+  if(i.ospfArea!=null){r.push({ifc:i,area:i.ospfArea});continue;}
   const n=d.ospf.networks.find(n=>((i.ip&~n.wild)>>>0)===((n.net&~n.wild)>>>0));if(n)r.push({ifc:i,area:n.area});}return r;}
 const isPassive=(d,n)=>d.ospf.passiveDef?!(d.ospf.nonPassive||[]).includes(n):d.ospf.passive.includes(n);
-function ospfNeighbors(net,d){const res=[];for(const o of ospfIfs(net,d)){if(isPassive(d,o.ifc.name))continue;
+function ospfNeighbors(net,d){const res=[];if(d.ospf&&d.ospf.resetting)return res;for(const o of ospfIfs(net,d)){if(isPassive(d,o.ifc.name))continue;
   for(const p of l2peers(net,d,o.ifc)){const pd=p.dev;if(pd.type!=='router'||!pd.ospf)continue;
-    const po=ospfIfs(net,pd).find(x=>x.ifc===p.ifc);if(!po||po.area!==o.area||isPassive(pd,p.ifc.name))continue;
+    const po=ospfIfs(net,pd).find(x=>x.ifc===p.ifc);if(!po||po.area!==o.area||isPassive(pd,p.ifc.name)||pd.ospf.resetting)continue;
+    if((o.ifc.ospfNet||'broadcast')!==(p.ifc.ospfNet||'broadcast'))continue;
     if(routerId(pd)===routerId(d))continue;
     if(p.ifc.len!==o.ifc.len||netOf(p.ifc.ip,p.ifc.len)!==netOf(o.ifc.ip,o.ifc.len))continue;
     res.push({dev:pd,ifc:o.ifc,pifc:p.ifc});}}return res;}
@@ -660,6 +662,7 @@ function runningConfig(net,d){
     if(i.shutdown)L.push(' shutdown');L.push('!');}
   if(d.ospf){L.push('router ospf '+d.ospf.pid);if(d.ospf.rid!=null)L.push(' router-id '+n2ip(d.ospf.rid));
     if(d.ospf.passiveDef){L.push(' passive-interface default');(d.ospf.nonPassive||[]).forEach(p=>L.push(' no passive-interface '+p));}else d.ospf.passive.forEach(p=>L.push(' passive-interface '+p));
+    if(d.ospf.refBw&&d.ospf.refBw!==100)L.push(' auto-cost reference-bandwidth '+d.ospf.refBw);
     d.ospf.networks.forEach(n=>L.push(' network '+n2ip(n.net)+' '+n2ip(n.wild)+' area '+n.area));L.push('!');}
   if(d.type==='switch'&&d.gw!=null)L.push('ip default-gateway '+n2ip(d.gw));
   (d.statics||[]).forEach(s=>L.push('ip route '+n2ip(s.net)+' '+n2ip(lenMask(s.len))+(s.ifn?' '+s.ifn:'')+(s.nh!=null?' '+n2ip(s.nh):'')+(s.ad&&s.ad!==1?' '+s.ad:'')+(s.name?' name '+s.name:'')));
@@ -702,7 +705,10 @@ C(EX,'show ip route <w>',e=>{const{net,d,out}=e,w=e.args[0].toLowerCase(),code=[
   out(...ROUTECODES,...routeLines(routes(net,d).filter(r=>r.code===code[1])));},['router']);
 C(EX,'show ip ospf neighbor',e=>{const{net,d,out}=e;if(!d.ospf)return;const nb=ospfNeighbors(net,d);if(!nb.length)return;
   out('Neighbor ID     Pri   State           Dead Time   Address         Interface');
-  nb.forEach(n=>out(pad(n2ip(routerId(n.dev)),16)+'  1   '+pad(routerId(n.dev)>routerId(d)?'FULL/DR':'FULL/BDR',16)+'00:00:3'+(n.pifc.ip%10)+'    '+pad(n2ip(n.pifc.ip),16)+n.ifc.name));},['router']);
+  // DROTHERs on the same segment only reach 2WAY with each other; they go FULL with the DR and BDR.
+  nb.forEach(n=>{const p2p=(n.ifc.ospfNet||'broadcast')==='point-to-point',role=p2p?null:ospfRole(net,n.dev,n.pifc),me=p2p?null:ospfRole(net,d,n.ifc);
+    const state=p2p?'FULL/  -':role==='DROTHER'&&me==='DROTHER'?'2WAY/DROTHER':'FULL/'+role;
+    out(pad(n2ip(routerId(n.dev)),16)+String(p2p?0:ospfPrio(n.pifc)).padStart(3)+'   '+pad(state,16)+'00:00:3'+(n.pifc.ip%10)+'    '+pad(n2ip(n.pifc.ip),16)+n.ifc.name);});},['router']);
 const showVlan=e=>{const{d,out}=e;out('VLAN Name                             Status    Ports','---- -------------------------------- --------- -------------------------------');
   for(const v of Object.keys(d.vlans).map(Number).sort((a,b)=>a-b)){const ports=sortIfs(Object.keys(d.ifs)).filter(n=>!n.startsWith('Vlan')&&d.ifs[n].mode!=='trunk'&&d.ifs[n].accessVlan===v).map(shortIf);
     const head=pad(v,5)+pad(d.vlans[v].name,33)+pad('active',10);
@@ -1126,10 +1132,11 @@ C(EX,'show etherchannel summary',e=>{const{net,d,out}=e;out('Flags:  D - down   
 // prompt + running-config extensions
 const prompt0=promptOf;promptOf=function(d,s){const h=d.hostname;if(s.mode==='acl')return h+(d.acls[s.ctx].type==='standard'?'(config-std-nacl)#':'(config-ext-nacl)#');if(s.mode==='dhcp')return h+'(dhcp-config)#';
   if(s.mode==='if'&&s.ctx[0].name.startsWith('Port-channel'))return h+'(config-if)#';return prompt0(d,s);};
-function ifExtra(i){const L=[];if(i.helper!=null)L.push(' ip helper-address '+n2ip(i.helper));if(i.aclIn)L.push(' ip access-group '+i.aclIn+' in');if(i.aclOut)L.push(' ip access-group '+i.aclOut+' out');if(i.nat)L.push(' ip nat '+i.nat);
+function ifExtra(i,d0){const L=[];if(i.helper!=null)L.push(' ip helper-address '+n2ip(i.helper));if(i.aclIn)L.push(' ip access-group '+i.aclIn+' in');if(i.aclOut)L.push(' ip access-group '+i.aclOut+' out');if(i.nat)L.push(' ip nat '+i.nat);
   if(i.chan)L.push(' channel-group '+i.chan+' mode '+i.chanMode);
   if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');}
-  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');return L;}
+  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');
+  if(i.ospfNet)L.push(' ip ospf network '+i.ospfNet);if(i.ospfPrio!=null)L.push(' ip ospf priority '+i.ospfPrio);if(i.ospfCost!=null)L.push(' ip ospf cost '+i.ospfCost);if(i.ospfArea!=null&&d0.ospf)L.push(' ip ospf '+d0.ospf.pid+' area '+i.ospfArea);return L;}
 function globalExtra(d){const L=[];
   if(d.cdp===false)L.push('no cdp run');
   (d.users||[]).forEach(u=>L.push('username '+u.name+(u.priv>1?' privilege '+u.priv:'')+(u.kind==='secret'?' secret 5 $1$mERr$9cTjUIEqNGurQiFU.ZeCi1':' password '+pwText(d,u.pw))));
@@ -1143,7 +1150,7 @@ function globalExtra(d){const L=[];
 const rc0=runningConfig;runningConfig=function(net,d){const out=[];let cur=null,vty=false;
   for(const l of rc0(net,d)){
     if(l.startsWith('interface '))cur=d.ifs[l.slice(10)];
-    else if(l==='!'&&cur){out.push(...ifExtra(cur));cur=null;}
+    else if(l==='!'&&cur){out.push(...ifExtra(cur,d));cur=null;}
     if(l==='line con 0')out.push(...globalExtra(d));
     if(l==='line vty 0 4')vty=true;
     if(vty&&l===' login'&&d.lines.vty.local){out.push(' login local');continue;}
@@ -1152,7 +1159,7 @@ const rc0=runningConfig;runningConfig=function(net,d){const out=[];let cur=null,
 
 // ---------- v3 engine: lab library expansion ----------
 C('priv','clear ip ospf process',e=>{const o=e.d.ospf;if(!o)return;const before=ospfNeighbors(e.net,e.d);e.out('Reset ALL OSPF processes? [no]: yes');
-  o.active=null;o.active=routerId(e.d)||null;
+  o.resetting=true;ospfElect(e.net);o.resetting=false;o.active=null;o.active=routerId(e.d)||null;ospfElect(e.net);
   before.forEach(n=>e.out('%OSPF-5-ADJCHG: Process '+o.pid+', Nbr '+n2ip(routerId(n.dev))+' on '+n.ifc.name+' from FULL to DOWN, Neighbor Down: Interface down or detached'));
   ospfNeighbors(e.net,e.d).forEach(n=>e.out('%OSPF-5-ADJCHG: Process '+o.pid+', Nbr '+n2ip(routerId(n.dev))+' on '+n.ifc.name+' from LOADING to FULL, Loading Done'));},['router']);
 const passiveList=d=>sortIfs(Object.keys(d.ifs)).filter(n=>isPassive(d,n));
@@ -1164,6 +1171,58 @@ C(EX,'show ip protocols',e=>{const{net,d,out}=e,o=d.ospf;if(!o)return;const area
 C(EX,'show ip ospf',e=>{const{net,d,out}=e,o=d.ospf;if(!o)return out('%OSPF: Router process not running');const areas=[...new Set(o.networks.map(n=>n.area))];
   out(' Routing Process "ospf '+o.pid+'" with ID '+n2ip(routerId(d)),' Supports only single TOS(TOS0) routes',' Reference bandwidth unit is 100 mbps',' Number of areas in this router is '+areas.length+'. '+areas.length+' normal 0 stub 0 nssa');
   areas.forEach(a=>out('    Area '+(a===0?'BACKBONE(0)':a),'        Number of interfaces in this area is '+ospfIfs(net,d).filter(x=>x.area===a).length));},['router']);
+
+// OSPF interfaces: priority, cost, network type, and the DR/BDR election on broadcast segments.
+const ospfPrio=i=>i.ospfPrio??1;
+const ospfType=i=>i.name.startsWith('Loopback')?'LOOPBACK':(i.ospfNet||'broadcast')==='point-to-point'?'POINT_TO_POINT':'BROADCAST';
+const segKey=i=>netOf(i.ip,i.len)+'/'+i.len;
+// Election state lives on the network, per segment, so it persists between commands. It follows RFC 2328 9.4: only
+// routers with priority above 0 are eligible; the BDR is chosen first from eligible routers not already DR (one already
+// BDR keeps it), then the DR is the current DR if still eligible, otherwise the BDR is promoted and a new BDR chosen.
+// So a higher priority never pre-empts, but priority 0 or leaving the segment does trigger a change.
+function ospfElect(net){const st=net.ospfDR||(net.ospfDR={}),seen=new Set();
+  for(const d of Object.values(net.devs)){if(d.type!=='router'||!d.ospf||d.ospf.resetting)continue;
+    for(const o of ospfIfs(net,d)){const i=o.ifc;if(ospfType(i)!=='BROADCAST'||isPassive(d,i.name))continue;const k=segKey(i);if(seen.has(k))continue;seen.add(k);
+      const mem=[{dev:d,ifc:i}].concat(ospfNeighbors(net,d).filter(n=>n.ifc===i).map(n=>({dev:n.dev,ifc:n.pifc})));
+      const s=st[k]||(st[k]={dr:null,bdr:null}),elig=mem.filter(m=>ospfPrio(m.ifc)>0);
+      const best=list=>{let b=null;for(const m of list)if(!b||ospfPrio(m.ifc)>ospfPrio(b.ifc)||(ospfPrio(m.ifc)===ospfPrio(b.ifc)&&routerId(m.dev)>routerId(b.dev)))b=m;return b?b.dev.name:null;};
+      const curDR=elig.some(m=>m.dev.name===s.dr)?s.dr:null,curBDR=elig.some(m=>m.dev.name===s.bdr)&&s.bdr!==curDR?s.bdr:null;
+      let bdr=curBDR||best(elig.filter(m=>m.dev.name!==curDR)),dr=curDR||bdr;
+      if(dr===bdr)bdr=best(elig.filter(m=>m.dev.name!==dr));
+      s.dr=dr;s.bdr=bdr;}}
+  for(const k of Object.keys(st))if(!seen.has(k))delete st[k];}
+function ospfRole(net,d,i){const t=ospfType(i);if(t==='LOOPBACK')return 'LOOP';if(t==='POINT_TO_POINT')return 'P2P';if(isPassive(d,i.name))return 'DR';
+  const k=segKey(i);if(!net.ospfDR||!net.ospfDR[k])ospfElect(net);const s=(net.ospfDR||{})[k];if(!s)return 'DR';return s.dr===d.name?'DR':s.bdr===d.name?'BDR':'DROTHER';}
+{const ex0=execLine;execLine=function(net,d,s,line){const out=ex0(net,d,s,line);if(Object.values(net.devs).some(x=>x.ospf))ospfElect(net);return out;};}
+
+C('if','ip ospf priority <n>',e=>{if(e.args[0]>255)return e.out(BAD);e.s.ctx.forEach(i=>{i.ospfPrio=e.args[0];});},['router']);
+C('if','no ip ospf priority',e=>e.s.ctx.forEach(i=>{delete i.ospfPrio;}),['router']);
+C('if','ip ospf cost <n>',e=>{if(e.args[0]<1||e.args[0]>65535)return e.out(BAD);e.s.ctx.forEach(i=>{i.ospfCost=e.args[0];});},['router']);
+C('if','no ip ospf cost',e=>e.s.ctx.forEach(i=>{delete i.ospfCost;}),['router']);
+C('if','ip ospf network <w>',e=>{const t=['point-to-point','broadcast'].find(x=>x.startsWith(e.args[0].toLowerCase()));if(!t)return e.out(BAD);e.s.ctx.forEach(i=>{if(t==='broadcast')delete i.ospfNet;else i.ospfNet=t;});},['router']);
+C('if','no ip ospf network',e=>e.s.ctx.forEach(i=>{delete i.ospfNet;}),['router']);
+C('if','ip ospf <n> area <n>',e=>{if(!e.d.ospf){e.d.ospf={pid:e.args[0],rid:null,networks:[],passive:[],passiveDef:false,nonPassive:[],active:null};e.d.ospf.active=routerId(e.d)||null;}e.s.ctx.forEach(i=>{i.ospfArea=e.args[1];});},['router']);
+C('if','no ip ospf <n> area <n>',e=>e.s.ctx.forEach(i=>{delete i.ospfArea;}),['router']);
+C('ospf','auto-cost reference-bandwidth <n>',e=>{e.d.ospf.refBw=e.args[0];e.out('% OSPF: Reference bandwidth is changed.','        Please ensure reference bandwidth is consistent across all routers.');});
+C(EX,'show ip ospf interface brief',e=>{const{net,d,out}=e;if(!d.ospf)return;
+  out('Interface    PID   Area            IP Address/Mask    Cost  State Nbrs F/C');
+  const os=ospfIfs(net,d);for(const o of sortIfs(os.map(x=>x.ifc.name)).map(n=>os.find(x=>x.ifc.name===n))){const i=o.ifc,nb=ospfNeighbors(net,d).filter(n=>n.ifc===i),me=ospfRole(net,d,i);
+    const full=nb.filter(n=>me==='P2P'||me==='DR'||me==='BDR'||['DR','BDR'].includes(ospfRole(net,n.dev,n.pifc))).length;
+    out(pad(shortIf(i.name),13)+pad(d.ospf.pid,6)+pad(o.area,16)+pad(n2ip(i.ip)+'/'+i.len,19)+pad(ospfCost(d,i),6)+pad(me==='DROTHER'?'DROTH':me,6)+full+'/'+nb.length);}},['router']);
+C(EX,'show ip ospf interface <rest?>',e=>{const{net,d,out}=e;if(!d.ospf)return;const want=e.args[0]?parseIf(e.args[0]):null;if(e.args[0]&&(!want||!d.ifs[want]))return out(BAD);
+  for(const o of ospfIfs(net,d)){const i=o.ifc;if(want&&i.name!==want)continue;const t=ospfType(i),role=ospfRole(net,d,i),nb=ospfNeighbors(net,d).filter(n=>n.ifc===i);
+    out(i.name+' is up, line protocol is up','  Internet Address '+n2ip(i.ip)+'/'+i.len+', Area '+o.area+', Attached via '+(i.ospfArea!=null?'Interface Enable':'Network Statement'),
+      '  Process ID '+d.ospf.pid+', Router ID '+n2ip(routerId(d))+', Network Type '+t+', Cost: '+ospfCost(d,i));
+    if(t==='LOOPBACK'){out('  Loopback interface is treated as a stub Host');continue;}
+    out('  Transmit Delay is 1 sec, State '+(role==='P2P'?'POINT_TO_POINT':role)+(t==='BROADCAST'?', Priority '+ospfPrio(i):''));
+    if(t==='BROADCAST'&&!isPassive(d,i.name)){const s=(net.ospfDR||{})[segKey(i)]||{},find=n=>n===d.name?{rid:routerId(d),ip:i.ip}:(m=>m?{rid:routerId(m.dev),ip:m.pifc.ip}:null)(nb.find(m=>m.dev.name===n));
+      const dr=find(s.dr),bdr=find(s.bdr);
+      if(dr)out('  Designated Router (ID) '+n2ip(dr.rid)+', Interface address '+n2ip(dr.ip));
+      out(bdr?'  Backup Designated router (ID) '+n2ip(bdr.rid)+', Interface address '+n2ip(bdr.ip):'  No backup designated router on this network');}
+    out('  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5');
+    if(isPassive(d,i.name)){out('    No Hellos (Passive interface)');continue;}
+    const adj=nb.filter(n=>role!=='DROTHER'||['DR','BDR'].includes(ospfRole(net,n.dev,n.pifc)));
+    out('  Neighbor Count is '+nb.length+', Adjacent neighbor count is '+adj.length,...adj.map(n=>{const r=role==='P2P'?'':ospfRole(net,n.dev,n.pifc);return '    Adjacent with neighbor '+n2ip(routerId(n.dev))+(r==='DR'?'  (Designated Router)':r==='BDR'?'  (Backup Designated Router)':'');}));}},['router']);
 
 // Native VLAN mismatch: CDP compares the native VLAN on both ends of a trunk and logs the difference.
 function nativeMismatches(net,d){if(d.type!=='switch'||d.cdp===false)return [];
@@ -1706,6 +1765,32 @@ addLab({title:'Floating static route',group:'Routing',
   'R1: # the backup route is not listed: distance 1 beats 5 | show ip route | show ip route 192.168.2.10',
   'R1: configure terminal | interface g0/1 | shutdown | end | # now the S route shows [5/0] via 10.0.21.2 | show ip route ; PC1: tracert 192.168.2.10',
   'R1: configure terminal | interface g0/1 | no shutdown | end | show ip route ; PC1: tracert 192.168.2.10']);
+
+// ----- phase 2, lab 9
+CCNA_LAB_MAP['How a router chooses a route']=['3.1','3.2'];
+Object.assign(WHYC,{
+'ip ospf cost <n>':'Sets this interface\'s OSPF cost directly. OSPF adds up the costs along a path and uses the lowest total, so raising a cost pushes traffic away from a link.',
+'show ip ospf interface brief':'One line per OSPF interface: area, cost, state (DR, BDR, DROTH, P2P) and how many neighbors are fully adjacent out of how many there are.'});
+const ospfStd=(rid,nets)=>['router ospf 1','router-id '+rid].concat(nets.map(x=>'network '+x+' area 0'));
+addLab({title:'How a router chooses a route',group:'Routing',
+ brief:'R1 can reach the server LAN through R2 or through R3, and it learns that LAN from OSPF. Change which path OSPF prefers, then pin one server to the other path and add a backup route, predicting each time which route R1 will really use.',
+ pos:{PC1:[45,125],R1:[170,125],R2:[310,60],R3:[310,190],SW1:[440,125],SRV1:[555,60],SRV2:[555,190]},start:'R1',
+ build(){const n=mkNet([mkRouter('R1'),mkRouter('R2'),mkRouter('R3'),mkSwitch('SW1'),mkPC('PC1','192.168.1.10',24,'192.168.1.1'),srv('SRV1','10.10.5.10',24,'10.10.5.2',[80]),srv('SRV2','10.10.5.20',24,'10.10.5.2',[80])]);
+  link(n,'PC1','f0','R1','g0/0');link(n,'R1','g0/1','R2','g0/1');link(n,'R1','g0/2','R3','g0/1');link(n,'R2','g0/0','SW1','g0/1');link(n,'R3','g0/0','SW1','g0/2');link(n,'SW1','f0/1','SRV1','f0');link(n,'SW1','f0/2','SRV2','f0');
+  const ifs=l=>l.flatMap(([i,a,m])=>['interface '+i,'ip address '+a+' '+m,'no shutdown']);
+  cfg(n,{R1:['enable','configure terminal',...ifs([['g0/0','192.168.1.1','255.255.255.0'],['g0/1','10.0.12.1','255.255.255.252'],['g0/2','10.0.13.1','255.255.255.252']]),'interface g0/1','ip ospf cost 10',...ospfStd('1.1.1.1',['192.168.1.0 0.0.0.255','10.0.12.0 0.0.0.3','10.0.13.0 0.0.0.3']),'passive-interface g0/0','end'],
+   R2:['enable','configure terminal',...ifs([['g0/1','10.0.12.2','255.255.255.252'],['g0/0','10.10.5.2','255.255.255.0']]),...ospfStd('2.2.2.2',['10.0.12.0 0.0.0.3','10.10.5.0 0.0.0.255']),'end'],
+   R3:['enable','configure terminal',...ifs([['g0/1','10.0.13.2','255.255.255.252'],['g0/0','10.10.5.3','255.255.255.0']]),...ospfStd('3.3.3.3',['10.0.13.0 0.0.0.3','10.10.5.0 0.0.0.255']),'end']});return n;},
+ addr:[['R1','G0/1 to R2 / G0/2 to R3','10.0.12.1, 10.0.13.1 /30'],['R2 / R3','Server LAN','10.10.5.2, 10.10.5.3 /24'],['SRV1','Must go via R3','10.10.5.10'],['SRV2','Server','10.10.5.20'],['PC1','User LAN','192.168.1.10/24']],
+ tasks:['On R1, run <code>show ip route ospf</code> and <code>show ip ospf interface brief</code>, and trace from PC1 to SRV2 (10.10.5.20). Which path does OSPF use, and why?','The R3 link is being replaced next week. Make OSPF prefer R2 for the server LAN by setting the cost of R1 G0/2 to 50. Check the route and its metric again.','Security wants all traffic to SRV1 (10.10.5.10) inspected by R3. On R1, add a host route for 10.10.5.10/32 via R3 (10.0.13.2).','Use <code>show ip route 10.10.5.10</code> and <code>show ip route 10.10.5.20</code> to see which entry each address uses, and trace to both servers.','Add a backup static route for the whole server LAN via R3 with administrative distance 130. Is it in the routing table?'],
+ why:['OSPF picks the path with the lowest total cost. Someone set G0/1\'s cost to 10, so the path through R3 (1 + 1 = 2) beats the path through R2 (10 + 1 = 11). The metric is the number in [110/2].','Within one routing source, the metric decides. With G0/2 at 50, the R3 path costs 51 and the R2 path 11, so OSPF switches without any static route.','A host route is the most specific route possible. It only affects one address, so the rest of the server LAN keeps following OSPF.','The router always uses the longest matching prefix first. 10.10.5.10 matches both the /32 and the /24, and /32 wins, even though static and OSPF have different distances. 10.10.5.20 only matches the /24.','Administrative distance only decides between routes to the same prefix and length. The static /24 at 130 loses to OSPF\'s /24 at 110, so it waits in the config and only appears if OSPF loses the route.'],
+ checks:[['OSPF now prefers the path through R2 for the server LAN',n=>{const r=routes(n,n.devs.R1).find(x=>x.net===ip2n('10.10.5.0')&&x.len===24);return !!r&&r.code==='O'&&r.nh===ip2n('10.0.12.2');}],['A host route sends SRV1 traffic through R3',n=>{const h=nextHop(n,n.devs.R1,ip2n('10.10.5.10'));return !!h&&h.route.code==='S'&&h.route.len===32&&h.nh===ip2n('10.0.13.2');}],['A /24 backup via R3 at distance 130 exists but OSPF\'s route stays in the table',n=>n.devs.R1.statics.some(s=>s.net===ip2n('10.10.5.0')&&s.len===24&&s.nh===ip2n('10.0.13.2')&&s.ad===130)&&routes(n,n.devs.R1).find(x=>x.net===ip2n('10.10.5.0')&&x.len===24).code==='O'],['PC1 reaches SRV1 through R3 and SRV2 through R2',n=>P(n,'PC1','10.10.5.10')&&P(n,'PC1','10.10.5.20')&&pathVia(n,'PC1','10.10.5.10','10.0.13.2')&&pathVia(n,'PC1','10.10.5.20','10.0.12.2')]],
+ solution:{R1:['enable','configure terminal','interface g0/2','ip ospf cost 50','exit','ip route 10.10.5.10 255.255.255.255 10.0.13.2','ip route 10.10.5.0 255.255.255.0 10.0.13.2 130','end']}},
+ ['R1: enable | show ip route ospf | show ip ospf interface brief ; PC1: tracert 10.10.5.20',
+  'R1: configure terminal | interface g0/2 | ip ospf cost 50 | end | # now [110/11] via 10.0.12.2 | show ip route ospf',
+  'R1: configure terminal | ip route 10.10.5.10 255.255.255.255 10.0.13.2 | end',
+  'R1: show ip route 10.10.5.10 | show ip route 10.10.5.20 ; PC1: tracert 10.10.5.10 | tracert 10.10.5.20',
+  'R1: configure terminal | ip route 10.10.5.0 255.255.255.0 10.0.13.2 130 | end | # the /24 is still O: 110 beats 130 | show ip route 10.10.5.20']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
