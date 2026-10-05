@@ -2943,6 +2943,16 @@ addIncident({title:'Incident 34: the branch answers over the backup',base:'IPv6 
  steps:['PC1: tracert 2001:db8:acad:20::20 ; PC2: tracert 2001:db8:acad:10::10','HQ: enable | show ipv6 route static | show running-config','HQ: configure terminal | no ipv6 route 2001:db8:acad:2::/64 2001:db8:acad:12::2 | ipv6 route 2001:db8:acad:20::/64 2001:db8:acad:12::2 | end','HQ: show ipv6 route static ; PC1: tracert 2001:db8:acad:20::20'],
  hints:['Traffic from the branch uses the primary link; traffic toward it does not. The difference is on HQ.','show ipv6 route static on HQ shows the branch LAN reached at distance 10 via FE80::2: the floating route. The primary route exists in the config but for a different prefix.','The primary route was typed for 2001:DB8:ACAD:2::/64 instead of 2001:DB8:ACAD:20::/64. Replace it with the correct prefix.'],
  lesson:'IPv6 prefixes are easy to mistype, and a route to the wrong prefix is accepted without complaint. A floating backup then hides the mistake by carrying the traffic the long way round.'});
+
+// ----- incident 35
+addIncident({title:'Incident 35: the gateway nobody owns',base:'First-hop redundancy with HSRP',start:'R1',
+ brief:'After an addressing change on the routers, every PC on the LAN lost its gateway, even though HSRP shows R1 active and R2 standby. The PCs were not changed. Restore the gateway the PCs are using.',
+ symptom:['PC1','203.0.113.10'],
+ fault:{R1:[...EN,'interface g0/0','standby 1 ip 192.168.1.254','end'],R2:[...EN,'interface g0/0','standby 1 ip 192.168.1.254','end']},
+ repair:{R1:[...EN,'interface g0/0','standby 1 ip 192.168.1.1','end','show standby brief'],R2:[...EN,'interface g0/0','standby 1 ip 192.168.1.1','end'],PC1:['ping 203.0.113.10']},
+ steps:['PC1: ipconfig | ping 192.168.1.1 | ping 192.168.1.254','R1: enable | show standby brief ; R2: enable | show standby brief','R1: configure terminal | interface g0/0 | standby 1 ip 192.168.1.1 | end ; R2: configure terminal | interface g0/0 | standby 1 ip 192.168.1.1 | end','R1: show standby brief ; PC1: ping 203.0.113.10 ; PC2: ping 203.0.113.10'],
+ hints:['HSRP looks healthy, with an active and a standby router. Check whether the address it protects is the one the PCs actually use.','ipconfig on a PC shows gateway 192.168.1.1. show standby brief shows the virtual IP the group is answering for now.','The group\'s virtual IP was changed to 192.168.1.254. Set it back to 192.168.1.1 on both routers.'],
+ lesson:'HSRP only protects the address it is given. If the virtual IP does not match the gateway the hosts use, HSRP can be perfectly healthy while every host is cut off.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
