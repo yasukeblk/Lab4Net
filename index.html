@@ -2913,6 +2913,16 @@ addIncident({title:'Incident 31: snooping shut out the real server',base:'DHCP s
  steps:['PC1: ipconfig /renew ; PC2: ipconfig /renew','SW1: enable | show ip dhcp snooping | show ip dhcp snooping binding','SW1: configure terminal | interface g0/1 | ip dhcp snooping trust | end','PC1: ipconfig /renew | ping 203.0.113.10 ; PC2: ipconfig /renew ; SW1: show ip dhcp snooping binding'],
  hints:['Nobody gets a lease, from the rogue or from R1. Snooping is doing its job against the rogue, so look at what else it is blocking.','show ip dhcp snooping lists the trusted ports. The uplink toward R1 is no longer among them, and the binding table is empty.','Gi0/1 lost its trust setting when it was reconfigured. Trust it again, then renew the clients.'],
  lesson:'Snooping drops every server reply that arrives on an untrusted port, legitimate or not. Re-patching or rebuilding an uplink means re-applying its trust setting, or the real server is silenced along with the rogue.'});
+
+// ----- incident 32
+addIncident({title:'Incident 32: the printer fell off again',base:'Dynamic ARP Inspection',start:'SW1',
+ brief:'The printer was moved to the next wall jack during an office shuffle, and since then nobody can print. Its address and VLAN are unchanged. Everything else on the switch works, and DAI must stay on.',
+ symptom:['PRINTER','192.168.10.1'],
+ fault:{SW1:[...EN,'no ip source binding '+macOf({name:'PRINTER'})+' vlan 10 192.168.10.5 interface f0/3','ip source binding '+macOf({name:'PRINTER'})+' vlan 10 192.168.10.5 interface f0/4','end']},
+ repair:{SW1:[...EN,'no ip source binding '+macOf({name:'PRINTER'})+' vlan 10 192.168.10.5 interface f0/4','ip source binding '+macOf({name:'PRINTER'})+' vlan 10 192.168.10.5 interface f0/3','end','show ip dhcp snooping binding'],PRINTER:['ping 192.168.10.1']},
+ steps:['PRINTER: ping 192.168.10.1 ; PC1: ping 192.168.10.1','SW1: enable | show ip dhcp snooping binding | show ip arp inspection | show cdp neighbors','SW1: configure terminal | no ip source binding '+macOf({name:'PRINTER'})+' vlan 10 192.168.10.5 interface f0/4 | ip source binding '+macOf({name:'PRINTER'})+' vlan 10 192.168.10.5 interface f0/3 | end','PRINTER: ping 192.168.10.1 ; SW1: show ip arp inspection'],
+ hints:['Only the printer is cut off, and it still has its fixed address. DAI drops ARPs that do not match a binding exactly, including the port.','show ip dhcp snooping binding lists the printer\'s static entry. Compare its interface with the port the printer is really connected to (the map, or show interfaces status).','The binding says Fa0/4 but the printer is on Fa0/3. Remove the old binding and add it for Fa0/3.'],
+ lesson:'A DAI binding ties an address to a MAC, a VLAN and a port. Move a fixed-address device to another port and its static binding has to move too, or DAI drops its ARPs as spoofed.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
