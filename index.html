@@ -597,25 +597,38 @@ function ospfNeighbors(net,d){const res=[];for(const o of ospfIfs(net,d)){if(isP
     if(p.ifc.len!==o.ifc.len||netOf(p.ifc.ip,p.ifc.len)!==netOf(o.ifc.ip,o.ifc.len))continue;
     res.push({dev:pd,ifc:o.ifc,pifc:p.ifc});}}return res;}
 function routerId(d){if(d.ospf&&d.ospf.active!=null)return d.ospf.active;if(d.ospf&&d.ospf.rid!=null)return d.ospf.rid;const all=Object.values(d.ifs).filter(i=>i.ip!==null);const lo=all.filter(i=>i.name.startsWith('Loopback'));const s=(lo.length?lo:all).map(i=>i.ip);return s.length?Math.max(...s):0;}
+// Interface cost is reference bandwidth (100 Mbps unless auto-cost changes it) divided by the interface speed, at least 1.
+function ospfCost(d,i){if(i.ospfCost!=null)return i.ospfCost;const ref=(d.ospf&&d.ospf.refBw)||100,bw=i.name.startsWith('Fast')?100:i.name.startsWith('Loop')?8000000:1000;return Math.max(1,Math.floor(ref/bw));}
+// Shortest-path first over the adjacencies, then each router's OSPF networks at its distance plus its interface cost.
 function ospfRoutes(net,d){if(!d.ospf)return [];
-  const dist=new Map([[d.name,{cost:0,first:null}]]),q=[d];
-  while(q.length){const u=q.shift(),du=dist.get(u.name);for(const nb of ospfNeighbors(net,u)){if(dist.has(nb.dev.name))continue;dist.set(nb.dev.name,{cost:du.cost+1,first:du.first||{ifc:nb.ifc,nh:nb.pifc.ip}});q.push(nb.dev);}}
-  const own=new Set(connected(net,d).map(c=>c.net+'/'+c.len)),out=[];
-  for(const [name,info] of dist){if(name===d.name)continue;for(const o of ospfIfs(net,net.devs[name])){
+  const dist=new Map([[d.name,{cost:0,first:null}]]),done=new Set();
+  for(;;){let u=null;for(const [n,v] of dist)if(!done.has(n)&&(u===null||v.cost<dist.get(u).cost))u=n;if(u===null)break;done.add(u);
+    const U=net.devs[u],du=dist.get(u);
+    for(const nb of ospfNeighbors(net,U)){const c=du.cost+ospfCost(U,nb.ifc),cur=dist.get(nb.dev.name);if(!cur||c<cur.cost)dist.set(nb.dev.name,{cost:c,first:du.first||{ifc:nb.ifc,nh:nb.pifc.ip}});}}
+  const own=new Set(connected(net,d).map(c=>c.net+'/'+c.len)),best=new Map();
+  for(const [name,info] of dist){if(name===d.name)continue;const R=net.devs[name];for(const o of ospfIfs(net,R)){
     // OSPF advertises a loopback as a /32 host route whatever its configured mask.
-    const lo=o.ifc.name.startsWith('Loopback'),len=lo?32:o.ifc.len,nn=lo?o.ifc.ip:netOf(o.ifc.ip,o.ifc.len),k=nn+'/'+len;
-    if(own.has(k)||out.some(x=>x.key===k))continue;out.push({key:k,code:'O',net:nn,len,ifc:info.first.ifc,nh:info.first.nh,ad:110,metric:info.cost+1});}}
-  return out;}
-function routes(net,d){let r=connected(net,d);
-  if(d.type==='router'){for(const s of d.statics)if(r.some(c=>c.code==='C'&&netOf(s.nh,c.len)===c.net))r.push({code:'S',net:s.net,len:s.len,nh:s.nh,ad:1});
-    r=r.concat(ospfRoutes(net,d).filter(o=>!r.some(x=>x.net===o.net&&x.len===o.len)));}
-  else if(d.gw!=null)r.push({code:'S',net:0,len:0,nh:d.gw,ad:1});
+    const lo=o.ifc.name.startsWith('Loopback'),len=lo?32:o.ifc.len,nn=lo?o.ifc.ip:netOf(o.ifc.ip,o.ifc.len),k=nn+'/'+len,metric=info.cost+ospfCost(R,o.ifc);
+    if(own.has(k)||(best.has(k)&&best.get(k).metric<=metric))continue;best.set(k,{key:k,code:'O',net:nn,len,ifc:info.first.ifc,nh:info.first.nh,ad:110,metric,from:routerId(R)});}}
+  return [...best.values()];}
+// A static route is usable when its exit interface is up, or when its next hop sits on a connected subnet.
+function staticRoutes(net,d,conn){const r=[];
+  for(const s of d.statics){const ad=s.ad||1;
+    if(s.ifn){const i=d.ifs[s.ifn];if(!i||!ifUp(net,d,i))continue;r.push({code:'S',net:s.net,len:s.len,nh:s.nh??null,ifc:i,ad,st:s});}
+    else if(conn.some(c=>netOf(s.nh,c.len)===c.net))r.push({code:'S',net:s.net,len:s.len,nh:s.nh,ad,st:s});}
   return r;}
+// The routing table keeps, per prefix, only the route with the lowest administrative distance.
+function routes(net,d){const conn=connected(net,d);
+  if(d.type!=='router'){if(d.gw!=null)conn.push({code:'S',net:0,len:0,nh:d.gw,ad:1});return conn;}
+  const best=new Map();
+  for(const x of conn.concat(staticRoutes(net,d,conn),ospfRoutes(net,d))){const k=x.net+'/'+x.len,b=best.get(k);if(!b||x.ad<b.ad)best.set(k,x);}
+  return [...best.values()];}
+// Longest prefix match. A static route with only an exit interface treats the destination as on-link (proxy ARP).
 function nextHop(net,d,dst){const rt=routes(net,d);let best=null;
-  for(const r of rt)if(netOf(dst,r.len)===r.net&&(!best||r.len>best.len||(r.len===best.len&&r.ad<best.ad)))best=r;
+  for(const r of rt)if(netOf(dst,r.len)===r.net&&(!best||r.len>best.len))best=r;
   if(!best)return null;let ifc=best.ifc;const nh=best.nh==null?dst:best.nh;
   if(!ifc){const c=rt.find(c=>c.code==='C'&&netOf(nh,c.len)===c.net);if(!c)return null;ifc=c.ifc;}
-  return {ifc,nh};}
+  return {ifc,nh,proxy:best.code==='S'&&best.nh==null,route:best};}
 const ownsIp=(net,d,ip)=>Object.values(d.ifs).some(i=>i.ip===ip&&ifUp(net,d,i));
 function tracePath(net,src,dst){let d=src,hops=[],srcIp=null;
   for(let t=0;t<20;t++){
@@ -649,7 +662,7 @@ function runningConfig(net,d){
     if(d.ospf.passiveDef){L.push(' passive-interface default');(d.ospf.nonPassive||[]).forEach(p=>L.push(' no passive-interface '+p));}else d.ospf.passive.forEach(p=>L.push(' passive-interface '+p));
     d.ospf.networks.forEach(n=>L.push(' network '+n2ip(n.net)+' '+n2ip(n.wild)+' area '+n.area));L.push('!');}
   if(d.type==='switch'&&d.gw!=null)L.push('ip default-gateway '+n2ip(d.gw));
-  (d.statics||[]).forEach(s=>L.push('ip route '+n2ip(s.net)+' '+n2ip(lenMask(s.len))+' '+n2ip(s.nh)));
+  (d.statics||[]).forEach(s=>L.push('ip route '+n2ip(s.net)+' '+n2ip(lenMask(s.len))+(s.ifn?' '+s.ifn:'')+(s.nh!=null?' '+n2ip(s.nh):'')+(s.ad&&s.ad!==1?' '+s.ad:'')+(s.name?' name '+s.name:'')));
   if(d.banner)L.push('!','banner motd ^C'+d.banner+'^C');
   L.push('!');
   [['con','line con 0'],['vty','line vty 0 4']].forEach(([k,h])=>{L.push(h);const l=d.lines[k];if(l.aclClass)L.push(' access-class '+l.aclClass+' '+(l.aclDir||'in'));
@@ -668,13 +681,25 @@ C('priv','show startup-config',e=>e.d.startup?e.d.startup.forEach(l=>e.out(l)):e
 C(EX,'show ip interface brief',e=>{const{net,d,out}=e;out(pad('Interface',23)+pad('IP-Address',16)+'OK? Method Status                Protocol');
   for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n],up=ifUp(net,d,i);
     out(pad(n,23)+pad(i.ip!==null?n2ip(i.ip):'unassigned',16)+'YES '+pad(i.ip!==null?'manual':'unset',7)+pad(i.shutdown?'administratively down':up?'up':'down',22)+(up?'up':'down'));}});
-C(EX,'show ip route',e=>{const{net,d,out}=e,rt=routes(net,d);out('Codes: L - local, C - connected, S - static, O - OSPF, * - candidate default','');
-  const def=rt.find(r=>r.len===0);out(def?'Gateway of last resort is '+n2ip(def.nh)+' to network 0.0.0.0':'Gateway of last resort is not set','');
-  rt.sort((a,b)=>a.net-b.net||a.len-b.len);
+function routeLines(rt){const L=[];rt=rt.slice().sort((a,b)=>a.net-b.net||a.len-b.len);
   for(const r of rt){const p=n2ip(r.net)+'/'+r.len;
-    if(r.code==='C'){out('C     '+p+' is directly connected, '+r.ifc.name);out('L     '+n2ip(r.ifc.ip)+'/32 is directly connected, '+r.ifc.name);}
-    else if(r.code==='S')out('S'+(r.len===0?'*':' ')+'    '+p+' [1/0] via '+n2ip(r.nh));
-    else out('O     '+p+' [110/'+r.metric+'] via '+n2ip(r.nh)+', 00:00:41, '+r.ifc.name);}},['router']);
+    if(r.code==='C'){L.push('C     '+p+' is directly connected, '+r.ifc.name);if(r.len<32)L.push('L     '+n2ip(r.ifc.ip)+'/32 is directly connected, '+r.ifc.name);}
+    else if(r.code==='S')L.push('S'+(r.len===0?'*':' ')+'    '+p+(r.nh==null?' is directly connected, '+r.ifc.name:' ['+r.ad+'/0] via '+n2ip(r.nh)+(r.ifc?', '+r.ifc.name:'')));
+    else L.push('O'+(r.len===0?'*':' ')+'    '+p+' [110/'+r.metric+'] via '+n2ip(r.nh)+', 00:00:41, '+r.ifc.name);}
+  return L;}
+const ROUTECODES=['Codes: L - local, C - connected, S - static, O - OSPF, * - candidate default',''];
+C(EX,'show ip route',e=>{const{net,d,out}=e,rt=routes(net,d);out(...ROUTECODES);
+  const def=rt.find(r=>r.len===0);out(def?'Gateway of last resort is '+(def.nh!=null?n2ip(def.nh):'0.0.0.0')+' to network 0.0.0.0':'Gateway of last resort is not set','');
+  out(...routeLines(rt));},['router']);
+// show ip route ADDRESS: the entry the router would use for that address (longest match), as IOS describes it.
+C(EX,'show ip route <ip>',e=>{const{net,d,out}=e,ip=e.args[0],rt=routes(net,d);let r=null;for(const x of rt)if(netOf(ip,x.len)===x.net&&(!r||x.len>r.len))r=x;
+  if(!r)return out('% Network not in table');
+  out('Routing entry for '+n2ip(r.net)+'/'+r.len+(r.len===0?', supernet':''));
+  if(r.code==='C'){out('  Known via "connected", distance 0, metric 0 (connected, via interface)','  Routing Descriptor Blocks:','  * directly connected, via '+r.ifc.name,'      Route metric is 0, traffic share count is 1');return;}
+  if(r.code==='S'){out('  Known via "static", distance '+r.ad+', metric 0'+(r.len===0?', candidate default path':''),'  Routing Descriptor Blocks:',r.nh==null?'  * directly connected, via '+r.ifc.name:'  * '+n2ip(r.nh)+(r.ifc?', via '+r.ifc.name:''),'      Route metric is 0, traffic share count is 1');return;}
+  out('  Known via "ospf '+d.ospf.pid+'", distance 110, metric '+r.metric+', type intra area','  Last update from '+n2ip(r.nh)+' on '+r.ifc.name+', 00:00:41 ago','  Routing Descriptor Blocks:','  * '+n2ip(r.nh)+', from '+n2ip(r.from)+', 00:00:41 ago, via '+r.ifc.name,'      Route metric is '+r.metric+', traffic share count is 1');},['router']);
+C(EX,'show ip route <w>',e=>{const{net,d,out}=e,w=e.args[0].toLowerCase(),code=[['static','S'],['ospf','O'],['connected','C']].find(([k])=>k.startsWith(w));if(!code)return out(BAD);
+  out(...ROUTECODES,...routeLines(routes(net,d).filter(r=>r.code===code[1])));},['router']);
 C(EX,'show ip ospf neighbor',e=>{const{net,d,out}=e;if(!d.ospf)return;const nb=ospfNeighbors(net,d);if(!nb.length)return;
   out('Neighbor ID     Pri   State           Dead Time   Address         Interface');
   nb.forEach(n=>out(pad(n2ip(routerId(n.dev)),16)+'  1   '+pad(routerId(n.dev)>routerId(d)?'FULL/DR':'FULL/BDR',16)+'00:00:3'+(n.pifc.ip%10)+'    '+pad(n2ip(n.pifc.ip),16)+n.ifc.name));},['router']);
@@ -717,9 +742,20 @@ C('config','interface <rest>',e=>{const{d}=e,n=parseIf(e.args[0]);let i=n&&d.ifs
   if(!i)return e.out('% Invalid interface type and number');e.s.mode='if';e.s.ctx=[i];});
 C('config','vlan <n>',e=>{const v=e.args[0];if(v<1||v>4094)return e.out('% Bad VLAN list');if(!e.d.vlans[v])e.d.vlans[v]={name:'VLAN'+String(v).padStart(4,'0')};e.s.mode='vlan';e.s.ctx=v;},['switch']);
 C('config','no vlan <n>',e=>{if(e.args[0]!==1)delete e.d.vlans[e.args[0]];},['switch']);
-C('config','ip route <ip> <ip> <ip>',e=>{const[n,m,nh]=e.args,len=maskLenN(m);if(len===null||netOf(n,len)!==n)return e.out('%Inconsistent address and mask');
-  if(!e.d.statics.some(s=>s.net===n&&s.len===len&&s.nh===nh))e.d.statics.push({net:n,len,nh});},['router']);
-C('config','no ip route <ip> <ip> <ip>',e=>{const[n,m,nh]=e.args,len=maskLenN(m);e.d.statics=e.d.statics.filter(s=>!(s.net===n&&s.len===len&&s.nh===nh));},['router']);
+// ip route NETWORK MASK {NEXT-HOP | INTERFACE [NEXT-HOP]} [DISTANCE] [name TEXT]
+function parseStatic(e,rest,needTarget){const t=rest.trim()?rest.trim().split(/\s+/):[],r={nh:null,ifn:null,ad:1,name:null};
+  if(t.length&&!isIp(t[0])&&!/^\d+$/.test(t[0])&&t[0].toLowerCase()!=='name'){const n=parseIf(t[0]);if(!n||!e.d.ifs[n])return null;r.ifn=n;t.shift();}
+  if(t.length&&isIp(t[0]))r.nh=ip2n(t.shift());
+  if(t.length&&/^\d+$/.test(t[0])){r.ad=+t.shift();if(r.ad<1||r.ad>255)return null;}
+  if(t.length&&'name'.startsWith(t[0].toLowerCase())&&t[1]){r.name=t[1];t.splice(0,2);}
+  if(t.length&&'permanent'.startsWith(t[0].toLowerCase()))t.shift();
+  if(t.length||(needTarget&&r.nh==null&&!r.ifn))return null;return r;}
+C('config','ip route <ip> <ip> <rest>',e=>{const[n,m]=e.args,len=maskLenN(m);if(len===null||netOf(n,len)!==n)return e.out('%Inconsistent address and mask');
+  const r=parseStatic(e,e.args[2],true);if(!r)return e.out(BAD);
+  const old=e.d.statics.find(s=>s.net===n&&s.len===len&&(s.nh??null)===r.nh&&(s.ifn||null)===r.ifn);
+  if(old)Object.assign(old,{ad:r.ad,name:r.name});else e.d.statics.push({net:n,len,nh:r.nh,ifn:r.ifn,ad:r.ad,name:r.name});},['router']);
+C('config','no ip route <ip> <ip> <rest?>',e=>{const[n,m]=e.args,len=maskLenN(m),r=parseStatic(e,e.args[2]||'',false);if(!r)return e.out(BAD);
+  e.d.statics=e.d.statics.filter(s=>!(s.net===n&&s.len===len&&(r.nh==null||(s.nh??null)===r.nh)&&(!r.ifn||s.ifn===r.ifn)));},['router']);
 // The router ID is chosen when the process starts and only changes on clear ip ospf process (or a reload).
 C('config','router ospf <n>',e=>{if(!e.d.ospf){e.d.ospf={pid:e.args[0],rid:null,networks:[],passive:[],passiveDef:false,nonPassive:[],active:null};e.d.ospf.active=routerId(e.d)||null;}e.s.mode='ospf';},['router']);
 C('config','no router ospf <n>',e=>{e.d.ospf=null;},['router']);
@@ -794,7 +830,8 @@ function execLine(net,d,s,line){const out=[];const env={net,d,s,out:(...x)=>out.
   const snap=()=>{const m={};for(const n in d.ifs)m[n]=ifUp(net,d,d.ifs[n]);return m;};
   const before=d.type==='pc'?null:snap();
   run(env,line,s.mode);
-  if(before){const after=snap();for(const n in after)if(!!before[n]!==after[n]){const st=after[n]?'up':'down';out.push('%LINK-3-UPDOWN: Interface '+n+', changed state to '+st,'%LINEPROTO-5-UPDOWN: Line protocol on Interface '+n+', changed state to '+st);}}
+  // An administrative shutdown logs LINK-5-CHANGED; any other change of state logs LINK-3-UPDOWN.
+  if(before){const after=snap();for(const n in after)if(!!before[n]!==after[n]){const st=after[n]?'up':'down';out.push(!after[n]&&d.ifs[n].shutdown?'%LINK-5-CHANGED: Interface '+n+', changed state to administratively down':'%LINK-3-UPDOWN: Interface '+n+', changed state to '+st,'%LINEPROTO-5-UPDOWN: Line protocol on Interface '+n+', changed state to '+st);}}
   return out;}
 function promptOf(d,s){const h=d.hostname;switch(s.mode){case 'pc':return 'C:\\>';case 'user':return h+'>';case 'priv':return h+'#';case 'config':return h+'(config)#';
   case 'if':return h+(s.ctx.length>1?'(config-if-range)#':s.ctx[0].name.includes('.')?'(config-subif)#':'(config-if)#');case 'vlan':return h+'(config-vlan)#';case 'line':return h+'(config-line)#';default:return h+'(config-router)#';}}
@@ -946,9 +983,11 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
     if(pk.src==null)pk.src=h.ifc.ip;
     if(d.type==='router'){if(inIf&&inIf.nat==='inside'&&h.ifc.nat==='outside')natOut(d,pk);
       if(t>0&&h.ifc.aclOut&&!aclPermit(d,h.ifc.aclOut,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+h.ifc.aclOut+' outbound on '+shortIf(h.ifc.name)};}
-    const peer=l2peers(net,d,h.ifc).find(p=>p.ifc.ip===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
+    let hopIp=h.nh,peer=l2peers(net,d,h.ifc).find(p=>p.ifc.ip===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
+    // An exit-interface-only static route ARPs for the destination itself; a router on the segment with a route to it answers (proxy ARP).
+    if(!peer&&h.proxy){peer=l2peers(net,d,h.ifc).find(p=>p.dev.type==='router'&&p.ifc.proxyArp!==false&&(x=>!!x&&x.ifc!==p.ifc)(nextHop(net,p.dev,h.nh)));if(peer)hopIp=peer.ifc.ip;}
     if(!peer)return {ok:false,hops,reason:'Next hop '+n2ip(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links, VLANs and addressing'};
-    hops.push(h.nh);hops.path.push(...peer.path.slice(1));d=peer.dev;inIf=peer.ifc;}
+    hops.push(hopIp);hops.path.push(...peer.path.slice(1));d=peer.dev;inIf=peer.ifc;}
   return {ok:false,hops,reason:'Hop limit reached; check for a routing loop'};}
 function listens(d,port){if(d.services)return d.services.includes(port);if(d.type==='pc')return false;const v=d.lines.vty,tr=(v.transport||'all').toLowerCase();
   if(port===23)return (tr.includes('telnet')||tr==='all')&&!!v.login&&(v.local?!!(d.users&&d.users.length):!!v.password);
@@ -1090,7 +1129,7 @@ const prompt0=promptOf;promptOf=function(d,s){const h=d.hostname;if(s.mode==='ac
 function ifExtra(i){const L=[];if(i.helper!=null)L.push(' ip helper-address '+n2ip(i.helper));if(i.aclIn)L.push(' ip access-group '+i.aclIn+' in');if(i.aclOut)L.push(' ip access-group '+i.aclOut+' out');if(i.nat)L.push(' ip nat '+i.nat);
   if(i.chan)L.push(' channel-group '+i.chan+' mode '+i.chanMode);
   if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');}
-  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');return L;}
+  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');return L;}
 function globalExtra(d){const L=[];
   if(d.cdp===false)L.push('no cdp run');
   (d.users||[]).forEach(u=>L.push('username '+u.name+(u.priv>1?' privilege '+u.priv:'')+(u.kind==='secret'?' secret 5 $1$mERr$9cTjUIEqNGurQiFU.ZeCi1':' password '+pwText(d,u.pw))));
@@ -1162,7 +1201,7 @@ const WHYC={
 'switchport access vlan <n>':'Places the access port in this VLAN, so the attached host joins that broadcast domain.',
 'switchport trunk allowed vlan <rest>':'Restricts which VLANs cross the trunk. Fewer VLANs means less broadcast traffic and a smaller attack surface.',
 'encapsulation dot1q <n>':'Tells the subinterface which VLAN tag it sends and receives. It must be set before the IP address.',
-'ip route <ip> <ip> <ip>':'A static route: to reach this network, hand packets to this next hop. All zeros is the default route, used when nothing more specific matches.',
+'ip route <ip> <ip> <rest>':'A static route: to reach this network, hand packets to this next hop (or out this interface). All zeros is the default route. A number at the end is the administrative distance; a higher one makes it a floating backup route.',
 'router ospf <n>':'Starts an OSPF process. The process ID is local to this router and does not need to match its neighbors.',
 'router-id <ip>':'Gives the router a stable identity in OSPF instead of letting it pick its highest interface address.',
 'network <ip> <ip> area <n>':'Enables OSPF on interfaces whose address matches this network and wildcard, and advertises those networks. The wildcard is the inverse of the subnet mask.',
@@ -1632,6 +1671,41 @@ addLab({title:'Small office build',group:'IP services',
   'R1: access-list 1 permit 192.168.1.0 0.0.0.255 | interface g0/0 | ip nat inside | interface g0/1 | ip nat outside | exit',
   'R1: ip nat inside source list 1 interface g0/1 overload | end',
   'PC1: telnet 198.51.100.10 80 ; PC2: ping 198.51.100.10 ; R1: show ip nat translations']);
+
+// ===== phase 2 =====
+Cn('if','no ip proxy-arp',e=>e.s.ctx.forEach(i=>{i.proxyArp=false;}),['router']);
+Cn('if','ip proxy-arp',e=>e.s.ctx.forEach(i=>{i.proxyArp=true;}),['router']);
+// Run fn with an interface shut, then put it back: lets a check prove what happens when a link fails.
+function whileDown(n,dev,ifn,fn){const i=IF(n,dev,ifn),was=i.shutdown;i.shutdown=true;try{return fn();}finally{i.shutdown=was;}}
+const pathVia=(n,from,to,hop)=>{const f=tracePath(n,n.devs[from],ip2n(to));return f.ok&&f.hops.includes(ip2n(hop));};
+Object.assign(WHYC,{
+'show ip route <ip>':'Shows the single entry the router would use for that address, how it was learned and its distance and metric. The fastest way to answer "which route wins?"',
+'show ip route <w>':'Shows only one kind of route: static, ospf or connected.',
+'no ip proxy-arp':'Stops this interface answering ARP requests on behalf of other networks. Proxy ARP hides misconfigurations, so many networks turn it off.',
+'ip proxy-arp':'Lets the router answer ARP for addresses it can route to. It is on by default.',
+'traceroute <ip>':'Lists each router on the path, one per line. Comparing it before and after a failure shows which way traffic actually went.',
+'tracert <ip>':'Windows traceroute: lists each router on the path to the destination.'});
+
+// ----- phase 2, lab 8
+CCNA_LAB_MAP['Floating static route']=['3.2','3.3'];
+addLab({title:'Floating static route',group:'Routing',
+ brief:'HQ and the branch are joined by a fast primary link and a slower backup link. Static routes use the primary today, so if it fails the branch is cut off. Add backup routes that stay out of the routing table until the primary route disappears.',
+ pos:{PC1:[50,125],R1:[200,125],R2:[400,125],PC2:[550,125]},start:'R1',
+ build(){const n=mkNet([mkRouter('R1'),mkRouter('R2'),mkPC('PC1','192.168.1.10',24,'192.168.1.1'),mkPC('PC2','192.168.2.10',24,'192.168.2.1')]);
+  link(n,'PC1','f0','R1','g0/0');link(n,'R1','g0/1','R2','g0/1');link(n,'R1','g0/2','R2','g0/2');link(n,'R2','g0/0','PC2','f0');
+  cfg(n,{R1:['enable','configure terminal','interface g0/0','ip address 192.168.1.1 255.255.255.0','no shutdown','interface g0/1','description PRIMARY','ip address 10.0.12.1 255.255.255.252','no shutdown','interface g0/2','description BACKUP','ip address 10.0.21.1 255.255.255.252','no shutdown','exit','ip route 192.168.2.0 255.255.255.0 10.0.12.2','end'],
+   R2:['enable','configure terminal','interface g0/0','ip address 192.168.2.1 255.255.255.0','no shutdown','interface g0/1','description PRIMARY','ip address 10.0.12.2 255.255.255.252','no shutdown','interface g0/2','description BACKUP','ip address 10.0.21.2 255.255.255.252','no shutdown','exit','ip route 192.168.1.0 255.255.255.0 10.0.12.1','end']});return n;},
+ addr:[['R1 / R2','G0/1, primary link','10.0.12.1, 10.0.12.2 /30'],['R1 / R2','G0/2, backup link','10.0.21.1, 10.0.21.2 /30'],['PC1','HQ LAN','192.168.1.10/24'],['PC2','Branch LAN','192.168.2.10/24']],
+ tasks:['On R1, run <code>show ip route</code> and <code>tracert 192.168.2.10</code> from PC1 to see the path over the primary link.','On R1, add a backup route to 192.168.2.0/24 via R2\'s backup address 10.0.21.2, with administrative distance 5.','On R2, add the matching backup route to 192.168.1.0/24 via 10.0.21.1, with administrative distance 5.','Check <code>show ip route</code> on R1 again. The backup route is not there. Use <code>show ip route 192.168.2.10</code> to see which route wins.','Simulate a failure: shut down R1 G0/1. Check the routing table, then trace from PC1 again.','Bring G0/1 back up and confirm traffic returns to the primary link.'],
+ why:['Know the normal path before you plan for failure. The S route with [1/0] is the primary; 1 is the default administrative distance of a static route.','Administrative distance is how believable a route source is: lower wins. Two static routes to the same network with different distances do not share; the higher one waits. That is why it is called floating.','Routing is needed in both directions. If only R1 fails over, requests reach the branch but replies still try the dead link.','Only the best route per network goes into the routing table. The floating route is stored in the config, ready, but invisible in show ip route until the primary goes away.','When G0/1 goes down, its connected subnet disappears, so the primary route\'s next hop is unreachable and the route is removed. The floating route is next in line and installs itself, on both routers.','When the primary link returns, its route with distance 1 beats distance 5 again and traffic moves back with nobody touching anything.'],
+ checks:[['R1 has a floating route to 192.168.2.0/24 via 10.0.21.2 with a distance above 1',n=>n.devs.R1.statics.some(s=>s.net===ip2n('192.168.2.0')&&s.len===24&&s.nh===ip2n('10.0.21.2')&&(s.ad||1)>1)],['R2 has a floating route to 192.168.1.0/24 via 10.0.21.1 with a distance above 1',n=>n.devs.R2.statics.some(s=>s.net===ip2n('192.168.1.0')&&s.len===24&&s.nh===ip2n('10.0.21.1')&&(s.ad||1)>1)],['With both links up, traffic uses the primary link',n=>pathVia(n,'PC1','192.168.2.10','10.0.12.2')&&pathVia(n,'PC2','192.168.1.10','10.0.12.1')],['With the primary link down, PC1 still reaches PC2 over the backup',n=>whileDown(n,'R1','g0/1',()=>P(n,'PC1','192.168.2.10')&&pathVia(n,'PC1','192.168.2.10','10.0.21.2'))],['The primary link is back up',n=>!IF(n,'R1','g0/1').shutdown&&ifUp(n,n.devs.R1,IF(n,'R1','g0/1'))],['PC1 can ping PC2',n=>P(n,'PC1','192.168.2.10')]],
+ solution:{R1:['enable','configure terminal','ip route 192.168.2.0 255.255.255.0 10.0.21.2 5','end'],R2:['enable','configure terminal','ip route 192.168.1.0 255.255.255.0 10.0.21.1 5','end']}},
+ ['R1: enable | show ip route ; PC1: tracert 192.168.2.10',
+  'R1: configure terminal | ip route 192.168.2.0 255.255.255.0 10.0.21.2 5 | end',
+  'R2: enable | configure terminal | ip route 192.168.1.0 255.255.255.0 10.0.21.1 5 | end',
+  'R1: # the backup route is not listed: distance 1 beats 5 | show ip route | show ip route 192.168.2.10',
+  'R1: configure terminal | interface g0/1 | shutdown | end | # now the S route shows [5/0] via 10.0.21.2 | show ip route ; PC1: tracert 192.168.2.10',
+  'R1: configure terminal | interface g0/1 | no shutdown | end | show ip route ; PC1: tracert 192.168.2.10']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
