@@ -189,5 +189,33 @@ ios(net,'R1',['configure terminal','interface g0/0','no shutdown','end']);
 assert.equal(ownsIp(net,net.devs.R2,ip2n('192.168.1.1')),true);assert.equal(ownsIp(net,net.devs.R1,ip2n('192.168.1.1')),false);
 ios(net,'R1',['configure terminal','interface g0/0','standby 1 preempt','end']);
 assert.equal(ownsIp(net,net.devs.R1,ip2n('192.168.1.1')),true);
-console.log('PASS forwarding: outbound route, return route, inbound/outbound ACL, static NAT, closed port, actual VLAN path, link failure, floating static, administrative distance, longest match, proxy ARP, NAT pool exhaustion and overload, voice VLAN tagging, the OSPF DR election, IPv6 addressing, SLAAC and forwarding, Layer 3 switching, DHCP snooping, Dynamic ARP Inspection and HSRP failover.');
+// BPDU Guard on a port facing another switch err-disables it (both ends down); shut/no shut alone trips it again,
+// removing the cause first recovers it.
+net=LABS.find(l=>l.title==='Spanning tree: root bridge and edge ports').build();
+ios(net,'SW3',['configure terminal','interface g0/1','spanning-tree bpduguard enable','end']);
+assert.equal(IF(net,'SW3','g0/1').errdis,'bpduguard');assert.equal(ifUp(net,net.devs.SW1,IF(net,'SW1','g0/2')),false);
+ios(net,'SW3',['configure terminal','interface g0/1','shutdown','no shutdown','end']);
+assert.equal(IF(net,'SW3','g0/1').errdis,'bpduguard');
+ios(net,'SW3',['configure terminal','interface g0/1','no spanning-tree bpduguard enable','shutdown','no shutdown','end']);
+assert.equal(IF(net,'SW3','g0/1').errdis,undefined);assert.equal(ifUp(net,net.devs.SW3,IF(net,'SW3','g0/1')),true);
+// EtherChannel guard: mode on against LACP err-disables the "on" side's members and cuts the link.
+net=solve(LABS.find(l=>l.title==='EtherChannel with LACP'));
+assert.equal(reach(net,net.devs.PC1,ip2n('192.168.10.12')).ok,true);
+ios(net,'SW2',['configure terminal','interface range g0/1 - 2','no channel-group 1','channel-group 1 mode on','end']);
+assert.deepEqual(['g0/1','g0/2'].map(p=>IF(net,'SW2',p).errdis),['channel-misconfig','channel-misconfig']);
+assert.equal(reach(net,net.devs.PC1,ip2n('192.168.10.12')).ok,false);
+// Port security: a second address beyond the maximum err-disables a shutdown-mode port; restrict mode keeps the port
+// up and drops only the offending host.
+net=solve(LABS.find(l=>l.title==='Port security'));
+ios(net,'SW1',['configure terminal','interface f0/1','shutdown','no switchport port-security mac-address sticky '+macOf(net.devs.PC1),'switchport port-security mac-address sticky 0011.2233.4455','no shutdown','end']);
+assert.equal(IF(net,'SW1','f0/1').errdis,'psecure-violation');assert.equal(IF(net,'SW1','f0/1').ps.viol,1);
+assert.equal(reach(net,net.devs.PC1,ip2n('192.168.1.12')).ok,false);
+// Clearing the stale address and bouncing the port recovers PC1.
+ios(net,'SW1',['configure terminal','interface f0/1','shutdown','no switchport port-security mac-address sticky 0011.2233.4455','no shutdown','end']);
+assert.equal(IF(net,'SW1','f0/1').errdis,undefined);assert.equal(reach(net,net.devs.PC1,ip2n('192.168.1.12')).ok,true);
+ios(net,'SW1',['configure terminal','interface f0/2','shutdown','switchport port-security maximum 1','no switchport port-security mac-address sticky '+macOf(net.devs.PC2),'switchport port-security mac-address sticky 0011.2233.6677','no shutdown','end']);
+assert.equal(IF(net,'SW1','f0/2').errdis,undefined);assert.equal(ifUp(net,net.devs.SW1,IF(net,'SW1','f0/2')),true);
+result=reach(net,net.devs.PC2,ip2n('192.168.1.11'));
+assert.equal(result.ok,false);assert.match(result.f.reason,/Port security \\(restrict\\)/);
+console.log('PASS forwarding: outbound route, return route, inbound/outbound ACL, static NAT, closed port, actual VLAN path, link failure, floating static, administrative distance, longest match, proxy ARP, NAT pool exhaustion and overload, voice VLAN tagging, the OSPF DR election, IPv6 addressing, SLAAC and forwarding, Layer 3 switching, DHCP snooping, Dynamic ARP Inspection, HSRP failover, err-disable (BPDU Guard, EtherChannel guard, port security) and port security restrict.');
 `,context);

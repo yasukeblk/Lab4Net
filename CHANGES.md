@@ -1,5 +1,29 @@
 # Lab4Net changes
 
+## Lab library, phase 4: 29 more troubleshooting incidents
+
+The Troubleshooting group now has 35 incidents, at least one for every build lab. Each starts from the finished lab with one fault added (sometimes with a little background setup), reproduces a real failing service, has three clues (Direction, Evidence, Repair), a lesson, and an inline step-by-step guide, and is graded with the original lab's checks.
+
+- Spec list: OSPF uplinks in the wrong area (07), BPDU Guard err-disabling a switch's uplinks (08), an EtherChannel forced on against LACP (09), PAT inside and outside reversed (10), a standard ACL on the wrong interface and direction (11), an extended ACL deny inserted above the permit (12), a port security violation in shutdown mode after a laptop swap (13), and static NAT to the wrong inside global (14).
+- Phase 1 labs: native VLAN mismatch breaking switch management (15), a wrong switch default gateway (16), access-class permitting the wrong subnet (17), the OSPF uplink made passive (18), a deleted VLAN (19), CDP turned off globally instead of per interface (20), a wrong DHCP default-router (21).
+- Phase 2 labs: a primary static route with an unreachable next hop hidden by the floating route (22), a host route on the wrong server (23), mismatched OSPF hello timers (24), LLDP transmit and receive swapped (25), a deleted voice VLAN (26), a NAT pool outside the routed block (27), an ACL exception added after the deny (28), a wrong NTP server (29).
+- Phase 3 labs: ip routing off on the Layer 3 switch (30), the snooping uplink untrusted (31), a DAI static binding on the wrong port (32), IPv6 unicast routing off (33), an IPv6 route to a mistyped prefix (34), the HSRP virtual IP changed away from the hosts' gateway (35).
+
+Engine changes behind them:
+
+- Err-disabled ports: BPDU Guard on a port that hears BPDUs, the EtherChannel guard when one end is forced on, and port security violations in shutdown mode. The real log messages appear, the port is down at both ends, show interfaces says (err-disabled), and recovery is shutdown then no shutdown (it trips again if the cause is still there). The map shows the dead links.
+- Port security tracks MAC addresses: dynamic, sticky (written to the config, kept until removed) and static, with the maximum enforced and violations counted. restrict and protect keep the port up and drop the offending host. show port-security, show port-security interface and show port-security address show the real details.
+- show interfaces status (and err-disabled), spanning-tree portfast bpduguard default, no channel-group, no switchport trunk native vlan, no ip nat inside source static, and IOS refusing to redefine a NAT pool in use.
+- OSPF hello and dead intervals (ip ospf hello-interval and dead-interval) must match for an adjacency. A network-type mismatch now forms the adjacency but loses the routes through it, as on a real router (phase 2 had simplified this).
+- show spanning-tree vlan N says when the VLAN has no instance.
+- The Fault Finder trophy now asks for every incident, not six.
+
+Tests: tests/curriculum.cjs accepts any number of incidents and non-packet symptoms (a check function, for discovery, NTP, IPv6 or a preferred path), requires a lesson, rejects any repair command IOS would refuse, and ignores counters, logs and NAT translations when it checks that the diagnostic probe changed no configuration. tests/forwarding.cjs adds BPDU Guard trip and recovery, the EtherChannel guard, and port security shutdown and restrict.
+
+Verification: labs.cjs passes 71 labs, 400 checks and 1262 guide commands. forwarding.cjs, curriculum.cjs and ui.cjs pass (ui.cjs grades all 71 in Edge). Every new incident's guide was run through the real console in Edge and graded, with no rejected commands and no page errors, and the screens were checked at 1440x1000 and 390x844. Not checked: the container, Firefox, Safari.
+
+Not done: randomised faults. Every incident is still a fixed scenario.
+
 ## Lab library, phase 3: Layer 3 switching, Layer 2 security, IPv6 and HSRP
 
 New labs, appended after phase 2, plus a new IPv6 group in the lab library:

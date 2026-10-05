@@ -3263,7 +3263,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
   const ACH=[['first','First Clear','Pass your first lab.'],['nohelp','No Hand-Holding','Pass a lab with the guide off and the walkthrough closed.'],['flawless','Flawless','Pass a lab without a single rejected command.'],['srank','S Rank','Earn an S on any lab.'],
     ['combo10','Combo x10','Enter 10 valid commands in a row.'],['tracer','Tracer','Get your first successful ping.'],['bouncer','Bouncer','Watch an ACL drop a packet.'],['subnet','Subnet Sniper','Get 30 subnetting fields right.'],
     ['theory','Theory Check','Answer every theory question correctly.'],['half','Halfway There','Pass half of the labs.'],['all','Full Clear','Pass every lab.'],['streak3','Three-Day Streak','Study three days in a row.'],
-    ['detective','Detective','Solve a troubleshooting incident with no clues, guide or walkthrough.'],['faults','Fault Finder','Solve all six troubleshooting incidents.']];
+    ['detective','Detective','Solve a troubleshooting incident with no clues, guide or walkthrough.'],['faults','Fault Finder','Solve every troubleshooting incident.']];
   function toast(kicker,title,sub,icon){const t=document.createElement('div');t.className='toast';t.innerHTML=`<i>${icon||'★'}</i><small>${kicker}</small><b>${title}</b><span>${sub}</span>`;$('toasts').appendChild(t);setTimeout(()=>t.remove(),4800);}
   const fresh=[];
   function unlock(id){if(F.ach[id])return;F.ach[id]=Date.now();save();const a=ACH.find(a=>a[0]===id);fresh.push(a[1]);toast('Trophy unlocked',a[1],a[2]);SFX.ach();renderHud();}

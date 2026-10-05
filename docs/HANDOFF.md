@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of lab library phase 3 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+State as of lab library phase 4 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -9,7 +9,7 @@ Lab4Net is a browser-based lab simulator for the Cisco CCNA exam, modeled on Bos
 It currently has:
 
 - 36 graded build labs: the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phases 1 and 2 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build, floating static routes, how a router chooses a route, OSPF on a shared segment, LLDP, voice VLAN with an IP phone, dynamic NAT with a pool, named ACLs edited by sequence number, NTP and syslog, inter-VLAN routing on a Layer 3 switch, DHCP snooping, Dynamic ARP Inspection, IPv6 addressing, IPv6 static and default routes, HSRP)
-- 6 troubleshooting incidents built from those labs, each with three clues that cost rank points
+- 35 troubleshooting incidents built from those labs (one or more for every build lab), each with three clues that cost rank points
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
 - A network map that animates each ping, telnet or ssh along the path the packet really takes, and labels where and why it fails
@@ -105,6 +105,7 @@ Phase 2 changed the core in place too:
 - NAT: `nat.pools`, pool rules `{acl, pool, overload}`, one-to-one bindings in `nat.dyn`, `nat.hits`/`misses`. `natOut()` returns a reason string when it has to drop a packet. Echo requests use query ID 1 as their "port".
 - ACL entries have `seq` and are kept sorted; `aclLine()` formats standard entries for show access-lists.
 - Phase 3: `isL3(d)` (a router, or a switch with `ipRouting`) replaced `type==='router'` wherever routing happens; switch ports may be `routed`; Layer 3 switches have `l3:true` and come from `mkL3Switch()`. DHCP: `dhcpCandidates()` gathers every server that can answer and `snoopPath()` applies snooping and option 82; bindings live in `switch.snoop.bind`. `daiBlock()` is called from `fwd()` for both ends of each hop. HSRP: `hsrpElect(net)` keeps `net.hsrp`, `hsrpVip()` lets the active router own the virtual IP (used by `ownsIp()` and `fwd()`). IPv6 lives in its own section of the library block: `parse6`/`fmt6`, `eui64`, `macIf` (a MAC per router port), `linkLocal`, `routes6`/`nextHop6`/`fwd6`/`reach6`, interface fields `v6`, `ll`, `v6on`, device fields `v6routing`, `statics6`, `gw6`. The `<ip6>` argument token is handled in `matchPat()`.
+- Phase 4: ports can be `errdis` (a reason: bpduguard, channel-misconfig, psecure-violation); `ifUp()` treats them as down at both ends. `errScan()` runs after every command from the outermost `execLine` wrapper, logs the real messages, and a port is recovered by `shutdown` then `no shutdown` (the scan trips it again if the cause remains). Port security keeps `ps.macs` (`{mac, kind: dynamic|sticky|static}`), `ps.viol`, `ps.blocked` (restrict/protect drops, checked in the `daiBlock` wrapper). OSPF interfaces have `ospfHello`/`ospfDead` (`ospfTimers()`), which must match; a network-type mismatch now forms the adjacency but SPF skips that link. `addIncident(spec)` appends an incident like the original six, with an optional `setup` applied before the `fault`.
 - In the library block: `lldpPeers()`, `mkPhone()`, `together(net, fn)` (run checks as if the traffic were simultaneous, then restore NAT and ACL counters), `whileDown(net, dev, ifn, fn)` (run a check with a link shut, then restore it), `udpOk()`, `ntpState()`, `logEvent()` and the outermost `execLine` wrapper, which logs link changes on the far-end device, adds %SYS-5-CONFIG_I, applies timestamps and sends syslog.
 
 Key facts:
@@ -154,13 +155,14 @@ node tests/curriculum.cjs
 node tests/ui.cjs
 ```
 
-Current result: 42 labs, 239 checks, 881 guide commands.
+Current result: 71 labs (36 build, 35 incidents), 400 checks, 1262 guide commands.
 
 On Yasuke's desktop there is no Node install. Claude Code runs the tests with Deno's Node-compatible binary (`%LOCALAPPDATA%\deno\node_compat_bin\node.exe`) and runs `ui.cjs` with Playwright installed by Deno into a folder outside the repo, linked in as `node_modules` (git-ignored), with `LAB4NET_BROWSER_CHANNEL=msedge`.
 
 - `labs.cjs` builds every lab, runs its solution and asserts every check passes, then does the same following the step-by-step instructions. It also runs in GitHub Actions on every push.
 - `forwarding.cjs` covers routing, ACL direction, static NAT, closed ports, VLAN paths and link failure.
 - `curriculum.cjs` checks objective mappings and that every incident starts with a real failing service and is fixed by its repair without breaking any original check. It runs in GitHub Actions.
+- An incident's `symptom` is either `[source, target, proto, port]` (a packet test with `reach`) or a function of the network for services that are not a single packet (CDP or LLDP discovery, NTP, IPv6, a preferred path). The curriculum test checks it fails after the build and works after the repair, and compares configuration before and after the probe, ignoring counters, logs and NAT translations.
 - `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
 - `ui.cjs` drives the real page in a browser at desktop and phone sizes. It needs Playwright and a Chromium-family browser installed locally (`npm i -D playwright`), and it is not part of CI.
 
@@ -184,7 +186,7 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - The simulator implements the commands the labs need, not all of IOS. Anything else returns "Invalid input".
 - `?` help lists options without descriptions, there is no `^` error marker, ambiguous abbreviations silently take the first match, and there is no `--More--` paging or `| include`.
 - Spanning tree is calculated and shown per VLAN, and labs check it, but the data path ignores blocking: a ping takes any VLAN-valid path.
-- `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. Hello and dead timers are not modelled, and an OSPF network-type mismatch stops the adjacency forming (real IOS forms it but loses routes). Equal-cost paths are not load-shared; one is used.
+- `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. Hello and dead timers must match, as on a real router; a network-type mismatch forms the adjacency but the link is left out of SPF, so routes through it disappear. Authentication is not modelled. Equal-cost paths are not load-shared; one is used.
 - Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
 - show access-lists lists standard entries in sequence order; real IOS may list host entries first.
 - `enable` and line passwords are stored and graded but never prompted for.
@@ -206,8 +208,8 @@ Carry this list forward and keep it in every summary.
 - XP and trophies for sandbox challenges
 - Closer-to-real `?` help: descriptions, the `^` marker, "% Ambiguous command", `| include` and `| begin` (offered, not yet confirmed)
 - Whether the pop-out guide should also open in a separate browser window for a second monitor (waiting on his decision)
-- More incidents (OSPF, ACL, NAT, EtherChannel, port security and spanning tree have none yet), and possibly randomised faults (phase 4 of the lab library spec)
-- Lab library phases 4 and 5 from `docs/LESSONS-SPEC.md` (phases 1 to 3 are done)
+- Randomised faults for incidents (every incident is still a fixed scenario)
+- Lab library phase 5 (capstones, optional) from `docs/LESSONS-SPEC.md` (phases 1 to 4 are done)
 - Make the data path follow spanning-tree blocking, so a ping's animated path matches `show spanning-tree`
 
 His most recent direction was to fold the best of ChatGPT's branch into `main` (done in the "Troubleshooting incidents" build), "continue to build" on the sandbox, and make the app "more rewarding and fun".
