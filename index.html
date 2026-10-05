@@ -254,6 +254,25 @@ main.free .dragging :is(.panel-title,.console-toolbar){cursor:grabbing}
 main.layout-locked :is(.panel-title,.console-toolbar,#brief::before,#practice::before),body.focus-workspace main :is(.panel-title,.console-toolbar){cursor:default}
 @media(max-width:860px){#layouts,#undoLayout,#resetLayout{display:none}.layout-presets{grid-template-columns:1fr}.layout-save{flex-wrap:wrap}}
 
+/* Absolute windows must not inherit the old sidebar's percentage height cap. */
+@media(min-width:861px){
+ main.free #side #brief.fw{max-height:none;max-width:none}
+ #brief.has-window-chrome::before,#practice.has-window-chrome::before{display:none}
+ .window-heading{position:sticky;top:-18px;z-index:2;margin:-18px -20px 18px;padding:8px 12px}
+ main.free.panel-expanded .fw:not(.expanded-panel){visibility:hidden;pointer-events:none}
+ main.free.panel-expanded .expanded-panel.fw{left:18px!important;top:18px!important;width:calc(100% - 36px)!important;height:calc(100% - 36px)!important;max-height:none!important;z-index:9990!important}
+}
+.window-tools{display:flex;gap:4px;flex:none;letter-spacing:0}
+.window-tools button{font-size:13px;padding:3px 7px;min-width:26px}
+.panel-title .legend{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+#dockTargets{position:absolute;inset:0;pointer-events:none;z-index:9998}
+.dock-target{position:absolute;display:grid;place-items:center;border:1px solid #6c927b;border-radius:4px;background:#0c2118f5;color:#e0f1e6;font:10px/1.25 var(--mono);text-align:center;box-shadow:0 3px 12px #0008}
+.dock-target.active{background:#f2d79c;color:#171f15;border-color:#ffe8b8;box-shadow:0 0 0 3px #f2d79c40}
+.dock-target.unavailable{opacity:.55;border-style:dashed}.dock-target.unavailable.active{background:#332720;color:#ffc6b0;border-color:#9c7563}
+.panel-arrange{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+main.free.panel-expanded :is(.panel-title,.console-toolbar){cursor:default}
+@media(max-width:860px){.window-tools,.window-heading{display:none}}
+
 </style>
 </head>
 <body>
@@ -1354,7 +1373,7 @@ function reference(){if(cur.view!=='lab')return;const d=cur.net.devs[cur.sel],s=
   const render=()=>{const q=$('cmdSearch').value.toLowerCase(),all=$('allModes').checked;const commands=d.os==='junos'?JUNOS_COMMANDS.map(([mode,syntax,why])=>({modes:[mode],pat:syntax.split(' '),why})):CMDS;const list=commands.filter(c=>(!c.types||c.types.includes(d.type))&&(all||c.modes.includes(s.mode))&&(c.pat.join(' ')+' '+(c.why||WHYC[c.pat.join(' ')]||'')).toLowerCase().includes(q));
     $('cmdList').innerHTML=list.map((c,i)=>`<button class="command-card" data-command="${i}"><code>${esc(c.pat.join(' '))}</code><small>${c.modes.map(m=>MODE[m]||m).join(' · ')}</small><span>${c.why||WHYC[c.pat.join(' ')]||'Use ? in the console to explore its arguments.'}</span></button>`).join('')||'<p>No matching commands in this mode. Try “All modes”.</p>';
     $('cmdList').querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>{$('tin').value=list[+b.dataset.command].pat.join(' ');$('dialog').close();$('tin').focus();});};render();$('cmdSearch').oninput=render;$('allModes').onchange=render;}
-function help(){dialog('Your network, your reasoning',`<div class="help-steps"><p><b>01 · Read the mission.</b> The address plan is your source of truth. Check off tasks as you work; open “Why this step” to understand the purpose.</p><p><b>02 · Take the console.</b> Click a device or its tab. Type <code>enable</code>, then <code>configure terminal</code> to start configuring a router or switch. Use the field guide for supported syntax.</p><p><b>03 · Prove it works.</b> Run show commands and test connectivity. Packet results show both the request and reply, including where forwarding fails.</p><p><b>04 · Grade and reflect.</b> Grading checks configuration and reachability, not your checkboxes. A walkthrough explains one working solution.</p></div><h3>Arrange your desktop</h3><p>Open <b>Layouts</b> for suggested arrangements, named saves and a position lock. Drag a title bar to an edge to dock and rearrange its neighbors, or over another panel’s center to swap. Resize shared edges to adjust both sides. Hold <kbd>Alt</kbd> for free positioning; <kbd>Escape</kbd> cancels. <b>Undo layout</b> restores the previous arrangement.</p><h3>Console shortcuts</h3><p><kbd>?</kbd> context help · <kbd>Tab</kbd> completion · <kbd>↑ ↓</kbd> history<br><kbd>Ctrl+Z</kbd> privileged mode · <kbd>Ctrl+L</kbd> clear display</p><h3>Keep your work</h3><p>Commands, task marks and passes save in this browser. Use Transfer progress to export a JSON backup and import it on another device. The file includes your simulated configurations.</p><div class="lesson-tip">This is an educational IOS-style model, not a full IOS emulator. Timing, authentication, STP and services are simplified. SSH and Telnet test a connection; they do not open an interactive remote shell.</div>`);}
+function help(){dialog('Your network, your reasoning',`<div class="help-steps"><p><b>01 · Read the mission.</b> The address plan is your source of truth. Check off tasks as you work; open “Why this step” to understand the purpose.</p><p><b>02 · Take the console.</b> Click a device or its tab. Type <code>enable</code>, then <code>configure terminal</code> to start configuring a router or switch. Use the field guide for supported syntax.</p><p><b>03 · Prove it works.</b> Run show commands and test connectivity. Packet results show both the request and reply, including where forwarding fails.</p><p><b>04 · Grade and reflect.</b> Grading checks configuration and reachability, not your checkboxes. A walkthrough explains one working solution.</p></div><h3>Arrange your desktop</h3><p>Open <b>Layouts</b> for suggested arrangements, named saves and a position lock. Drag a title bar and drop on a labeled dock target. Above/Below/Left/Right inserts the panel and closes its old space; Swap exchanges panels. Use each panel’s ↗ button to expand and restore it, or ⋮ to arrange it without dragging. Resize shared edges to adjust both sides. Hold <kbd>Alt</kbd> for free positioning; <kbd>Escape</kbd> cancels. <b>Undo layout</b> restores the previous arrangement.</p><h3>Console shortcuts</h3><p><kbd>?</kbd> context help · <kbd>Tab</kbd> completion · <kbd>↑ ↓</kbd> history<br><kbd>Ctrl+Z</kbd> privileged mode · <kbd>Ctrl+L</kbd> clear display</p><h3>Keep your work</h3><p>Commands, task marks and passes save in this browser. Use Transfer progress to export a JSON backup and import it on another device. The file includes your simulated configurations.</p><div class="lesson-tip">This is an educational IOS-style model, not a full IOS emulator. Timing, authentication, STP and services are simplified. SSH and Telnet test a connection; they do not open an interactive remote shell.</div>`);}
 function transfer(){dialog('Take your progress with you',`<p>Move your passed labs, task marks, theory results and saved configurations between browsers. Import merges earned passes and replaces saved work only for labs included in the file.</p><div class="actions"><button class="btn primary" id="export">Export backup</button><label class="btn">Import backup<input type="file" id="import" accept="application/json,.json" hidden></label></div><p id="transferStatus" role="status"></p>`);
   $('export').onclick=()=>{saveWork();const url=URL.createObjectURL(new Blob([JSON.stringify({format:'lab4net',version:1,progress,drafts,lastLab},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='lab4net-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('transferStatus').textContent='Backup exported. Import it on your other device to continue.';};
   $('import').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024)throw Error('Backup exceeds 5 MB');const p=JSON.parse(await file.text());if(p.format!=='lab4net'||p.version!==1||!p.progress||!p.drafts)throw Error('Not a supported Lab4Net backup');const clean={};for(const l of LABS){const d=p.drafts[l.title];if(d){replay(l,d);if(!Array.isArray(d.tasks)||d.tasks.length>l.tasks.length||d.tasks.some(x=>typeof x!=='boolean'))throw Error('Invalid task checklist');clean[l.title]={journal:d.journal,tasks:d.tasks};}}
@@ -1497,6 +1516,7 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
  function settings(){try{localStorage.setItem('lab4net-layout-settings',JSON.stringify(prefs));}catch(e){}main.classList.toggle('layout-locked',prefs.locked);}
  const sv=$('snapV'),sh=$('snapH'),sp=$('snapPrev');
  const previews=document.createElement('div');previews.id='layoutPreview';previews.setAttribute('aria-hidden','true');main.append(previews);
+ const targets=document.createElement('div');targets.id='dockTargets';targets.setAttribute('aria-hidden','true');targets.hidden=true;main.append(targets);
  const tip=document.createElement('div');tip.id='layoutDragTip';tip.setAttribute('role','status');main.append(tip);
  const launch=document.createElement('button');launch.id='layouts';launch.className='small-btn';launch.textContent='Layouts';$('resetLayout').before(launch);
  const undoButton=document.createElement('button');undoButton.id='undoLayout';undoButton.className='small-btn';undoButton.textContent='Undo layout';undoButton.disabled=true;launch.after(undoButton);
@@ -1524,12 +1544,12 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
    else Object.assign(S,presetRects('balanced'));save();}
   main.classList.add('free');for(const el of vis){el.classList.add('fw');setVars(el,S[el.id]);if(el.id==='guideWin'&&!el.style.zIndex)el.style.zIndex=++z;}
  };
- function exitFocus(){if(document.body.classList.contains('focus-workspace'))$('focusToggle').click();}
+ function exitFocus(){collapse();if(document.body.classList.contains('focus-workspace'))$('focusToggle').click();}
  function applyPreset(type){exitFocus();remember();if(type==='guided'&&view()==='lab')setGuidePop(true);put(presetRects(type));notify('Layout applied. Undo layout restores your previous arrangement.');}
  function restore(s){exitFocus();guideOn=s.guideOn;guidePop=s.guidePop;try{localStorage.setItem('lab4net-guide',guideOn?'1':'0');localStorage.setItem('lab4net-guide-pop',guidePop?'1':'0');}catch(e){}if(cur.view==='lab')renderBrief();renderGuideWin();L[view()]=clone(s.rects);layoutApply();save();}
  function undo(){const h=history[view()]||[];if(!h.length)return;restore(h.pop());undoButton.disabled=!h.length;notify('Previous layout restored.');}
  undoButton.onclick=undo;
- function menu(){exitFocus();const mode=view();dialog('Arrange your workspace',`<p>Choose a starting layout, then make it yours. Drag a title bar to an edge to dock; drop over the middle of another panel to swap. Resize a shared edge to adjust its neighbors. Hold <kbd>Alt</kbd> for free positioning.</p><div class="layout-options"><label><input id="layoutSmart" type="checkbox"${prefs.smart?' checked':''}> Smart docking &amp; shared resizing</label><label><input id="layoutLock" type="checkbox"${prefs.locked?' checked':''}> Lock window positions</label></div><div class="layout-presets">${presets.filter(p=>mode!=='practice'&&(p[0]!=='guided'||mode==='lab')).map(([id,name,description])=>`<button class="layout-card" data-layout="${id}"><span class="layout-mini ${id}" aria-hidden="true"><i></i><i></i><i></i><i></i>${id==='guided'?'<i></i>':''}</span><b>${name}</b><span>${description}</span></button>`).join('')}</div>${mode==='practice'?'<p>Practice keeps its briefing beside the exercise. Your lab and sandbox layouts are saved separately.</p>':''}<h3>Save this arrangement</h3><form id="layoutSaveForm" class="layout-save"><input id="layoutName" aria-label="Layout name" maxlength="40" placeholder="e.g. My troubleshooting desk" required><button class="btn" type="submit">Save new layout</button></form><p id="layoutSaveStatus" role="status"></p><div id="savedLayouts">${saved.map((s,i)=>s.view===mode?`<div class="saved-layout"><button class="small-btn" data-restore-layout="${i}">${esc(s.name)}</button><button class="small-btn" data-remove-layout="${i}" aria-label="Delete ${esc(s.name)} layout">Delete</button></div>`:'').join('')||'<p>No named layouts saved for this workspace yet.</p>'}</div><p class="study-note">Named layouts live in this browser. Saving creates a new copy; it never replaces another named layout. Undo keeps the last 20 changes during this session. Phone layouts remain stacked.</p>`);
+ function menu(){exitFocus();const mode=view();dialog('Arrange your workspace',`<p>Choose a starting layout, then make it yours. Drag a title bar, then drop on a labeled target: workspace edge, Above/Below/Left/Right, or Swap. Missing a target cancels the move. Resize a shared edge to adjust its neighbors. Hold <kbd>Alt</kbd> for free positioning.</p><div class="layout-options"><label><input id="layoutSmart" type="checkbox"${prefs.smart?' checked':''}> Smart docking &amp; shared resizing</label><label><input id="layoutLock" type="checkbox"${prefs.locked?' checked':''}> Lock window positions</label></div><div class="layout-presets">${presets.filter(p=>mode!=='practice'&&(p[0]!=='guided'||mode==='lab')).map(([id,name,description])=>`<button class="layout-card" data-layout="${id}"><span class="layout-mini ${id}" aria-hidden="true"><i></i><i></i><i></i><i></i>${id==='guided'?'<i></i>':''}</span><b>${name}</b><span>${description}</span></button>`).join('')}</div>${mode==='practice'?'<p>Practice keeps its briefing beside the exercise. Your lab and sandbox layouts are saved separately.</p>':''}<h3>Save this arrangement</h3><form id="layoutSaveForm" class="layout-save"><input id="layoutName" aria-label="Layout name" maxlength="40" placeholder="e.g. My troubleshooting desk" required><button class="btn" type="submit">Save new layout</button></form><p id="layoutSaveStatus" role="status"></p><div id="savedLayouts">${saved.map((s,i)=>s.view===mode?`<div class="saved-layout"><button class="small-btn" data-restore-layout="${i}">${esc(s.name)}</button><button class="small-btn" data-remove-layout="${i}" aria-label="Delete ${esc(s.name)} layout">Delete</button></div>`:'').join('')||'<p>No named layouts saved for this workspace yet.</p>'}</div><p class="study-note">Named layouts live in this browser. Saving creates a new copy; it never replaces another named layout. Undo keeps the last 20 changes during this session. Phone layouts remain stacked.</p>`);
   $('layoutSmart').onchange=e=>{prefs.smart=e.target.checked;settings();};$('layoutLock').onchange=e=>{prefs.locked=e.target.checked;settings();};
   $('dialogBody').querySelectorAll('[data-layout]').forEach(b=>b.onclick=()=>{$('dialog').close();applyPreset(b.dataset.layout);});
   $('layoutSaveForm').onsubmit=e=>{e.preventDefault();const name=$('layoutName').value.trim();if(!name)return;if(saved.length>=12){$('layoutSaveStatus').textContent='Twelve saved layouts maximum. Delete an unused layout first.';return;}saved.push({name,view:mode,...capture()});persistLibrary();menu();$('layoutSaveStatus').textContent='Layout saved.';};
@@ -1538,12 +1558,52 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
  }
  function persistLibrary(){try{localStorage.setItem('lab4net-layout-library',JSON.stringify(saved));}catch(e){notify('Layout storage unavailable. Named layouts last for this session.');}}
  launch.onclick=menu;
- function hit(e){if(!main.classList.contains('free')||prefs.locked||document.body.classList.contains('focus-workspace'))return null;
+ function hit(e){if(expanded||!main.classList.contains('free')||prefs.locked||document.body.classList.contains('focus-workspace'))return null;
   const vis=wins().sort((a,b)=>(+b.style.zIndex||0)-(+a.style.zIndex||0));for(const el of vis){const r=el.getBoundingClientRect(),x=e.clientX,y=e.clientY;if(x<r.left-3||x>r.right+3||y<r.top-3||y>r.bottom+3)continue;
    let mode='';if(y<r.top+EDGE)mode='n';else if(y>r.bottom-EDGE)mode='s';if(x<r.left+EDGE)mode+='w';else if(x>r.right-EDGE)mode+='e';if(!mode&&y<r.top+40&&!e.target.closest('button,select,input,a,label,summary'))mode='move';return {el,mode};}return null;}
- function dock(id,side){const m=act.m,box={x:PAD,y:PAD,w:m.width-2*PAD,h:m.height-2*PAD},p={},others=Object.keys(act.base).filter(n=>n!==id);if(!others.length){p[id]=box;return p;}const horizontal=side==='left'||side==='right',size=(horizontal?box.w:box.h)*.46;
-  let remain;if(horizontal){p[id]={x:side==='left'?box.x:box.x+box.w-size,y:box.y,w:size,h:box.h};remain={x:side==='left'?box.x+size+GAP:box.x,y:box.y,w:box.w-size-GAP,h:box.h};}
-  else{p[id]={x:box.x,y:side==='top'?box.y:box.y+box.h-size,w:box.w,h:size};remain={x:box.x,y:side==='top'?box.y+size+GAP:box.y,w:box.w,h:box.h-size-GAP};}pack(others,remain,p);return p;}
+ // Infer a split layout from existing rectangles so docking preserves their relationships.
+ function bounds(rects,ids){const xs=ids.map(id=>rects[id].x),ys=ids.map(id=>rects[id].y),xe=ids.map(id=>rects[id].x+rects[id].w),ye=ids.map(id=>rects[id].y+rects[id].h);const x=Math.min(...xs),y=Math.min(...ys);return {x,y,w:Math.max(...xe)-x,h:Math.max(...ye)-y};}
+ function infer(rects,ids=Object.keys(rects)){
+  if(ids.length===1)return {id:ids[0]};
+  for(const axis of ['x','y']){const size=axis==='x'?'w':'h',ordered=ids.slice().sort((a,b)=>rects[a][axis]-rects[b][axis]);
+   for(let i=1;i<ordered.length;i++){const a=ordered.slice(0,i),b=ordered.slice(i),end=Math.max(...a.map(id=>rects[id][axis]+rects[id][size])),start=Math.min(...b.map(id=>rects[id][axis]));if(start<end-1)continue;
+    const ta=infer(rects,a),tb=infer(rects,b);if(ta&&tb){const ra=bounds(rects,a),rb=bounds(rects,b);return {axis,ratio:ra[size]/(ra[size]+rb[size]),a:ta,b:tb};}
+   }
+  }return null;
+ }
+ function layoutTree(rects){const existing=infer(rects);if(existing)return existing;
+  const ids=Object.keys(rects),join=(a,b,axis='x',ratio=.5)=>!a?b:!b?a:{axis,ratio,a,b},leaf=id=>ids.includes(id)?{id}:null;
+  const left=join(leaf('brief'),leaf('checkWin'),'y',.4),right=join(leaf('mapPanel'),leaf('console'),'y',.38);
+  return ids.includes('practice')?join(leaf('brief'),leaf('practice'),'x',.33):join(join(left,right,'x',.32),leaf('guideWin'),'x',.73);
+ }
+ function leaves(t){return t.id?[t.id]:[...leaves(t.a),...leaves(t.b)];}
+ function prune(t,id){if(t.id)return t.id===id?null:t;const a=prune(t.a,id),b=prune(t.b,id);return !a?b:!b?a:{...t,a,b};}
+ function insert(t,target,id,side){if(t.id){if(t.id!==target)return t;const first=side==='left'||side==='top';return {axis:side==='left'||side==='right'?'x':'y',ratio:.5,a:first?{id}:t,b:first?t:{id}};}return {...t,a:insert(t.a,target,id,side),b:insert(t.b,target,id,side)};}
+ function minimum(t){if(t.id)return {w:Math.min(220,act.base[t.id].w),h:Math.min(110,act.base[t.id].h)};const a=minimum(t.a),b=minimum(t.b);return t.axis==='x'?{w:a.w+b.w+GAP,h:Math.max(a.h,b.h)}:{w:Math.max(a.w,b.w),h:a.h+b.h+GAP};}
+ function treeRects(t,box,out={},nodes=[]){if(t.id){out[t.id]={...box};return {out,nodes};}const size=t.axis==='x'?'w':'h',space=box[size]-GAP,a=minimum(t.a),b=minimum(t.b);const length=Math.max(a[size],Math.min(space-b[size],space*t.ratio));
+  const first={...box,[size]:length},second={...box,[t.axis]:box[t.axis]+length+GAP,[size]:space-length};nodes.push({t,box,first,second});treeRects(t.a,first,out,nodes);treeRects(t.b,second,out,nodes);return {out,nodes};}
+ function treePlan(t){const m=act.m,box={x:PAD,y:PAD,w:m.width-2*PAD,h:m.height-2*PAD},min=minimum(t);if(min.w>box.w+1||min.h>box.h+1)return null;return treeRects(t,box).out;}
+ function dock(id,side){if(act.tree){let other=prune(clone(act.tree),id);if(!other)return treePlan({id});const first=side==='left'||side==='top',axis=side==='left'||side==='right'?'x':'y';return treePlan({axis,ratio:first?.4:.6,a:first?{id}:other,b:first?other:{id}});}
+  const m=act.m,box={x:PAD,y:PAD,w:m.width-2*PAD,h:m.height-2*PAD},p={},others=Object.keys(act.base).filter(n=>n!==id),horizontal=side==='left'||side==='right',size=(horizontal?box.w:box.h)*.4;let remain;
+  if(horizontal){p[id]={x:side==='left'?box.x:box.x+box.w-size,y:box.y,w:size,h:box.h};remain={x:side==='left'?box.x+size+GAP:box.x,y:box.y,w:box.w-size-GAP,h:box.h};}
+  else{p[id]={x:box.x,y:side==='top'?box.y:box.y+box.h-size,w:box.w,h:size};remain={x:box.x,y:side==='top'?box.y+size+GAP:box.y,w:box.w,h:box.h-size-GAP};}if(!others.length)p[id]=box;else pack(others,remain,p);return p;
+ }
+ function targetPlan(id,side){const source=act.el.id;if(side==='swap'){const p=clone(act.base);p[source]=clone(act.base[id]);p[id]=clone(act.r);return p;}
+  if(!act.tree)return null;const t=prune(clone(act.tree),source);return treePlan(insert(t,id,source,side));
+ }
+ function makeTargets(){targets.replaceChildren();if(!act||act.mode!=='move'||!prefs.smart)return;const W=act.m.width,H=act.m.height;
+  const add=(id,side,r,label)=>{const b=document.createElement('div');b.className='dock-target';b.dataset.target=id;b.dataset.side=side;b.textContent=label;Object.assign(b.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});if(id!=='workspace'&&side!=='swap'&&!targetPlan(id,side))b.classList.add('unavailable');targets.append(b);};
+  add('workspace','left',{x:2,y:H*.34,w:62,h:110},'Dock left');add('workspace','right',{x:W-64,y:H*.34,w:62,h:110},'Dock right');add('workspace','top',{x:W/2-75,y:2,w:150,h:40},'Dock top');add('workspace','bottom',{x:W/2-75,y:H-44,w:150,h:40},'Dock bottom');
+  for(const [id,q]of Object.entries(act.base)){if(id===act.el.id)continue;const bw=Math.min(54,(q.w-12)/3),bh=Math.min(34,(q.h-12)/3),cx=q.x+q.w/2,cy=q.y+q.h/2;
+   add(id,'top',{x:cx-bw/2,y:cy-bh*1.5-4,w:bw,h:bh},'Above');add(id,'left',{x:cx-bw*1.5-4,y:cy-bh/2,w:bw,h:bh},'Left');add(id,'swap',{x:cx-bw/2,y:cy-bh/2,w:bw,h:bh},'Swap');add(id,'right',{x:cx+bw/2+4,y:cy-bh/2,w:bw,h:bh},'Right');add(id,'bottom',{x:cx-bw/2,y:cy+bh/2+4,w:bw,h:bh},'Below');
+  }
+ }
+ function pickTarget(e){const x=e.clientX-act.m.left,y=e.clientY-act.m.top;let found=null;
+  for(const b of targets.children){const r={x:parseFloat(b.style.left),y:parseFloat(b.style.top),w:parseFloat(b.style.width),h:parseFloat(b.style.height)};if(x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h){found=b;break;}}
+  // Broad workspace edges remain a shortcut; center swapping uses its visible button only.
+  if(!found){const side=x<26?'left':x>act.m.width-26?'right':y<26?'top':y>act.m.height-26?'bottom':null;if(side)found=targets.querySelector('[data-target="workspace"][data-side="'+side+'"]');}
+  for(const b of targets.children)b.classList.toggle('active',b===found);return found;
+ }
  function resizePlan(mode,dx,dy,free){const p=clone(act.base),r=act.r,id=act.el.id;
   for(const [axis,delta,low,high,size,limit,min]of [['x',dx,'w','e','w',act.m.width,220],['y',dy,'n','s','h',act.m.height,110]]){
    const lo=mode.includes(low),hi=mode.includes(high);if(!lo&&!hi)continue;const edge=r[axis]+(hi?r[size]:0),starts=[],ends=[];
@@ -1552,34 +1612,61 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
    let lower=-Infinity,upper=Infinity;for(const n of ends)lower=Math.max(lower,Math.min(min,act.base[n][size])-act.base[n][size]);for(const n of starts)upper=Math.min(upper,act.base[n][size]-Math.min(min,act.base[n][size]));
    lower=Math.max(lower,-edge);upper=Math.min(upper,limit-edge);const change=Math.max(lower,Math.min(upper,delta));
    for(const n of ends)p[n][size]+=change;for(const n of starts){p[n][axis]+=change;p[n][size]-=change;}
-  }return p;
+  }
+  // Internal dividers belong to their split, not to unrelated aligned rectangles.
+  if(!free&&act.tree){const tree=clone(act.tree),box=bounds(act.base,Object.keys(act.base));
+   for(const [axis,delta,low,high,size]of [['x',dx,'w','e','w'],['y',dy,'n','s','h']]){
+    const lo=mode.includes(low),hi=mode.includes(high);if(!lo&&!hi)continue;const edge=r[axis]+(hi?r[size]:0),nodes=treeRects(tree,box).nodes;
+    const matches=nodes.filter(n=>n.t.axis===axis&&(hi?leaves(n.t.a):leaves(n.t.b)).includes(id)).map(n=>({n,error:Math.abs((hi?n.first[axis]+n.first[size]:n.second[axis])-edge)})).filter(x=>x.error<SNAP).sort((a,b)=>a.error-b.error);
+    if(!matches.length)continue;const {n}=matches[0],space=n.box[size]-GAP,ma=minimum(n.t.a)[size],mb=minimum(n.t.b)[size];const length=Math.max(ma,Math.min(space-mb,n.first[size]+delta));n.t.ratio=length/space;
+    for(const [name,q]of Object.entries(treeRects(tree,box).out)){p[name][axis]=q[axis];p[name][size]=q[size];}
+   }
+  }
+
+  return p;
  }
- function preview(plan,label){previews.replaceChildren();if(!plan){tip.textContent='Move to an edge to dock Â· over another panel to swap Â· Alt for free movement';return;}for(const [id,r]of Object.entries(plan)){const box=document.createElement('div');box.className='layout-preview-box'+(id===act.el.id?' selected':'');Object.assign(box.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});box.textContent=names[id];previews.append(box);}tip.textContent=label+' Â· Release to apply Â· Escape to cancel';}
- function drag(e){const {el,mode,m,r}=act,dx=e.clientX-act.px,dy=e.clientY-act.py;act.plan=null;
+ function preview(plan,label){previews.replaceChildren();if(!plan){tip.textContent=label||'Drop on a labeled target to arrange panels; elsewhere cancels. Alt allows free placement.';return;}for(const [id,r]of Object.entries(plan)){const box=document.createElement('div');box.className='layout-preview-box'+(id===act.el.id?' selected':'');Object.assign(box.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});box.textContent=names[id];previews.append(box);}tip.textContent=label+' · Release to apply · Escape to cancel';}
+ function drag(e){const {el,mode,m,r}=act,dx=e.clientX-act.px,dy=e.clientY-act.py;act.plan=null;act.label=null;act.free=e.altKey||!prefs.smart;
   if(mode==='move'){
    const x=Math.max(0,Math.min(m.width-r.w,r.x+dx)),y=Math.max(0,Math.min(m.height-r.h,r.y+dy));act.cur={x,y,w:r.w,h:r.h};
-   if(prefs.smart&&!e.altKey&&Math.hypot(dx,dy)>35){const px=e.clientX-m.left,py=e.clientY-m.top;let side=px<26?'left':px>m.width-26?'right':py<26?'top':py>m.height-26?'bottom':null;
-    if(side){act.plan=dock(el.id,side);act.label='Dock '+names[el.id]+' '+side+'; arrange other panels';}
-    else for(const [id,q]of Object.entries(act.base)){if(id===el.id)continue;if(px>q.x+q.w*.2&&px<q.x+q.w*.8&&py>q.y+Math.min(50,q.h*.3)&&py<q.y+q.h*.8){act.plan=clone(act.base);act.plan[el.id]=clone(q);act.plan[id]=clone(r);act.label='Swap '+names[el.id]+' and '+names[id];break;}}
-   }
-   if(!act.plan&&!e.altKey){const xs=[PAD,m.width-PAD],ys=[PAD,m.height-PAD];for(const [id,q]of Object.entries(act.base)){if(id===el.id)continue;xs.push(q.x,q.x+q.w+GAP,q.x-GAP);ys.push(q.y,q.y+q.h+GAP,q.y-GAP);}const near=(v,arr)=>arr.find(a=>Math.abs(v-a)<SNAP);let sx=near(x,xs),sy=near(y,ys);if(sx!==undefined)act.cur.x=Math.max(0,Math.min(m.width-r.w,sx));if(sy!==undefined)act.cur.y=Math.max(0,Math.min(m.height-r.h,sy));}
-   setVars(el,normal({[el.id]:act.cur})[el.id]);preview(act.plan,act.label);
-  }else{act.plan=resizePlan(mode,dx,dy,!prefs.smart||e.altKey);for(const [id,q]of Object.entries(normal(act.plan)))setVars($(id),q);previews.replaceChildren();tip.textContent=(prefs.smart&&!e.altKey?'Shared resize: neighbors follow':'Free resize')+' Â· Escape to cancel';}
+   if(!act.free&&Math.hypot(dx,dy)>5){targets.hidden=false;const target=pickTarget(e);
+    if(target){const id=target.dataset.target,side=target.dataset.side;act.plan=id==='workspace'?dock(el.id,side):targetPlan(id,side);act.label=id==='workspace'?'Dock '+names[el.id]+' '+side:side==='swap'?'Swap '+names[el.id]+' and '+names[id]:'Place '+names[el.id]+' '+({left:'left of',right:'right of',top:'above',bottom:'below'}[side])+' '+names[id];if(!act.plan)act.label='Not enough room here. Use a workspace edge or Expand instead.';}
+   }else targets.hidden=true;
+   setVars(el,normal({[el.id]:act.cur})[el.id]);preview(act.plan,act.free?'Free placement · Release to keep this position':act.label);
+  }else{targets.hidden=true;act.plan=resizePlan(mode,dx,dy,act.free);for(const [id,q]of Object.entries(normal(act.plan)))setVars($(id),q);previews.replaceChildren();tip.textContent=(!act.free?'Shared resize: neighbors follow':'Free resize')+' · Escape to cancel';}
  }
- function clean(){if(!act)return;act.el.classList.remove('dragging');try{main.releasePointerCapture(act.pointer);}catch(e){}act=null;previews.replaceChildren();tip.textContent='';sv.style.display=sh.style.display=sp.style.display='none';document.body.style.userSelect='';document.body.dataset.cur='';}
+ function clean(){if(!act)return;act.el.classList.remove('dragging');try{main.releasePointerCapture(act.pointer);}catch(e){}act=null;previews.replaceChildren();targets.replaceChildren();targets.hidden=true;tip.textContent='';sv.style.display=sh.style.display=sp.style.display='none';document.body.style.userSelect='';document.body.dataset.cur='';}
  function cancel(){if(!act)return;for(const [id,r]of Object.entries(normal(act.base)))setVars($(id),r);clean();}
- function end(){if(!act)return;const plan=act.plan||(act.cur?{[act.el.id]:act.cur}:null);if(plan){remember(act.before);put(normal(plan));}clean();if(cur.view==='lab')$('term').scrollTop=$('term').scrollHeight;}
+ function end(){if(!act)return;const plan=act.plan||(act.cur&&act.free?{[act.el.id]:act.cur}:null);if(!plan){cancel();return;}if(plan){remember(act.before);put(normal(plan));}clean();if(cur.view==='lab')$('term').scrollTop=$('term').scrollHeight;}
  const cursors={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize',move:'move'};
  main.addEventListener('pointermove',e=>{if(act)return drag(e);const h=hit(e);document.body.dataset.cur=h?.mode?cursors[h.mode]:'';});
  main.addEventListener('pointerleave',()=>{if(!act)document.body.dataset.cur='';});
- main.addEventListener('pointerdown',e=>{if(e.button)return;const h=hit(e);if(!h)return;h.el.style.zIndex=++z;if(!h.mode)return;e.preventDefault();e.stopPropagation();const m=main.getBoundingClientRect(),base=pixelRects();act={el:h.el,mode:h.mode,px:e.clientX,py:e.clientY,pointer:e.pointerId,m,r:clone(base[h.el.id]),base,before:capture(),cur:null,plan:null};h.el.classList.add('dragging');try{main.setPointerCapture(e.pointerId);}catch(e){}document.body.style.userSelect='none';tip.textContent='Drag to dock or swap Â· Alt for free movement Â· Escape to cancel';},true);
+ main.addEventListener('pointerdown',e=>{if(e.button)return;const h=hit(e);if(!h)return;h.el.style.zIndex=++z;if(!h.mode)return;e.preventDefault();e.stopPropagation();const m=main.getBoundingClientRect(),base=pixelRects();act={el:h.el,mode:h.mode,px:e.clientX,py:e.clientY,pointer:e.pointerId,m,r:clone(base[h.el.id]),base,tree:layoutTree(base),before:capture(),cur:null,plan:null,free:false};makeTargets();h.el.classList.add('dragging');try{main.setPointerCapture(e.pointerId);}catch(e){}document.body.style.userSelect='none';tip.textContent='Drag to dock or swap Â· Alt for free movement Â· Escape to cancel';},true);
  main.addEventListener('pointerup',end);main.addEventListener('pointercancel',cancel);main.addEventListener('lostpointercapture',()=>{if(act)cancel();});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&act){e.preventDefault();cancel();}});
  $('resetLayout').onclick=()=>{exitFocus();remember();for(const el of IDS.map($))el.style.zIndex='';put(presetRects('balanced'));notify('Balanced layout restored for this workspace. Undo is available.');};
  $('guideClose').onclick=()=>setGuidePop(false);
  window.addEventListener('resize',()=>{cancel();renderGuideWin();layoutApply();});
  DESK.addEventListener?.('change',()=>{cancel();if(cur.view==='lab')renderBrief();renderGuideWin();layoutApply();});
- let seen=null;const sync=()=>{cancel();$('checkWin').hidden=cur.view!=='lab';if(cur!==seen){seen=cur;$('checkBody').scrollTop=0;}renderGuideWin();layoutApply();};const ra0=renderAll;renderAll=function(){ra0();sync();};sync();
+ let expanded=null;
+ function expand(id){const restore=expanded===id;cancel();exitFocus();expanded=restore?null:id;main.classList.toggle('panel-expanded',!!expanded);for(const el of IDS.map($))el.classList.toggle('expanded-panel',el.id===expanded);decorate();}
+ function collapse(){if(expanded){expanded=null;main.classList.remove('panel-expanded');for(const el of IDS.map($))el.classList.remove('expanded-panel');decorate();}}
+ function calculate(action){const previous=act,base=pixelRects();act={el:$(action.source),m:main.getBoundingClientRect(),base,r:clone(base[action.source]),tree:layoutTree(base)};const result=action.target?targetPlan(action.target,action.side):dock(action.source,action.side);act=previous;return result;}
+ function arrange(id){collapse();exitFocus();const others=wins().filter(el=>el.id!==id);dialog('Arrange '+names[id],`<p>Dock this panel at a workspace edge, or place it beside another panel. The remaining panels fill the space together. Use <b>Expand</b> for temporary full-workspace reading.</p><div class="panel-arrange"><button class="btn" data-dock-side="left">Dock left</button><button class="btn" data-dock-side="right">Dock right</button><button class="btn" data-dock-side="top">Dock top</button><button class="btn" data-dock-side="bottom">Dock bottom</button></div>${others.length?`<h3>Place next to a panel</h3><select id="arrangeTarget" aria-label="Target panel">${others.map(el=>'<option value="'+el.id+'">'+names[el.id]+'</option>').join('')}</select><div class="panel-arrange">${[['left','Left of'],['right','Right of'],['top','Above'],['bottom','Below'],['swap','Swap']].map(([side,label])=>'<button class="btn" data-place-side="'+side+'">'+label+'</button>').join('')}</div>`:''}<p id="arrangeStatus" role="status"></p>`);
+  function apply(side,target){const p=calculate({source:id,side,target});if(!p){$('arrangeStatus').textContent='Not enough room for this split. Choose another direction or a workspace edge.';return;}remember();put(normal(p));$('dialog').close();}
+  $('dialogBody').querySelectorAll('[data-dock-side]').forEach(b=>b.onclick=()=>apply(b.dataset.dockSide));$('dialogBody').querySelectorAll('[data-place-side]').forEach(b=>b.onclick=()=>apply(b.dataset.placeSide,$('arrangeTarget').value));
+ }
+ function decorate(){for(const id of IDS){const el=$(id);let heading=el.querySelector(':scope>.panel-title,:scope>.console-toolbar');if(!heading&&(id==='brief'||id==='practice')){heading=document.createElement('div');heading.className='panel-title window-heading';heading.innerHTML='<b>'+names[id]+'</b>';el.prepend(heading);el.classList.add('has-window-chrome');}
+   if(!heading)continue;let tools=heading.querySelector('.window-tools');if(!tools){tools=document.createElement('span');tools.className='window-tools';tools.innerHTML='<button class="small-btn window-expand" type="button"></button><button class="small-btn window-arrange" type="button" aria-label="Arrange '+names[id]+'" title="Arrange this panel">⋮</button>';heading.append(tools);tools.querySelector('.window-expand').onclick=()=>expand(id);tools.querySelector('.window-arrange').onclick=()=>arrange(id);}
+   const b=tools.querySelector('.window-expand'),on=expanded===id;b.textContent=on?'↙':'↗';b.setAttribute('aria-expanded',String(on));b.setAttribute('aria-label',(on?'Restore ':'Expand ')+names[id]);b.title=(on?'Restore ':'Expand ')+names[id];
+  }}
+ const rb0=renderBrief;renderBrief=function(){rb0();decorate();};
+ main.addEventListener('dblclick',e=>{if(!DESK.matches||e.target.closest('button,input,select'))return;const h=e.target.closest('.panel-title,.console-toolbar')||IDS.map(id=>$(id).querySelector(':scope>.panel-title,:scope>.console-toolbar')).find(h=>{if(!h||!h.getClientRects().length)return false;const r=h.getBoundingClientRect();return e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;});if(h&&h.parentElement.classList.contains('fw'))expand(h.parentElement.id);});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&expanded&&!$('dialog').open){collapse();e.preventDefault();}});
+ document.addEventListener('click',e=>{if(e.target.closest('#focusToggle'))collapse();});
+ decorate();
+
+ let seen=null;const sync=()=>{cancel();$('checkWin').hidden=cur.view!=='lab';if(cur!==seen){collapse();seen=cur;$('checkBody').scrollTop=0;}renderGuideWin();layoutApply();};const ra0=renderAll;renderAll=function(){ra0();sync();};sync();
 })();
 
 
@@ -1742,7 +1829,7 @@ function hardwareStarter(){
 // Snapshots and inspections are data-only. They never execute on the learner's network.
 const OPERATOR_MANUAL={
  navigation:{sandbox:'Header Sandbox opens the saved free-build workspace.',newSandbox:'Sandbox → New / starter opens Empty canvas, Working LAN, or Cisco + Juniper VLAN exercise. Export first before replacing a project.',library:'Lab library searches all labs. Choose a lab to open its mission, address plan and checklist.',reference:'Command guide beside the console searches supported commands and reasons, for current or all modes.',help:'How to use explains console shortcuts and learning workflow.',transfer:'Transfer progress exports/imports lab progress and drafts. Sandbox Export/Import project uses a separate project file.'},
- interface:'Mission/address plan and objectives remain visible independently of step-by-step instructions. Toggle step instructions or Pop out guide in lab checklist. Desktop panels can drag/resize; Reset layout restores them. Phone uses Mission & tasks / Topology & console. Click a device/tab to select its console. Commands are Enter, Tab completion, ? help, arrow history. Rain on/off controls ambient animation; reduced motion pauses effects.',
+ interface:'Mission/address plan and objectives remain visible independently of step-by-step instructions. Toggle step instructions or Pop out guide in lab checklist. Desktop panels can drag/resize: labeled Above/Below/Left/Right/Swap targets arrange panels together; off-target drops cancel and Alt allows free placement. Each panel has Expand/Restore (arrow) and Arrange (three dots); Escape restores expanded panels. Layouts offers presets/saved arrangements, and Undo layout reverses arrangement changes. Reset layout applies Balanced. Phone uses Mission & tasks / Topology & console. Click a device/tab to select its console. Commands are Enter, Tab completion, ? help, arrow history. Rain on/off controls ambient animation; reduced motion pauses effects.',
  learning:'Grade lab evaluates actual configuration rather than checklist marks. Every task has Why this step. Walkthrough reveals one solution. Theory check and subnetting drill are available in the lab selector/library. Progress is browser/origin-local; transfer JSON to another device.',
  sandbox:'Up to 16 devices, free-port cable builder, drag or arrow-key positions, host IP form, connectivity probe, ordered autosave, Undo, Export/Import. Generic router ports start shut; generic switch ports start in VLAN 1. Hardware catalog offers Catalyst 2960-24TT-L IOS and EX2300-24T Junos. Expand Front panel to choose a free port. Fixed 10G Juniper uplinks cannot connect to 1G copper.',
  curriculum:'CCNA 200-301 v1.1 only for graded labs and default coaching. Study map links lab/incident practice to objective IDs; it is not an exam readiness score. Six incident missions have a failing service, four investigation tasks, optional three-level hints and minimal repair walkthroughs. Juniper is optional sandbox exploration outside the CCNA curriculum.',

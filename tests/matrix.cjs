@@ -47,10 +47,12 @@ const { pathToFileURL } = require('node:url');
     assert.ok(await page.locator('#checkBody .step').count() > 0);
     // Drag and resize a real window; persisted geometry restores after reload.
     const original = await page.locator('#mapPanel').boundingBox();
+    await page.keyboard.down('Alt');
     await page.mouse.move(original.x + 80, original.y + 20);
     await page.mouse.down();
     await page.mouse.move(original.x + 105, original.y + 45, { steps: 8 });
     await page.mouse.up();
+    await page.keyboard.up('Alt');
     const moved = await page.locator('#mapPanel').boundingBox();
     assert.ok(moved.y > original.y + 10);
     await page.mouse.move(moved.x + moved.width - 2, moved.y + moved.height - 2);
