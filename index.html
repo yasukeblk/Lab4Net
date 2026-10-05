@@ -2709,6 +2709,16 @@ addIncident({title:'Incident 11: the guests lost more than the server',base:'Sta
  steps:['PC2: ping 10.0.0.2 | ping 192.168.3.10 ; PC1: ping 192.168.3.10','R2: enable | show access-lists | show running-config','R2: configure terminal | interface g0/0 | no ip access-group 10 in | interface g0/1 | ip access-group 10 out | end','PC2: ping 10.0.0.2 | # still blocked from the server, as intended | ping 192.168.3.10 ; PC1: ping 192.168.3.10'],
  hints:['The block itself works; it is catching more than it should. That points at where the filter sits, not what it says.','show access-lists shows ACL 10 matching guest packets. show running-config shows the interface and direction it is applied in. Which interface do guest packets cross on their way to R2\'s address?','ACL 10 is inbound on G0/0, so it stops guests at R2\'s front door. Remove it there and apply it outbound on G0/1, next to the server.'],
  lesson:'A standard ACL can only see the source address, so its position decides what it blocks. Near the destination it blocks one destination; anywhere earlier on the path it blocks everything behind that point.'});
+
+// ----- incident 12
+addIncident({title:'Incident 12: the web went quiet',base:'Extended named ACL',start:'R1',
+ brief:'Staff could use the web server this morning. After a change to the WEB-ONLY ACL, HTTP to the server fails while other traffic still flows. Find the line that is stopping it and remove it without rewriting the ACL.',
+ symptom:['PC1','192.168.3.10','tcp',80],
+ fault:{R1:[...EN,'ip access-list extended WEB-ONLY','5 deny ip 192.168.1.0 0.0.0.255 host 192.168.3.10','end']},
+ repair:{R1:[...EN,'ip access-list extended WEB-ONLY','no 5','end','show access-lists'],PC1:['telnet 192.168.3.10 80']},
+ steps:['PC1: telnet 192.168.3.10 80 | ping 10.0.0.2','R1: enable | show access-lists','R1: configure terminal | ip access-list extended WEB-ONLY | no 5 | end','PC1: telnet 192.168.3.10 80 | # still blocked, as intended | ping 192.168.3.10 ; R1: show access-lists'],
+ hints:['Only HTTP to the server broke; other destinations work. Something now matches web traffic before the permit does.','show access-lists: read the sequence numbers from the top and watch which line\'s counter goes up when you test.','Line 5 denies all IP to the server above the permit at line 10. Delete line 5; the deny at line 20 already does that job after the permit.'],
+ lesson:'ACLs are read top-down and the first match wins, so a broad deny placed above a specific permit silently overrides it. The match counters tell you which line is really doing the work.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
