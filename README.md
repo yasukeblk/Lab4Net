@@ -7,7 +7,7 @@ A single-page CCNA learning workspace. Open `index.html` directly in a modern br
 - Matrix-inspired desktop: black and phosphor green, schematic topology devices, animated real-path packets and optional digital rain. **Rain on/off** remembers your choice; rain pauses in hidden tabs and under reduced motion.
 - Separate **Mission briefing** and **Checklist** windows keep the goal, address plan and objectives visible even with **Step-by-step instructions** off. Every task retains its reasoning. **Pop out guide** opens a movable guide window; **Dock** returns commands to the checklist. Clicking a command inserts it into the right console for you to review and run.
 - Drag desktop windows by their title bars and resize from their edges or corners. They snap to one another; hold Alt to move freely. Drag to the left/right edge for a half-screen window, or the top edge to fill the workspace. **Reset layout** restores the default arrangement. Layout is saved per browser.
-- 15 configurable labs with a live topology, IOS-style device consoles, independent grading and an explained walkthrough.
+- 21 CCNA missions: 15 configuration labs and six troubleshooting incidents, with live topology, IOS-style consoles, independent grading and explained walkthroughs.
 - Every mission task retains its **Why this step** explanation. Task checkboxes track your own work; grading checks the network configuration and connectivity.
 - Searchable lab library, command field guide and console mode indicators.
 - Packet paths come from the forwarding model, including traversed switches. Persistent request/reply results distinguish missing routes, unreachable next hops, ACL drops and closed ports. Replay shows the last test; run the command again to test a changed configuration.
@@ -16,6 +16,16 @@ A single-page CCNA learning workspace. Open `index.html` directly in a modern br
 - On phones, switch between **Mission & tasks** and **Topology & console**. System reduced-motion preferences disable movement while keeping readable packet results.
 
 For theory scope, see [Cisco's CCNA v1.1 topic outline](https://learningcontent.cisco.com/documents/marketing/exam-topics/200-301-CCNA-v1.1.pdf). The questions are supplementary concept practice, not a full exam bank.
+
+## Curriculum rule and investigation practice
+
+Graded labs and default Operator coaching stay focused on **Cisco CCNA 200-301 v1.1**, verified against the [official Cisco exam topics](https://learningcontent.cisco.com/documents/marketing/exam-topics/200-301-CCNA-v1.1.pdf) on 2026-10-04. The repository rule is recorded in `AGENTS.md`. Every mission carries objective IDs, searchable in **Lab library**. Existing Juniper devices remain optional sandbox exploration, outside the graded CCNA curriculum. CCNP/CCIE/JNCIA, BGP and MPLS courses are out of scope.
+
+Open **Study map** to see practice organized by exam domain, build/incident progress and a suggested next mission. Domain weights provide study context; lab completion is not an exam-readiness score. A lab exercises selected parts of an objective, not all of it. IPv6 configuration, wireless GUI work and other gaps remain outside the current simulator and need complementary study. The automation domain currently has theory practice only.
+
+The **Troubleshooting** library group contains six preconfigured incidents: an isolated Sales host, a VLAN that cannot cross floors, a lost return path, a VLAN gateway failure, a remote client without a lease, and unavailable SSH despite working ping. Each starts with an actual failing configuration. Use the address plan and four tasks to reproduce, inspect, repair and verify. Grade checks preserve all the source lab's requirements, including unaffected services.
+
+Turn **Step-by-step instructions** off to investigate independently. Mission, address plan, tasks and per-task reasons remain visible. **Reveal next clue** offers direction, evidence and then the explicit repair. Clues can be hidden and their reveal level is remembered in this browser, separately from transferred progress. The guide still supports pop-out/dock, and the walkthrough provides the repair commands. Successful grading ends with an explanation of the cause. Original lab titles, ordering and saved configurations are preserved; incidents are appended.
 
 ## Network sandbox
 
@@ -123,9 +133,10 @@ The lab test extracts only the code between the ENGINE markers, creates every la
     node tests/sandbox.cjs
     node tests/hardware.cjs
     node tests/operator.cjs
+    node tests/curriculum.cjs
     python3 tests/assistant_server_test.py
 
-GitHub Actions runs all five dependency-free Node checks, Python relay tests and installer shell syntax checks on pushes and pull requests.
+GitHub Actions runs all six dependency-free Node checks, Python relay tests and installer shell syntax checks on pushes and pull requests.
 
 Optional browser integration tests use Playwright:
 
@@ -137,6 +148,7 @@ Optional browser integration tests use Playwright:
     node tests/sandbox-storage.cjs
     node tests/hardware-ui.cjs
     node tests/operator-ui.cjs
+    node tests/curriculum-ui.cjs
 
 Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge browser. The browser suite opens the local file, grades every lab, checks command/session restoration and backup import/export, and exercises the library, guide, practices, phone layout and reduced motion. The sandbox suite covers actual editor controls, cabling, configuration/position restoration, project transfer, packet paths and phone use. The Matrix suite additionally checks rain preferences, pop-out guidance, window dragging/resizing/restoration and common desktop resolutions. `LAB4NET_SCREENSHOTS` optionally specifies a directory for desktop and phone captures.
 

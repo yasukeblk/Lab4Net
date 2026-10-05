@@ -15,6 +15,7 @@ jobs:
       - run: node tests/sandbox.cjs
       - run: node tests/hardware.cjs
       - run: node tests/operator.cjs
+      - run: node tests/curriculum.cjs
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

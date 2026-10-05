@@ -43,6 +43,8 @@ const fs = require('node:fs');
       assert.equal(await page.locator('#grade .no').count(), 0);
     }
     // Persistent trace survives animation and describes both directions.
+    await page.evaluate(()=>{openLab(LABS.findIndex(l=>l.title==='Static NAT: publish a server'),true);for(const [device,commands] of Object.entries(cur.lab.solution)){select(device);commands.forEach(execute);}});
+    await page.locator('#bGrade').click();
     assert.match(await page.locator('#trace').textContent(), /Reply received/);
     assert.match(await page.locator('#trace').textContent(), /CLIENT → ISP → R1 → WEB/);
     await page.evaluate(() => { select('R1');execute('show ip nat translations'); });

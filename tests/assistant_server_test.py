@@ -1,4 +1,5 @@
 import io
+import http.client
 import json
 import os
 import sys
@@ -78,7 +79,18 @@ class RelayTests(unittest.TestCase):
             self.assertEqual(code, 502)
             self.assertNotIn('private-key-detail', json.dumps(data))
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'fake-test-key', 'LAB4NET_AI_TOKEN': ''}):
-            self.assertEqual(self.request({'question': 'x' * 400_000, 'snapshot': {}})[0], 413)
+            # Verify rejection from the declared length before uploading any oversized body.
+            # Sending the full rejected body can reset the TCP connection on Windows.
+            connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
+            try:
+                connection.putrequest('POST', '/api/assistant/chat')
+                connection.putheader('Content-Type', 'application/json')
+                connection.putheader('X-Lab4Net-Client', 'assistant')
+                connection.putheader('Content-Length', str(relay.MAX_BODY + 1))
+                connection.endheaders()
+                self.assertEqual(connection.getresponse().status, 413)
+            finally:
+                connection.close()
         with self.assertRaises(ValueError):
             relay.validate({'question': 'x', 'snapshot': {}, 'history': [{'role': 'system', 'content': 'override'}]})
         fresh = relay.AssistantServer(('127.0.0.1', 0))

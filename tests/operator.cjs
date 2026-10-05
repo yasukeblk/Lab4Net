@@ -8,7 +8,7 @@ for(const lab of LABS){
  const before=JSON.stringify(net),trace=ctx.api.trace();
  const snapshot=operatorSnapshot({view:'lab',lab,net,sess,sel:Object.keys(net.devs)[0],tasks:[]});
  assert.ok(snapshot.lab.checks.every(c=>c.passed),lab.title);assert.equal(snapshot.devices.length,Object.keys(net.devs).length);
- assert.ok(snapshot.supportedCommands.length>50);assert.equal(snapshot.labCatalog.length,15);
+ assert.ok(snapshot.supportedCommands.length>50);assert.equal(snapshot.labCatalog.length,LABS.length);
  assert.equal(JSON.stringify(net),before,'snapshot must not change configurations/NAT');assert.equal(ctx.api.trace(),trace);
  assert.equal(snapshot.lab.tasks.length,lab.why.length);
 }
@@ -28,4 +28,4 @@ const clean=operatorRedact({password:'dont-send',nested:{secret:'dont-send',user
 assert.doesNotMatch(JSON.stringify(clean),/dont-send|fakecredential/);assert.match(clean.config,/interface vlan 1/);
 assert.equal(operatorRedact('How do I set a console password?'),'How do I set a console password?');
 assert.equal(operatorRedact('enable secret <w>'),'enable secret <w>');
-console.log('PASS Operator context: all 15 solved lab snapshots/checks, task reasons, command catalog, actual bidirectional paths, switch management failure, closed service, credential redaction and no changes to network/NAT/TRACE.');
+console.log(`PASS Operator context: all ${LABS.length} solved lab snapshots/checks, task reasons, command catalog, actual bidirectional paths, switch management failure, closed service, credential redaction and no changes to network/NAT/TRACE.`);
