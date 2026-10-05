@@ -2310,7 +2310,7 @@ Object.assign(WHYC,{
 'ipconfig /all':'Shows everything about the host\'s network adapter, including its physical (MAC) address and whether it uses DHCP.'});
 addLab({title:'Dynamic ARP Inspection',group:'Security',
  brief:'DHCP snooping is already protecting VLAN 10. Next, stop hosts lying in ARP: a laptop has been given a static address outside DHCP, which is how ARP spoofing attacks start. Turn on Dynamic ARP Inspection without breaking the gateway, and keep the printer, which has a fixed address, working.',
- pos:{PC1:[60,50],PC2:[60,125],PRINTER:[60,195],ATTACKER:[330,195],SW1:[200,110],R1:[420,110]},start:'SW1',
+ pos:{PC1:[80,45],PC2:[80,120],PRINTER:[80,195],ATTACKER:[430,195],SW1:[260,120],R1:[480,60]},start:'SW1',
  build(){const n=mkNet([mkRouter('R1'),mkSwitch('SW1'),mkPC('PC1',null,24),mkPC('PC2',null,24),mkPC('PRINTER','192.168.10.5',24,'192.168.10.1'),mkPC('ATTACKER','192.168.10.99',24,'192.168.10.1')]);
   link(n,'PC1','f0','SW1','f0/1');link(n,'PC2','f0','SW1','f0/2');link(n,'PRINTER','f0','SW1','f0/3');link(n,'ATTACKER','f0','SW1','f0/6');link(n,'SW1','g0/1','R1','g0/0');
   cfg(n,{SW1:['enable','configure terminal','vlan 10','name STAFF','interface range f0/1 - 8','switchport mode access','switchport access vlan 10','interface g0/1','switchport mode access','switchport access vlan 10','ip dhcp snooping trust','exit','ip dhcp snooping','ip dhcp snooping vlan 10','no ip dhcp snooping information option','end'],
@@ -2985,7 +2985,7 @@ function studyMap(){
     ${rec?`<div class="study-next"><span class="eyebrow">Next up</span><button class="btn primary" data-study-lab="${LABS.indexOf(rec)}">${esc(rec.title)} →</button><p>${rec.kind==='incident'?'You have passed the lab it is based on. Now find and fix a fault in that same network.':'Build the skill first, then try the incident that breaks it.'}</p></div>`:'<p>Every mission passed. Replay the incidents with the guide off and no clues for a Detective run.</p>'}
     <div class="study-domains">${CCNA_DOMAINS.map(([id,name,weight])=>{const m=LABS.filter(l=>l.ccna.some(c=>c.startsWith(id+'.'))),done=m.filter(l=>progress[l.title]).length;
       return `<section class="study-domain"><div class="sd-head"><b>${id}. ${esc(name)}</b><span>${weight}% of the exam</span></div>${m.length?`<div class="study-meter" aria-label="${done} of ${m.length} passed"><span style="width:${done/m.length*100}%"></span></div><p>${done}/${m.length} missions passed</p><div class="study-links">${m.map(btn).join('')}</div>`:`<p>No hands-on lab yet. The theory check has questions on this domain.</p><button class="small-btn" id="studyTheory">Theory check →</button>`}</section>`;}).join('')}</div>
-    <p class="study-note">A mission covers part of an objective, not all of it, so this is a practice map rather than an exam-readiness score. Not simulated yet: IPv6, wireless, HSRP and automation. Domain weights are from Cisco's 200-301 v1.1 exam topics.</p>`);
+    <p class="study-note">A mission covers part of an objective, not all of it, so this is a practice map rather than an exam-readiness score. Not simulated: wireless and automation (the theory check covers both), and IPv6 routing protocols. Domain weights are from Cisco's 200-301 v1.1 exam topics.</p>`);
   $('dialogBody').querySelectorAll('[data-study-lab]').forEach(b=>b.onclick=()=>{$('dialog').close();openLab(+b.dataset.studyLab);});
   if($('studyTheory'))$('studyTheory').onclick=()=>{$('dialog').close();openPractice('quiz');};}
 $('studyMap').onclick=studyMap;

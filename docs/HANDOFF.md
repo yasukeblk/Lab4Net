@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of lab library phase 2 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+State as of lab library phase 3 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -8,7 +8,7 @@ Lab4Net is a browser-based lab simulator for the Cisco CCNA exam, modeled on Bos
 
 It currently has:
 
-- 30 graded build labs: the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phases 1 and 2 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build, floating static routes, how a router chooses a route, OSPF on a shared segment, LLDP, voice VLAN with an IP phone, dynamic NAT with a pool, named ACLs edited by sequence number, NTP and syslog)
+- 36 graded build labs: the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phases 1 and 2 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build, floating static routes, how a router chooses a route, OSPF on a shared segment, LLDP, voice VLAN with an IP phone, dynamic NAT with a pool, named ACLs edited by sequence number, NTP and syslog, inter-VLAN routing on a Layer 3 switch, DHCP snooping, Dynamic ARP Inspection, IPv6 addressing, IPv6 static and default routes, HSRP)
 - 6 troubleshooting incidents built from those labs, each with three clues that cost rank points
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
@@ -17,7 +17,7 @@ It currently has:
 - A subnetting drill and a 16-question theory check
 - Stage ranks (S to D), XP and levels, combos, trophies, generated sound effects
 - Movable, resizable, snapping windows with a saved layout
-- A sandbox: place devices, choose ports when cabling, zoom and pan, notes, starter kits, save and load files, undo, and four goal-checked challenges
+- A sandbox: place devices (including a Layer 3 switch), choose ports when cabling, zoom and pan, notes, starter kits, save and load files, undo, and four goal-checked challenges
 
 ## Where everything is
 
@@ -104,6 +104,7 @@ Phase 2 changed the core in place too:
 - Layer 2: access ports may have `voiceVlan`. Phones are `pc` devices with `phone:true`, a PC port `FastEthernet1` and a CDP name `cdpId`; `phoneVlan()` gives the VLAN a phone tags with, and `l2peers()` bridges through the phone.
 - NAT: `nat.pools`, pool rules `{acl, pool, overload}`, one-to-one bindings in `nat.dyn`, `nat.hits`/`misses`. `natOut()` returns a reason string when it has to drop a packet. Echo requests use query ID 1 as their "port".
 - ACL entries have `seq` and are kept sorted; `aclLine()` formats standard entries for show access-lists.
+- Phase 3: `isL3(d)` (a router, or a switch with `ipRouting`) replaced `type==='router'` wherever routing happens; switch ports may be `routed`; Layer 3 switches have `l3:true` and come from `mkL3Switch()`. DHCP: `dhcpCandidates()` gathers every server that can answer and `snoopPath()` applies snooping and option 82; bindings live in `switch.snoop.bind`. `daiBlock()` is called from `fwd()` for both ends of each hop. HSRP: `hsrpElect(net)` keeps `net.hsrp`, `hsrpVip()` lets the active router own the virtual IP (used by `ownsIp()` and `fwd()`). IPv6 lives in its own section of the library block: `parse6`/`fmt6`, `eui64`, `macIf` (a MAC per router port), `linkLocal`, `routes6`/`nextHop6`/`fwd6`/`reach6`, interface fields `v6`, `ll`, `v6on`, device fields `v6routing`, `statics6`, `gw6`. The `<ip6>` argument token is handled in `matchPat()`.
 - In the library block: `lldpPeers()`, `mkPhone()`, `together(net, fn)` (run checks as if the traffic were simultaneous, then restore NAT and ACL counters), `whileDown(net, dev, ifn, fn)` (run a check with a link shut, then restore it), `udpOk()`, `ntpState()`, `logEvent()` and the outermost `execLine` wrapper, which logs link changes on the far-end device, adds %SYS-5-CONFIG_I, applies timestamps and sends syslog.
 
 Key facts:
@@ -153,7 +154,7 @@ node tests/curriculum.cjs
 node tests/ui.cjs
 ```
 
-Current result: 36 labs, 203 checks, 749 guide commands.
+Current result: 42 labs, 239 checks, 881 guide commands.
 
 On Yasuke's desktop there is no Node install. Claude Code runs the tests with Deno's Node-compatible binary (`%LOCALAPPDATA%\deno\node_compat_bin\node.exe`) and runs `ui.cjs` with Playwright installed by Deno into a folder outside the repo, linked in as `node_modules` (git-ignored), with `LAB4NET_BROWSER_CHANNEL=msedge`.
 
@@ -187,7 +188,8 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
 - show access-lists lists standard entries in sequence order; real IOS may list host entries first.
 - `enable` and line passwords are stored and graded but never prompted for.
-- No IPv6, HSRP or wireless. Switches do not route.
+- No wireless. IPv6 has static routing only: no OSPFv3, no DHCPv6, no IPv6 ACLs. Only the Layer 3 switch model (a 3560) routes; 2960s reject ip routing and static routes.
+- HSRP has no object tracking and fails over at once rather than after the 10-second hold time. The DHCP snooping rate limit is stored and shown but not enforced. DAI has no ARP ACLs or extra validation options.
 - Sandbox challenges do not award XP or trophies. Incidents are fixed scenarios, not randomised faults. Sandbox device models are fixed (3 or 5 port routers, 10 or 26 port switches).
 - Ranks, XP and trophies live in the browser. Transfer progress carries them, but a different browser starts fresh until an import.
 
@@ -199,16 +201,13 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 
 Carry this list forward and keep it in every summary.
 
-- IPv6 addressing and routing
-- HSRP lab
 - `enable` and console password prompts
 - A fuller theory question bank (16 questions so far)
-- Layer 3 switch for the sandbox
 - XP and trophies for sandbox challenges
 - Closer-to-real `?` help: descriptions, the `^` marker, "% Ambiguous command", `| include` and `| begin` (offered, not yet confirmed)
 - Whether the pop-out guide should also open in a separate browser window for a second monitor (waiting on his decision)
 - More incidents (OSPF, ACL, NAT, EtherChannel, port security and spanning tree have none yet), and possibly randomised faults (phase 4 of the lab library spec)
-- Lab library phases 3 to 5 from `docs/LESSONS-SPEC.md` (phases 1 and 2 are done)
+- Lab library phases 4 and 5 from `docs/LESSONS-SPEC.md` (phases 1 to 3 are done)
 - Make the data path follow spanning-tree blocking, so a ping's animated path matches `show spanning-tree`
 
 His most recent direction was to fold the best of ChatGPT's branch into `main` (done in the "Troubleshooting incidents" build), "continue to build" on the sandbox, and make the app "more rewarding and fun".

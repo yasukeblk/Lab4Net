@@ -148,5 +148,46 @@ ios(net,'R1',['configure terminal','ipv6 route ::/0 2001:db8:12::2 50','end']);
 assert.equal(nextHop6(net,net.devs.R1,parse6('2001:db8:2::10')).route.len,64);
 assert.equal(nextHop6(net,net.devs.R1,parse6('2001:db8:99::1')).route.len,0);
 assert.equal(nextHop6(net,net.devs.R1,parse6('2001:db8:99::1')).route.ad,50);
-console.log('PASS forwarding: outbound route, return route, inbound/outbound ACL, static NAT, closed port, actual VLAN path, link failure, floating static, administrative distance, longest match, proxy ARP, NAT pool exhaustion and overload, voice VLAN tagging, the OSPF DR election, and IPv6 addressing, SLAAC and forwarding.');
+// Layer 3 switch: routes between its VLAN interfaces once ip routing is on, and only then.
+net=LABS.find(l=>l.title==='Inter-VLAN routing on a Layer 3 switch').build();
+ios(net,'DSW1',['configure terminal','interface vlan 10','ip address 192.168.10.1 255.255.255.0','interface vlan 20','ip address 192.168.20.1 255.255.255.0','end']);
+result=reach(net,net.devs.PC1,ip2n('192.168.20.12'));
+assert.equal(result.ok,false);assert.match(result.f.reason,/not a router/);
+ios(net,'DSW1',['configure terminal','ip routing','interface g0/2','no switchport','ip address 10.0.0.1 255.255.255.252','exit','ip route 0.0.0.0 0.0.0.0 10.0.0.2','end']);
+assert.deepEqual(Array.from(reach(net,net.devs.PC1,ip2n('192.168.20.12')).f.hops.path),['PC1','DSW1','PC2']);
+assert.deepEqual(Array.from(reach(net,net.devs.PC3,ip2n('203.0.113.1')).f.hops.path),['PC3','ASW1','DSW1','R1']);
+// A routed port is not in any VLAN: the access switch cannot reach it through VLAN 1.
+assert.equal(IF(net,'DSW1','g0/2').routed,true);
+// DHCP snooping: the nearer rogue wins until snooping drops its offers; option 82 then silences the IOS server until trusted.
+net=LABS.find(l=>l.title==='DHCP snooping').build();
+assert.equal(dhcpCandidates(net,net.devs.PC1)[0].S.name,'ROGUE');
+ios(net,'SW1',['configure terminal','ip dhcp snooping','ip dhcp snooping vlan 10','interface g0/1','ip dhcp snooping trust','end']);
+assert.equal(dhcpCandidates(net,net.devs.PC1).length,0);
+ios(net,'R1',['configure terminal','ip dhcp relay information trust-all','end']);
+assert.deepEqual(dhcpCandidates(net,net.devs.PC1).map(c=>c.S.name),['R1']);
+// Dynamic ARP Inspection: untrusted senders need a binding; trusted ports are not checked.
+net=LABS.find(l=>l.title==='Dynamic ARP Inspection').build();
+ios(net,'SW1',['configure terminal','ip arp inspection vlan 10','end']);
+result=reach(net,net.devs.PC1,ip2n('192.168.10.1'));
+// PC1's own ARP passes (it has a binding), but R1's answer arrives on the untrusted uplink, so the first hop fails.
+assert.equal(result.ok,false);assert.match(result.f.reason,/Dynamic ARP Inspection on SW1 Gi0\\/1/);
+ios(net,'SW1',['configure terminal','interface g0/1','ip arp inspection trust','end']);
+assert.equal(reach(net,net.devs.PC1,ip2n('192.168.10.1')).ok,true);
+assert.equal(reach(net,net.devs.PRINTER,ip2n('192.168.10.1')).ok,false);
+ios(net,'SW1',['configure terminal','ip source binding '+macOf(net.devs.PRINTER)+' vlan 10 192.168.10.5 interface f0/3','end']);
+assert.equal(reach(net,net.devs.PRINTER,ip2n('192.168.10.1')).ok,true);
+assert.match(reach(net,net.devs.ATTACKER,ip2n('192.168.10.1')).f.reason,/Dynamic ARP Inspection on SW1 Fa0\\/6/);
+// HSRP: the active router owns the virtual IP; when its LAN link fails the standby router takes it over.
+net=LABS.find(l=>l.title==='First-hop redundancy with HSRP').build();
+ios(net,'R1',['configure terminal','interface g0/0','standby 1 ip 192.168.1.1','standby 1 priority 110','end']);
+ios(net,'R2',['configure terminal','interface g0/0','standby 1 ip 192.168.1.1','end']);
+assert.deepEqual(Array.from(reach(net,net.devs.PC1,ip2n('203.0.113.10')).f.hops.path).slice(0,3),['PC1','SW1','R1']);
+ios(net,'R1',['configure terminal','interface g0/0','shutdown','end']);
+assert.deepEqual(Array.from(reach(net,net.devs.PC1,ip2n('203.0.113.10')).f.hops.path).slice(0,3),['PC1','SW1','R2']);
+// Without preempt on R1, R2 keeps the active role when R1 returns.
+ios(net,'R1',['configure terminal','interface g0/0','no shutdown','end']);
+assert.equal(ownsIp(net,net.devs.R2,ip2n('192.168.1.1')),true);assert.equal(ownsIp(net,net.devs.R1,ip2n('192.168.1.1')),false);
+ios(net,'R1',['configure terminal','interface g0/0','standby 1 preempt','end']);
+assert.equal(ownsIp(net,net.devs.R1,ip2n('192.168.1.1')),true);
+console.log('PASS forwarding: outbound route, return route, inbound/outbound ACL, static NAT, closed port, actual VLAN path, link failure, floating static, administrative distance, longest match, proxy ARP, NAT pool exhaustion and overload, voice VLAN tagging, the OSPF DR election, IPv6 addressing, SLAAC and forwarding, Layer 3 switching, DHCP snooping, Dynamic ARP Inspection and HSRP failover.');
 `,context);

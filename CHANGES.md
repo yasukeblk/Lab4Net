@@ -1,5 +1,31 @@
 # Lab4Net changes
 
+## Lab library, phase 3: Layer 3 switching, Layer 2 security, IPv6 and HSRP
+
+New labs, appended after phase 2, plus a new IPv6 group in the lab library:
+
+- **Inter-VLAN routing on a Layer 3 switch** (Switching): a Catalyst 3560 becomes the gateway for both VLANs with ip routing and SVIs, and gets a routed uplink with no switchport. The trace shows one hop between VLANs instead of a trip through the router.
+- **DHCP snooping** (Security): a rogue DHCP server on the access switch answers first and hands out itself as the gateway. Snooping with a trusted uplink silences it; then the real server goes quiet too, because of option 82, which the learner has to diagnose and fix.
+- **Dynamic ARP Inspection** (Security): DAI against the snooping binding table. Turning it on first cuts off the gateway until the uplink is trusted; the printer with a fixed address needs a static source binding; the host with a hand-set address is dropped.
+- **IPv6 addressing** (IPv6): global, link-local and EUI-64 addresses on R1, multicast groups in show ipv6 interface, SLAAC on two hosts and a static host.
+- **IPv6 static and default routes** (IPv6): a network route, a default route, a /128 host route, and floating routes over a backup link that only has link-local addresses, which forces the exit-interface rule.
+- **First-hop redundancy with HSRP** (Routing): R1 and R2 share a virtual gateway; R2 takes over when R1's LAN link fails and R1 pre-empts back when it returns.
+
+Engine changes behind them:
+
+- Layer 3 switch: a Catalyst 3560-24PS model with ip routing off by default. When routing is on it routes between SVIs and routed ports and runs static routes, OSPF, ACLs and DHCP relay. It refuses switchport mode trunk until the trunk encapsulation is set to dot1q, as the real switch does. show ip route on a switch without routing shows its default gateway. **The sandbox has a Layer 3 switch** (this clears that owed item).
+- DHCP: a client takes the nearest answer from every server that can reply, including a host running a DHCP service. DHCP snooping (per VLAN, trusted ports, option 82, binding table, rate limit), and the IOS server and relay rule that drops option 82 without a relay address unless trusted.
+- Dynamic ARP Inspection in the forwarding path: on each Layer 2 hop, both ends' ARP is checked on untrusted ports against the binding table; drops show in the trace panel and the counters. ip source binding for fixed-address hosts. ipconfig /all shows the MAC address.
+- IPv6: 128-bit addresses printed the IOS and Windows way, global/link-local/EUI-64 addresses with a separate MAC per router port, ipv6 unicast-routing, IPv6 static routes with distance and the link-local next-hop rule, a separate IPv6 routing table and forwarding path, SLAAC and static addressing on hosts (ipv6config, as in Packet Tracer), ping and traceroute, show ipv6 interface (with joined multicast groups) and show ipv6 route.
+- HSRP: groups with virtual IP, priority, preempt and version 2; election state kept between commands; the active router answers for the virtual IP; state changes logged; show standby and show standby brief.
+- The Study map note now says what is not simulated: wireless, automation and IPv6 routing protocols.
+
+Tests: tests/forwarding.cjs was extended first for IPv6 (address text forms, EUI-64, SLAAC, the unicast-routing switch, the link-local next-hop rule, longest match and a floating default), then for Layer 3 switching, DHCP snooping against a rogue server, DAI drops and static bindings, and HSRP failover with and without pre-emption.
+
+Verification: labs.cjs passes 42 labs, 239 checks and 881 guide commands. forwarding.cjs, curriculum.cjs and ui.cjs pass (ui.cjs in Edge). Each new lab's guide was run through the real console in Edge and graded, with no rejected commands and no page errors; the maps were checked at 1440x1000 and the Mission window at 390x844. The DAI map's port labels crowded around the switch and the devices were spread out. Not checked: the container, Firefox, Safari.
+
+Simplified, and recorded in the handoff: IPv6 has static routing only (no OSPFv3, no DHCPv6, no IPv6 ACLs); HSRP has no object tracking and fails over instantly instead of after the hold time; the DHCP snooping rate limit is configured and shown but not enforced; DAI has no ARP ACLs or extra validation options.
+
 ## Lab library, phase 2: eight labs with engine extensions
 
 New labs, appended after phase 1:
