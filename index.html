@@ -1566,6 +1566,42 @@ addLab({title:'Per-VLAN root bridges',group:'Switching',
   'DSW2: spanning-tree vlan 20 root primary | spanning-tree vlan 10 root secondary | end',
   'ASW1: # root port Gi0/1, and Gi0/2 Altn BLK | show spanning-tree vlan 10 | # now the other way round | show spanning-tree vlan 20',
   'PC1: ping 192.168.10.13 ; PC2: ping 192.168.20.14']);
+
+// ----- phase 1, lab 6
+CCNA_LAB_MAP['Map an unknown network with CDP']=['2.3'];
+// Every cabled interface to another router or switch must read TO-<neighbor hostname>-<neighbor port>, judged against the real cabling.
+const linksDescribed=(n,dev)=>Object.values(n.devs[dev].ifs).filter(i=>i.link&&n.devs[i.link.dev].type!=='pc').every(i=>{const p=n.devs[i.link.dev];return (i.desc||'').trim().toUpperCase()===('TO-'+p.hostname+'-'+shortIf(i.link.ifn)).toUpperCase();});
+Object.assign(WHYC,{
+'show cdp neighbors':'Lists the Cisco devices directly connected to this one: their hostname, which of your ports they are on (Local Intrfce) and which of their ports you are on (Port ID). It sees only one hop.',
+'show cdp neighbors detail':'Adds each neighbor\'s IP address, platform and software version. Useful for documentation, and exactly what an attacker would like to read.',
+'show cdp':'Shows whether CDP is running globally and its timers: an advertisement every 60 seconds, forgotten after 180.',
+'cdp run':'Turns CDP on for the whole device. It is on by default on Cisco gear.',
+'no cdp run':'Turns CDP off on every interface. That also blinds you to your own neighbors, so prefer disabling it per interface where it faces outsiders.',
+'cdp enable':'Turns CDP back on for one interface.',
+'no cdp enable':'Stops CDP on this interface only. Use it on ports facing the internet, a provider or untrusted users, so they cannot learn your device names, models and addresses.'});
+addLab({title:'Map an unknown network with CDP',group:'Switching',hidePorts:true,
+ brief:'You have inherited a network with no documentation: nobody knows which port connects to what, and the map shows devices but not ports. Use CDP to discover the cabling, label every link, and stop the internet edge advertising your devices to the provider.',
+ pos:{SW2:[110,200],SW1:[250,110],R1:[400,60],ISP:[545,60],SW3:[400,200]},start:'R1',
+ build(){const n=mkNet([mkRouter('R1'),mkRouter('ISP'),mkSwitch('SW1'),mkSwitch('SW2'),mkSwitch('SW3')]);
+  link(n,'R1','g0/1','ISP','g0/0');link(n,'R1','g0/0','SW1','g0/2');link(n,'SW1','g0/1','SW2','g0/2');link(n,'SW1','f0/8','SW3','g0/1');link(n,'SW2','g0/1','SW3','g0/2');
+  const sw=(h,ip)=>['enable','configure terminal','hostname '+h,'interface vlan 1','ip address '+ip+' 255.255.255.0','no shutdown','exit','ip default-gateway 192.168.1.1','end'];
+  cfg(n,{R1:['enable','configure terminal','hostname EDGE','interface g0/0','ip address 192.168.1.1 255.255.255.0','no shutdown','interface g0/1','ip address 203.0.113.2 255.255.255.252','no shutdown','end'],
+   ISP:['enable','configure terminal','hostname ISP-PE','interface g0/0','ip address 203.0.113.1 255.255.255.252','no shutdown','end'],SW1:sw('CORE','192.168.1.2'),SW2:sw('ACC-A','192.168.1.3'),SW3:sw('ACC-B','192.168.1.4')});return n;},
+ addr:[['EDGE','LAN / internet','192.168.1.1/24, 203.0.113.2/30'],['ISP-PE','Provider router (not yours)','203.0.113.1/30'],['Switches','Management, VLAN 1','192.168.1.2 to .4'],['Description format','TO-&lt;neighbor&gt;-&lt;neighbor port&gt;','e.g. TO-SW9-Fa0/3']],
+ tasks:['On EDGE, run <code>show cdp neighbors</code>. Work out which of EDGE\'s ports leads where, and the neighbor\'s port at the far end.','On EDGE, describe both cabled interfaces as <code>TO-&lt;neighbor hostname&gt;-&lt;neighbor port&gt;</code>, using the short port name CDP shows, for example <code>TO-SW9-Fa0/3</code>.','Do the same for the three cabled interfaces on CORE.','Do the same for the two cabled interfaces on ACC-A.','Do the same for the two cabled interfaces on ACC-B.','Stop CDP on EDGE\'s internet-facing interface only, then confirm on ISP-PE that EDGE has disappeared from <code>show cdp neighbors</code>.','On CORE, use <code>show cdp neighbors detail</code> to find ACC-B\'s management address, and ping it from EDGE.'],
+ why:['CDP is a Layer 2 protocol, so it works before any IP is configured and between devices in different subnets. Device ID is the neighbor\'s hostname; Local Intrfce is your port; Port ID is theirs.','A description costs nothing and saves the next engineer from tracing cables. Naming both the device and its port means you can follow the cable from either end.','A core switch has the most links, so it is where a wrong label would mislead the most people. CDP runs per port, so every port gives its own answer.','Access switches often connect to each other as well as to the core. Those cross-links are easy to miss without discovery.','Fa0/8 on CORE is not where you would expect an uplink. CDP does not care about expectations; it reports what is really plugged in.','CDP advertises your hostname, model, software version and addresses to whoever is on the other end, including your provider or an attacker. Turn it off per interface where you do not trust the neighbor, and keep it inside, where it helps you.','The detail view gives each neighbor\'s management address, which turns discovery into something you can reach and log in to.'],
+ checks:[['EDGE\'s links are labelled to match the cabling',n=>linksDescribed(n,'R1')],['CORE\'s links are labelled to match the cabling',n=>linksDescribed(n,'SW1')],['ACC-A\'s links are labelled to match the cabling',n=>linksDescribed(n,'SW2')],['ACC-B\'s links are labelled to match the cabling',n=>linksDescribed(n,'SW3')],['ISP-PE can no longer see EDGE through CDP',n=>!cdpPeers(n,n.devs.ISP).some(x=>x.p===n.devs.R1)],['CDP still runs inside: EDGE still sees CORE',n=>cdpPeers(n,n.devs.R1).some(x=>x.p===n.devs.SW1)],['EDGE can ping ACC-B\'s management address',n=>P(n,'R1','192.168.1.4')]],
+ solution:{R1:['enable','configure terminal','interface g0/0','description TO-CORE-Gi0/2','interface g0/1','description TO-ISP-PE-Gi0/0','no cdp enable','end'],
+  SW1:['enable','configure terminal','interface g0/2','description TO-EDGE-Gi0/0','interface g0/1','description TO-ACC-A-Gi0/2','interface f0/8','description TO-ACC-B-Gi0/1','end'],
+  SW2:['enable','configure terminal','interface g0/2','description TO-CORE-Gi0/1','interface g0/1','description TO-ACC-B-Gi0/2','end'],
+  SW3:['enable','configure terminal','interface g0/1','description TO-CORE-Fa0/8','interface g0/2','description TO-ACC-A-Gi0/1','end']}},
+ ['R1: enable | show cdp neighbors',
+  'R1: configure terminal | interface g0/0 | description TO-CORE-Gi0/2 | interface g0/1 | description TO-ISP-PE-Gi0/0 | end',
+  'SW1: enable | show cdp neighbors | configure terminal | interface g0/2 | description TO-EDGE-Gi0/0 | interface g0/1 | description TO-ACC-A-Gi0/2 | interface f0/8 | description TO-ACC-B-Gi0/1 | end',
+  'SW2: enable | show cdp neighbors | configure terminal | interface g0/2 | description TO-CORE-Gi0/1 | interface g0/1 | description TO-ACC-B-Gi0/2 | end',
+  'SW3: enable | show cdp neighbors | configure terminal | interface g0/1 | description TO-CORE-Fa0/8 | interface g0/2 | description TO-ACC-A-Gi0/1 | end',
+  'R1: configure terminal | interface g0/1 | no cdp enable | end ; ISP: enable | # EDGE is no longer listed | show cdp neighbors',
+  'SW1: show cdp neighbors detail ; R1: ping 192.168.1.4']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
