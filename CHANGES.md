@@ -1,5 +1,18 @@
 # Lab4Net changes
 
+## Lessons: learn the concept before the commands (pilot: DHCP)
+
+The labs taught which commands to type but not the networking behind them. A lab can now have a lesson that teaches the concept first. This is a pilot with one lesson, for DHCP server and relay, so the format can be reviewed before the other labs get theirs.
+
+- The first time you open the lab, the mission window shows the lesson instead of the mission. "Start the lab" marks it read and goes to the mission. After that, a card at the top of the mission offers the lesson again, with whether you have read it and your quick-check score.
+- The lesson covers what DHCP solves, pools (one per subnet, and how the server picks one), leases and exclusions, the four DORA messages, why remote subnets need a relay and where the helper address goes, and how to check it worked.
+- See it happen: seven steps, each animated on the lab's own network map with an explanation (Discover, Offer, Request, Acknowledge, a broadcast stopping at R2, the relayed Discover, the reply coming back). You step through at your own pace.
+- Key terms, what the CCNA exam expects (objectives 4.3 and 4.6), common mistakes, and a four-question quick check with an explanation for each answer.
+- The DHCP incident links to the same lesson ("Lesson for this topic").
+- Lesson progress is saved in the browser (lab4net-lessons-v1) and included in Transfer progress.
+
+Tests: ui.cjs checks the lesson opens on first visit, steps the story, records an answer, closes with Start the lab, does not reopen, and is linked from the incident. All four tests pass, and the lesson was checked in Edge at 1440x1000 and 390x844 with no page errors.
+
 ## Windows fit where you drop them
 
 Dragging a window by its title bar now places it in the layout instead of leaving it floating over the others. A dashed preview shows where it will land, cyan outlines show what else will move, and a label says what will happen.

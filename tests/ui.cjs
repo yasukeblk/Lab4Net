@@ -131,6 +131,25 @@ const fs = require('node:fs');
     assert.equal(await page.locator('#guideToggle').isChecked(), true);
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('lab4net-capstone-guide'))['Capstone: branch office from scratch']), true);
     await page.locator('#guideToggle').uncheck({ force: true });
+    // A lab with a lesson opens on it until it is read; the story steps on the map; answers are kept;
+    // afterwards a card offers the lesson again, and the incident built on the lab links to it.
+    await page.evaluate(() => localStorage.removeItem('lab4net-lessons-v1'));
+    await page.evaluate(() => openLab(LABS.findIndex(l => l.title === 'DHCP server and relay'), true));
+    assert.match(await page.locator('#brief h2').textContent(), /How devices get their addresses/i);
+    await page.locator('#storyNext').click();
+    assert.match(await page.locator('.story').textContent(), /1 \/ 7/);
+    const right = await page.evaluate(() => lessonFor(cur.lab).quiz[0][2]);
+    await page.locator(`[data-lq="0"][data-a="${right}"]`).click();
+    assert.match(await page.locator('.lq').first().textContent(), /Correct\./);
+    await page.locator('#closeLesson').click();
+    assert.equal(await page.locator('#closeLesson').count(), 0);
+    assert.match(await page.locator('.lesson-card').textContent(), /read.*1\/4 correct/);
+    await page.evaluate(() => openLab(LABS.findIndex(l => l.title === 'DHCP server and relay')));
+    assert.equal(await page.locator('#closeLesson').count(), 0);
+    await page.evaluate(() => openLab(LABS.findIndex(l => l.baseTitle === 'DHCP server and relay'), true));
+    await page.locator('#openLesson').click();
+    assert.match(await page.locator('#closeLesson').textContent(), /Back to the incident/);
+    await page.locator('#closeLesson').click();
     // Practice views hide the network and remain interactive.
     await page.selectOption('#labs', 'drill');
     assert.equal(await page.locator('#bench').isVisible(), false);
@@ -173,6 +192,6 @@ const fs = require('node:fs');
       await page.screenshot({path:path.join(process.env.LAB4NET_SCREENSHOTS,'desktop.png'),fullPage:true});
     }
     assert.deepEqual(errors, []);
-    console.log(`PASS browser: ${count} lab grades, console restore, task restore, backup round-trip, invalid import, window fitting, library, guide, capstone guide default, drill, quiz, phone, reduced motion; no page errors.`);
+    console.log(`PASS browser: ${count} lab grades, console restore, task restore, backup round-trip, invalid import, window fitting, library, guide, capstone guide default, lessons, drill, quiz, phone, reduced motion; no page errors.`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode=1; });

@@ -150,6 +150,25 @@ td:last-child{font:400 18px/1.15 var(--mono);color:var(--ph)}
 .drill input:focus,.search:focus{outline:0;box-shadow:0 0 0 2px var(--cy),0 0 16px rgba(46,230,255,.45)}
 .drill .ok{color:var(--go);font:800 20px var(--px)} .drill .no{color:var(--bad);font:800 20px var(--px)}
 .drill p{margin:-3px 0 10px 180px!important;font-size:14px}
+.lesson-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:12px 0;padding:12px 14px;border:2px solid var(--yel);border-radius:10px;background:linear-gradient(90deg,rgba(255,210,63,.14),rgba(255,210,63,.03));box-shadow:0 0 18px rgba(255,210,63,.18)}
+.lesson-card .eyebrow{margin:0}
+.lesson-card b{display:block;font:italic 800 21px/1.1 var(--px);text-transform:uppercase;color:#fff}
+.lesson-card small{color:var(--muted);font-size:13px}
+.lesson-card.read{border-color:var(--line);background:rgba(255,255,255,.03);box-shadow:none}
+.lesson-nav{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:10px 0 4px}
+.lesson-nav small{color:var(--go)}
+#brief ol,#brief .lesson-list{margin:0 0 12px;padding-left:22px;color:#d9d3f5}
+#brief ol li,#brief .lesson-list li{margin:0 0 8px}
+.terms{display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:8px 14px;margin:0 0 12px}
+.terms dt{font:italic 800 16px var(--px);letter-spacing:.03em;text-transform:uppercase;color:var(--yel)}
+.terms dd{margin:0;color:#d9d3f5;font-size:14px}
+.story{border:2px solid var(--cy);border-radius:10px;padding:12px 14px;background:rgba(46,230,255,.06)}
+.story-head b{font:italic 800 18px var(--px);letter-spacing:.04em;text-transform:uppercase;color:var(--cy)}
+.story p{margin:6px 0 10px}
+.story .actions{display:flex;gap:10px;flex-wrap:wrap}
+.lq{margin:0 0 16px}
+.lq .quiz-options{margin:8px 0}
+@media (max-width:560px){.terms{grid-template-columns:1fr}.terms dd{margin-bottom:6px}.lesson-card{flex-direction:column;align-items:flex-start}}
 .quiz-options{display:grid;gap:12px;margin:16px 0;max-width:720px}
 .quiz-option{display:flex;gap:12px;align-items:center;text-align:left;font:400 15px var(--ui);color:var(--ink);background:linear-gradient(var(--panel3),#261f55);border:2px solid var(--line);border-radius:10px;box-shadow:0 1px 0 rgba(255,255,255,.18) inset,0 4px 0 #120e2b;padding:10px 12px;transition:transform .12s cubic-bezier(.2,1.6,.4,1),box-shadow .12s}
 .quiz-option span{flex:none;display:grid;place-items:center;width:30px;height:28px;font:italic 800 17px var(--px);background:var(--yel);color:#221400;border-radius:6px;transform:skewX(-8deg)}
@@ -3741,7 +3760,7 @@ $('studyMap').onclick=studyMap;
 
 // ---------- backup: include ranks, trophies, layout and the sandbox in Transfer progress ----------
 (function(){
-  const EXTRA=['lab4net-fun-v1','lab4net-sandbox-v1','lab4net-layout-v3','lab4net-guide','lab4net-guide-pop','lab4net-last','lab4net-incident-hints','lab4net-capstone-guide'];
+  const EXTRA=['lab4net-fun-v1','lab4net-sandbox-v1','lab4net-layout-v3','lab4net-guide','lab4net-guide-pop','lab4net-last','lab4net-incident-hints','lab4net-capstone-guide','lab4net-lessons-v1'];
   const tr0=transfer;transfer=function(){tr0();
     $('export').onclick=()=>{saveWork();const extras={};for(const k of EXTRA){try{const v=localStorage.getItem(k);if(v!=null)extras[k]=v;}catch(e){}}
       const sj=drafts.Sandbox&&Array.isArray(drafts.Sandbox.journal)?drafts.Sandbox.journal:[];
@@ -3770,6 +3789,76 @@ $('studyMap').onclick=studyMap;
   if(cur&&cur.view==='lab'&&cur.lab&&cur.lab.capstone){set(cur.lab);renderBrief();}
 })();
 
+
+// ---------- lessons: the concept behind a lab, taught before the commands ----------
+// A lesson opens in the mission window the first time a build lab is opened, until it has been read.
+// It has plain-language sections, a step-through animation on the lab's own map, key terms, exam notes
+// and a short check. Incidents link to the lesson of the lab they break. Progress: lab4net-lessons-v1.
+const LESSONS={
+'DHCP server and relay':{name:'How devices get their addresses',mins:8,
+ sections:[
+  ['The problem DHCP solves','<p>Every device needs four settings before it can talk beyond itself: an <b>IP address</b>, a <b>subnet mask</b>, a <b>default gateway</b> (the router that leads off its subnet) and a <b>DNS server</b> (which turns names like example.com into addresses).</p><p>Typing those by hand on every laptop, phone and printer is slow, and one typo or one address used twice breaks a device. <b>DHCP</b> (Dynamic Host Configuration Protocol) hands them out automatically. In this lab R1 is the DHCP server.</p>'],
+  ['Pools: one per subnet','<p>A <b>DHCP pool</b> (Windows servers call it a <i>scope</i>) is the server\'s settings for one subnet. It says which network to hand addresses from, and which options to give clients with them: at least <code>default-router</code> (the gateway) and <code>dns-server</code>.</p><p>R1 serves two subnets, so it needs two pools: <code>LAN10</code> for 192.168.10.0/24 and <code>LAN20</code> for 192.168.20.0/24. When a request arrives, the server uses the pool whose network contains the address of the interface the request came in on. That is how one server serves many subnets without mixing them up.</p>'],
+  ['Leases and exclusions','<p>An address is not given away for ever. It is <b>leased</b> for a set time (one day by default on a Cisco router). About halfway through, the client asks its server to renew. If a device leaves and stops renewing, the address returns to the pool. The server records who has which address in its <b>binding table</b>.</p><p>Some addresses are set by hand: router interfaces, switches, servers and printers. <code>ip dhcp excluded-address</code> keeps them out of the pool, so the server never leases one of them to someone else and causes a duplicate. Here .1 to .10 in each LAN are kept for that.</p>'],
+  ['DORA: the four messages','<p>Getting an address takes four messages, remembered as <b>DORA</b>. Use <b>See it happen</b> below to watch them cross this lab\'s map.</p><ol><li><b>Discover</b>: the client has no address and does not know where the server is, so it broadcasts to everyone: from 0.0.0.0 to 255.255.255.255, UDP port 68 to port 67.</li><li><b>Offer</b>: a server answers with an address it is willing to lease, plus the options.</li><li><b>Request</b>: the client asks for that address. This is broadcast too, so any other server that made an offer knows it was not chosen.</li><li><b>Acknowledge</b>: the server confirms. The lease starts and the client configures itself.</li></ol>'],
+  ['Remote subnets need a relay','<p>Routers do not forward broadcasts, so PC3\'s Discover reaches R2 and goes no further. R1 never hears it.</p><p><code>ip helper-address 10.0.0.1</code> on R2 fixes that. It goes on the interface that <b>receives the client broadcasts</b>: R2 G0/1, facing PC3. R2 then <b>relays</b> each DHCP broadcast to R1 as a normal unicast packet, and writes its own interface address (192.168.20.1) into the message. That address, called the <i>giaddr</i>, tells R1 which pool to use: LAN20.</p>'],
+  ['Check it worked','<p>On the server: <code>show ip dhcp binding</code> lists every lease (address, client, expiry). <code>show ip dhcp pool</code> shows each pool and how many addresses are in use. On a PC: <code>ipconfig /renew</code> asks again, and <code>ipconfig</code> shows the result. An address starting 169.254 means no server answered and the PC gave itself a placeholder that cannot reach other networks.</p>']],
+ terms:[['DHCP pool (scope)','The server\'s settings for one subnet: the network to lease from, plus options such as gateway and DNS.'],['Lease','An address lent to a client for a set time. Renewed at about half the time.'],['Excluded address','An address the server will never lease, because it is set by hand on some device.'],['Binding','The server\'s record that a client has a particular address.'],['Default router (option 3)','The gateway address handed to clients.'],['DNS server (option 6)','The name server address handed to clients.'],['DHCP relay / helper address','A router setting that forwards DHCP broadcasts from its LAN to a server elsewhere as unicast.'],['APIPA (169.254.x.x)','The address a Windows client gives itself when no DHCP server answers.']],
+ exam:['4.3: explain the role of DHCP and DNS in the network. 4.6: configure and verify a DHCP client and relay.','Know DORA in order, and that Discover and Request are broadcasts.','Ports: the server listens on UDP 67, the client on UDP 68.','The helper address goes on the interface facing the clients, not the one facing the server.','<code>ip address dhcp</code> makes a router interface a DHCP client (common on ISP links).'],
+ mistakes:['Helper address on the wrong interface: the broadcast never reaches the interface that would relay it.','Pool without <code>default-router</code>: clients get an address but cannot leave their own subnet.','Pool network that does not match the subnet: the server has no pool for requests from that LAN, so nobody gets an address.','No exclusions: a client can be leased the same address as a printer or server.'],
+ story:[
+  {path:['PC1','SW1','R1'],cls:'req',at:'R1',label:'DISCOVER',t:'Discover','x':'PC1 has no address, so it broadcasts: "Is there a DHCP server out there?" SW1 floods the broadcast and it reaches R1.'},
+  {path:['R1','SW1','PC1'],cls:'rep',at:'PC1',label:'OFFER .11',t:'Offer','x':'R1 picks the LAN10 pool, because the request arrived on G0/0 in 192.168.10.0/24. It skips the excluded .1 to .10 and offers 192.168.10.11, with gateway 192.168.10.1 and DNS 8.8.8.8.'},
+  {path:['PC1','SW1','R1'],cls:'req',at:'R1',label:'REQUEST',t:'Request','x':'PC1 broadcasts again: "I would like 192.168.10.11, from R1." Broadcasting tells any other server that its offer was turned down.'},
+  {path:['R1','SW1','PC1'],cls:'rep',at:'PC1',label:'ACK',good:1,t:'Acknowledge','x':'R1 confirms and records the binding. PC1 configures the address, mask, gateway and DNS. The lease has started.'},
+  {path:['PC3','R2'],cls:'req',at:'R2',label:'STOPS HERE',bad:1,t:'Remote subnet, no relay','x':'PC3 broadcasts a Discover too, but routers do not forward broadcasts. Without a helper address it stops at R2, and PC3 ends up with a 169.254 address.'},
+  {path:['PC3','R2','R1'],cls:'req',at:'R1',label:'RELAYED',t:'With ip helper-address','x':'With <code>ip helper-address 10.0.0.1</code> on G0/1, R2 relays the Discover to R1 as unicast and stamps it with 192.168.20.1. R1 reads that and chooses the LAN20 pool.'},
+  {path:['R1','R2','PC3'],cls:'rep',at:'PC3',label:'OFFER .11',good:1,t:'The reply comes back through R2','x':'R1 sends its Offer to R2, which passes it to PC3. Request and Acknowledge follow the same way. PC3 ends up with 192.168.20.11.'}],
+ quiz:[
+  ['A PC has just been plugged in and has no address. What is the first DHCP message it sends, and how?',['A Discover, broadcast to every device on the LAN','A Request, sent straight to the DHCP server','An Offer, broadcast to every device on the LAN','A Discover, sent to its default gateway'],0,'It has no address and does not know the server or the gateway yet, so the only thing it can do is broadcast a Discover.'],
+  ['PC3 is on R2\'s LAN and the DHCP server is R1. Where does <code>ip helper-address 10.0.0.1</code> go?',['On R2 G0/1, the interface facing PC3','On R2 G0/0, the interface facing R1','On R1 G0/1, facing R2','On PC3'],0,'The relay has to be on the interface that receives the client\'s broadcast. That is the LAN interface, G0/1.'],
+  ['Clients get addresses but cannot reach anything outside their own subnet. What is the pool most likely missing?',['default-router','dns-server','network','lease'],0,'Without default-router the clients have no gateway, so they can only talk inside their own subnet. A missing dns-server would break names, not addresses.'],
+  ['What does <code>ip dhcp excluded-address 192.168.10.1 192.168.10.10</code> do?',['Stops the server leasing those addresses, so they can be set by hand','Blocks DHCP requests from those hosts','Reserves them for particular MAC addresses','Makes them the pool\'s gateways'],0,'Exclusions keep hand-set addresses (gateway, switches, servers) out of the pool so no client gets a duplicate.']]}
+};
+(function(){const KEY='lab4net-lessons-v1';let S={};try{S=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}};
+  const rec=t=>S[t]||(S[t]={read:false,q:{}});
+  let on=false,step=-1,picked={};
+  const lessonOf=l=>l&&!l.capstone?(LESSONS[l.kind==='incident'?l.baseTitle:l.title]||null):null;
+  const keyOf=l=>l.kind==='incident'?l.baseTitle:l.title;
+  window.lessonFor=lessonOf;
+  function card(l,L){const r=rec(keyOf(l)),q=Object.values(r.q).filter(Boolean).length;
+    return `<div class="lesson-card${r.read?' read':''}"><div><span class="eyebrow">${l.kind==='incident'?'Lesson for this topic':'Learn it first'}</span><b>${esc(L.name)}</b><small>${L.mins} min · ${r.read?'✓ read':'not read yet'}${Object.keys(r.q).length?` · ${q}/${L.quiz.length} correct`:''}</small></div><button class="btn" id="openLesson">Open lesson</button></div>`;}
+  function storyBox(L){if(step<0)return `<div class="story"><p>Step through the messages on the network map. Each step shows where the packet goes and why.</p><button class="btn primary" id="storyNext">▶ Start</button></div>`;
+    const s=L.story[step];return `<div class="story"><div class="story-head"><b>${step+1} / ${L.story.length} · ${esc(s.t)}</b></div><p>${s.x}</p><div class="actions"><button class="btn" id="storyPrev"${step===0?' disabled':''}>← Back</button><button class="btn" id="storyAgain">↻ Replay</button><button class="btn primary" id="storyNext">${step===L.story.length-1?'From the start':'Next →'}</button></div></div>`;}
+  function quizHtml(L,r){return L.quiz.map(([q,opts,ok,why],i)=>{const a=picked[i];return `<div class="lq"><p><b>${i+1}.</b> ${q}</p><div class="quiz-options">${opts.map((_,k)=>(k+i+1)%opts.length).map((j,k)=>`<button class="quiz-option${a!==undefined?(j===ok?' correct':j===a?' incorrect':''):''}" data-lq="${i}" data-a="${j}"${a!==undefined?' disabled':''}><span>${String.fromCharCode(65+k)}</span>${opts[j]}</button>`).join('')}</div>${a!==undefined?`<div class="lesson-tip"><b>${a===ok?'Correct.':'Not quite.'}</b> ${why}</div>`:''}</div>`;}).join('');}
+  function lessonHtml(l,L){const r=rec(keyOf(l)),lab=l.kind==='incident'?'Back to the incident':'Start the lab';
+    return `<div class="eyebrow">Lesson · ${esc(l.group==='Troubleshooting'?(LABS.find(x=>x.title===l.baseTitle)||l).group:l.group)} <span>${L.mins} min</span></div><h2>${esc(L.name)}</h2>${ccnaTags(l)}
+      <div class="lesson-nav"><button class="btn primary" id="closeLesson">${lab} →</button>${r.read?'<small>✓ You have read this lesson.</small>':''}</div>
+      ${L.sections.map(([h,b])=>`<h3>${esc(h)}</h3>${b}`).join('')}
+      <h3>See it happen</h3>${storyBox(L)}
+      <h3>Key terms</h3><dl class="terms">${L.terms.map(([t,d])=>`<dt>${esc(t)}</dt><dd>${esc(d)}</dd>`).join('')}</dl>
+      <h3>On the exam</h3><ul class="lesson-list">${L.exam.map(x=>`<li>${x}</li>`).join('')}</ul>
+      <h3>Common mistakes</h3><ul class="lesson-list">${L.mistakes.map(x=>`<li>${x}</li>`).join('')}</ul>
+      <h3>Quick check</h3>${quizHtml(L,r)}
+      <div class="lesson-nav"><button class="btn primary" id="closeLesson2">${lab} →</button></div>`;}
+  async function play(L){const s=L.story[step],tok=++fxToken,g=fxLayer();if(!g)return;g.innerHTML='';
+    await fly(s.path,s.cls,tok);if(tok!==fxToken)return;burst(s.at,s.bad?'bad':s.good?'good':'warn',s.label);}
+  function bind(l,L){const close=()=>{rec(keyOf(l)).read=true;save();on=false;step=-1;fxToken++;renderBrief();$('brief').scrollTop=0;};
+    if($('closeLesson'))$('closeLesson').onclick=close;if($('closeLesson2'))$('closeLesson2').onclick=close;
+    const go=n=>{step=n;const sc=$('brief').scrollTop;renderBrief();$('brief').scrollTop=sc;play(L);};
+    if($('storyNext'))$('storyNext').onclick=()=>go(step>=L.story.length-1?0:step+1);
+    if($('storyPrev'))$('storyPrev').onclick=()=>go(Math.max(0,step-1));
+    if($('storyAgain'))$('storyAgain').onclick=()=>go(step);
+    $('brief').querySelectorAll('[data-lq]').forEach(b=>b.onclick=()=>{const i=+b.dataset.lq,a=+b.dataset.a;picked[i]=a;const r=rec(keyOf(l));r.q[i]=a===L.quiz[i][2];save();const sc=$('brief').scrollTop;renderBrief();$('brief').scrollTop=sc;});}
+  const rb=renderBrief;renderBrief=function(){rb();if(!cur||cur.view!=='lab'||cur.sandbox||!cur.lab)return;const l=cur.lab,L=lessonOf(l);if(!L)return;
+    if(on){$('brief').innerHTML=lessonHtml(l,L);bind(l,L);return;}
+    const p=$('brief').querySelector('h2');if(p){const t=p.nextElementSibling&&p.nextElementSibling.classList.contains('ccna-tags')?p.nextElementSibling:p;t.insertAdjacentHTML('afterend',card(l,L));}
+    if($('openLesson'))$('openLesson').onclick=()=>{on=true;step=-1;picked={};renderBrief();$('brief').scrollTop=0;};};
+  const ol=openLab;openLab=function(idx,isFresh){const l=LABS[idx];on=!!(l&&l.kind==='build'&&!l.capstone&&LESSONS[l.title]&&!rec(l.title).read);step=-1;picked={};ol(idx,isFresh);};
+  const os=window.openSandbox;if(os)window.openSandbox=function(){on=false;os();};
+  if(cur&&cur.view==='lab'&&cur.lab&&LESSONS[cur.lab.title]&&cur.lab.kind==='build'&&!rec(cur.lab.title).read){on=true;renderBrief();}
+})();
 </script>
 </body>
 </html>

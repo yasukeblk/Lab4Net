@@ -15,6 +15,7 @@ It currently has:
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
 - A network map that animates each ping, telnet or ssh along the path the packet really takes, and labels where and why it fails
 - Step-by-step instructions per task (switchable, and can pop out into its own window), plus a "why" for every task and every command
+- Lessons that teach the concept before the lab (pilot: DHCP only): explanation, a step-through animation on the lab's map, key terms, exam notes, common mistakes and a quick check
 - A subnetting drill and a 28-question theory check
 - Stage ranks (S to D), XP and levels, combos, trophies, generated sound effects
 - Movable, resizable, snapping windows with a saved layout. Dropped windows swap, split or fill the space, and shared edges resize like dividers
@@ -141,10 +142,12 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 5. Troubleshooting clues, CCNA tags and Study map. `ccnaTags`, `clueHtml`, `bindClues`, `clueLevel`, `setClueLevel` and `studyMap` are top-level function declarations so the base `renderBrief` can call them on the first render. This block also wraps `openLab` to hide clues on a fresh start. The rewards block exposes `window.l4nFun = {run, save}` so clue use reaches the current run.
 6. Sandbox (devices, cabling, zoom and pan, notes, kits, challenges, files, undo). Undo keeps up to 80 snapshots of devices, links, notes, challenge and journal; `mark()` runs from `saveDef` and after each sandbox command.
 7. Backup (adds ranks, layout, sandbox and incident clues to Transfer progress)
+8. Capstone guide default
+9. Lessons. `LESSONS` is keyed by build lab title: `name`, `mins`, `sections` ([heading, html]), `story` (steps with `path` of device names, `cls` req/rep, `at`, `label`, `good`/`bad`, `t` title, `x` text), `terms`, `exam`, `mistakes`, `quiz` ([question, options, correct index, explanation]; the display order is rotated). The block wraps `renderBrief` (lesson replaces the mission window's content, or a card is inserted after the CCNA tags) and `openLab` (opens on the lesson until it is read). Incidents use their `baseTitle`'s lesson; capstones have none. `window.lessonFor(lab)` returns a lab's lesson
 
 **The pattern to know:** these blocks do not edit the base functions. They wrap them by reassigning the name, for example `const ex0 = execute; execute = function(line){ ex0(line); ... }`. `renderAll`, `openLab`, `execute`, `celebrate`, `library`, `renderBrief`, `renderTerm`, `drawTopo`, `select`, `renderLabs` and `transfer` are all wrapped, some more than once. The outermost wrapper is the one defined last. Before changing behaviour, grep for every `name=function` to see the whole chain.
 
-Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `lab4net-layout-v3`, `lab4net-fun-v1`, `lab4net-sandbox-v1`, `lab4net-guide`, `lab4net-guide-pop`, `lab4net-last`, `lab4net-incident-hints` (clues revealed per incident), `lab4net-capstone-guide` (guide switched on per capstone), `lab4net-pending` (extras from an imported backup, applied on the next load), and `l4n-boot` in session storage.
+Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `lab4net-layout-v3`, `lab4net-fun-v1`, `lab4net-sandbox-v1`, `lab4net-guide`, `lab4net-guide-pop`, `lab4net-last`, `lab4net-incident-hints` (clues revealed per incident), `lab4net-capstone-guide` (guide switched on per capstone), `lab4net-lessons-v1` (lessons read and quick-check answers), `lab4net-pending` (extras from an imported backup, applied on the next load), and `l4n-boot` in session storage.
 
 ## Verifying changes
 
@@ -207,6 +210,7 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 Carry this list forward and keep it in every summary.
 
 - `enable` and console password prompts
+- Lessons for the other 35 build labs, once Yasuke has reviewed the DHCP pilot (format, length, where it opens)
 - A fuller theory question bank (28 questions so far)
 - XP and trophies for sandbox challenges
 - Closer-to-real `?` help: descriptions, the `^` marker, "% Ambiguous command", `| include` and `| begin` (offered, not yet confirmed)
