@@ -921,14 +921,16 @@ C('if','no ip nat <w>',e=>e.s.ctx.forEach(i=>{i.nat=null;}),['router']);
 C('config','ip nat inside source list <w> interface <rest>',e=>{const t=e.args[1].split(/\s+/);const ov=t.length>1&&'overload'.startsWith(t[t.length-1].toLowerCase());if(ov)t.pop();const n=parseIf(t.join(''));if(!n||!e.d.ifs[n])return e.out(BAD);const N=natOf(e.d);N.rules=N.rules.filter(r=>r.acl!==e.args[0]);N.rules.push({acl:e.args[0],ifn:n,overload:ov});},['router']);
 C('config','ip nat inside source static <ip> <ip>',e=>{natOf(e.d).statics.push({local:e.args[0],global:e.args[1]});},['router']);
 C('config','no ip nat inside source <rest>',e=>{const N=natOf(e.d);N.rules=[];N.statics=[];N.table=[];},['router']);
-C(EX,'show ip nat translations',e=>{const N=e.d.nat;if(!N||(!N.table.length&&!N.statics.length))return;e.out('Pro  Inside global         Inside local          Outside global');
-  N.statics.forEach(s=>e.out('---  '+pad(n2ip(s.global),22)+pad(n2ip(s.local),22)+'---'));
-  N.table.forEach(x=>e.out(pad(x.proto,5)+pad(n2ip(x.ig)+':'+x.gport,22)+pad(n2ip(x.il)+':'+x.gport,22)+n2ip(x.remote)+':'+(x.port||x.gport)));},['router']);
+C(EX,'show ip nat translations',e=>{const N=e.d.nat;if(!N||(!N.table.length&&!N.statics.length))return;e.out('Pro  Inside global         Inside local          Outside local         Outside global');
+  N.statics.forEach(s=>e.out('---  '+pad(n2ip(s.global),22)+pad(n2ip(s.local),22)+pad('---',22)+'---'));
+  // TCP and UDP keep the host's own source port on the inside; ICMP uses the query ID on both sides.
+  N.table.forEach(x=>{const lp=x.proto==='icmp'?x.gport:(x.lport||x.gport),rp=x.proto==='icmp'?x.gport:x.port;
+    e.out(pad(x.proto,5)+pad(n2ip(x.ig)+':'+x.gport,22)+pad(n2ip(x.il)+':'+lp,22)+pad(n2ip(x.remote)+':'+rp,22)+n2ip(x.remote)+':'+rp);});},['router']);
 C('priv','clear ip nat translation <rest>',e=>{if(e.d.nat)e.d.nat.table=[];},['router']);
 function natOut(d,pk){const N=d.nat;if(!N)return;const st=N.statics.find(s=>s.local===pk.src);if(st){pk.src=st.global;return;}
   for(const r of N.rules){const acl=d.acls&&d.acls[r.acl];if(!acl)continue;const en=acl.entries.find(en=>hit(en.src,pk.src));if(!en||en.action!=='permit')continue;
     const g=d.ifs[r.ifn].ip;if(g==null)return;let x=N.table.find(x=>x.il===pk.src&&x.remote===pk.dst&&x.proto===pk.proto);
-    if(!x){x={il:pk.src,ig:g,remote:pk.dst,proto:pk.proto,port:pk.dport,gport:1024+N.table.length};N.table.push(x);}
+    if(!x){x={il:pk.src,ig:g,remote:pk.dst,proto:pk.proto,port:pk.dport,lport:pk.sport,gport:1024+N.table.length};N.table.push(x);}
     pk.src=g;pk.sport=x.gport;return;}}
 function natIn(d,pk){const N=d.nat;if(!N)return;const st=N.statics.find(s=>s.global===pk.dst);if(st){pk.dst=st.local;return;}
   const x=N.table.find(x=>x.ig===pk.dst&&x.gport===pk.dport&&x.proto===pk.proto);if(x)pk.dst=x.il;}
@@ -1602,6 +1604,33 @@ addLab({title:'Map an unknown network with CDP',group:'Switching',hidePorts:true
   'SW3: enable | show cdp neighbors | configure terminal | interface g0/1 | description TO-CORE-Fa0/8 | interface g0/2 | description TO-ACC-A-Gi0/1 | end',
   'R1: configure terminal | interface g0/1 | no cdp enable | end ; ISP: enable | # EDGE is no longer listed | show cdp neighbors',
   'SW1: show cdp neighbors detail ; R1: ping 192.168.1.4']);
+
+// ----- phase 1, lab 7
+CCNA_LAB_MAP['Small office build']=['3.3','4.1','4.6'];
+Object.assign(WHYC,{
+'ipconfig /release':'Gives the DHCP lease back, leaving the host with no address. Pair it with /renew to watch a fresh lease being handed out.',
+'ipconfig':'Shows the host\'s address, mask and default gateway. The first thing to check when a host cannot reach anything.',
+'ping <ip>':'Sends ICMP echo requests and waits for replies. A reply proves the path works in both directions, not just one.',
+'show ip dhcp binding':'Lists the leases the server has handed out: which address went to which client hardware address.'});
+addLab({title:'Small office build',group:'IP services',
+ brief:'A new branch office: two PCs, a switch, and a router fresh out of the box with a link to the ISP. Bring the router up, give the PCs their addresses automatically, and get them to the internet through the single public address the ISP assigned.',
+ pos:{PC1:[45,70],PC2:[45,185],SW1:[160,125],R1:[285,125],ISP:[415,125],WEB:[545,125]},start:'R1',
+ build(){const n=mkNet([mkRouter('R1'),mkRouter('ISP'),mkSwitch('SW1'),mkPC('PC1',null,24),mkPC('PC2',null,24),srv('WEB','198.51.100.10',24,'198.51.100.1',[80])]);
+  link(n,'PC1','f0','SW1','f0/1');link(n,'PC2','f0','SW1','f0/2');link(n,'SW1','g0/1','R1','g0/0');link(n,'R1','g0/1','ISP','g0/0');link(n,'ISP','g0/1','WEB','f0');
+  setIp(n,'ISP','g0/0','203.0.113.1',30);setIp(n,'ISP','g0/1','198.51.100.1',24);return n;},
+ addr:[['R1','G0/0 (office LAN)','192.168.1.1/24'],['R1','G0/1 (to ISP)','203.0.113.2/30'],['ISP','Next hop','203.0.113.1'],['DHCP','Pool OFFICE, .1 to .20 reserved','DNS 198.51.100.53'],['WEB','Web server','198.51.100.10']],
+ tasks:['On R1, address G0/0 and G0/1 from the table and bring both up.','Add a default route to the ISP. From R1, ping 198.51.100.10: the router itself can already reach the internet.','Reserve 192.168.1.1 to 192.168.1.20, then create pool <code>OFFICE</code> for 192.168.1.0/24 with gateway 192.168.1.1 and DNS server 198.51.100.53.','On both PCs run <code>ipconfig /renew</code> and check the lease. Ping the web server from PC1: it fails. Why?','Create standard ACL 1 permitting 192.168.1.0/24, and mark G0/0 as NAT inside and G0/1 as NAT outside.','Translate everything ACL 1 permits to G0/1\'s address, with <code>overload</code>.','Test: PC1 opens the website with <code>telnet 198.51.100.10 80</code>, PC2 pings it, and <code>show ip nat translations</code> on R1 shows the shared address.'],
+ why:['Router interfaces ship shut down with no address. The LAN address becomes the PCs\' gateway; the outside address is the one the ISP gave you.','A branch has one way out, so one default route covers the whole internet. R1\'s own pings work because they come from 203.0.113.2, an address the ISP knows how to reach.','The reserved range keeps DHCP away from the router, switches and printers. The pool tells clients their address, how to leave the subnet (gateway) and how to resolve names (DNS).','The PCs now have addresses and a gateway, and the request reaches the server. But the reply is addressed to 192.168.1.x, a private range the ISP will never route back.','The ACL is not a filter here: it only selects which source addresses get translated. inside and outside tell R1 which direction is which.','PAT rewrites each private source to R1\'s one public address and keeps the sessions apart by port number, so the whole office shares a single address.','The translation table is the proof: inside local addresses on the left, the shared inside global address on the right.'],
+ checks:[['R1 G0/0 and G0/1 are addressed and up',n=>hasIp(n,'R1','g0/0','192.168.1.1',24)&&hasIp(n,'R1','g0/1','203.0.113.2',30)&&ifUp(n,n.devs.R1,IF(n,'R1','g0/0'))&&ifUp(n,n.devs.R1,IF(n,'R1','g0/1'))],['R1 has a default route to the ISP',n=>n.devs.R1.statics.some(s=>s.len===0&&s.nh===ip2n('203.0.113.1'))],['Pool OFFICE serves 192.168.1.0/24 with the gateway and DNS, and .1 to .20 are reserved',n=>{const D=n.devs.R1.dhcp;return !!D&&!!D.pools.OFFICE&&D.pools.OFFICE.net===ip2n('192.168.1.0')&&D.pools.OFFICE.len===24&&D.pools.OFFICE.gw===ip2n('192.168.1.1')&&D.pools.OFFICE.dns===ip2n('198.51.100.53')&&D.excluded.some(([a,b])=>a<=ip2n('192.168.1.1')&&b>=ip2n('192.168.1.20'));}],['PC1 and PC2 hold leases above .20 with gateway 192.168.1.1',n=>['PC1','PC2'].every(p=>{const ip=nic(n.devs[p]).ip;return ip!==null&&ip>ip2n('192.168.1.20')&&ip<ip2n('192.168.1.255')&&n.devs[p].gw===ip2n('192.168.1.1');})],['PAT overloads G0/1 for the office LAN',n=>{const d=n.devs.R1;return IF(n,'R1','g0/0').nat==='inside'&&IF(n,'R1','g0/1').nat==='outside'&&!!d.nat&&d.nat.rules.some(r=>r.overload&&r.ifn==='GigabitEthernet0/1'&&d.acls&&d.acls[r.acl]&&d.acls[r.acl].entries.some(e=>e.action==='permit'&&hit(e.src,ip2n('192.168.1.21'))));}],['PC1 opens the website and PC2 can ping it',n=>T(n,'PC1','198.51.100.10',80)&&P(n,'PC2','198.51.100.10')],['The ISP was not given a route to the private LAN',n=>!n.devs.ISP.statics.some(s=>netOf(ip2n('192.168.1.21'),s.len)===s.net)&&!n.devs.ISP.ospf]],
+ solution:{R1:['enable','configure terminal','interface g0/0','ip address 192.168.1.1 255.255.255.0','no shutdown','interface g0/1','ip address 203.0.113.2 255.255.255.252','no shutdown','exit','ip route 0.0.0.0 0.0.0.0 203.0.113.1','ip dhcp excluded-address 192.168.1.1 192.168.1.20','ip dhcp pool OFFICE','network 192.168.1.0 255.255.255.0','default-router 192.168.1.1','dns-server 198.51.100.53','exit','access-list 1 permit 192.168.1.0 0.0.0.255','interface g0/0','ip nat inside','interface g0/1','ip nat outside','exit','ip nat inside source list 1 interface g0/1 overload','end'],
+  PC1:['ipconfig /renew','telnet 198.51.100.10 80'],PC2:['ipconfig /renew','ping 198.51.100.10']}},
+ ['R1: enable | configure terminal | interface g0/0 | ip address 192.168.1.1 255.255.255.0 | no shutdown | interface g0/1 | ip address 203.0.113.2 255.255.255.252 | no shutdown | exit',
+  'R1: ip route 0.0.0.0 0.0.0.0 203.0.113.1 | do ping 198.51.100.10',
+  'R1: ip dhcp excluded-address 192.168.1.1 192.168.1.20 | ip dhcp pool OFFICE | network 192.168.1.0 255.255.255.0 | default-router 192.168.1.1 | dns-server 198.51.100.53 | exit',
+  'PC1: ipconfig /renew ; PC2: ipconfig /renew ; R1: do show ip dhcp binding ; PC1: # fails: the reply is addressed to a private range the ISP cannot route | ping 198.51.100.10',
+  'R1: access-list 1 permit 192.168.1.0 0.0.0.255 | interface g0/0 | ip nat inside | interface g0/1 | ip nat outside | exit',
+  'R1: ip nat inside source list 1 interface g0/1 overload | end',
+  'PC1: telnet 198.51.100.10 80 ; PC2: ping 198.51.100.10 ; R1: show ip nat translations']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
