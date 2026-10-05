@@ -2669,6 +2669,16 @@ addIncident({title:'Incident 07: one branch fell off the map',base:'Single-area 
  steps:['PC1: ping 192.168.3.10 | ping 192.168.2.10','R1: enable | show ip ospf neighbor ; R3: enable | show ip ospf neighbor | show ip protocols','R3: configure terminal | router ospf 1 | no network 10.0.13.0 0.0.0.3 area 1 | no network 10.0.23.0 0.0.0.3 area 1 | network 10.0.13.0 0.0.0.3 area 0 | network 10.0.23.0 0.0.0.3 area 0 | end','R3: show ip ospf neighbor ; PC1: ping 192.168.3.10 | ping 192.168.2.10'],
  hints:['PC2 works and PC3 does not, and everything behind R3 is missing at once. Look at R3\'s adjacencies before any single route.','R3 has no OSPF neighbors at all. Compare the area numbers in R3\'s network statements (show ip protocols) with R1\'s and R2\'s.','R3 put both uplinks in area 1 while R1 and R2 use area 0. Remove those statements and add the same networks back in area 0.'],
  lesson:'Two routers only become neighbors if they agree on the area of the link between them, as well as the subnet and timers. A router whose uplinks sit in the wrong area is an island even though every interface is up.'});
+
+// ----- incident 08
+addIncident({title:'Incident 08: the far switch went dark',base:'Spanning tree: root bridge and edge ports',start:'PC1',
+ brief:'Someone tidied up SW3\'s configuration with an interface template. Since then PC2 cannot be reached and SW3 has disappeared from the other switches\' spanning tree. Find what took SW3\'s links down and recover them without weakening protection on the host ports.',
+ symptom:['PC1','192.168.1.12'],
+ fault:{SW3:[...EN,'interface range g0/1 - 2','spanning-tree portfast','spanning-tree bpduguard enable','end']},
+ repair:{SW3:[...EN,'interface range g0/1 - 2','no spanning-tree bpduguard enable','no spanning-tree portfast','shutdown','no shutdown','end','show interfaces status'],PC1:['ping 192.168.1.12']},
+ steps:['PC1: ping 192.168.1.12','SW3: enable | show interfaces status | show interfaces status err-disabled | show running-config','SW3: configure terminal | interface range g0/1 - 2 | no spanning-tree bpduguard enable | no spanning-tree portfast | shutdown | no shutdown | end','SW3: show interfaces status ; PC1: ping 192.168.1.12'],
+ hints:['Only the host on SW3 is cut off, and both of SW3\'s uplinks are affected together. Something on SW3 itself took them down.','show interfaces status on SW3 lists Gi0/1 and Gi0/2 as err-disabled, and show interfaces status err-disabled gives the reason. show running-config shows what they now share with the host port.','PortFast and BPDU Guard were applied to the uplinks, which hear BPDUs from SW1 and SW2. Remove both from Gi0/1 and Gi0/2, then shut and re-enable the ports to recover them.'],
+ lesson:'BPDU Guard belongs on host ports only: any BPDU arriving on a guarded port err-disables it. An err-disabled port stays down until someone shuts and re-enables it, and it trips again at once if the cause is still there.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
