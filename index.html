@@ -552,7 +552,7 @@ function ifUp(net,d,i){
   if(i.shutdown)return false;
   if(i.name.startsWith('Loopback'))return true;
   if(i.name.startsWith('Vlan')){const v=+i.name.slice(4);if(!d.vlans[v])return false;
-    return Object.values(d.ifs).some(p=>p.link&&!p.name.startsWith('Vlan')&&ifUp(net,d,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v));}
+    return Object.values(d.ifs).some(p=>p.link&&!p.name.startsWith('Vlan')&&ifUp(net,d,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v));}
   const p=phys(d,i);if(p.shutdown||!p.link)return false;
   return !net.devs[p.link.dev].ifs[p.link.ifn].shutdown;
 }
@@ -567,7 +567,7 @@ function l2peers(net,d,i){
       if(p===inPort||!p.link||p.name.startsWith('Vlan')||!ifUp(net,sw,p))continue;
       let tag=null;
       if(p.mode==='trunk'){if(!allowed(p,vlan))continue;tag=vlan===p.native?null:vlan;}
-      else if(p.accessVlan!==vlan)continue;
+      else if(p.accessVlan!==vlan){if(p.voiceVlan===vlan)tag=vlan;else continue;}
       deliver(net.devs[p.link.dev],p.link.ifn,tag,path);
     }
   }
@@ -577,13 +577,21 @@ function l2peers(net,d,i){
     if(dev.type==='switch'){
       let vlan;
       if(port.mode==='trunk'){vlan=tag===null?port.native:tag;if(!allowed(port,vlan))return;}
+      else if(tag!==null&&port.voiceVlan===tag)vlan=tag;
       else{if(tag!==null&&tag!==port.accessVlan)return;vlan=port.accessVlan;}
       flood(dev,vlan,port,path);
+    }else if(dev.phone){
+      // An IP phone is a small two-port bridge: its own traffic uses the voice VLAN it learned over CDP (untagged
+      // if it learned none); the PC port passes untagged frames straight through to the switch port.
+      const up=dev.ifs.FastEthernet0,pcp=dev.ifs.FastEthernet1,vv=phoneVlan(net,dev);
+      if(port===pcp){if(tag===null&&up.link&&ifUp(net,dev,up))deliver(net.devs[up.link.dev],up.link.ifn,null,path);}
+      else if(tag===null){if(pcp.link&&ifUp(net,dev,pcp))deliver(net.devs[pcp.link.dev],pcp.link.ifn,null,path);if(vv==null&&up.ip!==null&&up!==i)out.push({dev,ifc:up,path});}
+      else if(tag===vv&&up.ip!==null&&up!==i)out.push({dev,ifc:up,path});
     }else if(tag===null){if(port.ip!==null&&port!==i)out.push({dev,ifc:port,path});}
     else for(const s of Object.values(dev.ifs))if(s.name.startsWith(ifn+'.')&&s.dot1q===tag&&!s.shutdown&&s!==i)out.push({dev,ifc:s,path});
   }
   if(d.type==='switch')flood(d,+i.name.slice(4),null,[d.name]);
-  else{const p=phys(d,i);const tag=p===i?null:i.dot1q;if(p!==i&&tag==null)return out;deliver(net.devs[p.link.dev],p.link.ifn,tag,[d.name]);}
+  else{const p=phys(d,i);const tag=d.phone?phoneVlan(net,d):p===i?null:i.dot1q;if(!d.phone&&p!==i&&tag==null)return out;deliver(net.devs[p.link.dev],p.link.ifn,tag,[d.name]);}
   return out;
 }
 function connected(net,d){const r=[];for(const i of Object.values(d.ifs))if(i.ip!==null&&ifUp(net,d,i))r.push({code:'C',net:netOf(i.ip,i.len),len:i.len,ifc:i,nh:null,ad:0});return r;}
@@ -710,7 +718,7 @@ C(EX,'show ip ospf neighbor',e=>{const{net,d,out}=e;if(!d.ospf)return;const nb=o
     const state=p2p?'FULL/  -':role==='DROTHER'&&me==='DROTHER'?'2WAY/DROTHER':'FULL/'+role;
     out(pad(n2ip(routerId(n.dev)),16)+String(p2p?0:ospfPrio(n.pifc)).padStart(3)+'   '+pad(state,16)+'00:00:3'+(n.pifc.ip%10)+'    '+pad(n2ip(n.pifc.ip),16)+n.ifc.name);});},['router']);
 const showVlan=e=>{const{d,out}=e;out('VLAN Name                             Status    Ports','---- -------------------------------- --------- -------------------------------');
-  for(const v of Object.keys(d.vlans).map(Number).sort((a,b)=>a-b)){const ports=sortIfs(Object.keys(d.ifs)).filter(n=>!n.startsWith('Vlan')&&d.ifs[n].mode!=='trunk'&&d.ifs[n].accessVlan===v).map(shortIf);
+  for(const v of Object.keys(d.vlans).map(Number).sort((a,b)=>a-b)){const ports=sortIfs(Object.keys(d.ifs)).filter(n=>!n.startsWith('Vlan')&&d.ifs[n].mode!=='trunk'&&(d.ifs[n].accessVlan===v||d.ifs[n].voiceVlan===v)).map(shortIf);
     const head=pad(v,5)+pad(d.vlans[v].name,33)+pad('active',10);
     if(!ports.length)out(head);for(let k=0;k<ports.length;k+=4)out((k?' '.repeat(48):head)+ports.slice(k,k+4).join(', '));}};
 C(EX,'show vlan brief',showVlan,['switch']);
@@ -1063,17 +1071,21 @@ C(EX,'show ip ssh',e=>e.out(e.d.rsa?'SSH Enabled - version '+(e.d.sshv===2?'2.0'
 
 // CDP
 // A neighbor appears only when both ends run CDP globally and on that interface. Hosts do not send CDP here.
-const cdpOn=(d,i)=>d.type!=='pc'&&d.cdp!==false&&i.cdp!==false;
+const cdpOn=(d,i)=>(d.type!=='pc'||!!d.phone)&&d.cdp!==false&&i.cdp!==false;
+const cdpCap=p=>p.phone?'H P M':p.type==='router'?'R B S I':'S I',cdpPlat=p=>p.phone?'IP Phone':p.type==='router'?'ISR4321':'WS-C2960';
+// The voice VLAN a phone uses: the one its switch port advertises over CDP, or none (untagged, so the data VLAN).
+function phoneVlan(net,d){const up=d.ifs.FastEthernet0;if(!up||!up.link)return null;const sw=net.devs[up.link.dev],sp=sw.ifs[up.link.ifn];
+  return sw.type==='switch'&&sp.voiceVlan!=null&&sp.mode!=='trunk'&&cdpOn(sw,sp)&&cdpOn(d,up)?sp.voiceVlan:null;}
 function cdpPeers(net,d){const r=[];for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(!i.link||!ifUp(net,d,i)||!cdpOn(d,i))continue;
   const p=net.devs[i.link.dev],pi=p.ifs[i.link.ifn];if(cdpOn(p,pi))r.push({i,p,pi});}return r;}
 const CDPCAPS=['Capability Codes: R - Router, T - Trans Bridge, B - Source Route Bridge','                  S - Switch, H - Host, I - IGMP, r - Repeater, P - Phone,','                  D - Remote, C - CVTA, M - Two-port Mac Relay',''];
 C(EX,'show cdp neighbors',e=>{const{net,d,out}=e;if(d.cdp===false)return out('% CDP is not enabled');const ps=cdpPeers(net,d);out(...CDPCAPS,'Device ID        Local Intrfce     Holdtme    Capability  Platform  Port ID');
-  ps.forEach(({i,p,pi})=>out(pad(p.hostname,17)+pad(shortIf(i.name),18)+pad(150,11)+pad(p.type==='router'?'R B S I':'S I',12)+pad(p.type==='router'?'ISR4321':'WS-C2960',10)+shortIf(pi.name)));
+  ps.forEach(({i,p,pi})=>out(pad(p.hostname,17)+pad(shortIf(i.name),18)+pad(150,11)+pad(cdpCap(p),12)+pad(cdpPlat(p),10)+(p.phone?'Port 1':shortIf(pi.name))));
   out('','Total cdp entries displayed : '+ps.length);});
 C(EX,'show cdp neighbors detail',e=>{const{net,d,out}=e;if(d.cdp===false)return out('% CDP is not enabled');const ps=cdpPeers(net,d);
-  ps.forEach(({i,p,pi})=>{const mgmt=p.type==='router'?(pi.ip!==null?pi.ip:(Object.values(p.ifs).find(x=>x.ip!==null)||{}).ip):(Object.values(p.ifs).find(x=>x.name.startsWith('Vlan')&&x.ip!==null&&ifUp(net,p,x))||{}).ip;
-    out('-------------------------','Device ID: '+p.hostname,'Entry address(es): ',...(mgmt!=null?['  IP address: '+n2ip(mgmt)]:[]),'Platform: cisco '+(p.type==='router'?'ISR4321/K9':'WS-C2960-24TT-L')+',  Capabilities: '+(p.type==='router'?'Router Source-Route-Bridge Switch IGMP':'Switch IGMP'),
-      'Interface: '+i.name+',  Port ID (outgoing port): '+pi.name,'Holdtime : 150 sec','','Version :','Cisco IOS Software, '+(p.type==='router'?'ISR Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 16.9.4':'C2960 Software (C2960-LANBASEK9-M), Version 15.2(7)E2'),'','advertisement version: 2',...(p.type==='switch'&&pi.mode==='trunk'?['Native VLAN: '+pi.native]:[]),'Duplex: full','');});
+  ps.forEach(({i,p,pi})=>{const mgmt=p.phone?nic(p).ip:p.type==='router'?(pi.ip!==null?pi.ip:(Object.values(p.ifs).find(x=>x.ip!==null)||{}).ip):(Object.values(p.ifs).find(x=>x.name.startsWith('Vlan')&&x.ip!==null&&ifUp(net,p,x))||{}).ip;
+    out('-------------------------','Device ID: '+p.hostname,'Entry address(es): ',...(mgmt!=null?['  IP address: '+n2ip(mgmt)]:[]),'Platform: '+(p.phone?'Cisco IP Phone 8845':'cisco '+(p.type==='router'?'ISR4321/K9':'WS-C2960-24TT-L'))+',  Capabilities: '+(p.phone?'Host Phone Two-port Mac Relay':p.type==='router'?'Router Source-Route-Bridge Switch IGMP':'Switch IGMP'),
+      'Interface: '+i.name+',  Port ID (outgoing port): '+(p.phone?'Port 1':pi.name),'Holdtime : 150 sec','','Version :',p.phone?'sip88xx.14-1-1-0001-136':'Cisco IOS Software, '+(p.type==='router'?'ISR Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 16.9.4':'C2960 Software (C2960-LANBASEK9-M), Version 15.2(7)E2'),'','advertisement version: 2',...(p.type==='switch'&&pi.mode==='trunk'?['Native VLAN: '+pi.native]:[]),'Duplex: full','');});
   out('','Total cdp entries displayed : '+ps.length);});
 C(EX,'show cdp',e=>e.out(...(e.d.cdp===false?['% CDP is not enabled']:['Global CDP information:','\tSending CDP packets every 60 seconds','\tSending a holdtime value of 180 seconds','\tSending CDPv2 advertisements is  enabled'])));
 C('config','cdp run',e=>{e.d.cdp=true;});
@@ -1087,7 +1099,7 @@ const stpPrio=(sw,v)=>((sw.stp&&sw.stp.prio[v])??32768)+v;
 const bid=(sw,v)=>String(stpPrio(sw,v)).padStart(6,'0')+macOf(sw);
 function stpCalc(net,v){const sws=Object.values(net.devs).filter(d=>d.type==='switch'&&d.vlans[v]);if(!sws.length)return null;
   const root=sws.reduce((a,b)=>bid(a,v)<bid(b,v)?a:b);
-  const carries=(sw,p)=>!!p.link&&ifUp(net,sw,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v);
+  const carries=(sw,p)=>!!p.link&&ifUp(net,sw,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v);
   const cost=p=>p.name.startsWith('Gig')?4:19;
   const dist=new Map([[root.name,0]]),todo=new Set(sws.map(s=>s.name));
   while(todo.size){let u=null;for(const n of todo)if(dist.has(n)&&(u===null||dist.get(n)<dist.get(u)))u=n;if(u===null)break;todo.delete(u);const U=net.devs[u];
@@ -1135,7 +1147,7 @@ const prompt0=promptOf;promptOf=function(d,s){const h=d.hostname;if(s.mode==='ac
 function ifExtra(i,d0){const L=[];if(i.helper!=null)L.push(' ip helper-address '+n2ip(i.helper));if(i.aclIn)L.push(' ip access-group '+i.aclIn+' in');if(i.aclOut)L.push(' ip access-group '+i.aclOut+' out');if(i.nat)L.push(' ip nat '+i.nat);
   if(i.chan)L.push(' channel-group '+i.chan+' mode '+i.chanMode);
   if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');}
-  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
+  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.voiceVlan!=null)L.push(' switchport voice vlan '+i.voiceVlan);if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
   if(i.ospfNet)L.push(' ip ospf network '+i.ospfNet);if(i.ospfPrio!=null)L.push(' ip ospf priority '+i.ospfPrio);if(i.ospfCost!=null)L.push(' ip ospf cost '+i.ospfCost);if(i.ospfArea!=null&&d0.ospf)L.push(' ip ospf '+d0.ospf.pid+' area '+i.ospfArea);return L;}
 function globalExtra(d){const L=[];
   if(d.cdp===false)L.push('no cdp run');if(d.lldp&&d.type!=='pc')L.push('lldp run');
@@ -1143,7 +1155,7 @@ function globalExtra(d){const L=[];
   if(d.domain)L.push('ip domain-name '+d.domain);if(d.sshv)L.push('ip ssh version '+d.sshv);
   if(d.stp){if(d.stp.mode!=='pvst')L.push('spanning-tree mode '+d.stp.mode);for(const v in d.stp.prio)L.push('spanning-tree vlan '+v+' priority '+d.stp.prio[v]);}
   if(d.dhcp){d.dhcp.excluded.forEach(([a,b])=>L.push('ip dhcp excluded-address '+n2ip(a)+(b!==a?' '+n2ip(b):'')));
-    for(const[n,p]of Object.entries(d.dhcp.pools)){L.push('ip dhcp pool '+n);if(p.net!==null)L.push(' network '+n2ip(p.net)+' '+n2ip(lenMask(p.len)));if(p.gw!=null)L.push(' default-router '+n2ip(p.gw));if(p.dns!=null)L.push(' dns-server '+n2ip(p.dns));}}
+    for(const[n,p]of Object.entries(d.dhcp.pools)){L.push('ip dhcp pool '+n);if(p.net!==null)L.push(' network '+n2ip(p.net)+' '+n2ip(lenMask(p.len)));if(p.gw!=null)L.push(' default-router '+n2ip(p.gw));if(p.dns!=null)L.push(' dns-server '+n2ip(p.dns));for(const[o,v] of Object.entries(p.opts||{}))L.push(' option '+o+' ip '+n2ip(v));}}
   if(d.nat){d.nat.statics.forEach(s=>L.push('ip nat inside source static '+n2ip(s.local)+' '+n2ip(s.global)));d.nat.rules.forEach(r=>L.push('ip nat inside source list '+r.acl+' interface '+r.ifn+(r.overload?' overload':'')));}
   for(const[n,a]of Object.entries(d.acls||{})){if(/^\d+$/.test(n))a.entries.forEach(en=>L.push('access-list '+n+' '+en.text));else{L.push('ip access-list '+a.type+' '+n);a.entries.forEach(en=>L.push(' '+en.text));}}
   if(L.length)L.push('!');return L;}
@@ -1878,6 +1890,47 @@ addLab({title:'LLDP',group:'Switching',hidePorts:true,
   'SW1: show lldp neighbors detail ; R1: ping 10.1.1.50',
   'SW1: configure terminal | interface f0/5 | no lldp transmit | end',
   'SW1: show lldp interface f0/5 | show lldp neighbors']);
+
+// ----- phase 2, lab 12
+// An IP phone: FastEthernet0 is its uplink and its own address, FastEthernet1 the PC port on its back. Its CDP name is SEP + MAC.
+function mkPhone(name){const d=mkPC(name,null,24);d.phone=true;addIf(d,'FastEthernet1');d.hostname='SEP'+macOf(d).replace(/\./g,'').toUpperCase();return d;}
+{const p0=promptOf;promptOf=function(d,s){return d.phone&&s.mode==='pc'?'Phone>':p0(d,s);};}
+Cn('if','switchport voice vlan <n>',e=>{const v=e.args[0];if(v<1||v>4094)return e.out(BAD);if(!e.d.vlans[v]){e.d.vlans[v]={name:'VLAN'+String(v).padStart(4,'0')};e.out('% Voice VLAN does not exist. Creating vlan '+v);}e.s.ctx.forEach(i=>{i.voiceVlan=v;});},['switch']);
+Cn('if','no switchport voice vlan',e=>e.s.ctx.forEach(i=>{delete i.voiceVlan;}),['switch']);
+Cn('dhcp','option <n> ip <ip>',e=>{const p=e.d.dhcp.pools[e.s.ctx];(p.opts||(p.opts={}))[e.args[0]]=e.args[1];});
+const vname=(d,v)=>v+' ('+((d.vlans[v]||{}).name||'Inactive')+')';
+function switchportLines(net,d,i){const tr=i.mode==='trunk',L=['Name: '+shortIf(i.name),'Switchport: Enabled','Administrative Mode: '+(tr?'trunk':i.modeSet?'static access':'dynamic auto'),'Operational Mode: '+(tr?'trunk':'static access'),
+  'Administrative Trunking Encapsulation: dot1q','Operational Trunking Encapsulation: '+(tr?'dot1q':'native'),'Negotiation of Trunking: '+(tr?'On':i.modeSet?'Off':'On'),
+  'Access Mode VLAN: '+vname(d,i.accessVlan),'Trunking Native Mode VLAN: '+vname(d,i.native),'Administrative Native VLAN tagging: enabled','Voice VLAN: '+(i.voiceVlan!=null?vname(d,i.voiceVlan):'none'),
+  'Administrative private-vlan host-association: none','Trunking VLANs Enabled: '+(i.allowed==='all'?'ALL':i.allowed.join(',')),'Pruning VLANs Enabled: 2-1001','Protected: false','Unknown unicast blocked: disabled','Unknown multicast blocked: disabled','Appliance trust: none',''];return L;}
+Cn(EX,'show interfaces switchport',e=>{for(const n of sortIfs(Object.keys(e.d.ifs)))if(!/^(Vlan|Port-channel|Loopback)/.test(n))e.out(...switchportLines(e.net,e.d,e.d.ifs[n]));},['switch'],true);
+Cn(EX,'show interfaces <w> switchport',e=>{const n=parseIf(e.args[0]);if(!n||!e.d.ifs[n]||n.startsWith('Vlan'))return e.out(BAD);e.out(...switchportLines(e.net,e.d,e.d.ifs[n]));},['switch'],true);
+CCNA_LAB_MAP['Voice VLAN']=['2.1'];
+Object.assign(WHYC,{
+'switchport voice vlan <n>':'Lets one access port carry two VLANs: untagged frames go into the access (data) VLAN for the PC, and frames tagged with this VLAN carry the phone\'s voice traffic. The switch tells the phone which VLAN to tag through CDP.',
+'no switchport voice vlan':'Removes the voice VLAN from the port; the phone then sends untagged and lands in the data VLAN.',
+'show interfaces switchport':'Shows each port\'s administrative and operational mode, its access VLAN, native VLAN and voice VLAN.',
+'show interfaces <w> switchport':'Shows one port\'s mode, access VLAN, native VLAN and voice VLAN. The quickest way to confirm a phone port.',
+'option <n> ip <ip>':'Adds a DHCP option to the pool. Option 150 tells Cisco IP phones where their TFTP server is, so they can download their configuration.'});
+addLab({title:'Voice VLAN',group:'Switching',
+ brief:'A new IP phone has been installed with a PC plugged into the back of it, sharing one switch port. Right now both end up in the data VLAN, so the phone cannot be given voice quality of service or reach its call server through the voice network. Give the port a voice VLAN so the phone and the PC each land in the right VLAN.',
+ pos:{PC1:[60,195],PHONE1:[190,195],SW1:[300,110],R1:[440,110],CUCM:[560,195]},start:'SW1',
+ build(){const n=mkNet([mkRouter('R1'),mkSwitch('SW1'),mkPhone('PHONE1'),mkPC('PC1',null,24),srv('CUCM','192.168.200.5',24,'192.168.200.1',[69,2000])]);
+  link(n,'PC1','f0','PHONE1','f1');link(n,'PHONE1','f0','SW1','f0/1');link(n,'SW1','g0/1','R1','g0/0');link(n,'R1','g0/1','CUCM','f0');
+  cfg(n,{R1:['enable','configure terminal','interface g0/0','no shutdown','interface g0/0.10','encapsulation dot1q 10','ip address 192.168.10.1 255.255.255.0','interface g0/0.150','encapsulation dot1q 150','ip address 192.168.150.1 255.255.255.0','interface g0/1','ip address 192.168.200.1 255.255.255.0','no shutdown','exit',
+     'ip dhcp excluded-address 192.168.10.1 192.168.10.10','ip dhcp excluded-address 192.168.150.1 192.168.150.10','ip dhcp pool DATA','network 192.168.10.0 255.255.255.0','default-router 192.168.10.1','ip dhcp pool VOICE','network 192.168.150.0 255.255.255.0','default-router 192.168.150.1','option 150 ip 192.168.200.5','end'],
+   SW1:['enable','configure terminal','vlan 10','name DATA','interface f0/1','switchport mode access','switchport access vlan 10','interface g0/1','switchport mode trunk','end'],PHONE1:['ipconfig /renew'],PC1:['ipconfig /renew']});return n;},
+ addr:[['R1','G0/0.10 (DATA) / G0/0.150 (VOICE)','192.168.10.1, 192.168.150.1 /24'],['R1','DHCP pools','DATA and VOICE, option 150'],['CUCM','Call server, G0/1 side','192.168.200.5'],['PHONE1','IP phone on SW1 Fa0/1','DHCP'],['PC1','Plugged into the phone','DHCP']],
+ tasks:['Check what the phone and PC have now: <code>ipconfig</code> on both. On SW1, find the phone in <code>show cdp neighbors</code>.','On SW1, create VLAN 150 named <code>VOICE</code>.','On Fa0/1, keep the access VLAN at 10 and add voice VLAN 150.','Check the port with <code>show interfaces fa0/1 switchport</code> and <code>show vlan brief</code>.','Renew the phone\'s address and the PC\'s address. Which VLAN did each one land in?','From the phone, ping the call server at 192.168.200.5. From the PC, ping its gateway.'],
+ why:['Both devices are on 192.168.10.x because the phone has no voice VLAN to use: it sends untagged frames, which go into the port\'s access VLAN like the PC\'s. CDP shows the phone as SEP followed by its MAC address, with capability P.','The voice VLAN must exist on the switch like any other VLAN. Keeping voice in its own VLAN lets you prioritise it and keep its broadcasts and security apart from data.','An access port with a voice VLAN carries two VLANs: untagged for the PC and 802.1Q-tagged for the phone. It is still an access port, not a trunk, so the PC cannot send tagged traffic into other VLANs.','show interfaces switchport lists Access Mode VLAN 10 and Voice VLAN 150. show vlan brief lists Fa0/1 under both VLANs.','The switch advertises VLAN 150 to the phone in CDP. The phone then tags its own traffic and asks DHCP again, now from the VOICE pool, while the PC behind it keeps sending untagged frames into VLAN 10.','The phone now reaches its call server from the voice subnet, and option 150 in its lease told it where that server is. The PC is unaffected.'],
+ checks:[['VLAN 150 named VOICE exists on SW1',n=>vlanIs(n,'SW1',150,'VOICE')],['Fa0/1 is an access port in VLAN 10 with voice VLAN 150',n=>{const i=IF(n,'SW1','f0/1');return acc(n,'SW1','f0/1',10)&&i.voiceVlan===150;}],['The phone has a voice-VLAN lease (192.168.150.x)',n=>{const ip=nic(n.devs.PHONE1).ip;return ip!==null&&netOf(ip,24)===ip2n('192.168.150.0')&&n.devs.PHONE1.gw===ip2n('192.168.150.1');}],['The PC behind the phone has a data-VLAN lease (192.168.10.x)',n=>{const ip=nic(n.devs.PC1).ip;return ip!==null&&netOf(ip,24)===ip2n('192.168.10.0')&&n.devs.PC1.gw===ip2n('192.168.10.1');}],['The phone reaches the call server and the PC reaches its gateway',n=>P(n,'PHONE1','192.168.200.5')&&P(n,'PC1','192.168.10.1')]],
+ solution:{SW1:['enable','configure terminal','vlan 150','name VOICE','interface f0/1','switchport voice vlan 150','end'],PHONE1:['ipconfig /renew','ping 192.168.200.5'],PC1:['ipconfig /renew']}},
+ ['PHONE1: ipconfig ; PC1: ipconfig ; SW1: enable | show cdp neighbors',
+  'SW1: configure terminal | vlan 150 | name VOICE | exit',
+  'SW1: interface f0/1 | switchport voice vlan 150 | end',
+  'SW1: show interfaces fa0/1 switchport | show vlan brief',
+  'PHONE1: ipconfig /renew ; PC1: ipconfig /renew',
+  'PHONE1: ping 192.168.200.5 ; PC1: ping 192.168.10.1']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
@@ -2002,7 +2055,9 @@ const SPR={
   switch:'<ellipse class="gshadow" cx="0" cy="16" rx="38" ry="8"/><rect class="body" x="-30" y="-13" width="60" height="26" rx="7" fill="url(#gS)"/><path class="shine" d="M-22 -8H14"/><path class="px" d="M-24 0h6v7h-6zM-15 0h6v7h-6zM-6 0h6v7h-6zM3 0h6v7h-6zM12 0h6v7h-6z"/><circle class="lamp" cx="24" cy="3.5" r="2.4"/>',
   pc:'<ellipse class="gshadow" cx="0" cy="19" rx="26" ry="7"/><rect class="body" x="-19" y="-17" width="38" height="27" rx="5" fill="url(#gP)"/><rect class="scr" x="-14" y="-12.5" width="28" height="18" rx="2.5" fill="url(#gScr)"/><path d="M-11 -10h8l-8 8z" fill="#fff" opacity=".4"/><path class="body" d="M-4 10h8v4h-8z" fill="url(#gP)"/><rect class="body" x="-12" y="13" width="24" height="5" rx="2.5" fill="url(#gP)"/>',
   srv:'<ellipse class="gshadow" cx="0" cy="22" rx="24" ry="7"/><rect class="body" x="-15" y="-21" width="30" height="42" rx="6" fill="url(#gP)"/><path class="shine" d="M-9 -16H5"/><path class="px" d="M-9 -10h18v4h-18zM-9 -3h18v4h-18zM-9 4h18v4h-18z"/><circle class="lamp" cx="7" cy="14" r="2.6"/>'
-},LABELY={router:36,switch:35,pc:39,srv:43};
+,
+  phone:'<ellipse class="gshadow" cx="0" cy="17" rx="26" ry="7"/><path class="body" d="M-20 12L-15 -9Q-14 -13 -10 -13H14Q18 -13 19 -9L22 12Z" fill="url(#gP)"/><rect class="scr" x="-3" y="-9" width="17" height="10" rx="1.5" fill="url(#gScr)"/><rect class="body" x="-18" y="-17" width="10" height="29" rx="4" fill="url(#gP)"/><path class="px" d="M-2 4h4v3h-4zM4 4h4v3h-4zM10 4h4v3h-4z"/>'
+},LABELY={router:36,switch:35,pc:39,srv:43,phone:39};
 function drawTopo(){if(cur.view!=='lab')return;const{lab,net}=cur;let h=`<svg viewBox="0 0 600 245" class="${cur.intro?'intro':''}" role="group" aria-label="Interactive lab topology">`+DEFS;cur.intro=false;
   const cnt={},seen={},pk=l=>[l.a,l.b].sort().join('|');net.links.forEach(l=>{cnt[pk(l)]=(cnt[pk(l)]||0)+1;});
   for(const l of net.links){const k=pk(l),idx=seen[k]=(seen[k]??-1)+1,off=(idx-(cnt[k]-1)/2)*16;
@@ -2014,7 +2069,7 @@ function drawTopo(){if(cur.view!=='lab')return;const{lab,net}=cur;let h=`<svg vi
     [[A,l.ai,ax+ux*42,ay+uy*42,1],[B,l.bi,bx-ux*42,by-uy*42,-1]].forEach(([D,ifn,x,y,s])=>{
       h+=`<rect class="led ${up?'on':'off'}" x="${x-ux*11*s-3}" y="${y-uy*11*s-3}" width="6" height="6"/>`;
       if(D.type!=='pc'&&!lab.hidePorts)h+=`<text class="port" x="${x+px}" y="${y+py+3}">${shortIf(ifn)}</text>`;});}
-  Object.keys(net.devs).forEach((n,k)=>{const d=net.devs[n],[x,y]=lab.pos[n],kind=d.type==='pc'?(d.services?'srv':'pc'):d.type;let g;
+  Object.keys(net.devs).forEach((n,k)=>{const d=net.devs[n],[x,y]=lab.pos[n],kind=d.type==='pc'?(d.phone?'phone':d.services?'srv':'pc'):d.type;let g;
     g=SPR[kind];
     h+=`<g class="dev ${kind}${n===cur.sel?' sel':''}" data-dev="${n}" transform="translate(${x},${y})" tabindex="0" role="button" aria-label="Open ${n} console"><g class="pop" style="--i:${k}">${n===cur.sel?'<ellipse class="selglow" cx="0" cy="17" rx="34" ry="9"/><path class="selring" d="M-9 -42h18l-9 11z"/>':''}${g}<text y="${LABELY[kind]}">${d.type==='pc'?n:esc(d.hostname)}</text></g></g>`;});
   $('topo').innerHTML=h+'<g id="fx"></g></svg>';}
@@ -2255,7 +2310,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
     const d=cur.net.devs[g.dataset.dev];if(!d)return;
     if(tipDev!==g.dataset.dev||tip.hidden){tipDev=g.dataset.dev;
       const rows=Object.values(d.ifs).filter(i=>i.link||i.ip!==null).slice(0,9).map(i=>{const up=ifUp(cur.net,d,i);return `<tr><td>${shortIf(i.name)}</td><td>${i.ip!==null?n2ip(i.ip)+'/'+i.len:'no address'}</td><td class="${up?'good':'bad'}">${up?'up':'down'}</td></tr>`;}).join('');
-      tip.innerHTML=`<b>${esc(d.hostname)}</b><span>${d.type==='pc'?(d.services?'Server':'Host'):d.type==='router'?'Router':'Switch'}${d.type!=='router'&&d.gw!=null?' · gateway '+n2ip(d.gw):''}</span><table>${rows}</table>`;tip.hidden=false;}
+      tip.innerHTML=`<b>${esc(d.hostname)}</b><span>${d.type==='pc'?(d.phone?'IP phone':d.services?'Server':'Host'):d.type==='router'?'Router':'Switch'}${d.type!=='router'&&d.gw!=null?' · gateway '+n2ip(d.gw):''}</span><table>${rows}</table>`;tip.hidden=false;}
     tip.style.left=Math.min(innerWidth-280,e.clientX+16)+'px';tip.style.top=Math.min(innerHeight-tip.offsetHeight-10,e.clientY+20)+'px';});
   $('topo').addEventListener('pointerleave',()=>{tip.hidden=true;tipDev=null;});
   $('topo').addEventListener('pointerdown',()=>{tip.hidden=true;tipDev=null;});
