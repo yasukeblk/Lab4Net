@@ -1,5 +1,13 @@
 # Lab4Net changes
 
+## Requested tall-column workspace
+
+- Added **Tall columns**: Mission and Tasks stand independently from top to bottom on the left, while Topology and Console share equal-height halves of the right-hand column. The left columns each use 28% of available width and the right uses 44%, with consistent gaps. The preset includes an accurate miniature preview and remains adjustable through existing shared dividers.
+- Made this the default for fresh desktop lab workspaces and the target of **Reset layout** in labs. Existing saved arrangements and named layouts are preserved; choose **Layouts → Tall columns** or reset to activate it in an existing browser. Selecting/resetting this preset docks a popped-out command guide into Tasks to keep the requested three-column structure; undo restores the previous geometry and guide state. Sandbox/practice defaults remain Balanced and phones remain stacked.
+- Refined tall-column divider behavior: changing the Mission/Tasks boundary adjusts those immediate neighbors without shifting the right-hand stack. Existing split-based resizing remains available for other arrangements.
+- Baseline/final lab regression: **21 missions / 119 grading checks / 358 guided commands pass**. New Edge test checks actual full-height left columns, equal-height right halves, fresh default, preserving existing saves, preset/reset/reload, guide docking and undo, shared divider behavior, 1920×1080/1366×768/1024×768 and phone/reduced motion. Existing drag, docking, layouts, focus, Matrix, curriculum, sandbox, hardware, mocked Operator and full lab browser suites pass. The requested desktop arrangement was visually reviewed.
+- No simulator, curriculum or deployment changes. Private Debian, physical phones and Safari were unavailable; verification used local Edge and emulated phone dimensions.
+
 ## More assistance during dragging
 
 - Enlarged exact drop buttons and made the full receiving panel a drop area. Hovering toward an edge suggests insertion; its center suggests swapping. Workspace-edge capture is wider, and small button near misses or gaps between panels are caught automatically. When two panels are equally close in a gap, the drag direction selects the recipient.

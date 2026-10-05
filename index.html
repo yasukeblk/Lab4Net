@@ -286,6 +286,7 @@ main.free .dragging{opacity:.45}.layout-preview-box.selected{background:#33311dc
 .placement-landed{animation:placement-confirm .35s ease-out}
 @keyframes placement-confirm{from{box-shadow:inset 0 0 0 3px #f2d79c,0 0 20px #f2d79c40}to{box-shadow:inset 0 0 0 0 transparent}}
 
+.layout-mini.columns{grid-template-columns:1fr 1fr 1.55fr;grid-template-rows:1fr 1fr}.layout-mini.columns i:nth-child(1){grid-column:1;grid-row:1/3}.layout-mini.columns i:nth-child(2){grid-column:2;grid-row:1/3}.layout-mini.columns i:nth-child(3){grid-column:3;grid-row:1}.layout-mini.columns i:nth-child(4){grid-column:3;grid-row:2}
 </style>
 </head>
 <body>
@@ -1515,7 +1516,7 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
 (function(){
  const main=document.querySelector('main'),IDS=['brief','checkWin','mapPanel','console','practice','guideWin'],KEY='lab4net-layout-v2',PAD=18,GAP=14,EDGE=8,SNAP=12;
  const names={brief:'Mission',checkWin:'Tasks',mapPanel:'Network map',console:'Console',practice:'Practice',guideWin:'Step guide'};
- const presets=[['balanced','Balanced','Mission and tasks beside a roomy map and console.'],['console','Console first','More terminal space for configuration sessions.'],['map','Map first','Wide topology above the mission, tasks and console.'],['reading','Study desk','Wider mission and task cards for reading and reasoning.'],['guided','Guided practice','Mission, console and a separate command guide.']];
+ const presets=[['columns','Tall columns','Full-height Mission and Tasks; map and console share the right column.'],['balanced','Balanced','Mission and tasks beside a roomy map and console.'],['console','Console first','More terminal space for configuration sessions.'],['map','Map first','Wide topology above the mission, tasks and console.'],['reading','Study desk','Wider mission and task cards for reading and reasoning.'],['guided','Guided practice','Mission, console and a separate command guide.']];
  const clone=o=>JSON.parse(JSON.stringify(o));
  const valid=r=>r&&['x','y','w','h'].every(k=>Number.isFinite(r[k]))&&r.x>=0&&r.y>=0&&r.w>0&&r.h>0&&r.x+r.w<=1.002&&r.y+r.h<=1.002;
  let L={},saved=[],prefs={smart:true,locked:false},z=5,act=null,history={},guideShown=false;
@@ -1545,7 +1546,8 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
  function presetRects(type){const m=main.getBoundingClientRect(),out={},all=wins().map(el=>el.id),box={x:PAD,y:PAD,w:m.width-2*PAD,h:m.height-2*PAD};
   if(all.includes('practice')){if(all.includes('brief')){const w=(box.w-GAP)*.33;out.brief={...box,w};out.practice={x:box.x+w+GAP,y:box.y,w:box.w-w-GAP,h:box.h};}else out.practice=box;return normal(out);}
   let area={...box};if(all.includes('guideWin')){const w=box.w*(type==='guided'?.28:.24);out.guideWin={x:box.x+box.w-w,y:box.y,w,h:box.h};area.w-=w+GAP;}
-  if(type==='map'){const mh=area.h*.49;out.mapPanel={x:area.x,y:area.y,w:area.w,h:mh};const ids=['brief','checkWin','console'],rest={x:area.x,y:area.y+mh+GAP,w:area.w,h:area.h-mh-GAP};const widths=[.25,.32,.43],usable=rest.w-2*GAP;let x=rest.x;ids.forEach((id,i)=>{out[id]={x,y:rest.y,w:usable*widths[i],h:rest.h};x+=usable*widths[i]+GAP;});}
+  if(type==='columns'){const usable=area.w-2*GAP,cw=usable*.28,rw=usable*.44,x=area.x+2*(cw+GAP),half=(area.h-GAP)/2;out.brief={x:area.x,y:area.y,w:cw,h:area.h};out.checkWin={x:area.x+cw+GAP,y:area.y,w:cw,h:area.h};out.mapPanel={x,y:area.y,w:rw,h:half};out.console={x,y:area.y+half+GAP,w:rw,h:half};}
+  else if(type==='map'){const mh=area.h*.49;out.mapPanel={x:area.x,y:area.y,w:area.w,h:mh};const ids=['brief','checkWin','console'],rest={x:area.x,y:area.y+mh+GAP,w:area.w,h:area.h-mh-GAP};const widths=[.25,.32,.43],usable=rest.w-2*GAP;let x=rest.x;ids.forEach((id,i)=>{out[id]={x,y:rest.y,w:usable*widths[i],h:rest.h};x+=usable*widths[i]+GAP;});}
   else{const left=(area.w-GAP)*(type==='reading'?.42:type==='console'?.28:.32),right=area.w-left-GAP,mh=area.h*(type==='console'?.25:.38),bh=area.h*.4;
    out.brief={x:area.x,y:area.y,w:left,h:bh};out.checkWin={x:area.x,y:area.y+bh+GAP,w:left,h:area.h-bh-GAP};out.mapPanel={x:area.x+left+GAP,y:area.y,w:right,h:mh};out.console={x:area.x+left+GAP,y:area.y+mh+GAP,w:right,h:area.h-mh-GAP};}
   return normal(out);
@@ -1554,13 +1556,13 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
   if(!DESK.matches){main.classList.remove('free');return;}
   const S=L[view()]||(L[view()]={}),vis=wins(),showGuide=vis.some(el=>el.id==='guideWin');
   if(showGuide&&!guideShown&&valid(S.guideWin)){const g=S.guideWin,overlap=vis.some(el=>{const r=S[el.id];return el.id!=='guideWin'&&valid(r)&&Math.min(g.x+g.w,r.x+r.w)>Math.max(g.x,r.x)&&Math.min(g.y+g.h,r.y+r.h)>Math.max(g.y,r.y);});if(overlap)delete S.guideWin;}guideShown=showGuide;
-  if(vis.some(el=>!valid(S[el.id]))){if(vis.every(el=>!valid(S[el.id])))Object.assign(S,presetRects('balanced'));
+  if(vis.some(el=>!valid(S[el.id]))){if(vis.every(el=>!valid(S[el.id])))Object.assign(S,presetRects(view()==='lab'?'columns':'balanced'));
    else if(vis.some(el=>el.id==='guideWin'&&!valid(S.guideWin))){const m=main.getBoundingClientRect(),gw=.27,space=1-gw-GAP/m.width;for(const el of vis){if(el.id==='guideWin')continue;if(valid(S[el.id])){S[el.id].x*=space;S[el.id].w*=space;}}S.guideWin={x:1-gw-PAD/m.width,y:PAD/m.height,w:gw,h:1-2*PAD/m.height};}
    else Object.assign(S,presetRects('balanced'));save();}
   main.classList.add('free');for(const el of vis){el.classList.add('fw');setVars(el,S[el.id]);if(el.id==='guideWin'&&!el.style.zIndex)el.style.zIndex=++z;}
  };
  function exitFocus(){collapse();if(document.body.classList.contains('focus-workspace'))$('focusToggle').click();}
- function applyPreset(type){exitFocus();remember();if(type==='guided'&&view()==='lab')setGuidePop(true);put(presetRects(type));notify('Layout applied. Undo layout restores your previous arrangement.');}
+ function applyPreset(type){exitFocus();remember();if(type==='columns'&&view()==='lab'&&guidePop)setGuidePop(false);if(type==='guided'&&view()==='lab')setGuidePop(true);put(presetRects(type));notify('Layout applied. Undo layout restores your previous arrangement.');}
  function restore(s){exitFocus();guideOn=s.guideOn;guidePop=s.guidePop;try{localStorage.setItem('lab4net-guide',guideOn?'1':'0');localStorage.setItem('lab4net-guide-pop',guidePop?'1':'0');}catch(e){}if(cur.view==='lab')renderBrief();renderGuideWin();L[view()]=clone(s.rects);layoutApply();save();}
  function undo(){const h=history[view()]||[];if(!h.length)return;restore(h.pop());undoButton.disabled=!h.length;notify('Previous layout restored.');}
  undoButton.onclick=undo;
@@ -1651,6 +1653,8 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
   if(!free&&act.tree){const tree=clone(act.tree),box=bounds(act.base,Object.keys(act.base));
    for(const [axis,delta,low,high,size]of [['x',dx,'w','e','w'],['y',dy,'n','s','h']]){
     const lo=mode.includes(low),hi=mode.includes(high);if(!lo&&!hi)continue;const edge=r[axis]+(hi?r[size]:0),nodes=treeRects(tree,box).nodes;
+    // A tall column divider adjusts its immediate neighbors without shifting the next column.
+    if(axis==='x'&&Object.values(act.base).some(q=>q.h>=box.h-2&&(Math.abs(q.x-(lo?edge:edge+GAP))<SNAP||Math.abs(q.x+q.w-(lo?edge-GAP:edge))<SNAP)))continue;
     const matches=nodes.filter(n=>n.t.axis===axis&&(hi?leaves(n.t.a):leaves(n.t.b)).includes(id)).map(n=>({n,error:Math.abs((hi?n.first[axis]+n.first[size]:n.second[axis])-edge)})).filter(x=>x.error<SNAP).sort((a,b)=>a.error-b.error);
     if(!matches.length)continue;const {n}=matches[0],space=n.box[size]-GAP,ma=minimum(n.t.a)[size],mb=minimum(n.t.b)[size];const length=Math.max(ma,Math.min(space-mb,n.first[size]+delta));n.t.ratio=length/space;
     for(const [name,q]of Object.entries(treeRects(tree,box).out)){p[name][axis]=q[axis];p[name][size]=q[size];}
@@ -1678,7 +1682,7 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
  main.addEventListener('pointerdown',e=>{if(e.button)return;const h=hit(e);if(!h)return;h.el.style.zIndex=++z;if(!h.mode)return;e.preventDefault();e.stopPropagation();const m=main.getBoundingClientRect(),base=pixelRects();act={el:h.el,mode:h.mode,px:e.clientX,py:e.clientY,pointer:e.pointerId,m,r:clone(base[h.el.id]),base,tree:layoutTree(base),before:capture(),cur:null,plan:null,free:false};makeTargets();h.el.classList.add('dragging');try{main.setPointerCapture(e.pointerId);}catch(e){}document.body.style.userSelect='none';tip.textContent='Drag to dock or swap Â· Alt for free movement Â· Escape to cancel';},true);
  main.addEventListener('pointerup',end);main.addEventListener('pointercancel',cancel);main.addEventListener('lostpointercapture',()=>{if(act)cancel();});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&act){e.preventDefault();cancel();}});
- $('resetLayout').onclick=()=>{exitFocus();remember();for(const el of IDS.map($))el.style.zIndex='';put(presetRects('balanced'));notify('Balanced layout restored for this workspace. Undo is available.');};
+ $('resetLayout').onclick=()=>{exitFocus();remember();for(const el of IDS.map($))el.style.zIndex='';const type=view()==='lab'?'columns':'balanced';if(type==='columns'&&guidePop)setGuidePop(false);put(presetRects(type));notify((type==='columns'?'Tall columns':'Balanced')+' layout restored for this workspace. Undo is available.');};
  $('guideClose').onclick=()=>setGuidePop(false);
  window.addEventListener('resize',()=>{cancel();renderGuideWin();layoutApply();});
  DESK.addEventListener?.('change',()=>{cancel();if(cur.view==='lab')renderBrief();renderGuideWin();layoutApply();});
@@ -1863,7 +1867,7 @@ function hardwareStarter(){
 // Snapshots and inspections are data-only. They never execute on the learner's network.
 const OPERATOR_MANUAL={
  navigation:{sandbox:'Header Sandbox opens the saved free-build workspace.',newSandbox:'Sandbox → New / starter opens Empty canvas, Working LAN, or Cisco + Juniper VLAN exercise. Export first before replacing a project.',library:'Lab library searches all labs. Choose a lab to open its mission, address plan and checklist.',reference:'Command guide beside the console searches supported commands and reasons, for current or all modes.',help:'How to use explains console shortcuts and learning workflow.',transfer:'Transfer progress exports/imports lab progress and drafts. Sandbox Export/Import project uses a separate project file.'},
- interface:'Mission/address plan and objectives remain visible independently of step-by-step instructions. Toggle step instructions or Pop out guide in lab checklist. Desktop panels can drag/resize: whole-panel magnetic areas suggest Above/Below/Left/Right near edges and Swap in the center; nearby gaps snap in the drag direction. A highlighted receiving area and cursor hint explain the drop. Exact buttons are available; off-target drops cancel and Alt allows free placement. Each panel has Expand/Restore (arrow) and Arrange (three dots); Escape restores expanded panels. Layouts offers presets/saved arrangements, and Undo layout reverses arrangement changes. Reset layout applies Balanced. Phone uses Mission & tasks / Topology & console. Click a device/tab to select its console. Commands are Enter, Tab completion, ? help, arrow history. Rain on/off controls ambient animation; reduced motion pauses effects.',
+ interface:'Mission/address plan and objectives remain visible independently of step-by-step instructions. Toggle step instructions or Pop out guide in lab checklist. Desktop panels can drag/resize: whole-panel magnetic areas suggest Above/Below/Left/Right near edges and Swap in the center; nearby gaps snap in the drag direction. A highlighted receiving area and cursor hint explain the drop. Exact buttons are available; off-target drops cancel and Alt allows free placement. Each panel has Expand/Restore (arrow) and Arrange (three dots); Escape restores expanded panels. Layouts offers presets/saved arrangements, and Undo layout reverses arrangement changes. Reset layout applies Tall columns in labs (Mission and Tasks tall on the left, equal Topology/Console halves on the right), or Balanced in sandbox/practice. Phone uses Mission & tasks / Topology & console. Click a device/tab to select its console. Commands are Enter, Tab completion, ? help, arrow history. Rain on/off controls ambient animation; reduced motion pauses effects.',
  learning:'Grade lab evaluates actual configuration rather than checklist marks. Every task has Why this step. Walkthrough reveals one solution. Theory check and subnetting drill are available in the lab selector/library. Progress is browser/origin-local; transfer JSON to another device.',
  sandbox:'Up to 16 devices, free-port cable builder, drag or arrow-key positions, host IP form, connectivity probe, ordered autosave, Undo, Export/Import. Generic router ports start shut; generic switch ports start in VLAN 1. Hardware catalog offers Catalyst 2960-24TT-L IOS and EX2300-24T Junos. Expand Front panel to choose a free port. Fixed 10G Juniper uplinks cannot connect to 1G copper.',
  curriculum:'CCNA 200-301 v1.1 only for graded labs and default coaching. Study map links lab/incident practice to objective IDs; it is not an exam readiness score. Six incident missions have a failing service, four investigation tasks, optional three-level hints and minimal repair walkthroughs. Juniper is optional sandbox exploration outside the CCNA curriculum.',

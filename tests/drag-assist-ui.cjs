@@ -2,7 +2,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),path
 (async()=>{const browser=await chromium.launch({channel:process.env.LAB4NET_BROWSER_CHANNEL||undefined});try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(pathToFileURL(path.join(__dirname,'../index.html')).href);
  const boxes=()=>page.evaluate(()=>Object.fromEntries(['brief','checkWin','mapPanel','console'].map(id=>{const r=document.getElementById(id).getBoundingClientRect();return [id,{x:r.x,y:r.y,w:r.width,h:r.height}];})));
- async function balanced(){await page.locator('#resetLayout').click();return boxes();}
+ async function balanced(){await page.locator('#layouts').click();await page.locator('[data-layout="balanced"]').click();return boxes();}
  async function begin(){const r=await page.locator('#brief').boundingBox();await page.mouse.move(r.x+70,r.y+20);await page.mouse.down();await page.mouse.move(r.x+90,r.y+45,{steps:4});}
  async function active(side){assert.equal(await page.locator('.dock-target.active').getAttribute('data-side'),side);assert.equal(await page.locator('.dock-target.active').getAttribute('data-target'),'console');assert.ok(await page.locator('#dockRecipient').isVisible());assert.match(await page.locator('#dragCoach').textContent(),/Release:/);}
  async function tiled(){const p=await boxes(),v=Object.values(p);for(let i=0;i<v.length;i++)for(let j=i+1;j<v.length;j++){const a=v[i],b=v[j];assert.ok(Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x)<1||Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y)<1);}return p;}
