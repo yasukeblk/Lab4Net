@@ -2853,6 +2853,16 @@ addIncident({title:'Incident 25: the contractor\'s server vanished from discover
  steps:['SW1: enable | show lldp neighbors','SW1: show lldp interface f0/5 | show running-config','SW1: configure terminal | interface f0/5 | lldp receive | no lldp transmit | end','SW1: show lldp interface f0/5 | show lldp neighbors'],
  hints:['LLDP still works toward SW2 and R1; only the server port changed, and in both directions at once.','show lldp interface f0/5 shows which of transmit and receive is enabled on that port.','The two settings were swapped: SW1 now advertises itself to the contractor and ignores what the server sends. Enable receive and disable transmit again.'],
  lesson:'LLDP transmit and receive are separate per-port switches. Turning off transmit hides you from a neighbor while still learning about it; turning off receive does the opposite, which is rarely what you want.'});
+
+// ----- incident 26
+addIncident({title:'Incident 26: the phone cannot get an address',base:'Voice VLAN',start:'SW1',
+ brief:'After a VLAN clean-up on SW1, the desk phone cannot get an address or reach the call server, although the PC plugged into it still works. The port configuration looks unchanged. Get the phone back into the voice network.',
+ symptom:['PHONE1','192.168.200.5'],
+ fault:{SW1:[...EN,'no vlan 150','end'],PHONE1:['ipconfig /renew']},
+ repair:{SW1:[...EN,'vlan 150','name VOICE','end','show vlan brief'],PHONE1:['ipconfig /renew','ping 192.168.200.5']},
+ steps:['PHONE1: ipconfig /renew ; PC1: ping 192.168.10.1','SW1: enable | show interfaces fa0/1 switchport | show vlan brief','SW1: configure terminal | vlan 150 | name VOICE | end','PHONE1: ipconfig /renew | ping 192.168.200.5'],
+ hints:['The PC behind the phone works, so the port and the data VLAN are fine. Only the phone\'s own traffic, which is tagged, is affected.','show interfaces fa0/1 switchport shows Voice VLAN 150 as Inactive, and show vlan brief has no VLAN 150.','The voice VLAN was deleted from the switch. Create VLAN 150 again (name VOICE), then renew the phone\'s address.'],
+ lesson:'The port still tells the phone to use VLAN 150, so the phone keeps tagging its traffic with it. If the VLAN does not exist on the switch, those frames are dropped and the phone is cut off while the PC behind it carries on.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
