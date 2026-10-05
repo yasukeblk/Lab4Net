@@ -230,6 +230,30 @@ body{--ink:#e3ece6;--muted:#a1b3a7}
 }
 @media(max-width:860px){#attentionBar{padding:10px 12px;flex-wrap:wrap;gap:8px}#attentionTask{flex-basis:100%}#attentionDevice{flex:1}#focusToggle{display:none}#term{font-size:12px}.tasks>li{padding:12px 8px}}
 
+/* Discoverable layout tools and whole-arrangement drop previews. */
+#layoutPreview{position:absolute;inset:0;pointer-events:none;z-index:9997}
+.layout-preview-box{position:absolute;display:grid;place-items:center;border:1px dashed #93ffb1;background:#0b241ce8;color:#b8d9c5;font:12px var(--mono);box-shadow:inset 0 0 24px #93ffb111}
+.layout-preview-box.selected{border:2px solid #f5da9e;background:#33311de8;color:#ffe9b5}
+#layoutDragTip{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);max-width:90%;padding:10px 14px;z-index:9999;pointer-events:none;color:#ffe9b5;background:#142219f5;border:1px solid #8f8054;font:11px/1.5 var(--mono);text-align:center;box-shadow:0 4px 20px #0008}
+#layoutDragTip:empty{display:none}
+.layout-options{display:flex;gap:18px;flex-wrap:wrap;padding:14px;border:1px solid #355740;background:#102018;margin:16px 0}
+.layout-options label{display:flex;gap:8px;align-items:center;font-size:13px}
+.layout-options input{accent-color:#93ffb1}
+.layout-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
+.layout-card{padding:14px;text-align:left;border:1px solid #3b6047;border-radius:5px;background:#101d15;color:#e0eee5;transition:background .18s,border-color .18s}
+.layout-card:hover{border-color:#93ffb1;background:#183524}.layout-card b{display:block;font:14px var(--ui);margin:12px 0 6px}.layout-card>span:last-child{display:block;font:12px/1.6 var(--ui);color:#b0c7b8}
+.layout-mini{display:grid;grid-template-columns:1fr 2fr;grid-template-rows:1fr 1.5fr;gap:4px;height:70px}
+.layout-mini i{border:1px solid #50745a;background:#244732;border-radius:2px}.layout-mini i:first-child{background:#192d22}.layout-mini i:last-child{background:#467a55}
+.layout-mini.console{grid-template-rows:.65fr 2fr}.layout-mini.reading{grid-template-columns:1.2fr 1.5fr}
+.layout-mini.map{grid-template-columns:1fr 1fr 1.5fr;grid-template-rows:1.3fr 1fr}.layout-mini.map i:first-child{grid-column:1/4}
+.layout-mini.guided{grid-template-columns:1fr 1.4fr 1fr}.layout-mini.guided i:nth-child(3){grid-column:3;grid-row:1/3}.layout-mini.guided i:nth-child(4){grid-column:1;grid-row:2}.layout-mini.guided i:nth-child(5){grid-column:2;grid-row:2}
+.layout-save{display:flex;gap:10px}.layout-save input{flex:1;min-width:0;padding:9px 12px;background:#06110b;border:1px solid #3b6047;border-radius:3px;font:13px var(--ui)}
+.saved-layout{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #294333}.saved-layout button:first-child{white-space:normal;text-align:left}
+main.free:not(.layout-locked) :is(.panel-title,.console-toolbar,#brief::before,#practice::before){cursor:grab}
+main.free .dragging :is(.panel-title,.console-toolbar){cursor:grabbing}
+main.layout-locked :is(.panel-title,.console-toolbar,#brief::before,#practice::before),body.focus-workspace main :is(.panel-title,.console-toolbar){cursor:default}
+@media(max-width:860px){#layouts,#undoLayout,#resetLayout{display:none}.layout-presets{grid-template-columns:1fr}.layout-save{flex-wrap:wrap}}
+
 </style>
 </head>
 <body>
@@ -1330,7 +1354,7 @@ function reference(){if(cur.view!=='lab')return;const d=cur.net.devs[cur.sel],s=
   const render=()=>{const q=$('cmdSearch').value.toLowerCase(),all=$('allModes').checked;const commands=d.os==='junos'?JUNOS_COMMANDS.map(([mode,syntax,why])=>({modes:[mode],pat:syntax.split(' '),why})):CMDS;const list=commands.filter(c=>(!c.types||c.types.includes(d.type))&&(all||c.modes.includes(s.mode))&&(c.pat.join(' ')+' '+(c.why||WHYC[c.pat.join(' ')]||'')).toLowerCase().includes(q));
     $('cmdList').innerHTML=list.map((c,i)=>`<button class="command-card" data-command="${i}"><code>${esc(c.pat.join(' '))}</code><small>${c.modes.map(m=>MODE[m]||m).join(' · ')}</small><span>${c.why||WHYC[c.pat.join(' ')]||'Use ? in the console to explore its arguments.'}</span></button>`).join('')||'<p>No matching commands in this mode. Try “All modes”.</p>';
     $('cmdList').querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>{$('tin').value=list[+b.dataset.command].pat.join(' ');$('dialog').close();$('tin').focus();});};render();$('cmdSearch').oninput=render;$('allModes').onchange=render;}
-function help(){dialog('Your network, your reasoning',`<div class="help-steps"><p><b>01 · Read the mission.</b> The address plan is your source of truth. Check off tasks as you work; open “Why this step” to understand the purpose.</p><p><b>02 · Take the console.</b> Click a device or its tab. Type <code>enable</code>, then <code>configure terminal</code> to start configuring a router or switch. Use the field guide for supported syntax.</p><p><b>03 · Prove it works.</b> Run show commands and test connectivity. Packet results show both the request and reply, including where forwarding fails.</p><p><b>04 · Grade and reflect.</b> Grading checks configuration and reachability, not your checkboxes. A walkthrough explains one working solution.</p></div><h3>Console shortcuts</h3><p><kbd>?</kbd> context help · <kbd>Tab</kbd> completion · <kbd>↑ ↓</kbd> history<br><kbd>Ctrl+Z</kbd> privileged mode · <kbd>Ctrl+L</kbd> clear display</p><h3>Keep your work</h3><p>Commands, task marks and passes save in this browser. Use Transfer progress to export a JSON backup and import it on another device. The file includes your simulated configurations.</p><div class="lesson-tip">This is an educational IOS-style model, not a full IOS emulator. Timing, authentication, STP and services are simplified. SSH and Telnet test a connection; they do not open an interactive remote shell.</div>`);}
+function help(){dialog('Your network, your reasoning',`<div class="help-steps"><p><b>01 · Read the mission.</b> The address plan is your source of truth. Check off tasks as you work; open “Why this step” to understand the purpose.</p><p><b>02 · Take the console.</b> Click a device or its tab. Type <code>enable</code>, then <code>configure terminal</code> to start configuring a router or switch. Use the field guide for supported syntax.</p><p><b>03 · Prove it works.</b> Run show commands and test connectivity. Packet results show both the request and reply, including where forwarding fails.</p><p><b>04 · Grade and reflect.</b> Grading checks configuration and reachability, not your checkboxes. A walkthrough explains one working solution.</p></div><h3>Arrange your desktop</h3><p>Open <b>Layouts</b> for suggested arrangements, named saves and a position lock. Drag a title bar to an edge to dock and rearrange its neighbors, or over another panel’s center to swap. Resize shared edges to adjust both sides. Hold <kbd>Alt</kbd> for free positioning; <kbd>Escape</kbd> cancels. <b>Undo layout</b> restores the previous arrangement.</p><h3>Console shortcuts</h3><p><kbd>?</kbd> context help · <kbd>Tab</kbd> completion · <kbd>↑ ↓</kbd> history<br><kbd>Ctrl+Z</kbd> privileged mode · <kbd>Ctrl+L</kbd> clear display</p><h3>Keep your work</h3><p>Commands, task marks and passes save in this browser. Use Transfer progress to export a JSON backup and import it on another device. The file includes your simulated configurations.</p><div class="lesson-tip">This is an educational IOS-style model, not a full IOS emulator. Timing, authentication, STP and services are simplified. SSH and Telnet test a connection; they do not open an interactive remote shell.</div>`);}
 function transfer(){dialog('Take your progress with you',`<p>Move your passed labs, task marks, theory results and saved configurations between browsers. Import merges earned passes and replaces saved work only for labs included in the file.</p><div class="actions"><button class="btn primary" id="export">Export backup</button><label class="btn">Import backup<input type="file" id="import" accept="application/json,.json" hidden></label></div><p id="transferStatus" role="status"></p>`);
   $('export').onclick=()=>{saveWork();const url=URL.createObjectURL(new Blob([JSON.stringify({format:'lab4net',version:1,progress,drafts,lastLab},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='lab4net-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('transferStatus').textContent='Backup exported. Import it on your other device to continue.';};
   $('import').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024)throw Error('Backup exceeds 5 MB');const p=JSON.parse(await file.text());if(p.format!=='lab4net'||p.version!==1||!p.progress||!p.drafts)throw Error('Not a supported Lab4Net backup');const clean={};for(const l of LABS){const d=p.drafts[l.title];if(d){replay(l,d);if(!Array.isArray(d.tasks)||d.tasks.length>l.tasks.length||d.tasks.some(x=>typeof x!=='boolean'))throw Error('Invalid task checklist');clean[l.title]={journal:d.journal,tasks:d.tasks};}}
@@ -1455,72 +1479,107 @@ function setGuidePop(on){if(on){guideOn=true;try{localStorage.setItem('lab4net-g
   guidePop=on;try{localStorage.setItem('lab4net-guide-pop',on?'1':'0');}catch(e){}
   if(cur.view==='lab'){const sc=$('checkBody').scrollTop;renderBrief();$('checkBody').scrollTop=sc;}renderGuideWin();layoutApply();}
 
-// ---------- movable, resizable, snapping windows (desktop) ----------
+// ---------- desktop layouts: presets, docking, shared dividers and saved arrangements ----------
 (function(){
-  const main=document.querySelector('main'),IDS=['brief','checkWin','mapPanel','console','practice','guideWin'],KEY='lab4net-layout-v2',PAD=18,GAP=22,SNAP=12,EDGE=7,MINW=260,MINH=150;
-  const CUR={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize',move:'move'};
-  let L={},z=5,act=null;try{L=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}
-  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(L));}catch(e){}};
-  const view=()=>cur.view==='lab'?(cur.sandbox?'sandbox':'lab'):'practice';
-  const wins=()=>IDS.map($).filter(el=>!el.hidden&&!el.parentElement.hidden);
-  const setVars=(el,r)=>{for(const k of ['x','y','w','h'])el.style.setProperty('--'+k,(r[k]*100).toFixed(3)+'%');};
-  const sv=$('snapV'),sh=$('snapH'),sp=$('snapPrev');
-  window.layoutApply=function(){
-    if(!DESK.matches){main.classList.remove('free');return;}
-    const S=L[view()]||(L[view()]={}),vis=wins();
-    if(vis.some(el=>!S[el.id])){main.classList.remove('free');const m=main.getBoundingClientRect();
-      for(const el of vis){if(S[el.id])continue;
-        if(el.id==='guideWin'){S[el.id]={x:.6,y:.04,w:.385,h:.66};continue;}
-        const r=el.getBoundingClientRect();S[el.id]={x:(r.left-m.left)/m.width,y:(r.top-m.top)/m.height,w:r.width/m.width,h:r.height/m.height};}
-      save();}
-    main.classList.add('free');
-    for(const el of vis){el.classList.add('fw');setVars(el,S[el.id]);if(el.id==='guideWin'&&!el.style.zIndex)el.style.zIndex=++z;}
-  };
-  function hit(e){if(!main.classList.contains('free')||document.body.classList.contains('focus-workspace'))return null;
-    const vis=wins().sort((a,b)=>(+b.style.zIndex||0)-(+a.style.zIndex||0)),x=e.clientX,y=e.clientY;
-    for(const el of vis){const r=el.getBoundingClientRect();if(x<r.left-4||x>r.right+4||y<r.top-4||y>r.bottom+4)continue;
-      let m='';if(y<r.top+EDGE)m='n';else if(y>r.bottom-EDGE)m='s';if(x<r.left+EDGE)m+='w';else if(x>r.right-EDGE)m+='e';
-      if(!m&&y<r.top+40&&!(e.target.closest&&e.target.closest('button,select,input,a,label,summary')))m='move';
-      return {el,mode:m};}
-    return null;}
-  function drag(e){const {el,mode,m,r}=act,dx=e.clientX-act.px,dy=e.clientY-act.py,W=m.width,H=m.height,xs=[PAD,W-PAD],ys=[PAD,H-PAD];
-    for(const o of wins()){if(o===el)continue;const q=o.getBoundingClientRect(),l=q.left-m.left,t=q.top-m.top;xs.push(l,l+q.width,l-GAP,l+q.width+GAP);ys.push(t,t+q.height,t-GAP,t+q.height+GAP);}
-    const near=(v,a)=>{if(e.altKey)return null;let b=null;for(const c of a)if(Math.abs(c-v)<=SNAP&&(b===null||Math.abs(c-v)<Math.abs(b-v)))b=c;return b;};
-    let x=r.x,y=r.y,w=r.w,h=r.h,gx=null,gy=null,s;act.snap=null;
-    if(mode==='move'){x=r.x+dx;y=r.y+dy;
-      if((s=near(x,xs))!==null){x=s;gx=s;}else if((s=near(x+w,xs))!==null){x=s-w;gx=s;}
-      if((s=near(y,ys))!==null){y=s;gy=s;}else if((s=near(y+h,ys))!==null){y=s-h;gy=s;}
-      x=Math.max(0,Math.min(W-w,x));y=Math.max(0,Math.min(H-h,y));
-      const half=(W-2*PAD-GAP)/2,full=H-2*PAD;
-      if(e.clientX<=m.left+10)act.snap={x:PAD,y:PAD,w:half,h:full};else if(e.clientX>=m.right-10)act.snap={x:PAD+half+GAP,y:PAD,w:half,h:full};else if(e.clientY<=m.top+10)act.snap={x:PAD,y:PAD,w:W-2*PAD,h:full};
-    }else{let x2=r.x+r.w,y2=r.y+r.h;
-      if(mode.includes('w')){x=r.x+dx;if((s=near(x,xs))!==null){x=s;gx=s;}x=Math.max(0,Math.min(x2-MINW,x));}
-      if(mode.includes('e')){x2=r.x+r.w+dx;if((s=near(x2,xs))!==null){x2=s;gx=s;}x2=Math.min(W,Math.max(x+MINW,x2));}
-      if(mode.includes('n')){y=r.y+dy;if((s=near(y,ys))!==null){y=s;gy=s;}y=Math.max(0,Math.min(y2-MINH,y));}
-      if(mode.includes('s')){y2=r.y+r.h+dy;if((s=near(y2,ys))!==null){y2=s;gy=s;}y2=Math.min(H,Math.max(y+MINH,y2));}
-      w=x2-x;h=y2-y;}
-    act.cur={x,y,w,h};setVars(el,{x:x/W,y:y/H,w:w/W,h:h/H});
-    sv.style.display=gx!==null&&!act.snap?'block':'none';if(gx!==null)sv.style.left=gx+'px';
-    sh.style.display=gy!==null&&!act.snap?'block':'none';if(gy!==null)sh.style.top=gy+'px';
-    if(act.snap){sp.style.display='block';sp.style.left=act.snap.x+'px';sp.style.top=act.snap.y+'px';sp.style.width=act.snap.w+'px';sp.style.height=act.snap.h+'px';}else sp.style.display='none';}
-  function end(){if(!act)return;const {el,m}=act,f=act.snap||act.cur;
-    if(f){const S=L[view()]||(L[view()]={});S[el.id]={x:f.x/m.width,y:f.y/m.height,w:f.w/m.width,h:f.h/m.height};setVars(el,S[el.id]);save();}
-    el.classList.remove('dragging');sv.style.display=sh.style.display=sp.style.display='none';document.body.style.userSelect='';act=null;
-    if(cur.view==='lab')$('term').scrollTop=$('term').scrollHeight;}
-  main.addEventListener('pointermove',e=>{if(act)return drag(e);const h=hit(e),c=h&&h.mode?CUR[h.mode]:'';if(document.body.dataset.cur!==c)document.body.dataset.cur=c;});
-  main.addEventListener('pointerleave',()=>{if(!act)document.body.dataset.cur='';});
-  main.addEventListener('pointerdown',e=>{if(e.button)return;const h=hit(e);if(!h)return;h.el.style.zIndex=++z;if(!h.mode)return;
-    e.preventDefault();e.stopPropagation();const m=main.getBoundingClientRect(),r=h.el.getBoundingClientRect();
-    act={el:h.el,mode:h.mode,px:e.clientX,py:e.clientY,m,r:{x:r.left-m.left,y:r.top-m.top,w:r.width,h:r.height},snap:null,cur:null};
-    h.el.classList.add('dragging');try{main.setPointerCapture(e.pointerId);}catch(x){}document.body.style.userSelect='none';},true);
-  main.addEventListener('pointerup',end);main.addEventListener('pointercancel',end);
-  $('resetLayout').onclick=()=>{L={};save();for(const el of IDS.map($)){el.classList.remove('fw');el.style.zIndex='';for(const k of ['x','y','w','h'])el.style.removeProperty('--'+k);}main.classList.remove('free');layoutApply();notify('Layout reset to the default.');};
-  $('guideClose').onclick=()=>setGuidePop(false);
-  window.addEventListener('resize',()=>{renderGuideWin();layoutApply();});
-  DESK.addEventListener?.('change',()=>{if(cur.view==='lab')renderBrief();renderGuideWin();layoutApply();});
-  let seen=null;const sync=()=>{$('checkWin').hidden=cur.view!=='lab';if(cur!==seen){seen=cur;$('checkBody').scrollTop=0;}renderGuideWin();layoutApply();};
-  const ra0=renderAll;renderAll=function(){ra0();sync();};
-  sync();
+ const main=document.querySelector('main'),IDS=['brief','checkWin','mapPanel','console','practice','guideWin'],KEY='lab4net-layout-v2',PAD=18,GAP=14,EDGE=8,SNAP=12;
+ const names={brief:'Mission',checkWin:'Tasks',mapPanel:'Network map',console:'Console',practice:'Practice',guideWin:'Step guide'};
+ const presets=[['balanced','Balanced','Mission and tasks beside a roomy map and console.'],['console','Console first','More terminal space for configuration sessions.'],['map','Map first','Wide topology above the mission, tasks and console.'],['reading','Study desk','Wider mission and task cards for reading and reasoning.'],['guided','Guided practice','Mission, console and a separate command guide.']];
+ const clone=o=>JSON.parse(JSON.stringify(o));
+ const valid=r=>r&&['x','y','w','h'].every(k=>Number.isFinite(r[k]))&&r.x>=0&&r.y>=0&&r.w>0&&r.h>0&&r.x+r.w<=1.002&&r.y+r.h<=1.002;
+ let L={},saved=[],prefs={smart:true,locked:false},z=5,act=null,history={},guideShown=false;
+ try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object'&&!Array.isArray(p))for(const mode of ['lab','sandbox','practice'])if(p[mode]&&typeof p[mode]==='object'&&!Array.isArray(p[mode]))L[mode]=Object.fromEntries(Object.entries(p[mode]).filter(([id,r])=>IDS.includes(id)&&valid(r)));}catch(e){}
+ try{const p=JSON.parse(localStorage.getItem('lab4net-layout-library')||'[]');if(Array.isArray(p))saved=p.filter(x=>x&&typeof x.name==='string'&&['lab','sandbox','practice'].includes(x.view)&&x.rects&&typeof x.rects==='object'&&!Array.isArray(x.rects)&&Object.entries(x.rects).length&&Object.entries(x.rects).every(([id,r])=>IDS.includes(id)&&valid(r))).slice(0,12);}catch(e){}
+ try{const p=JSON.parse(localStorage.getItem('lab4net-layout-settings')||'{}');prefs={smart:p.smart!==false,locked:p.locked===true};}catch(e){}
+ const view=()=>cur.view==='lab'?(cur.sandbox?'sandbox':'lab'):'practice';
+ const wins=()=>IDS.map($).filter(el=>!el.hidden&&!el.parentElement.hidden);
+ const setVars=(el,r)=>{for(const k of ['x','y','w','h'])el.style.setProperty('--'+k,(r[k]*100).toFixed(3)+'%');};
+ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(L));}catch(e){notify('Layout storage unavailable. Arrangement lasts for this session.');}};
+ function settings(){try{localStorage.setItem('lab4net-layout-settings',JSON.stringify(prefs));}catch(e){}main.classList.toggle('layout-locked',prefs.locked);}
+ const sv=$('snapV'),sh=$('snapH'),sp=$('snapPrev');
+ const previews=document.createElement('div');previews.id='layoutPreview';previews.setAttribute('aria-hidden','true');main.append(previews);
+ const tip=document.createElement('div');tip.id='layoutDragTip';tip.setAttribute('role','status');main.append(tip);
+ const launch=document.createElement('button');launch.id='layouts';launch.className='small-btn';launch.textContent='Layouts';$('resetLayout').before(launch);
+ const undoButton=document.createElement('button');undoButton.id='undoLayout';undoButton.className='small-btn';undoButton.textContent='Undo layout';undoButton.disabled=true;launch.after(undoButton);
+ function capture(){return {rects:clone(L[view()]||{}),guideOn,guidePop};}
+ function remember(s=capture()){const h=history[view()]||(history[view()]=[]);h.push(s);if(h.length>20)h.shift();undoButton.disabled=false;}
+ function pixelRects(){const m=main.getBoundingClientRect(),out={};for(const el of wins()){const r=el.getBoundingClientRect();out[el.id]={x:r.left-m.left,y:r.top-m.top,w:r.width,h:r.height};}return out;}
+ function normal(p){const m=main.getBoundingClientRect(),out={};for(const [id,r]of Object.entries(p))out[id]={x:r.x/m.width,y:r.y/m.height,w:r.w/m.width,h:r.h/m.height};return out;}
+ function put(rects){L[view()]={...(L[view()]||{}),...rects};for(const el of wins())if(rects[el.id])setVars(el,rects[el.id]);save();}
+ function pack(ids,box,out){if(!ids.length)return;let cols=1,best=Infinity;for(let c=1;c<=ids.length;c++){const rows=Math.ceil(ids.length/c),w=(box.w-GAP*(c-1))/c,h=(box.h-GAP*(rows-1))/rows;if(w<200||h<100)continue;const score=Math.abs(w/h-1.8)+(c*rows-ids.length)*.4;if(score<best){best=score;cols=c;}}
+  const rows=Math.ceil(ids.length/cols),h=(box.h-GAP*(rows-1))/rows;for(let row=0;row<rows;row++){const n=Math.min(cols,ids.length-row*cols),w=(box.w-GAP*(n-1))/n;for(let col=0;col<n;col++)out[ids[row*cols+col]]={x:box.x+col*(w+GAP),y:box.y+row*(h+GAP),w,h};}}
+ function presetRects(type){const m=main.getBoundingClientRect(),out={},all=wins().map(el=>el.id),box={x:PAD,y:PAD,w:m.width-2*PAD,h:m.height-2*PAD};
+  if(all.includes('practice')){if(all.includes('brief')){const w=(box.w-GAP)*.33;out.brief={...box,w};out.practice={x:box.x+w+GAP,y:box.y,w:box.w-w-GAP,h:box.h};}else out.practice=box;return normal(out);}
+  let area={...box};if(all.includes('guideWin')){const w=box.w*(type==='guided'?.28:.24);out.guideWin={x:box.x+box.w-w,y:box.y,w,h:box.h};area.w-=w+GAP;}
+  if(type==='map'){const mh=area.h*.49;out.mapPanel={x:area.x,y:area.y,w:area.w,h:mh};const ids=['brief','checkWin','console'],rest={x:area.x,y:area.y+mh+GAP,w:area.w,h:area.h-mh-GAP};const widths=[.25,.32,.43],usable=rest.w-2*GAP;let x=rest.x;ids.forEach((id,i)=>{out[id]={x,y:rest.y,w:usable*widths[i],h:rest.h};x+=usable*widths[i]+GAP;});}
+  else{const left=(area.w-GAP)*(type==='reading'?.42:type==='console'?.28:.32),right=area.w-left-GAP,mh=area.h*(type==='console'?.25:.38),bh=area.h*.4;
+   out.brief={x:area.x,y:area.y,w:left,h:bh};out.checkWin={x:area.x,y:area.y+bh+GAP,w:left,h:area.h-bh-GAP};out.mapPanel={x:area.x+left+GAP,y:area.y,w:right,h:mh};out.console={x:area.x+left+GAP,y:area.y+mh+GAP,w:right,h:area.h-mh-GAP};}
+  return normal(out);
+ }
+ window.layoutApply=function(){settings();launch.disabled=!DESK.matches;undoButton.disabled=!DESK.matches||!(history[view()]||[]).length;
+  if(!DESK.matches){main.classList.remove('free');return;}
+  const S=L[view()]||(L[view()]={}),vis=wins(),showGuide=vis.some(el=>el.id==='guideWin');
+  if(showGuide&&!guideShown&&valid(S.guideWin)){const g=S.guideWin,overlap=vis.some(el=>{const r=S[el.id];return el.id!=='guideWin'&&valid(r)&&Math.min(g.x+g.w,r.x+r.w)>Math.max(g.x,r.x)&&Math.min(g.y+g.h,r.y+r.h)>Math.max(g.y,r.y);});if(overlap)delete S.guideWin;}guideShown=showGuide;
+  if(vis.some(el=>!valid(S[el.id]))){if(vis.every(el=>!valid(S[el.id])))Object.assign(S,presetRects('balanced'));
+   else if(vis.some(el=>el.id==='guideWin'&&!valid(S.guideWin))){const m=main.getBoundingClientRect(),gw=.27,space=1-gw-GAP/m.width;for(const el of vis){if(el.id==='guideWin')continue;if(valid(S[el.id])){S[el.id].x*=space;S[el.id].w*=space;}}S.guideWin={x:1-gw-PAD/m.width,y:PAD/m.height,w:gw,h:1-2*PAD/m.height};}
+   else Object.assign(S,presetRects('balanced'));save();}
+  main.classList.add('free');for(const el of vis){el.classList.add('fw');setVars(el,S[el.id]);if(el.id==='guideWin'&&!el.style.zIndex)el.style.zIndex=++z;}
+ };
+ function exitFocus(){if(document.body.classList.contains('focus-workspace'))$('focusToggle').click();}
+ function applyPreset(type){exitFocus();remember();if(type==='guided'&&view()==='lab')setGuidePop(true);put(presetRects(type));notify('Layout applied. Undo layout restores your previous arrangement.');}
+ function restore(s){exitFocus();guideOn=s.guideOn;guidePop=s.guidePop;try{localStorage.setItem('lab4net-guide',guideOn?'1':'0');localStorage.setItem('lab4net-guide-pop',guidePop?'1':'0');}catch(e){}if(cur.view==='lab')renderBrief();renderGuideWin();L[view()]=clone(s.rects);layoutApply();save();}
+ function undo(){const h=history[view()]||[];if(!h.length)return;restore(h.pop());undoButton.disabled=!h.length;notify('Previous layout restored.');}
+ undoButton.onclick=undo;
+ function menu(){exitFocus();const mode=view();dialog('Arrange your workspace',`<p>Choose a starting layout, then make it yours. Drag a title bar to an edge to dock; drop over the middle of another panel to swap. Resize a shared edge to adjust its neighbors. Hold <kbd>Alt</kbd> for free positioning.</p><div class="layout-options"><label><input id="layoutSmart" type="checkbox"${prefs.smart?' checked':''}> Smart docking &amp; shared resizing</label><label><input id="layoutLock" type="checkbox"${prefs.locked?' checked':''}> Lock window positions</label></div><div class="layout-presets">${presets.filter(p=>mode!=='practice'&&(p[0]!=='guided'||mode==='lab')).map(([id,name,description])=>`<button class="layout-card" data-layout="${id}"><span class="layout-mini ${id}" aria-hidden="true"><i></i><i></i><i></i><i></i>${id==='guided'?'<i></i>':''}</span><b>${name}</b><span>${description}</span></button>`).join('')}</div>${mode==='practice'?'<p>Practice keeps its briefing beside the exercise. Your lab and sandbox layouts are saved separately.</p>':''}<h3>Save this arrangement</h3><form id="layoutSaveForm" class="layout-save"><input id="layoutName" aria-label="Layout name" maxlength="40" placeholder="e.g. My troubleshooting desk" required><button class="btn" type="submit">Save new layout</button></form><p id="layoutSaveStatus" role="status"></p><div id="savedLayouts">${saved.map((s,i)=>s.view===mode?`<div class="saved-layout"><button class="small-btn" data-restore-layout="${i}">${esc(s.name)}</button><button class="small-btn" data-remove-layout="${i}" aria-label="Delete ${esc(s.name)} layout">Delete</button></div>`:'').join('')||'<p>No named layouts saved for this workspace yet.</p>'}</div><p class="study-note">Named layouts live in this browser. Saving creates a new copy; it never replaces another named layout. Undo keeps the last 20 changes during this session. Phone layouts remain stacked.</p>`);
+  $('layoutSmart').onchange=e=>{prefs.smart=e.target.checked;settings();};$('layoutLock').onchange=e=>{prefs.locked=e.target.checked;settings();};
+  $('dialogBody').querySelectorAll('[data-layout]').forEach(b=>b.onclick=()=>{$('dialog').close();applyPreset(b.dataset.layout);});
+  $('layoutSaveForm').onsubmit=e=>{e.preventDefault();const name=$('layoutName').value.trim();if(!name)return;if(saved.length>=12){$('layoutSaveStatus').textContent='Twelve saved layouts maximum. Delete an unused layout first.';return;}saved.push({name,view:mode,...capture()});persistLibrary();menu();$('layoutSaveStatus').textContent='Layout saved.';};
+  $('dialogBody').querySelectorAll('[data-restore-layout]').forEach(b=>b.onclick=()=>{const s=saved[+b.dataset.restoreLayout];remember();$('dialog').close();restore(s);notify('Restored '+s.name+'.');});
+  $('dialogBody').querySelectorAll('[data-remove-layout]').forEach(b=>b.onclick=()=>{saved.splice(+b.dataset.removeLayout,1);persistLibrary();menu();});
+ }
+ function persistLibrary(){try{localStorage.setItem('lab4net-layout-library',JSON.stringify(saved));}catch(e){notify('Layout storage unavailable. Named layouts last for this session.');}}
+ launch.onclick=menu;
+ function hit(e){if(!main.classList.contains('free')||prefs.locked||document.body.classList.contains('focus-workspace'))return null;
+  const vis=wins().sort((a,b)=>(+b.style.zIndex||0)-(+a.style.zIndex||0));for(const el of vis){const r=el.getBoundingClientRect(),x=e.clientX,y=e.clientY;if(x<r.left-3||x>r.right+3||y<r.top-3||y>r.bottom+3)continue;
+   let mode='';if(y<r.top+EDGE)mode='n';else if(y>r.bottom-EDGE)mode='s';if(x<r.left+EDGE)mode+='w';else if(x>r.right-EDGE)mode+='e';if(!mode&&y<r.top+40&&!e.target.closest('button,select,input,a,label,summary'))mode='move';return {el,mode};}return null;}
+ function dock(id,side){const m=act.m,box={x:PAD,y:PAD,w:m.width-2*PAD,h:m.height-2*PAD},p={},others=Object.keys(act.base).filter(n=>n!==id);if(!others.length){p[id]=box;return p;}const horizontal=side==='left'||side==='right',size=(horizontal?box.w:box.h)*.46;
+  let remain;if(horizontal){p[id]={x:side==='left'?box.x:box.x+box.w-size,y:box.y,w:size,h:box.h};remain={x:side==='left'?box.x+size+GAP:box.x,y:box.y,w:box.w-size-GAP,h:box.h};}
+  else{p[id]={x:box.x,y:side==='top'?box.y:box.y+box.h-size,w:box.w,h:size};remain={x:box.x,y:side==='top'?box.y+size+GAP:box.y,w:box.w,h:box.h-size-GAP};}pack(others,remain,p);return p;}
+ function resizePlan(mode,dx,dy,free){const p=clone(act.base),r=act.r,id=act.el.id;
+  for(const [axis,delta,low,high,size,limit,min]of [['x',dx,'w','e','w',act.m.width,220],['y',dy,'n','s','h',act.m.height,110]]){
+   const lo=mode.includes(low),hi=mode.includes(high);if(!lo&&!hi)continue;const edge=r[axis]+(hi?r[size]:0),starts=[],ends=[];
+   for(const [n,q]of Object.entries(act.base)){if(n!==id&&free)continue;const begin=q[axis],finish=begin+q[size];if(Math.abs(finish-(lo?edge-GAP:edge))<SNAP)ends.push(n);if(Math.abs(begin-(lo?edge:edge+GAP))<SNAP)starts.push(n);}
+   if(!starts.includes(id)&&lo)starts.push(id);if(!ends.includes(id)&&hi)ends.push(id);
+   let lower=-Infinity,upper=Infinity;for(const n of ends)lower=Math.max(lower,Math.min(min,act.base[n][size])-act.base[n][size]);for(const n of starts)upper=Math.min(upper,act.base[n][size]-Math.min(min,act.base[n][size]));
+   lower=Math.max(lower,-edge);upper=Math.min(upper,limit-edge);const change=Math.max(lower,Math.min(upper,delta));
+   for(const n of ends)p[n][size]+=change;for(const n of starts){p[n][axis]+=change;p[n][size]-=change;}
+  }return p;
+ }
+ function preview(plan,label){previews.replaceChildren();if(!plan){tip.textContent='Move to an edge to dock Â· over another panel to swap Â· Alt for free movement';return;}for(const [id,r]of Object.entries(plan)){const box=document.createElement('div');box.className='layout-preview-box'+(id===act.el.id?' selected':'');Object.assign(box.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});box.textContent=names[id];previews.append(box);}tip.textContent=label+' Â· Release to apply Â· Escape to cancel';}
+ function drag(e){const {el,mode,m,r}=act,dx=e.clientX-act.px,dy=e.clientY-act.py;act.plan=null;
+  if(mode==='move'){
+   const x=Math.max(0,Math.min(m.width-r.w,r.x+dx)),y=Math.max(0,Math.min(m.height-r.h,r.y+dy));act.cur={x,y,w:r.w,h:r.h};
+   if(prefs.smart&&!e.altKey&&Math.hypot(dx,dy)>35){const px=e.clientX-m.left,py=e.clientY-m.top;let side=px<26?'left':px>m.width-26?'right':py<26?'top':py>m.height-26?'bottom':null;
+    if(side){act.plan=dock(el.id,side);act.label='Dock '+names[el.id]+' '+side+'; arrange other panels';}
+    else for(const [id,q]of Object.entries(act.base)){if(id===el.id)continue;if(px>q.x+q.w*.2&&px<q.x+q.w*.8&&py>q.y+Math.min(50,q.h*.3)&&py<q.y+q.h*.8){act.plan=clone(act.base);act.plan[el.id]=clone(q);act.plan[id]=clone(r);act.label='Swap '+names[el.id]+' and '+names[id];break;}}
+   }
+   if(!act.plan&&!e.altKey){const xs=[PAD,m.width-PAD],ys=[PAD,m.height-PAD];for(const [id,q]of Object.entries(act.base)){if(id===el.id)continue;xs.push(q.x,q.x+q.w+GAP,q.x-GAP);ys.push(q.y,q.y+q.h+GAP,q.y-GAP);}const near=(v,arr)=>arr.find(a=>Math.abs(v-a)<SNAP);let sx=near(x,xs),sy=near(y,ys);if(sx!==undefined)act.cur.x=Math.max(0,Math.min(m.width-r.w,sx));if(sy!==undefined)act.cur.y=Math.max(0,Math.min(m.height-r.h,sy));}
+   setVars(el,normal({[el.id]:act.cur})[el.id]);preview(act.plan,act.label);
+  }else{act.plan=resizePlan(mode,dx,dy,!prefs.smart||e.altKey);for(const [id,q]of Object.entries(normal(act.plan)))setVars($(id),q);previews.replaceChildren();tip.textContent=(prefs.smart&&!e.altKey?'Shared resize: neighbors follow':'Free resize')+' Â· Escape to cancel';}
+ }
+ function clean(){if(!act)return;act.el.classList.remove('dragging');try{main.releasePointerCapture(act.pointer);}catch(e){}act=null;previews.replaceChildren();tip.textContent='';sv.style.display=sh.style.display=sp.style.display='none';document.body.style.userSelect='';document.body.dataset.cur='';}
+ function cancel(){if(!act)return;for(const [id,r]of Object.entries(normal(act.base)))setVars($(id),r);clean();}
+ function end(){if(!act)return;const plan=act.plan||(act.cur?{[act.el.id]:act.cur}:null);if(plan){remember(act.before);put(normal(plan));}clean();if(cur.view==='lab')$('term').scrollTop=$('term').scrollHeight;}
+ const cursors={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize',move:'move'};
+ main.addEventListener('pointermove',e=>{if(act)return drag(e);const h=hit(e);document.body.dataset.cur=h?.mode?cursors[h.mode]:'';});
+ main.addEventListener('pointerleave',()=>{if(!act)document.body.dataset.cur='';});
+ main.addEventListener('pointerdown',e=>{if(e.button)return;const h=hit(e);if(!h)return;h.el.style.zIndex=++z;if(!h.mode)return;e.preventDefault();e.stopPropagation();const m=main.getBoundingClientRect(),base=pixelRects();act={el:h.el,mode:h.mode,px:e.clientX,py:e.clientY,pointer:e.pointerId,m,r:clone(base[h.el.id]),base,before:capture(),cur:null,plan:null};h.el.classList.add('dragging');try{main.setPointerCapture(e.pointerId);}catch(e){}document.body.style.userSelect='none';tip.textContent='Drag to dock or swap Â· Alt for free movement Â· Escape to cancel';},true);
+ main.addEventListener('pointerup',end);main.addEventListener('pointercancel',cancel);main.addEventListener('lostpointercapture',()=>{if(act)cancel();});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&act){e.preventDefault();cancel();}});
+ $('resetLayout').onclick=()=>{exitFocus();remember();for(const el of IDS.map($))el.style.zIndex='';put(presetRects('balanced'));notify('Balanced layout restored for this workspace. Undo is available.');};
+ $('guideClose').onclick=()=>setGuidePop(false);
+ window.addEventListener('resize',()=>{cancel();renderGuideWin();layoutApply();});
+ DESK.addEventListener?.('change',()=>{cancel();if(cur.view==='lab')renderBrief();renderGuideWin();layoutApply();});
+ let seen=null;const sync=()=>{cancel();$('checkWin').hidden=cur.view!=='lab';if(cur!==seen){seen=cur;$('checkBody').scrollTop=0;}renderGuideWin();layoutApply();};const ra0=renderAll;renderAll=function(){ra0();sync();};sync();
 })();
 
 

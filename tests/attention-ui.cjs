@@ -18,7 +18,7 @@ const {pathToFileURL}=require('node:url');
  if(process.env.LAB4NET_SCREENSHOTS){fs.mkdirSync(process.env.LAB4NET_SCREENSHOTS,{recursive:true});await page.waitForTimeout(300);await page.screenshot({path:path.join(process.env.LAB4NET_SCREENSHOTS,'focus-workspace.png')});}
  await page.locator('#taskReturn').click();assert.ok(await page.locator('#brief').isVisible());assert.equal(await page.evaluate(()=>localStorage.getItem('lab4net-layout-v2')),before);
  await page.locator('#focusToggle').click();await page.keyboard.press('Escape');assert.equal(await page.locator('#focusToggle').getAttribute('aria-pressed'),'false');
- if(process.env.LAB4NET_SCREENSHOTS)await page.waitForTimeout(300);await page.screenshot({path:path.join(process.env.LAB4NET_SCREENSHOTS,'clear-workspace.png')});
+ if(process.env.LAB4NET_SCREENSHOTS){await page.waitForTimeout(300);await page.screenshot({path:path.join(process.env.LAB4NET_SCREENSHOTS,'clear-workspace.png')});}
  await page.locator('#labs').selectOption('quiz');assert.equal(await page.locator('#attentionBar').isVisible(),false);
  await page.locator('#labs').selectOption('0');assert.match(await page.locator('#attentionTask').textContent(),/TASK 1 OF/);
  await page.emulateMedia({reducedMotion:'reduce'});await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
