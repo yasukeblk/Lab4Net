@@ -1135,10 +1135,10 @@ const prompt0=promptOf;promptOf=function(d,s){const h=d.hostname;if(s.mode==='ac
 function ifExtra(i,d0){const L=[];if(i.helper!=null)L.push(' ip helper-address '+n2ip(i.helper));if(i.aclIn)L.push(' ip access-group '+i.aclIn+' in');if(i.aclOut)L.push(' ip access-group '+i.aclOut+' out');if(i.nat)L.push(' ip nat '+i.nat);
   if(i.chan)L.push(' channel-group '+i.chan+' mode '+i.chanMode);
   if(i.ps&&i.ps.on){L.push(' switchport port-security');if(i.ps.max!==1)L.push(' switchport port-security maximum '+i.ps.max);if(i.ps.violation!=='shutdown')L.push(' switchport port-security violation '+i.ps.violation);if(i.ps.sticky)L.push(' switchport port-security mac-address sticky');}
-  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');
+  if(i.portfast)L.push(' spanning-tree portfast');if(i.bpduguard)L.push(' spanning-tree bpduguard enable');if(i.cdp===false)L.push(' no cdp enable');if(i.proxyArp===false)L.push(' no ip proxy-arp');if(i.lldpTx===false)L.push(' no lldp transmit');if(i.lldpRx===false)L.push(' no lldp receive');
   if(i.ospfNet)L.push(' ip ospf network '+i.ospfNet);if(i.ospfPrio!=null)L.push(' ip ospf priority '+i.ospfPrio);if(i.ospfCost!=null)L.push(' ip ospf cost '+i.ospfCost);if(i.ospfArea!=null&&d0.ospf)L.push(' ip ospf '+d0.ospf.pid+' area '+i.ospfArea);return L;}
 function globalExtra(d){const L=[];
-  if(d.cdp===false)L.push('no cdp run');
+  if(d.cdp===false)L.push('no cdp run');if(d.lldp&&d.type!=='pc')L.push('lldp run');
   (d.users||[]).forEach(u=>L.push('username '+u.name+(u.priv>1?' privilege '+u.priv:'')+(u.kind==='secret'?' secret 5 $1$mERr$9cTjUIEqNGurQiFU.ZeCi1':' password '+pwText(d,u.pw))));
   if(d.domain)L.push('ip domain-name '+d.domain);if(d.sshv)L.push('ip ssh version '+d.sshv);
   if(d.stp){if(d.stp.mode!=='pvst')L.push('spanning-tree mode '+d.stp.mode);for(const v in d.stp.prio)L.push('spanning-tree vlan '+v+' priority '+d.stp.prio[v]);}
@@ -1820,6 +1820,64 @@ addLab({title:'OSPF on a shared segment',group:'Routing',
   'R4: interface g0/1 | ip ospf network point-to-point ; BR: enable | configure terminal | interface g0/1 | ip ospf network point-to-point | do show ip ospf neighbor',
   'R4: ip ospf cost 10 | end ; BR: ip ospf cost 10 | end | show ip route ospf',
   'PC1: ping 10.0.0.1 ; R1: end | show ip ospf interface g0/0']);
+
+// ----- phase 2, lab 11
+// LLDP (802.1AB). Off by default on Cisco routers and switches; a host running an LLDP agent has d.lldp set.
+// A device learns a neighbor when both run LLDP, the neighbor transmits on its port and this port receives.
+function lldpPeers(net,d){if(!d.lldp)return [];const r=[];for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(!i.link||!ifUp(net,d,i)||i.lldpRx===false)continue;
+  const p=net.devs[i.link.dev],pi=p.ifs[i.link.ifn];if(p.lldp&&pi.lldpTx!==false)r.push({i,p,pi});}return r;}
+const lldpCap=p=>p.type==='router'?'R':p.type==='switch'?'B':'S';
+const lldpPort=(p,pi)=>p.type==='pc'?'eth0':shortIf(pi.name);
+const LLDPCAPS=['Capability codes:','    (R) Router, (B) Bridge, (T) Telephone, (C) DOCSIS Cable Device','    (W) WLAN Access Point, (P) Repeater, (S) Station, (O) Other',''];
+Cn(EX,'show lldp neighbors',e=>{const{net,d,out}=e;if(!d.lldp)return out('% LLDP is not enabled');const ps=lldpPeers(net,d);
+  out(...LLDPCAPS,'Device ID           Local Intf     Hold-time  Capability      Port ID',...ps.map(({i,p,pi})=>pad(p.hostname.slice(0,19),20)+pad(shortIf(i.name),15)+pad(120,11)+pad(lldpCap(p),16)+lldpPort(p,pi)),'','Total entries displayed: '+ps.length);},['router','switch']);
+Cn(EX,'show lldp neighbors detail',e=>{const{net,d,out}=e;if(!d.lldp)return out('% LLDP is not enabled');const ps=lldpPeers(net,d);
+  ps.forEach(({i,p,pi})=>{const mgmt=p.type==='pc'?nic(p).ip:p.type==='router'?pi.ip:(Object.values(p.ifs).find(x=>x.name.startsWith('Vlan')&&x.ip!==null)||{}).ip;
+    out('------------------------------------------------','Local Intf: '+shortIf(i.name),'Chassis id: '+macOf(p),'Port id: '+lldpPort(p,pi),'Port Description: '+(p.type==='pc'?'eth0':(pi.desc||pi.name)),'System Name: '+p.hostname,'','System Description: ',
+      p.type==='pc'?(p.sysDescr||'Linux '+p.hostname+' 6.1.0-18-amd64 #1 SMP Debian 6.1.76-1 x86_64'):p.type==='router'?'Cisco IOS Software [Fuji], ISR Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 16.9.4':'Cisco IOS Software, C2960 Software (C2960-LANBASEK9-M), Version 15.2(7)E2','',
+      'Time remaining: 112 seconds','System Capabilities: '+lldpCap(p),'Enabled Capabilities: '+lldpCap(p),'Management Addresses:',mgmt!=null?'    IP: '+n2ip(mgmt):'    - not advertised','Auto Negotiation - supported, enabled','');});
+  out('','Total entries displayed: '+ps.length);},['router','switch']);
+Cn(EX,'show lldp',e=>e.out(...(e.d.lldp?['','Global LLDP Information:','    Status: ACTIVE','    LLDP advertisements are sent every 30 seconds','    LLDP hold time advertised is 120 seconds','    LLDP interface reinitialisation delay is 2 seconds']:['% LLDP is not enabled'])),['router','switch']);
+Cn(EX,'show lldp interface <rest?>',e=>{const{d,out}=e;if(!d.lldp)return out('% LLDP is not enabled');const want=e.args[0]?parseIf(e.args[0]):null;if(e.args[0]&&(!want||!d.ifs[want]))return out(BAD);
+  for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(n.startsWith('Vlan')||n.startsWith('Loopback')||(want&&n!==want))continue;
+    out('',shortIf(n)+':','    Tx: '+(i.lldpTx===false?'disabled':'enabled'),'    Rx: '+(i.lldpRx===false?'disabled':'enabled'),'    Tx state: '+(i.lldpTx===false?'INIT':'IDLE'),'    Rx state: '+(i.lldpRx===false?'INIT':'WAIT FOR FRAME'));}},['router','switch']);
+Cn('config','lldp run',e=>{e.d.lldp=true;},['router','switch']);
+Cn('config','no lldp run',e=>{e.d.lldp=false;},['router','switch']);
+Cn('if','lldp transmit',e=>e.s.ctx.forEach(i=>{i.lldpTx=true;}),['router','switch']);
+Cn('if','no lldp transmit',e=>e.s.ctx.forEach(i=>{i.lldpTx=false;}),['router','switch']);
+Cn('if','lldp receive',e=>e.s.ctx.forEach(i=>{i.lldpRx=true;}),['router','switch']);
+Cn('if','no lldp receive',e=>e.s.ctx.forEach(i=>{i.lldpRx=false;}),['router','switch']);
+CCNA_LAB_MAP['LLDP']=['2.3'];
+Object.assign(WHYC,{
+'lldp run':'Turns on LLDP (IEEE 802.1AB), the vendor-neutral discovery protocol. Cisco ships it off; CDP is on instead.',
+'no lldp run':'Turns LLDP off on the whole device.',
+'show lldp neighbors':'Lists neighbors heard over LLDP: their system name, your port, their capabilities (B bridge, R router, S station, T phone) and their port.',
+'show lldp neighbors detail':'Adds each neighbor\'s chassis ID, system description (often the exact OS version), and management address.',
+'show lldp':'Shows whether LLDP is running and its timers: an advertisement every 30 seconds, held for 120.',
+'show lldp interface <rest?>':'Shows, per interface, whether LLDP is transmitting and receiving.',
+'no lldp transmit':'Stops advertising this device out of the port while still listening. Useful where you want to learn about what is connected without telling it anything about you.',
+'lldp transmit':'Resumes sending LLDP advertisements out of this port.',
+'no lldp receive':'Ignores LLDP advertisements arriving on this port.',
+'lldp receive':'Resumes listening for LLDP advertisements on this port.'});
+addLab({title:'LLDP',group:'Switching',hidePorts:true,
+ brief:'A contractor has installed a Linux file server on SW1 and nobody wrote down where. CDP only talks to Cisco devices, so it cannot see the server. Turn on LLDP, the open standard, find the server and its details, and stop SW1 advertising itself to the contractor\'s box.',
+ pos:{R1:[110,110],SW1:[300,110],SW2:[490,110],SRV1:[300,195],PC1:[490,195]},start:'SW1',
+ build(){const files=srv('SRV1','10.1.1.50',24,'10.1.1.1',[445]);files.hostname='files01';files.lldp=true;
+  const n=mkNet([mkRouter('R1'),mkSwitch('SW1'),mkSwitch('SW2'),files,mkPC('PC1','10.1.1.20',24,'10.1.1.1')]);
+  link(n,'R1','g0/0','SW1','g0/2');link(n,'SW1','g0/1','SW2','g0/2');link(n,'SW1','f0/5','SRV1','f0');link(n,'SW2','f0/1','PC1','f0');
+  const sw=ip=>['enable','configure terminal','interface vlan 1','ip address '+ip+' 255.255.255.0','no shutdown','exit','ip default-gateway 10.1.1.1','end'];
+  cfg(n,{R1:['enable','configure terminal','interface g0/0','ip address 10.1.1.1 255.255.255.0','no shutdown','end'],SW1:sw('10.1.1.2'),SW2:sw('10.1.1.3')});return n;},
+ addr:[['R1','G0/0','10.1.1.1/24'],['SW1 / SW2','Management, VLAN 1','10.1.1.2, 10.1.1.3'],['SRV1','Contractor\'s Linux server, runs lldpd','find it with LLDP'],['PC1','Workstation','10.1.1.20']],
+ tasks:['On SW1, run <code>show cdp neighbors</code>, then <code>show lldp neighbors</code>. What can CDP see, and what is missing?','Turn on LLDP on SW1, SW2 and R1.','On SW1, run <code>show lldp neighbors</code> again and find the server: which port is it on, and what does it call itself?','Use <code>show lldp neighbors detail</code> on SW1 to read the server\'s operating system and management address, then ping that address from R1.','The server is not yours. Stop SW1 sending LLDP out of the server\'s port, but keep listening to it.','Check the port with <code>show lldp interface</code> and confirm SW1 still lists the server.'],
+ why:['CDP is Cisco\'s own protocol, so a Linux server, a non-Cisco switch or most phones from other vendors never show up in it. LLDP is off on Cisco gear by default, so you get nothing until you turn it on.','LLDP has to run at both ends of a link. Turning it on everywhere you manage gives a consistent, vendor-neutral view of the network.','Capability S means station: an end host. The device ID is whatever the server calls itself (its system name), which is often the only clue to what a box is.','The system description often contains the exact OS and kernel version, and the management address tells you how to reach the box. It is great for documentation and equally useful to an attacker.','Transmit and receive are separate switches per port. Turning off transmit means the contractor\'s server learns nothing about your switch, while you still learn about it.','Receive is still on, so the entry stays. If you had used no lldp run instead, SW1 would have gone blind on every port.'],
+ checks:[['LLDP runs on SW1, SW2 and R1',n=>['SW1','SW2','R1'].every(x=>n.devs[x].lldp===true)],['SW1 discovers the Linux server, which CDP cannot see',n=>lldpPeers(n,n.devs.SW1).some(x=>x.p===n.devs.SRV1)&&!cdpPeers(n,n.devs.SW1).some(x=>x.p===n.devs.SRV1)],['SW1 no longer advertises itself to the server but still listens on that port',n=>{const i=IF(n,'SW1','f0/5');return i.lldpTx===false&&i.lldpRx!==false&&!lldpPeers(n,n.devs.SRV1).some(x=>x.p===n.devs.SW1);}],['The Cisco devices see each other over LLDP',n=>{const sees=(a,b)=>lldpPeers(n,n.devs[a]).some(x=>x.p===n.devs[b]);return sees('SW1','SW2')&&sees('SW1','R1')&&sees('SW2','SW1')&&sees('R1','SW1');}],['R1 can ping the server',n=>P(n,'R1','10.1.1.50')]],
+ solution:{SW1:['enable','configure terminal','lldp run','interface f0/5','no lldp transmit','end'],SW2:['enable','configure terminal','lldp run','end'],R1:['enable','configure terminal','lldp run','end']}},
+ ['SW1: enable | show cdp neighbors | show lldp neighbors',
+  'SW1: configure terminal | lldp run | end ; SW2: enable | configure terminal | lldp run | end ; R1: enable | configure terminal | lldp run | end',
+  'SW1: # the server shows as files01 on Fa0/5 with capability S | show lldp neighbors',
+  'SW1: show lldp neighbors detail ; R1: ping 10.1.1.50',
+  'SW1: configure terminal | interface f0/5 | no lldp transmit | end',
+  'SW1: show lldp interface f0/5 | show lldp neighbors']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
