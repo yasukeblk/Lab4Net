@@ -2753,6 +2753,16 @@ addIncident({title:'Incident 15: the switches cannot manage each other',base:'Na
  steps:['SW1: enable | ping 192.168.99.2 ; PC1: ping 192.168.10.12','SW1: show interfaces trunk ; SW2: enable | show interfaces trunk | show logging','SW2: configure terminal | interface g0/1 | switchport trunk native vlan 99 | end','SW1: ping 192.168.99.2 ; SW2: show interfaces trunk'],
  hints:['Tagged VLANs still cross the trunk; only the management VLAN, which travels untagged, is broken. That narrows it to how the two ends treat untagged frames.','Compare the Native vlan column of show interfaces trunk on both switches. show logging on SW2 also records a CDP native VLAN mismatch.','SW2\'s Gi0/1 went back to native VLAN 1. Set it to 99 again so untagged frames land in the same VLAN at both ends.'],
  lesson:'The native VLAN is a per-end setting: each switch drops untagged frames into its own native VLAN. When the ends disagree, untagged traffic lands in the wrong VLAN, and here VLAN 1 is not even allowed on the trunk, so management traffic simply disappears.'});
+
+// ----- incident 16
+addIncident({title:'Incident 16: the switch answers only locally',base:'Switch management access',start:'SW1',
+ brief:'SW1 still forwards user traffic, and its management interface is up, but the admin workstation on another subnet can no longer ping it or log in. Find what changed on SW1 and restore remote management.',
+ symptom:['ADMIN','192.168.99.2'],
+ fault:{SW1:[...EN,'ip default-gateway 192.168.99.254','end']},
+ repair:{SW1:[...EN,'ip default-gateway 192.168.99.1','end','show running-config'],ADMIN:['ping 192.168.99.2','ssh -l netadmin 192.168.99.2']},
+ steps:['ADMIN: ping 192.168.99.2 ; R1: enable | ping 192.168.99.2','SW1: enable | show ip interface brief | show running-config','SW1: configure terminal | ip default-gateway 192.168.99.1 | end','ADMIN: ping 192.168.99.2 | ssh -l netadmin 192.168.99.2'],
+ hints:['R1, on the same subnet as SW1\'s management address, can still reach it. Only devices on other subnets cannot, which points at the way back, not the way in.','The VLAN 99 interface is up with the right address. Look for the default gateway in show running-config and compare it with R1\'s address in VLAN 99.','The default gateway points at 192.168.99.254, which does not exist. Set it back to R1, 192.168.99.1.'],
+ lesson:'A Layer 2 switch replies to remote managers through its default gateway, exactly like a PC. A wrong gateway leaves the switch reachable from its own subnet and silent to everything else.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
