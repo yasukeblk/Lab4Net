@@ -1,5 +1,25 @@
 # Lab4Net changes
 
+## Lab library, phase 5: capstones and theory questions
+
+A new Capstone group, after the incidents. Each capstone starts from factory defaults and is graded on the whole network working, so it pulls several labs together without telling you the order.
+
+- **Capstone: branch office from scratch**: VLANs for staff and guests, a trunk with native VLAN 99, router-on-a-stick with a native subinterface, DHCP pools for both VLANs, PAT to the ISP, a guest ACL that only allows web browsing (and still lets DHCP through), and SSH-only management limited to the staff subnet.
+- **Capstone: campus core**: a Catalyst 3560 distribution switch with an LACP EtherChannel trunk to the access switch, port security on the access ports, the distribution switch as the spanning-tree root, SVIs as gateways, a routed uplink running OSPF with the router, and DHCP relay to a central server.
+
+Capstones open with the step-by-step guide off, whatever the global guide setting. Turning it on inside a capstone is remembered for that capstone only (`lab4net-capstone-guide`, included in Transfer progress), and the global setting is untouched. The library and brief label them CAPSTONE 01 and 02, the Study map counts them separately, and its note explains the guide default.
+
+Engine changes behind them:
+
+- `encapsulation dot1Q N native` on a router subinterface: untagged frames on the parent port go to that subinterface, and it appears in the running config.
+- An inbound ACL now filters DHCP discovers (UDP 68 to 67, to 255.255.255.255) before they reach a server or relay, so a guest ACL must permit bootps. The `bootps`, `bootpc`, `ntp`, `snmp` and `syslog` port names are accepted.
+
+Theory check: 12 new questions (28 in all) on automation (Ansible, northbound APIs, JSON, why automate), wireless (WPA3, lightweight access points and the controller), security (DHCP starvation, multifactor authentication), network fundamentals (control plane, private ranges) and IPv6 (solicited-node multicast). They were added at the end, so saved answers keep their places.
+
+Tests: ui.cjs checks that a capstone opens with the guide off when the global guide is on, that turning it on is remembered per capstone, and that the brief shows CAPSTONE 01.
+
+Verification: labs.cjs passes 73 labs, 416 checks and 1439 guide commands. forwarding.cjs, curriculum.cjs and ui.cjs pass (ui.cjs grades all 73 in Edge). Both capstone guides were run through the real console in Edge and graded, with no rejected commands and no page errors, and the screens were checked at 1440x1000 and 390x844. Not checked: the container, Firefox, Safari.
+
 ## Lab library, phase 4: 29 more troubleshooting incidents
 
 The Troubleshooting group now has 35 incidents, at least one for every build lab. Each starts from the finished lab with one fault added (sometimes with a little background setup), reproduces a real failing service, has three clues (Direction, Evidence, Repair), a lesson, and an inline step-by-step guide, and is graded with the original lab's checks.

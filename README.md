@@ -4,11 +4,12 @@ A single-page CCNA learning workspace. Open `index.html` directly in a modern br
 
 ## Learning workspace
 
-- 15 configurable labs with a live topology, IOS-style device consoles, independent grading and an explained walkthrough.
+- 36 configurable build labs, 35 troubleshooting incidents and 2 capstones, each with a live topology, IOS-style device consoles, independent grading and an explained walkthrough. Every lab is tagged with its CCNA 200-301 v1.1 objectives.
+- Labs cover switching (VLANs, trunks, native VLAN, voice VLAN, EtherChannel, spanning tree, CDP and LLDP, Layer 3 switching), routing (static and floating routes, route selection, OSPF including DR/BDR, HSRP), IPv6 addressing and static routing, IP services (DHCP and relay, PAT, static and dynamic NAT, NTP, syslog) and security (ACLs, port security, DHCP snooping, Dynamic ARP Inspection, device hardening and SSH).
 - Every mission task retains its **Why this step** explanation. Task checkboxes track your own work; grading checks the network configuration and connectivity.
 - Searchable lab library, command field guide and console mode indicators.
 - Packet paths come from the forwarding model, including traversed switches. Persistent request/reply results distinguish missing routes, unreachable next hops, ACL drops and closed ports. Replay shows the last test; run the command again to test a changed configuration.
-- Subnetting drill with mixed, warm-up and small-network prefix ranges; 16 explained theory questions across wireless, IPv6 concepts, security, services and automation.
+- Subnetting drill with mixed, warm-up and small-network prefix ranges; 28 explained theory questions across wireless, IPv6 concepts, security, services and automation.
 - Saved configurations and checklists resume when you reopen a lab. **Transfer progress** exports a JSON backup for import on another browser or device.
 - On phones, switch between **Mission & tasks** and **Topology & console**. System reduced-motion preferences disable movement while keeping readable packet results.
 
@@ -37,14 +38,7 @@ For an existing Git checkout in the LXC:
     cd /opt/lab4net
     git pull && bash install-lxc.sh
 
-To preview the improvements branch before merging:
-
-    cd /opt/lab4net
-    git fetch origin
-    git switch --track origin/chatgpt/improvements
-    bash install-lxc.sh
-
-If that branch already exists locally, use `git switch chatgpt/improvements` instead. Future updates on it use the same `git pull && bash install-lxc.sh` command.
+The live copy should track `main`. The `chatgpt/improvements` branch is a separate line of work and is not merged into `main`; see `docs/HANDOFF.md`.
 
 For Docker, run `git pull && docker compose up -d --build`.
 
@@ -54,8 +48,9 @@ The lab test extracts only the code between the ENGINE markers, creates every la
 
     node tests/labs.cjs
     node tests/forwarding.cjs
+    node tests/curriculum.cjs
 
-GitHub Actions runs both dependency-free checks on pushes and pull requests.
+`labs.cjs` also follows every lab's step-by-step guide to a passing grade. `forwarding.cjs` tests the packet engine (routing, ACLs, NAT, VLANs, IPv6, HSRP, DHCP snooping, DAI, err-disabled ports). `curriculum.cjs` checks the objective map and that every incident starts broken and is fixed by its repair. GitHub Actions runs all three on pushes and pull requests.
 
 Optional browser integration tests use Playwright:
 
@@ -72,4 +67,4 @@ Alternatively set `LAB4NET_BROWSER_CHANNEL=msedge` to use an installed Edge brow
 - Import validates command journals by rebuilding them before replacing saved work. Earned lab passes are merged; included lab drafts replace their corresponding saved configurations.
 - Saved command history is capped at 5,000 commands per lab; backups at 5 MB. Start over removes that lab's draft and checklist, while preserving its earned pass.
 - There is no automatic account/cloud synchronization; JSON transfer works entirely offline.
-- This is an educational IOS-style model, not a full IOS emulator. Authentication, timing, STP, EtherChannel and port security are simplified. SSH/Telnet report connection results rather than opening interactive remote shells. IPv6 forwarding and HSRP labs are not implemented.
+- This is an educational IOS-style model, not a full IOS emulator. Timers, authentication prompts and some protocol details are simplified (see Known limits in `docs/HANDOFF.md`). SSH/Telnet report connection results rather than opening interactive remote shells. IPv6 has static routing only, and wireless is covered by theory questions only.

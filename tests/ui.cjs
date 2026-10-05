@@ -93,6 +93,23 @@ const fs = require('node:fs');
     assert.equal(await page.evaluate(() => cur.net.devs.R1.hostname),'REVIEWED');
     await page.locator('#tin').press('Control+z');
     assert.equal(await page.locator('#mode').textContent(),'Privileged EXEC');
+    // Capstones open with the step-by-step guide off, whatever the global setting, and switching it on there
+    // is remembered for that capstone only.
+    await page.evaluate(() => openLab(LABS.findIndex(l => l.title === 'Basic device setup'), true));
+    if (!(await page.locator('#guideToggle').isChecked())) await page.locator('#guideToggle').check({ force: true });
+    assert.ok(await page.locator('.steps').count() > 0);
+    await page.evaluate(() => openLab(LABS.findIndex(l => l.capstone), true));
+    assert.equal(await page.locator('#guideToggle').isChecked(), false);
+    assert.equal(await page.locator('.steps').count(), 0);
+    assert.match(await page.locator('#brief').textContent(), /CAPSTONE 01/);
+    await page.locator('#guideToggle').check({ force: true });
+    assert.ok(await page.locator('.steps').count() > 0);
+    await page.evaluate(() => openLab(LABS.findIndex(l => l.title === 'Basic device setup'), true));
+    assert.equal(await page.locator('#guideToggle').isChecked(), true);
+    await page.evaluate(() => openLab(LABS.findIndex(l => l.capstone), true));
+    assert.equal(await page.locator('#guideToggle').isChecked(), true);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('lab4net-capstone-guide'))['Capstone: branch office from scratch']), true);
+    await page.locator('#guideToggle').uncheck({ force: true });
     // Practice views hide the network and remain interactive.
     await page.selectOption('#labs', 'drill');
     assert.equal(await page.locator('#bench').isVisible(), false);
@@ -135,6 +152,6 @@ const fs = require('node:fs');
       await page.screenshot({path:path.join(process.env.LAB4NET_SCREENSHOTS,'desktop.png'),fullPage:true});
     }
     assert.deepEqual(errors, []);
-    console.log(`PASS browser: ${count} lab grades, console restore, task restore, backup round-trip, invalid import, library, guide, drill, quiz, phone, reduced motion; no page errors.`);
+    console.log(`PASS browser: ${count} lab grades, console restore, task restore, backup round-trip, invalid import, library, guide, capstone guide default, drill, quiz, phone, reduced motion; no page errors.`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode=1; });

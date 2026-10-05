@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of lab library phase 4 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+State as of lab library phase 5 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -10,11 +10,12 @@ It currently has:
 
 - 36 graded build labs: the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phases 1 and 2 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build, floating static routes, how a router chooses a route, OSPF on a shared segment, LLDP, voice VLAN with an IP phone, dynamic NAT with a pool, named ACLs edited by sequence number, NTP and syslog, inter-VLAN routing on a Layer 3 switch, DHCP snooping, Dynamic ARP Inspection, IPv6 addressing, IPv6 static and default routes, HSRP)
 - 35 troubleshooting incidents built from those labs (one or more for every build lab), each with three clues that cost rank points
+- 2 capstones that build a whole network from factory defaults (a branch office; a campus core with a Layer 3 switch). They open with the step-by-step guide off
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
 - A network map that animates each ping, telnet or ssh along the path the packet really takes, and labels where and why it fails
 - Step-by-step instructions per task (switchable, and can pop out into its own window), plus a "why" for every task and every command
-- A subnetting drill and a 16-question theory check
+- A subnetting drill and a 28-question theory check
 - Stage ranks (S to D), XP and levels, combos, trophies, generated sound effects
 - Movable, resizable, snapping windows with a saved layout
 - A sandbox: place devices (including a Layer 3 switch), choose ports when cabling, zoom and pan, notes, starter kits, save and load files, undo, and four goal-checked challenges
@@ -106,6 +107,7 @@ Phase 2 changed the core in place too:
 - ACL entries have `seq` and are kept sorted; `aclLine()` formats standard entries for show access-lists.
 - Phase 3: `isL3(d)` (a router, or a switch with `ipRouting`) replaced `type==='router'` wherever routing happens; switch ports may be `routed`; Layer 3 switches have `l3:true` and come from `mkL3Switch()`. DHCP: `dhcpCandidates()` gathers every server that can answer and `snoopPath()` applies snooping and option 82; bindings live in `switch.snoop.bind`. `daiBlock()` is called from `fwd()` for both ends of each hop. HSRP: `hsrpElect(net)` keeps `net.hsrp`, `hsrpVip()` lets the active router own the virtual IP (used by `ownsIp()` and `fwd()`). IPv6 lives in its own section of the library block: `parse6`/`fmt6`, `eui64`, `macIf` (a MAC per router port), `linkLocal`, `routes6`/`nextHop6`/`fwd6`/`reach6`, interface fields `v6`, `ll`, `v6on`, device fields `v6routing`, `statics6`, `gw6`. The `<ip6>` argument token is handled in `matchPat()`.
 - Phase 4: ports can be `errdis` (a reason: bpduguard, channel-misconfig, psecure-violation); `ifUp()` treats them as down at both ends. `errScan()` runs after every command from the outermost `execLine` wrapper, logs the real messages, and a port is recovered by `shutdown` then `no shutdown` (the scan trips it again if the cause remains). Port security keeps `ps.macs` (`{mac, kind: dynamic|sticky|static}`), `ps.viol`, `ps.blocked` (restrict/protect drops, checked in the `daiBlock` wrapper). OSPF interfaces have `ospfHello`/`ospfDead` (`ospfTimers()`), which must match; a network-type mismatch now forms the adjacency but SPF skips that link. `addIncident(spec)` appends an incident like the original six, with an optional `setup` applied before the `fault`.
+- Phase 5: `addCapstone(l, steps)` is `addLab` with `capstone:true` and group `Capstone` (kind stays `build`, so code that needs build labs only filters `!l.capstone`). Router subinterfaces may have `nativeTag` (`encapsulation dot1Q N native`): `l2peers` sends untagged frames on the parent port to it. `dhcpCandidates()` applies the client-side interface's inbound ACL to the discover. The capstone guide default lives in its own block just before `</script>`, which wraps `openLab` and `openSandbox` and listens on `#guideToggle` in the capture phase.
 - In the library block: `lldpPeers()`, `mkPhone()`, `together(net, fn)` (run checks as if the traffic were simultaneous, then restore NAT and ACL counters), `whileDown(net, dev, ifn, fn)` (run a check with a link shut, then restore it), `udpOk()`, `ntpState()`, `logEvent()` and the outermost `execLine` wrapper, which logs link changes on the far-end device, adds %SYS-5-CONFIG_I, applies timestamps and sends syslog.
 
 Key facts:
@@ -142,11 +144,11 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 
 **The pattern to know:** these blocks do not edit the base functions. They wrap them by reassigning the name, for example `const ex0 = execute; execute = function(line){ ex0(line); ... }`. `renderAll`, `openLab`, `execute`, `celebrate`, `library`, `renderBrief`, `renderTerm`, `drawTopo`, `select`, `renderLabs` and `transfer` are all wrapped, some more than once. The outermost wrapper is the one defined last. Before changing behaviour, grep for every `name=function` to see the whole chain.
 
-Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `lab4net-layout-v3`, `lab4net-fun-v1`, `lab4net-sandbox-v1`, `lab4net-guide`, `lab4net-guide-pop`, `lab4net-last`, `lab4net-incident-hints` (clues revealed per incident), `lab4net-pending` (extras from an imported backup, applied on the next load), and `l4n-boot` in session storage.
+Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `lab4net-layout-v3`, `lab4net-fun-v1`, `lab4net-sandbox-v1`, `lab4net-guide`, `lab4net-guide-pop`, `lab4net-last`, `lab4net-incident-hints` (clues revealed per incident), `lab4net-capstone-guide` (guide switched on per capstone), `lab4net-pending` (extras from an imported backup, applied on the next load), and `l4n-boot` in session storage.
 
 ## Verifying changes
 
-Run these before every commit. All three pass at `a856918`.
+Run these before every commit. All four pass on `main` at the end of phase 5.
 
 ```
 node tests/labs.cjs
@@ -155,7 +157,7 @@ node tests/curriculum.cjs
 node tests/ui.cjs
 ```
 
-Current result: 71 labs (36 build, 35 incidents), 400 checks, 1262 guide commands.
+Current result: 73 labs (36 build, 35 incidents, 2 capstones), 416 checks, 1439 guide commands.
 
 On Yasuke's desktop there is no Node install. Claude Code runs the tests with Deno's Node-compatible binary (`%LOCALAPPDATA%\deno\node_compat_bin\node.exe`) and runs `ui.cjs` with Playwright installed by Deno into a folder outside the repo, linked in as `node_modules` (git-ignored), with `LAB4NET_BROWSER_CHANNEL=msedge`.
 
@@ -164,6 +166,7 @@ On Yasuke's desktop there is no Node install. Claude Code runs the tests with De
 - `curriculum.cjs` checks objective mappings and that every incident starts with a real failing service and is fixed by its repair without breaking any original check. It runs in GitHub Actions.
 - An incident's `symptom` is either `[source, target, proto, port]` (a packet test with `reach`) or a function of the network for services that are not a single packet (CDP or LLDP discovery, NTP, IPv6, a preferred path). The curriculum test checks it fails after the build and works after the repair, and compares configuration before and after the probe, ignoring counters, logs and NAT translations.
 - `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
+- `ui.cjs` also checks the capstone guide default: off on opening a capstone, remembered per capstone once switched on.
 - `ui.cjs` drives the real page in a browser at desktop and phone sizes. It needs Playwright and a Chromium-family browser installed locally (`npm i -D playwright`), and it is not part of CI.
 
 For anything visual, open the page in a real browser and look at it. Earlier in this project several bugs were only caught by screenshots or by driving the page: a CSS class named `.switch` that restyled the switch device icon, a transformed element that covered a hidden checkbox, and a results dialog that blocked later clicks.
@@ -204,12 +207,11 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 Carry this list forward and keep it in every summary.
 
 - `enable` and console password prompts
-- A fuller theory question bank (16 questions so far)
+- A fuller theory question bank (28 questions so far)
 - XP and trophies for sandbox challenges
 - Closer-to-real `?` help: descriptions, the `^` marker, "% Ambiguous command", `| include` and `| begin` (offered, not yet confirmed)
 - Whether the pop-out guide should also open in a separate browser window for a second monitor (waiting on his decision)
 - Randomised faults for incidents (every incident is still a fixed scenario)
-- Lab library phase 5 (capstones, optional) from `docs/LESSONS-SPEC.md` (phases 1 to 4 are done)
 - Make the data path follow spanning-tree blocking, so a ping's animated path matches `show spanning-tree`
 
 His most recent direction was to fold the best of ChatGPT's branch into `main` (done in the "Troubleshooting incidents" build), "continue to build" on the sandbox, and make the app "more rewarding and fun".
