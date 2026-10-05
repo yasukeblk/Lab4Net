@@ -2843,6 +2843,16 @@ addIncident({title:'Incident 24: the branch lost its only neighbor',base:'OSPF o
  steps:['PC1: ping 10.0.0.1 ; BR: enable | ping 172.16.0.1','BR: show ip ospf neighbor | show ip ospf interface g0/1 ; R4: enable | show ip ospf interface g0/1','BR: configure terminal | interface g0/1 | no ip ospf hello-interval | end','BR: show ip ospf neighbor | show ip route ospf ; PC1: ping 10.0.0.1'],
  hints:['BR can ping R4 across the WAN, so the link works. The problem is OSPF between them, not IP.','show ip ospf neighbor on BR is empty. Compare the timer line of show ip ospf interface g0/1 on BR and on R4.','BR sends hellos every 5 seconds with a 20-second dead time; R4 uses 10 and 40. Remove the hello-interval change on BR so both ends match.'],
  lesson:'OSPF neighbors must agree on the hello and dead intervals (as well as area, subnet and authentication), or they never form an adjacency. Change timers on both ends of a link, or not at all.'});
+
+// ----- incident 25
+addIncident({title:'Incident 25: the contractor\'s server vanished from discovery',base:'LLDP',start:'SW1',
+ brief:'The documentation team says SW1 no longer lists the contractor\'s file server in LLDP, and the contractor says their server can now see SW1. Someone edited the server port. Put it back the way the design intended.',
+ symptom:n=>lldpPeers(n,n.devs.SW1).some(x=>x.p===n.devs.SRV1)&&!lldpPeers(n,n.devs.SRV1).some(x=>x.p===n.devs.SW1),
+ fault:{SW1:[...EN,'interface f0/5','lldp transmit','no lldp receive','end']},
+ repair:{SW1:[...EN,'interface f0/5','lldp receive','no lldp transmit','end','show lldp neighbors']},
+ steps:['SW1: enable | show lldp neighbors','SW1: show lldp interface f0/5 | show running-config','SW1: configure terminal | interface f0/5 | lldp receive | no lldp transmit | end','SW1: show lldp interface f0/5 | show lldp neighbors'],
+ hints:['LLDP still works toward SW2 and R1; only the server port changed, and in both directions at once.','show lldp interface f0/5 shows which of transmit and receive is enabled on that port.','The two settings were swapped: SW1 now advertises itself to the contractor and ignores what the server sends. Enable receive and disable transmit again.'],
+ lesson:'LLDP transmit and receive are separate per-port switches. Turning off transmit hides you from a neighbor while still learning about it; turning off receive does the opposite, which is rarely what you want.'});
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
