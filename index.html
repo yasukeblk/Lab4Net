@@ -973,19 +973,34 @@ C('if','no ip nat <w>',e=>e.s.ctx.forEach(i=>{i.nat=null;}),['router']);
 C('config','ip nat inside source list <w> interface <rest>',e=>{const t=e.args[1].split(/\s+/);const ov=t.length>1&&'overload'.startsWith(t[t.length-1].toLowerCase());if(ov)t.pop();const n=parseIf(t.join(''));if(!n||!e.d.ifs[n])return e.out(BAD);const N=natOf(e.d);N.rules=N.rules.filter(r=>r.acl!==e.args[0]);N.rules.push({acl:e.args[0],ifn:n,overload:ov});},['router']);
 C('config','ip nat inside source static <ip> <ip>',e=>{natOf(e.d).statics.push({local:e.args[0],global:e.args[1]});},['router']);
 C('config','no ip nat inside source <rest>',e=>{const N=natOf(e.d);N.rules=[];N.statics=[];N.table=[];},['router']);
-C(EX,'show ip nat translations',e=>{const N=e.d.nat;if(!N||(!N.table.length&&!N.statics.length))return;e.out('Pro  Inside global         Inside local          Outside local         Outside global');
-  N.statics.forEach(s=>e.out('---  '+pad(n2ip(s.global),22)+pad(n2ip(s.local),22)+pad('---',22)+'---'));
-  // TCP and UDP keep the host's own source port on the inside; ICMP uses the query ID on both sides.
-  N.table.forEach(x=>{const lp=x.proto==='icmp'?x.gport:(x.lport||x.gport),rp=x.proto==='icmp'?x.gport:x.port;
+C(EX,'show ip nat translations',e=>{const N=e.d.nat;if(!N||(!N.table.length&&!N.statics.length&&!(N.dyn||[]).length))return;e.out('Pro  Inside global         Inside local          Outside local         Outside global');
+  N.statics.concat((N.dyn||[]).map(m=>({global:m.ig,local:m.il}))).forEach(s=>e.out('---  '+pad(n2ip(s.global),22)+pad(n2ip(s.local),22)+pad('---',22)+'---'));
+  // The inside local side keeps the host's own port (or ICMP query ID); the outside shows the translated one for ICMP.
+  N.table.forEach(x=>{const lp=x.lport??x.gport,rp=x.proto==='icmp'?x.gport:x.port;
     e.out(pad(x.proto,5)+pad(n2ip(x.ig)+':'+x.gport,22)+pad(n2ip(x.il)+':'+lp,22)+pad(n2ip(x.remote)+':'+rp,22)+n2ip(x.remote)+':'+rp);});},['router']);
-C('priv','clear ip nat translation <rest>',e=>{if(e.d.nat)e.d.nat.table=[];},['router']);
+C('priv','clear ip nat translation <rest>',e=>{if(e.d.nat){e.d.nat.table=[];e.d.nat.dyn=[];}},['router']);
+// Inside to outside. Static first; then the first rule whose ACL permits the source:
+//  - interface overload (PAT): every host shares the interface address, told apart by port;
+//  - pool overload: the same, sharing the pool's first address;
+//  - pool without overload: each host borrows its own pool address (1:1) until the pool runs out.
+// Returns a reason string when the packet has to be dropped.
 function natOut(d,pk){const N=d.nat;if(!N)return;const st=N.statics.find(s=>s.local===pk.src);if(st){pk.src=st.global;return;}
   for(const r of N.rules){const acl=d.acls&&d.acls[r.acl];if(!acl)continue;const en=acl.entries.find(en=>hit(en.src,pk.src));if(!en||en.action!=='permit')continue;
-    const g=d.ifs[r.ifn].ip;if(g==null)return;let x=N.table.find(x=>x.il===pk.src&&x.remote===pk.dst&&x.proto===pk.proto);
-    if(!x){x={il:pk.src,ig:g,remote:pk.dst,proto:pk.proto,port:pk.dport,lport:pk.sport,gport:1024+N.table.length};N.table.push(x);}
-    pk.src=g;pk.sport=x.gport;return;}}
+    const flow=x=>x.il===pk.src&&x.remote===pk.dst&&x.proto===pk.proto&&(x.lport??pk.sport)===pk.sport;
+    if(r.pool&&!r.overload){const P=(N.pools||{})[r.pool];if(!P)return;N.dyn=N.dyn||[];let m=N.dyn.find(m=>m.il===pk.src);
+      if(!m){const used=new Set(N.dyn.map(m=>m.ig).concat(N.statics.map(s=>s.global)));let g=null;for(let a=P.start;a<=P.end;a++)if(!used.has(a)){g=a;break;}
+        if(g===null){if(LIVE)N.misses=(N.misses||0)+1;return 'NAT pool '+r.pool+' has no free address for '+n2ip(pk.src);}m={il:pk.src,ig:g};N.dyn.push(m);}
+      if(!N.table.some(flow))N.table.push({il:pk.src,ig:m.ig,remote:pk.dst,proto:pk.proto,port:pk.dport,lport:pk.sport,gport:pk.sport});
+      if(LIVE)N.hits=(N.hits||0)+1;pk.src=m.ig;return;}
+    const g=r.pool?((N.pools||{})[r.pool]||{}).start:d.ifs[r.ifn].ip;if(g==null)return;let x=N.table.find(flow);
+    // PAT keeps the host's own port when it is free on the shared address, otherwise takes the next free one from 1024.
+    if(!x){const taken=p=>N.table.some(y=>y.ig===g&&y.proto===pk.proto&&y.gport===p);let gp=pk.sport;if(taken(gp))for(gp=1024;taken(gp);gp++);
+      x={il:pk.src,ig:g,remote:pk.dst,proto:pk.proto,port:pk.dport,lport:pk.sport,gport:gp};N.table.push(x);}
+    if(LIVE)N.hits=(N.hits||0)+1;pk.src=g;pk.sport=x.gport;return;}}
+// Outside to inside: static mappings, then live translations, then a 1:1 pool address still bound to a host.
 function natIn(d,pk){const N=d.nat;if(!N)return;const st=N.statics.find(s=>s.global===pk.dst);if(st){pk.dst=st.local;return;}
-  const x=N.table.find(x=>x.ig===pk.dst&&x.gport===pk.dport&&x.proto===pk.proto);if(x)pk.dst=x.il;}
+  const x=N.table.find(x=>x.ig===pk.dst&&x.gport===pk.dport&&x.proto===pk.proto);if(x){pk.dst=x.il;return;}
+  const m=(N.dyn||[]).find(m=>m.ig===pk.dst);if(m)pk.dst=m.il;}
 
 // packet forwarding with ACL + NAT
 function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},pk0);hops.path=[src.name];
@@ -995,7 +1010,7 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
     if(t>0&&d.type!=='router')return {ok:false,hops,reason:'Destination is not a router'};
     const h=nextHop(net,d,pk.dst);if(!h)return {ok:false,hops,reason:'No usable route to '+n2ip(pk.dst)};
     if(pk.src==null)pk.src=h.ifc.ip;
-    if(d.type==='router'){if(inIf&&inIf.nat==='inside'&&h.ifc.nat==='outside')natOut(d,pk);
+    if(d.type==='router'){if(inIf&&inIf.nat==='inside'&&h.ifc.nat==='outside'){const why=natOut(d,pk);if(why)return {ok:false,hops,blocked:d,reason:why};}
       if(t>0&&h.ifc.aclOut&&!aclPermit(d,h.ifc.aclOut,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+h.ifc.aclOut+' outbound on '+shortIf(h.ifc.name)};}
     let hopIp=h.nh,peer=l2peers(net,d,h.ifc).find(p=>p.ifc.ip===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
     // An exit-interface-only static route ARPs for the destination itself; a router on the segment with a route to it answers (proxy ARP).
@@ -1009,11 +1024,12 @@ function listens(d,port){if(d.services)return d.services.includes(port);if(d.typ
 // access-class on the VTY lines filters who may open a Telnet or SSH session to the device itself; a denied source is refused.
 function vtyDenied(d,port,src){if(d.type==='pc'||(port!==22&&port!==23))return false;const v=d.lines.vty;if(!v.aclClass||v.aclDir!=='in')return false;
   return !aclPermit(d,v.aclClass,{src,dst:0,proto:'tcp',dport:port});}
-function reach(net,src,dst,proto,dport){proto=proto||'icmp';dport=dport||0;const saved=[];for(const n in net.devs){const x=net.devs[n].nat;if(x)saved.push([x,x.table.length]);}
-  const f=fwd(net,src,{src:null,dst,proto,sport:50000,dport});let ok=false,refused=false,r=null;
+function reach(net,src,dst,proto,dport){proto=proto||'icmp';dport=dport||0;const saved=[];for(const n in net.devs){const x=net.devs[n].nat;if(x)saved.push([x,x.table.length,(x.dyn||[]).length]);}
+  // An echo request carries a query ID (1) instead of a source port.
+  const f=fwd(net,src,{src:null,dst,proto,sport:proto==='icmp'?1:50000,dport});let ok=false,refused=false,r=null;
   if(f.ok){if(proto==='tcp'&&(!listens(f.dest,dport)||vtyDenied(f.dest,dport,f.pk.src)))refused=true;else if(f.dest===src)ok=true;
     else{r=fwd(net,f.dest,{src:f.pk.dst,dst:f.pk.src,proto,sport:dport,dport:f.pk.sport});ok=r.ok&&r.dest===src;}}
-  if(!LIVE)saved.forEach(([x,l])=>{x.table.length=l;});
+  if(!LIVE)saved.forEach(([x,l,m])=>{x.table.length=l;if(x.dyn)x.dyn.length=m;});
   if(LIVE)TRACE={src,f,r,ok,refused};return {ok,refused,f};}
 canPing=function(net,src,dst){return reach(net,src,dst).ok;};
 tracePath=function(net,src,dst){return fwd(net,src,{src:null,dst,proto:'icmp',sport:50000,dport:0});};
@@ -1156,7 +1172,7 @@ function globalExtra(d){const L=[];
   if(d.stp){if(d.stp.mode!=='pvst')L.push('spanning-tree mode '+d.stp.mode);for(const v in d.stp.prio)L.push('spanning-tree vlan '+v+' priority '+d.stp.prio[v]);}
   if(d.dhcp){d.dhcp.excluded.forEach(([a,b])=>L.push('ip dhcp excluded-address '+n2ip(a)+(b!==a?' '+n2ip(b):'')));
     for(const[n,p]of Object.entries(d.dhcp.pools)){L.push('ip dhcp pool '+n);if(p.net!==null)L.push(' network '+n2ip(p.net)+' '+n2ip(lenMask(p.len)));if(p.gw!=null)L.push(' default-router '+n2ip(p.gw));if(p.dns!=null)L.push(' dns-server '+n2ip(p.dns));for(const[o,v] of Object.entries(p.opts||{}))L.push(' option '+o+' ip '+n2ip(v));}}
-  if(d.nat){d.nat.statics.forEach(s=>L.push('ip nat inside source static '+n2ip(s.local)+' '+n2ip(s.global)));d.nat.rules.forEach(r=>L.push('ip nat inside source list '+r.acl+' interface '+r.ifn+(r.overload?' overload':'')));}
+  if(d.nat){d.nat.statics.forEach(s=>L.push('ip nat inside source static '+n2ip(s.local)+' '+n2ip(s.global)));for(const[n,P] of Object.entries(d.nat.pools||{}))L.push('ip nat pool '+n+' '+n2ip(P.start)+' '+n2ip(P.end)+' netmask '+n2ip(lenMask(P.len)));d.nat.rules.forEach(r=>L.push('ip nat inside source list '+r.acl+(r.pool?' pool '+r.pool:' interface '+r.ifn)+(r.overload?' overload':'')));}
   for(const[n,a]of Object.entries(d.acls||{})){if(/^\d+$/.test(n))a.entries.forEach(en=>L.push('access-list '+n+' '+en.text));else{L.push('ip access-list '+a.type+' '+n);a.entries.forEach(en=>L.push(' '+en.text));}}
   if(L.length)L.push('!');return L;}
 const rc0=runningConfig;runningConfig=function(net,d){const out=[];let cur=null,vty=false;
@@ -1931,6 +1947,54 @@ addLab({title:'Voice VLAN',group:'Switching',
   'SW1: show interfaces fa0/1 switchport | show vlan brief',
   'PHONE1: ipconfig /renew ; PC1: ipconfig /renew',
   'PHONE1: ping 192.168.200.5 ; PC1: ping 192.168.10.1']);
+
+// ----- phase 2, lab 13
+// ip nat pool NAME START END {netmask MASK | prefix-length N}
+Cn('config','ip nat pool <w> <ip> <ip> <rest>',e=>{const[name,a,b,rest]=e.args,t=rest.trim().split(/\s+/),k=(t[0]||'').toLowerCase();let len=null;
+  if('netmask'.startsWith(k)&&t[1]&&isIp(t[1]))len=maskLenN(ip2n(t[1]));else if('prefix-length'.startsWith(k)&&/^\d+$/.test(t[1]||''))len=+t[1];
+  if(len===null||len<1||len>32||t.length!==2)return e.out(BAD);if(b<a||netOf(a,len)!==netOf(b,len))return e.out('%Pool '+name+' mask '+n2ip(lenMask(len))+' too small; reduce pool size or increase mask');
+  const N=natOf(e.d);(N.pools||(N.pools={}))[name]={start:a,end:b,len};},['router']);
+Cn('config','no ip nat pool <w>',e=>{const N=natOf(e.d);if(N.rules.some(r=>r.pool===e.args[0])&&((N.dyn||[]).length||N.table.length))return e.out('%Pool '+e.args[0]+' in use, cannot destroy');if(N.pools)delete N.pools[e.args[0]];},['router']);
+const natBusy=N=>(N.dyn||[]).length>0||N.table.length>0;
+Cn('config','ip nat inside source list <w> pool <w> <rest?>',e=>{const[acl,pool,rest]=e.args,ov=!!rest&&'overload'.startsWith(rest.trim().toLowerCase());if(rest&&!ov)return e.out(BAD);
+  const N=natOf(e.d),old=N.rules.find(r=>r.acl===acl);if(old&&(old.pool!==pool||!!old.overload!==ov)&&natBusy(N))return e.out('%Dynamic mapping in use, cannot change');
+  N.rules=N.rules.filter(r=>r.acl!==acl);N.rules.push({acl,pool,overload:ov});},['router'],true);
+Cn('config','no ip nat inside source list <w> <rest>',e=>{const N=natOf(e.d);if(!N.rules.some(r=>r.acl===e.args[0]))return;if(natBusy(N))return e.out('%Dynamic mapping in use, cannot remove');N.rules=N.rules.filter(r=>r.acl!==e.args[0]);},['router'],true);
+Cn(EX,'show ip nat statistics',e=>{const{d,out}=e,N=d.nat||{statics:[],rules:[],table:[]},dyn=(N.dyn||[]).length,ifs=side=>sortIfs(Object.keys(d.ifs)).filter(n=>d.ifs[n].nat===side);
+  out('Total active translations: '+(N.statics.length+dyn+N.table.length)+' ('+N.statics.length+' static, '+(dyn+N.table.length)+' dynamic; '+N.table.length+' extended)','Peak translations: '+(N.statics.length+dyn+N.table.length),
+    'Outside interfaces:',...ifs('outside').map(n=>'  '+n),'Inside interfaces:',...ifs('inside').map(n=>'  '+n),'Hits: '+(N.hits||0)+'  Misses: '+(N.misses||0),'Expired translations: 0','Dynamic mappings:');
+  N.rules.forEach((r,k)=>{out('-- Inside Source','[Id: '+(k+1)+'] access-list '+r.acl+(r.pool?' pool '+r.pool:' interface '+r.ifn)+(r.overload?' overload':'')+' refcount '+(r.pool&&!r.overload?dyn:N.table.length));
+    const P=r.pool&&(N.pools||{})[r.pool];if(P){const total=P.end-P.start+1,alloc=r.overload?(N.table.length?1:0):dyn;
+      out(' pool '+r.pool+': id '+(k+1)+', netmask '+n2ip(lenMask(P.len)),'\tstart '+n2ip(P.start)+' end '+n2ip(P.end),'\ttype generic, total addresses '+total+', allocated '+alloc+' ('+Math.round(alloc*100/total)+'%), misses '+(N.misses||0));}});},['router']);
+// Run checks as if the traffic happened at the same moment (translations accumulate), then put everything back.
+function together(n,fn){const keep=TRACE,was=LIVE,nats=Object.values(n.devs).filter(d=>d.nat).map(d=>[d.nat,d.nat.table.slice(),(d.nat.dyn||[]).slice(),d.nat.hits,d.nat.misses]),hits=[];
+  for(const d of Object.values(n.devs))for(const a of Object.values(d.acls||{}))for(const en of a.entries)hits.push([en,en.hits]);
+  LIVE=true;try{return fn();}finally{LIVE=was;TRACE=keep;nats.forEach(([N,t,m,h,x])=>{N.table=t;N.dyn=m;N.hits=h;N.misses=x;});hits.forEach(([en,h])=>{en.hits=h;});}}
+CCNA_LAB_MAP['Dynamic NAT with a pool']=['4.1'];
+Object.assign(WHYC,{
+'ip nat pool <w> <ip> <ip> <rest>':'Defines a range of public addresses NAT may hand out. The netmask (or prefix length) only checks that the range fits one subnet.',
+'ip nat inside source list <w> pool <w> <rest?>':'Dynamic NAT: sources the ACL permits borrow an address from the pool, one public address per inside host. Add overload to let them share, told apart by port numbers.',
+'no ip nat inside source list <w> <rest>':'Removes a dynamic NAT rule. IOS refuses while translations created by it still exist; clear them first.',
+'show ip nat statistics':'Counts active translations, shows which interfaces are inside and outside, hits and misses, and how much of each pool is allocated. Misses climbing means the pool ran out.',
+'clear ip nat translation <rest>':'Deletes dynamic translations (* means all), freeing pool addresses. Static mappings stay.'});
+addLab({title:'Dynamic NAT with a pool',group:'IP services',
+ brief:'The ISP has routed a small public block to R1, and the plan is to give each inside host its own public address from it. There are three PCs and only two addresses in the pool. Find out what happens when the pool runs dry, then fix it without asking the ISP for more addresses.',
+ pos:{PC1:[45,50],PC2:[45,125],PC3:[45,195],SW1:[160,125],R1:[290,125],ISP:[420,125],WEB:[550,125]},start:'R1',
+ build(){const n=mkNet([mkRouter('R1'),mkRouter('ISP'),mkSwitch('SW1'),mkPC('PC1','192.168.1.11',24,'192.168.1.1'),mkPC('PC2','192.168.1.12',24,'192.168.1.1'),mkPC('PC3','192.168.1.13',24,'192.168.1.1'),srv('WEB','198.51.100.10',24,'198.51.100.1',[80])]);
+  link(n,'PC1','f0','SW1','f0/1');link(n,'PC2','f0','SW1','f0/2');link(n,'PC3','f0','SW1','f0/3');link(n,'SW1','g0/1','R1','g0/0');link(n,'R1','g0/1','ISP','g0/0');link(n,'ISP','g0/1','WEB','f0');
+  cfg(n,{R1:['enable','configure terminal','interface g0/0','ip address 192.168.1.1 255.255.255.0','no shutdown','interface g0/1','ip address 203.0.113.2 255.255.255.252','no shutdown','exit','ip route 0.0.0.0 0.0.0.0 203.0.113.1','end'],
+   ISP:['enable','configure terminal','interface g0/0','ip address 203.0.113.1 255.255.255.252','no shutdown','interface g0/1','ip address 198.51.100.1 255.255.255.0','no shutdown','exit','ip route 203.0.113.32 255.255.255.248 203.0.113.2','end']});return n;},
+ addr:[['PC1 to PC3','Inside LAN','192.168.1.11 to .13 /24'],['R1','G0/0 inside / G0/1 outside','192.168.1.1, 203.0.113.2'],['Pool PUBLIC','From the ISP\'s /29','203.0.113.33 to .34'],['WEB','Web server','198.51.100.10']],
+ tasks:['On R1, create standard ACL 1 permitting 192.168.1.0/24, and mark G0/0 as NAT inside and G0/1 as NAT outside.','Create pool <code>PUBLIC</code> from 203.0.113.33 to 203.0.113.34 with netmask 255.255.255.248.','Translate sources matching ACL 1 using pool PUBLIC, without overload.','Ping the web server from PC1, then PC2, then PC3. On R1, look at <code>show ip nat translations</code> and <code>show ip nat statistics</code>. Why did PC3 fail?','Change the rule to overload the pool. IOS will not let you change a rule that is in use: clear the translations first, then replace the rule.','Ping from all three PCs again and look at the translations.'],
+ why:['As with PAT, the ACL only selects who gets translated, and inside/outside set the direction.','The pool is the set of public addresses NAT may use. The netmask does not have to match any interface; it just has to contain the whole range.','Without overload, dynamic NAT is one-to-one: each inside host borrows a whole public address for as long as its translation lasts.','PC1 and PC2 took the two addresses. PC3 matches the ACL but finds the pool empty, so its packets are dropped and the misses counter goes up. On a real router the borrowed addresses are held for 24 hours after the last use.','Adding overload turns the pool into PAT: every host shares the first address, kept apart by port numbers. IOS refuses to change or remove a rule while translations made by it still exist, which is why clear ip nat translation * comes first.','All three now share 203.0.113.33. The inside local ports are each host\'s own; the inside global ports are what R1 picked to keep them apart.'],
+ checks:[['Pool PUBLIC is 203.0.113.33 to .34 in a /29',n=>{const P=((n.devs.R1.nat||{}).pools||{}).PUBLIC;return !!P&&P.start===ip2n('203.0.113.33')&&P.end===ip2n('203.0.113.34')&&P.len===29;}],['ACL 1 is translated through pool PUBLIC with overload',n=>{const d=n.devs.R1;return !!d.nat&&d.nat.rules.some(r=>r.acl==='1'&&r.pool==='PUBLIC'&&r.overload)&&!!d.acls&&!!d.acls['1']&&d.acls['1'].entries.some(e=>e.action==='permit'&&hit(e.src,ip2n('192.168.1.13')));}],['G0/0 is NAT inside and G0/1 is NAT outside',n=>IF(n,'R1','g0/0').nat==='inside'&&IF(n,'R1','g0/1').nat==='outside'],['All three PCs reach the web server at the same time',n=>together(n,()=>['PC1','PC2','PC3'].every(p=>P(n,p,'198.51.100.10')))],['They share one public address',n=>together(n,()=>{['PC1','PC2','PC3'].forEach(p=>P(n,p,'198.51.100.10'));const t=n.devs.R1.nat.table;return t.length>=3&&new Set(t.map(x=>x.ig)).size===1&&t[0].ig===ip2n('203.0.113.33');})]],
+ solution:{R1:['enable','configure terminal','access-list 1 permit 192.168.1.0 0.0.0.255','interface g0/0','ip nat inside','interface g0/1','ip nat outside','exit','ip nat pool PUBLIC 203.0.113.33 203.0.113.34 netmask 255.255.255.248','ip nat inside source list 1 pool PUBLIC overload','end']}},
+ ['R1: enable | configure terminal | access-list 1 permit 192.168.1.0 0.0.0.255 | interface g0/0 | ip nat inside | interface g0/1 | ip nat outside | exit',
+  'R1: ip nat pool PUBLIC 203.0.113.33 203.0.113.34 netmask 255.255.255.248',
+  'R1: ip nat inside source list 1 pool PUBLIC | end',
+  'PC1: ping 198.51.100.10 ; PC2: ping 198.51.100.10 ; PC3: # this one fails: the pool is empty | ping 198.51.100.10 ; R1: show ip nat translations | show ip nat statistics',
+  'R1: configure terminal | # refused while translations exist | no ip nat inside source list 1 pool PUBLIC | do clear ip nat translation * | no ip nat inside source list 1 pool PUBLIC | ip nat inside source list 1 pool PUBLIC overload | end',
+  'PC1: ping 198.51.100.10 ; PC2: ping 198.51.100.10 ; PC3: ping 198.51.100.10 ; R1: show ip nat translations']);
 //LIBRARY-END
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
