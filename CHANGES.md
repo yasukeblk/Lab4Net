@@ -1,5 +1,28 @@
 # Lab4Net changes
 
+## Pings and traceroutes that behave like real life
+
+- Ping and traceroute output now plays live in the console instead of appearing all at once. On a router each `!` lands as its echo returns, a `.` waits the full 2-second timeout, and the prompt only comes back when the run is over. On a PC each "Reply from" line arrives about a second apart. Ctrl+C or Ctrl+Shift+6 stops a run early and prints the summary for the echoes actually sent, as IOS and Windows do. Typing the next command finishes the current output instantly. Reduced motion shows everything at once.
+- Each device now keeps an ARP cache. The first ping through routers that have not yet resolved their next hop loses one echo per router (`.!!!!` or `...!!` on a fresh network); the next ping is `!!!!!`. New commands: `show ip arp` and `show arp`, `clear arp-cache`, and on PCs `arp -a` and `arp -d`.
+- Failures now look the way they do on real gear:
+  - A router with no route, or an ACL that drops the echo, sends an ICMP unreachable back if it can reach you: `U.U.U` on IOS, and "Reply from 10.0.12.2: Destination host unreachable." on Windows. Windows counts those as received, so the statistics can say 0% loss while nothing got through. That quirk is real and is called out in the code.
+  - A missing return route gives timeouts (`.....`, "Request timed out.").
+  - A PC with no default gateway prints "PING: transmit failed. General failure." A PC that cannot ARP for a host on its own subnet gets "Destination host unreachable" from its own address.
+- Traceroute (`traceroute` on IOS, `tracert` on Windows) now:
+  - shows `* * *` for a hop that has no route back to you, and keeps going to hop 30 until you stop it, as the real tools do
+  - shows `!H` (no route) or `!A` (ACL) from the router that refused the probe, or "reports: Destination host unreachable." on Windows
+  - shows a `*` on the last hop when the destination is a Cisco device, because of its ICMP rate limit
+- Round-trip times vary a little per echo and grow with the number of routers. Windows TTL counts down from 128 (PC) or 255 (Cisco) per router. Windows statistics include the "Approximate round trip times" block and the trailing comma.
+- Extended options: IOS `ping <ip> repeat <n> size <bytes>` (wrapping at 70 characters per line), Windows `ping -n <count> -l <bytes> <ip>` in either order. Up to 500 echoes per run. Unknown names say "could not find host"; bad options say how to use the command.
+- New sounds when sound is on: a tick for each reply, a low note for each timeout, a buzz for each unreachable.
+- Console colours: an all-`!` line is green, a mixed line amber, an all-`.` or `U` line red; the success rate line follows the same rule, and unreachables are red.
+- The "why" text for ping, traceroute and tracert now explains `!`, `.`, `U`, `*`, `!H` and `!A`.
+- Timings: router timeouts are the real 2 seconds; Windows timeouts are shortened (2 seconds per echo, about 1.5 seconds per traceroute star instead of 4) so a failing test does not drag.
+- Not changed: IPv6 pings still print all at once with the old fixed output. Pings run from the step-by-step guide's prompt recorder and from saved-work replay print instantly, since those are not typed live.
+- Tests: new `tests/ping.cjs` covers the ARP first echo, warm cache, `clear arp-cache`, extended ping, Windows TTL and statistics, both traceroute formats, return-route stars, `U.U.U` and `!H`, unreachables counted as received, ACL reports, host-side failures and abort summaries. It runs in GitHub Actions.
+
+Verification: labs.cjs (73 labs, 416 checks, 1439 guide commands), forwarding.cjs, curriculum.cjs, lessons.cjs, ping.cjs and ui.cjs all pass. In headless Chromium at 1440x1000, a live router ping was watched mid-run with the prompt hidden, a 30-echo ping was stopped with Ctrl+Shift+6, a running PC ping was flushed by typing the next command, a tracert with a broken return route was stopped with Ctrl+C, a lab was switched mid-ping, and reduced motion printed instantly, with no page errors. Screenshots checked by eye. Not tested: the Lab4Net container, Firefox, Safari, and how the new sounds actually sound.
+
 ## Lessons for every lab and every exam topic
 
 The DHCP pilot is now the full set: 54 lessons.

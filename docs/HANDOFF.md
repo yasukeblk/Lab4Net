@@ -12,6 +12,7 @@ It currently has:
 - 35 troubleshooting incidents built from those labs (one or more for every build lab), each with three clues that cost rank points
 - 2 capstones that build a whole network from factory defaults (a branch office; a campus core with a Layer 3 switch). They open with the step-by-step guide off
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
+- Real-life ping and traceroute: output plays live, ARP loses the first echo through a cold router, routers send unreachables (`U.U.U`, `!H`, `!A`), Windows quirks are kept, Ctrl+C or Ctrl+Shift+6 stops a run
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
 - A network map that animates each ping, telnet or ssh along the path the packet really takes, and labels where and why it fails
 - Step-by-step instructions per task (switchable, and can pop out into its own window), plus a "why" for every task and every command
@@ -55,10 +56,10 @@ Then he hard-refreshes the page.
 This is how the project has run so far, and Yasuke wants it to continue the same way. You build and test in your own sandbox; Claude Code on his desktop commits and pushes; the container pulls.
 
 1. Clone the public repo in your sandbox and work on `index.html` there. You cannot push, and you cannot reach his desktop or the container.
-2. Run `node tests/labs.cjs`, `node tests/forwarding.cjs` and `node tests/curriculum.cjs` before handing anything over.
+2. Run `node tests/labs.cjs`, `node tests/forwarding.cjs`, `node tests/curriculum.cjs`, `node tests/lessons.cjs` and `node tests/ping.cjs` before handing anything over.
 3. Check visual and interactive changes in a real browser. In the chat sandbox, `npm i @sparticuz/chromium puppeteer-core` gives a headless Chromium that works: launch it with `executablePath: await chromium.executablePath()` and `args: ['--no-sandbox','--disable-gpu','--single-process','--no-zygote']`, open the file, drive it, and take screenshots. `tests/ui.cjs` also runs there if you install `playwright-core` and point its `chromium.launch` at that same executable. The executable path sometimes comes back empty on the first call; it extracts to `/tmp/chromium`, so pointing at that path directly is reliable.
 4. Give him a zip containing only the files that changed, laid out as they sit in the repo.
-5. Give him a prompt to paste into Claude Code that says: fetch and pull `main`, copy the files from the zip in his Downloads folder over the repo, confirm `index.html` is the exact byte size you state, run the three Node tests, commit with a given message, push, and report the commit hash. Stating the byte size matters: Code once picked up an older zip of the same name.
+5. Give him a prompt to paste into Claude Code that says: fetch and pull `main`, copy the files from the zip in his Downloads folder over the repo, confirm `index.html` is the exact byte size you state, run the Node tests, commit with a given message, push, and report the commit hash. Stating the byte size matters: Code once picked up an older zip of the same name.
 6. Give him the container command from the section above, labelled for the Lab4Net container.
 7. If he says the change is not showing, clone the repo again and compare `main` with your build before guessing. Twice the cause was that the build had not been pushed, and once the container was still on ChatGPT's branch.
 
@@ -96,6 +97,8 @@ In file order:
 3. `// ---------- step-by-step instructions`: `STEPS` (keyed by lab title) and `guideFor`.
 4. `// ---------- CCNA objective map and troubleshooting incidents` (between `//CCNA-CURRICULUM-START` and `//CCNA-CURRICULUM-END`, just before `guideFor`): `CCNA_SCOPE`, `CCNA_DOMAINS`, `CCNA_OBJECTIVES`, `CCNA_LAB_MAP` (sets `l.ccna` and `l.kind='build'`), and `INCIDENTS`. Each incident spec names a `base` lab, a `fault` (commands applied after the base solution), a `repair` (becomes `solution`), its own `steps`, three `hints` and a `lesson`. Incidents are appended to `LABS` with `kind:'incident'`, `group:'Troubleshooting'`, `baseTitle`, and the base lab's `checks`, `pos` and `addr`. Their steps are written inline, not in `STEPS`.
 5. `//LIBRARY-START` to `//LIBRARY-END`, straight after the curriculum block: the lab library expansion. Helpers: `Cn(modes, pattern, fn, types, first)` registers a command after the "why" recorder has already run (so `s.last` still works) and can put it ahead of general patterns; `cfg(net, {dev:[commands]})` configures a fresh build through real IOS commands (it throws if any is rejected, so a typo in a build fails loudly); `addLab(lab, steps)` stores the guide in `STEPS`, sets `ccna` from `CCNA_LAB_MAP` and `kind:'build'`, and appends to `LABS`. New objective IDs, `CCNA_LAB_MAP` entries and `WHYC` entries are added at the top of the block or beside each lab. A lab may set `hidePorts:true` to hide port names on the map.
+
+6. `// ---------- real-life ping and traceroute`, just before the step-prompt recorder at the end of the engine: `pingRun` (per-echo result from `reach`, plus ARP drops), `iosPing`, `winPing`, `traceRun`, `iosTrace`, `winTrace`, `pingOpts`, ARP helpers (`arpWalk`, `arpPrune`, `arpLearn`, `arpRows`) and `pq` (runs `fwd` quietly without touching NAT tables or counters). Each device's ARP cache is `d.arpc` ({ip: interface name}); entries drop when their interface goes down or leaves the subnet. The four original `ping`/`traceroute`/`tracert` handlers now just call these. Handlers put timing on `s.pace = {t, abort}`: one `t` entry per output line (a delay in ms, `{d, pkt}`, `{chars:[ms…], pkt}` or `{parts:[[ms, text]…]}`), and `abort(n)` returns the summary lines after n echoes. Engine callers ignore `s.pace`.
 
 The `// ---------- v3 engine` section, just before the "why" recorder, holds commands added for the library (`clear ip ospf process`, `show ip protocols`, `show ip ospf`) and an `execLine` wrapper that logs native VLAN mismatches. The library block adds a second `execLine` wrapper that logs OSPF adjacency changes. Other library changes were made in place: `type7`/`pwText` near the top (type 7 passwords), `isPassive` and the router-ID lock (`ospf.active`) beside `ospfNeighbors`/`routerId`, `vtyDenied` beside `reach` (access-class), `cdpPeers` with the CDP commands, and the `root primary` macro with the spanning-tree commands.
 
@@ -147,6 +150,8 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 
 **The pattern to know:** these blocks do not edit the base functions. They wrap them by reassigning the name, for example `const ex0 = execute; execute = function(line){ ex0(line); ... }`. `renderAll`, `openLab`, `execute`, `celebrate`, `library`, `renderBrief`, `renderTerm`, `drawTopo`, `select`, `renderLabs` and `transfer` are all wrapped, some more than once. The outermost wrapper is the one defined last. Before changing behaviour, grep for every `name=function` to see the whole chain.
 
+The base `execute` plays any output that comes with `s.pace` through `streamStart` / `streamTick` / `streamStop` (`// ---------- live console output`, just before `renderTrace`). Only one output plays at a time (`STREAM`). `execute` calls `streamStop(false)` first, which finishes the current output instantly, so every wrapper still sees complete output. Ctrl+C (with no text selected in the input) or Ctrl+Shift+6 calls `streamStop(true)`. `renderTerm` hides the prompt while that session is playing. Reduced motion skips playback. Sounds come from `window.l4nFun.sfx` (`echo`, `drop`, `unreach`) in the rewards block.
+
 Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `lab4net-layout-v3`, `lab4net-fun-v1`, `lab4net-sandbox-v1`, `lab4net-guide`, `lab4net-guide-pop`, `lab4net-last`, `lab4net-incident-hints` (clues revealed per incident), `lab4net-capstone-guide` (guide switched on per capstone), `lab4net-lessons-v1` (lessons read and quick-check answers), `lab4net-pending` (extras from an imported backup, applied on the next load), and `l4n-boot` in session storage.
 
 ## Verifying changes
@@ -158,6 +163,7 @@ node tests/labs.cjs
 node tests/forwarding.cjs
 node tests/curriculum.cjs
 node tests/lessons.cjs
+node tests/ping.cjs
 node tests/ui.cjs
 ```
 
@@ -170,6 +176,7 @@ On Yasuke's desktop there is no Node install. Claude Code runs the tests with De
 - `lessons.cjs` checks every lesson (structure, markup, quiz answers, story steps on cabled devices) and that every build lab has one. It also takes draft files as arguments. It runs in GitHub Actions.
 - `curriculum.cjs` checks objective mappings and that every incident starts with a real failing service and is fixed by its repair without breaking any original check. It runs in GitHub Actions.
 - An incident's `symptom` is either `[source, target, proto, port]` (a packet test with `reach`) or a function of the network for services that are not a single packet (CDP or LLDP discovery, NTP, IPv6, a preferred path). The curriculum test checks it fails after the build and works after the repair, and compares configuration before and after the probe, ignoring counters, logs and NAT translations.
+- `ping.cjs` covers the ping and traceroute output rules (ARP first echo, unreachables, Windows quirks, extended options, abort summaries). It runs in GitHub Actions.
 - `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
 - `ui.cjs` also checks the capstone guide default: off on opening a capstone, remembered per capstone once switched on.
 - `ui.cjs` drives the real page in a browser at desktop and phone sizes. It needs Playwright and a Chromium-family browser installed locally (`npm i -D playwright`), and it is not part of CI.
@@ -198,6 +205,7 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
 - show access-lists lists standard entries in sequence order; real IOS may list host entries first.
 - `enable` and line passwords are stored and graded but never prompted for.
+- Ping and traceroute use ICMP for every probe (real IOS traceroute uses UDP), so an extended ACL that permits only some ICMP or UDP can disagree slightly with real gear. Unreachables are sent only for no-route and ACL drops; a failed next-hop ARP on a router gives timeouts. Extended ping has `repeat` and `size` but not `source`, and there is no interactive extended ping. IPv6 pings do not play live and have no ARP/ND first-echo loss. Windows timeouts are shortened from 4 seconds to about 2.
 - No wireless. IPv6 has static routing only: no OSPFv3, no DHCPv6, no IPv6 ACLs. Only the Layer 3 switch model (a 3560) routes; 2960s reject ip routing and static routes.
 - HSRP has no object tracking and fails over at once rather than after the 10-second hold time. The DHCP snooping rate limit is stored and shown but not enforced. DAI has no ARP ACLs or extra validation options.
 - Sandbox challenges do not award XP or trophies. Incidents are fixed scenarios, not randomised faults. Sandbox device models are fixed (3 or 5 port routers, 10 or 26 port switches).
@@ -218,5 +226,7 @@ Carry this list forward and keep it in every summary.
 - Whether the pop-out guide should also open in a separate browser window for a second monitor (waiting on his decision)
 - Randomised faults for incidents (every incident is still a fixed scenario)
 - Make the data path follow spanning-tree blocking, so a ping's animated path matches `show spanning-tree`
+- `ping <ip> source <interface>` and the interactive extended ping (typing `ping` alone)
+- Live playback and real-life output for IPv6 pings and traceroutes
 
-His most recent direction was to fold the best of ChatGPT's branch into `main` (done in the "Troubleshooting incidents" build), "continue to build" on the sandbox, and make the app "more rewarding and fun".
+His most recent direction (8 Oct 2026) was to make pings work "more like real life" because he likes the feedback of real commands (done in the "real-life pings" build). Before that: "continue to build" on the sandbox and make the app "more rewarding and fun".

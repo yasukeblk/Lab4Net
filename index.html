@@ -774,9 +774,8 @@ C(EX,'show interfaces <rest?>',e=>{const{net,d,out}=e;const rest=e.args[0];const
 const save=e=>{e.d.startup=runningConfig(e.net,e.d).slice(2);e.out('Building configuration...','[OK]');};
 C('priv','copy running-config startup-config',save);
 C('priv','write <rest?>',save);
-C(EX,'ping <ip>',e=>{const ok=canPing(e.net,e.d,e.args[0]);e.out('Type escape sequence to abort.','Sending 5, 100-byte ICMP Echos to '+n2ip(e.args[0])+', timeout is 2 seconds:',ok?'!!!!!':'.....',
-  ok?'Success rate is 100 percent (5/5), round-trip min/avg/max = 1/1/2 ms':'Success rate is 0 percent (0/5)');});
-C(EX,'traceroute <ip>',e=>{const f=tracePath(e.net,e.d,e.args[0]);e.out('Type escape sequence to abort.','Tracing the route to '+n2ip(e.args[0]));f.hops.forEach((h,k)=>e.out('  '+(k+1)+'   '+n2ip(h)+'   1 msec  0 msec  1 msec'));if(!f.ok)e.out('  '+(f.hops.length+1)+'   *  *  *');});
+C(EX,'ping <ip>',e=>iosPing(e,e.args[0],5,100));
+C(EX,'traceroute <ip>',e=>iosTrace(e,e.args[0]));
 C(EX,'exit',()=>{});
 C('config','hostname <w>',e=>{e.d.hostname=e.args[0];});
 C('config','enable secret <w>',e=>{e.d.secret=e.args[0];});
@@ -861,9 +860,8 @@ C('pc','ipconfig',e=>{const i=nic(e.d);e.out('','FastEthernet0 Connection:','   
 C('pc','ipconfig /ip <ip> <ip>',e=>{const len=maskLenN(e.args[1]);if(len===null)return e.out('Invalid subnet mask.');nic(e.d).ip=e.args[0];nic(e.d).len=len;});
 C('pc','ipconfig /dg <ip>',e=>{e.d.gw=e.args[0];});
 // The reply's TTL starts at 128 from a host or 255 from IOS and loses one per router on the way back.
-C('pc','ping <ip>',e=>{const ok=canPing(e.net,e.d,e.args[0]),a=n2ip(e.args[0]),t=TRACE,ttl=ok&&t&&t.r?(t.f.dest.type==='pc'?128:255)-(t.r.hops.length-1):128;e.out('','Pinging '+a+' with 32 bytes of data:');for(let k=0;k<4;k++)e.out(ok?'Reply from '+a+': bytes=32 time<1ms TTL='+ttl:'Request timed out.');
-  e.out('','Ping statistics for '+a+':','    Packets: Sent = 4, Received = '+(ok?4:0)+', Lost = '+(ok?'0 (0% loss)':'4 (100% loss)'),'');});
-C('pc','tracert <ip>',e=>{const f=tracePath(e.net,e.d,e.args[0]);e.out('','Tracing route to '+n2ip(e.args[0])+':');f.hops.forEach((h,k)=>e.out('  '+(k+1)+'   <1 ms   <1 ms   <1 ms   '+n2ip(h)));e.out(f.ok?'Trace complete.':'  *   Request timed out.','');});
+C('pc','ping <ip>',e=>winPing(e,e.args[0],4,32));
+C('pc','tracert <ip>',e=>winTrace(e,e.args[0]));
 
 function matchPat(pat,toks){const args=[];let i=0;
   for(const p of pat){
@@ -1840,7 +1838,7 @@ CCNA_LAB_MAP['Small office build']=['3.3','4.1','4.6'];
 Object.assign(WHYC,{
 'ipconfig /release':'Gives the DHCP lease back, leaving the host with no address. Pair it with /renew to watch a fresh lease being handed out.',
 'ipconfig':'Shows the host\'s address, mask and default gateway. The first thing to check when a host cannot reach anything.',
-'ping <ip>':'Sends ICMP echo requests and waits for replies. A reply proves the path works in both directions, not just one.',
+'ping <ip>':'Sends ICMP echo requests and waits for replies. A reply proves the path works in both directions, not just one. On IOS each echo prints a symbol: ! is a reply, . is a timeout (often the first echo, lost while a router ARPs for its next hop), and U is an unreachable sent back by a router with no route or an ACL that dropped it.',
 'show ip dhcp binding':'Lists the leases the server has handed out: which address went to which client hardware address.'});
 addLab({title:'Small office build',group:'IP services',
  brief:'A new branch office: two PCs, a switch, and a router fresh out of the box with a link to the ISP. Bring the router up, give the PCs their addresses automatically, and get them to the internet through the single public address the ISP assigned.',
@@ -1873,8 +1871,8 @@ Object.assign(WHYC,{
 'show ip route <w>':'Shows only one kind of route: static, ospf or connected.',
 'no ip proxy-arp':'Stops this interface answering ARP requests on behalf of other networks. Proxy ARP hides misconfigurations, so many networks turn it off.',
 'ip proxy-arp':'Lets the router answer ARP for addresses it can route to. It is on by default.',
-'traceroute <ip>':'Lists each router on the path, one per line. Comparing it before and after a failure shows which way traffic actually went.',
-'tracert <ip>':'Windows traceroute: lists each router on the path to the destination.'});
+'traceroute <ip>':'Lists each router on the path, one per line. * means that hop sent nothing back (often it has no route back to you); !H or !A means a router refused the packet because it had no route or an ACL denied it. Stop a long run of * with Ctrl+Shift+6.',
+'tracert <ip>':'Windows traceroute: lists each router on the path to the destination. A row of * with Request timed out means that hop did not answer; press Ctrl+C to stop.'});
 
 // ----- phase 2, lab 8
 CCNA_LAB_MAP['Floating static route']=['3.2','3.3'];
@@ -3061,6 +3059,120 @@ addCapstone({title:'Capstone: campus core',
   'R1: ip dhcp excluded-address 192.168.10.1 192.168.10.9 | ip dhcp excluded-address 192.168.20.1 192.168.20.9 | ip dhcp pool STAFF | network 192.168.10.0 255.255.255.0 | default-router 192.168.10.1 | ip dhcp pool LAB | network 192.168.20.0 255.255.255.0 | default-router 192.168.20.1 | end ; DSW1: interface vlan 10 | ip helper-address 10.0.0.2 | interface vlan 20 | ip helper-address 10.0.0.2 | end',
   'PC1: ipconfig /renew | ping 10.10.10.10 ; PC2: ipconfig /renew | ping 10.10.10.10 ; DSW1: show etherchannel summary | show ip ospf neighbor']);
 //LIBRARY-END
+// ---------- real-life ping and traceroute ----------
+// What happens to each echo is worked out from the real forwarding result: a reply, a timeout, or an ICMP
+// unreachable sent back by the router that dropped it. Each device keeps an ARP cache, so the first ping
+// through a router that has not yet resolved its next hop loses a packet, like IOS (".!!!!").
+// Output is plain text for the engine and tests; e.s.pace adds timing that the console uses to play it live.
+function pq(net,fn){const saved=[],was=LIVE;for(const n in net.devs){const x=net.devs[n].nat;if(x)saved.push([x,x.table.length,(x.dyn||[]).length]);}
+  LIVE=false;try{return fn();}finally{LIVE=was;saved.forEach(([x,l,m])=>{x.table.length=l;if(x.dyn)x.dyn.length=m;});}}
+function ipOwner(net,ip){return Object.values(net.devs).find(x=>ownsIp(net,x,ip))||null;}
+function onLinkIf(net,d,ip){return Object.values(d.ifs).find(i=>i.ip!=null&&i.len!=null&&ifUp(net,d,i)&&netOf(i.ip,i.len)===netOf(ip,i.len))||null;}
+function arpPrune(net,d){const c=d.arpc;if(!c)return {};for(const ip in c){const i=d.ifs[c[ip]];if(!i||i.ip==null||!ifUp(net,d,i)||netOf(+ip,i.len)!==netOf(i.ip,i.len))delete c[ip];}return c;}
+function arpLearn(net,d,ip){const i=onLinkIf(net,d,ip);if(!i)return;(d.arpc=d.arpc||{})[ip]=i.name;}
+// Walk one direction of a forwarding result: every L3 device that had to ARP for its next hop drops the packet
+// that triggered it (a Windows host queues it instead). Both ends of each resolved hop learn each other.
+function arpWalk(net,start,res){let d=start,miss=0;if(!res)return 0;
+  for(const ip of res.hops){const c=arpPrune(net,d);if(c[ip]==null&&d.type!=='pc')miss++;arpLearn(net,d,ip);
+    const nx=ipOwner(net,ip);if(!nx)break;const back=onLinkIf(net,d,ip);if(back)arpLearn(net,nx,back.ip);d=nx;}
+  return miss;}
+function pingRng(d){d.icmpSeq=(d.icmpSeq||0)+1;const x=Math.sin(d.icmpSeq*12.9898+d.name.length*78.233)*43758.5453;return x-Math.floor(x);}
+// Results per echo: {c:'!'|'.'|'U', rtt, from}. from is the address an unreachable came back from.
+function pingRun(net,src,dst,count){
+  const R=reach(net,src,dst),T=TRACE&&TRACE.src===src?TRACE:null,f=R.f,r=T?T.r:null;
+  const h0=ownsIp(net,src,dst)?null:nextHop(net,src,dst),srcIp=ownsIp(net,src,dst)?dst:h0?h0.ifc.ip:null;
+  const drops=arpWalk(net,src,f)+(f.ok&&f.dest!==src?arpWalk(net,f.dest,r):0);
+  let mode='.',from=null,unreach=null;
+  if(R.ok)mode='!';
+  else if(!f.ok&&srcIp!=null&&f.hops.length){const xName=f.hops.path.at(-1),X=net.devs[xName],acl=/^Blocked by ACL/.test(f.reason||''),noRoute=/^No usable route/.test(f.reason||'');
+    if(X&&X!==src&&(acl||noRoute)&&pq(net,()=>fwd(net,X,{src:null,dst:srcIp,proto:'icmp',sport:0,dport:0})).ok){mode='U';from=f.hops.at(-1);unreach=acl?'A':'H';}}
+  const routers=Math.max(0,(f.hops||[]).length-1),out=[];
+  for(let k=0;k<count;k++){
+    if(mode==='!'&&k<drops){out.push({c:'.'});continue;}
+    if(mode==='!'){const x=pingRng(src);out.push({c:'!',rtt:routers+(x<.55?0:x<.88?1:2)});}
+    else if(mode==='U')out.push({c:src.type==='pc'||k%2===0?'U':'.',from});
+    else out.push({c:'.'});}
+  return {R,f,r,srcIp,res:out,unreach,ttl:R.ok&&r?(f.dest.type==='pc'?128:255)-Math.max(0,r.hops.length-1):(src.type==='pc'?128:255)};}
+function rttStats(L){const t=L.filter(p=>p.c==='!').map(p=>p.rtt);if(!t.length)return null;return {min:Math.min(...t),max:Math.max(...t),avg:Math.round(t.reduce((a,b)=>a+b,0)/t.length),n:t.length};}
+function iosRate(L,n){const s=rttStats(L.slice(0,n)),ok=s?s.n:0;return 'Success rate is '+Math.floor(ok*100/Math.max(1,n))+' percent ('+ok+'/'+n+')'+(s?', round-trip min/avg/max = '+s.min+'/'+s.avg+'/'+s.max+' ms':'');}
+function iosPing(e,dst,count,size){const P=pingRun(e.net,e.d,dst,count),L=P.res,chars=L.map(p=>p.c).join(''),lines=[],t=[];
+  lines.push('Type escape sequence to abort.','Sending '+count+', '+size+'-byte ICMP Echos to '+n2ip(dst)+', timeout is 2 seconds:');t.push(0,0);
+  for(let k=0;k<chars.length;k+=70){const part=chars.slice(k,k+70);lines.push(part);t.push({chars:[...part].map(c=>c==='!'?140+(L[k].rtt||0)*20:c==='U'?260:2000),pkt:true});}
+  lines.push(iosRate(L,count));t.push(60);
+  e.out(...lines);e.s.pace={t,abort:n=>[iosRate(L,n)]};}
+function winStats(a,L,n,ctrlC){const s=rttStats(L.slice(0,n)),got=L.slice(0,n).filter(p=>p.c!=='.').length,lost=n-got;
+  // Windows counts an ICMP unreachable as a received reply, so a failing ping can still report 0% loss.
+  return ['','Ping statistics for '+a+':','    Packets: Sent = '+n+', Received = '+got+', Lost = '+lost+' ('+Math.round(lost*100/Math.max(1,n))+'% loss),',
+    ...(s?['Approximate round trip times in milli-seconds:','    Minimum = '+s.min+'ms, Maximum = '+s.max+'ms, Average = '+s.avg+'ms']:[]),...(ctrlC?['Control-C','^C']:[''])];}
+function winPing(e,dst,count,size){const a=n2ip(dst),i=nic(e.d),lines=['','Pinging '+a+' with '+size+' bytes of data:'],t=[0,0];
+  const noRoute=i.ip==null||(!ownsIp(e.net,e.d,dst)&&!nextHop(e.net,e.d,dst));
+  if(noRoute){reach(e.net,e.d,dst);for(let k=0;k<count;k++){lines.push('PING: transmit failed. General failure. ');t.push({d:k?1000:250,pkt:true});}
+    const fin=n=>['','Ping statistics for '+a+':','    Packets: Sent = '+n+', Received = 0, Lost = '+n+' (100% loss),',''];lines.push(...fin(count));t.push(60,0,0,0);
+    e.out(...lines);e.s.pace={t,abort:n=>[...fin(n).slice(0,-1),'Control-C','^C']};return;}
+  const P=pingRun(e.net,e.d,dst,count),L=P.res,own=n2ip(i.ip);
+  // A host that cannot ARP for its next hop answers itself: "Destination host unreachable" from its own address.
+  const selfUnreach=!P.R.ok&&!P.f.ok&&!P.f.hops.length&&/^Next hop/.test(P.f.reason||'');
+  if(selfUnreach)L.forEach(p=>{p.c='U';p.from=i.ip;});
+  L.forEach((p,k)=>{if(p.c==='!'){lines.push('Reply from '+a+': bytes='+size+' '+(p.rtt?'time='+p.rtt+'ms':'time<1ms')+' TTL='+P.ttl);t.push({d:k?1000:300+p.rtt*20,pkt:true});}
+    else if(p.c==='U'){lines.push('Reply from '+n2ip(p.from)+': Destination host unreachable.');t.push({d:selfUnreach?(k?1000:3000):(k?1000:300),pkt:true});}
+    else{lines.push('Request timed out.');t.push({d:k?2000:2500,pkt:true});}});
+  const st=winStats(a,L,count,false);lines.push(...st);st.forEach((x,k)=>t.push(k===1?60:0));
+  e.out(...lines);e.s.pace={t,abort:n=>winStats(a,L,n,true)};}
+// Traceroute: each hop answers only if it has a route back to the source; the router that drops the probe
+// answers with !H (no route) or !A (ACL) when it can reach the source. Unanswered hops print * up to hop 30.
+function traceRun(net,src,dst){const P=pingRun(net,src,dst,1),f=P.f,hops=[];
+  const back=X=>P.srcIp!=null&&(X===src||pq(net,()=>fwd(net,X,{src:null,dst:P.srcIp,proto:'icmp',sport:0,dport:0})).ok);
+  const ips=f.hops.slice();if(f.ok&&ips.length)ips[ips.length-1]=dst;
+  ips.forEach((ip,k)=>{const X=ipOwner(net,f.ok&&k===ips.length-1?f.hops.at(-1):ip);
+    const last=f.ok&&k===ips.length-1,reply=last?P.R.ok:!!X&&back(X);hops.push(reply?{ip,dest:last,cisco:X&&X.type!=='pc'}:null);});
+  if(!f.ok&&P.unreach){const k=hops.length-1;if(P.unreach==='A'&&/inbound/.test(f.reason))hops[k]={ip:P.res[0].from,code:'!A'};else hops.push({ip:P.res[0].from,code:'!'+P.unreach});}
+  return {hops,done:f.ok&&P.R.ok||!!P.unreach};}
+function iosTrace(e,dst){const T=traceRun(e.net,e.d,dst),lines=['Type escape sequence to abort.','Tracing the route to '+n2ip(dst),'VRF info: (vrf in name/id, vrf out name/id)'],t=[0,0,0],r=()=>pingRng(e.d);
+  const ms=()=>{const x=r();return (x<.5?0:x<.85?1:2)+' msec';},add=parts=>{lines.push(parts.map(p=>p[1]).join(''));t.push({parts});};
+  const n=T.done?T.hops.length:30;
+  for(let k=0;k<n;k++){const h=T.hops[k],no=String(k+1).padStart(3)+' ';
+    if(!h){add([[0,no],[1200,'*  '],[1200,'*  '],[1200,'*']]);continue;}
+    if(h.code){add([[0,no+n2ip(h.ip)+' '],[250,h.code+'  '],[250,h.code+'  '],[250,h.code]]);continue;}
+    add([[0,no+n2ip(h.ip)+' '],[160,ms()+' '],[90,h.dest&&h.cisco?'*  ':ms()+' '],[h.dest&&h.cisco?2000:90,ms()]]);}
+  e.out(...lines);e.s.pace={t,abort:()=>[]};}
+function winTrace(e,dst){const T=traceRun(e.net,e.d,dst),lines=['','Tracing route to '+n2ip(dst)+' over a maximum of 30 hops',''],t=[0,0,0],r=()=>pingRng(e.d);
+  const ms=()=>{const x=r();return (x<.6?'<1':x<.9?'1':'2').padStart(6)+' ms';},add=parts=>{lines.push(parts.map(p=>p[1]).join(''));t.push({parts});};
+  const n=T.done?T.hops.length:30;
+  for(let k=0;k<n;k++){const h=T.hops[k],no=String(k+1).padStart(3);
+    if(!h){add([[0,no],[1500,'     *   '],[1500,'     *   '],[1500,'     *     Request timed out.']]);continue;}
+    if(h.code){add([[0,no],[600,'  '+n2ip(h.ip)+'  reports: Destination host unreachable.']]);continue;}
+    add([[0,no],[180,ms()],[90,ms()],[90,ms()+'  '+n2ip(h.ip)]]);}
+  lines.push('','Trace complete.');t.push(0,0);
+  e.out(...lines);e.s.pace={t,abort:()=>['^C']};}
+// Extended options: IOS "ping A repeat N size B", Windows "ping -n N -l B A" (either order).
+function pingOpts(rest,win){const o={count:win?4:5,size:win?32:100,bad:false},w=(rest||'').trim().split(/\s+/).filter(Boolean);
+  for(let k=0;k<w.length;k++){const x=w[k].toLowerCase(),v=w[k+1];
+    if(win?(x==='-n'):('repeat'.startsWith(x)&&x.length>1)){if(!/^\d+$/.test(v||'')){o.bad=true;break;}o.count=+v;k++;}
+    else if(win?(x==='-l'):('size'.startsWith(x)&&x.length>1)){if(!/^\d+$/.test(v||'')){o.bad=true;break;}o.size=+v;k++;}
+    else{o.bad=true;break;}}
+  if(!o.bad&&(o.count<1||(win?o.size>65500:(o.size<36||o.size>18024))))o.bad=true;o.count=Math.min(o.count,500);return o;}
+Cn(EX,'ping <ip> <rest>',e=>{const o=pingOpts(e.args[1],false);if(o.bad){e.out(BAD);return;}iosPing(e,e.args[0],o.count,o.size);});
+Cn('pc','ping <ip> <rest>',e=>{const o=pingOpts(e.args[1],true);if(o.bad){e.out('Bad option. Use: ping [-n count] [-l size] address');return;}winPing(e,e.args[0],o.count,o.size);});
+Cn('pc','ping <rest>',e=>{const w=e.args[0].split(/\s+/),ip=w.find(isIp);if(!ip){e.out('Ping request could not find host '+w.at(-1)+'. Please check the name and try again.');return;}
+  const o=pingOpts(w.filter(x=>x!==ip).join(' '),true);if(o.bad){e.out('Bad option. Use: ping [-n count] [-l size] address');return;}winPing(e,ip2n(ip),o.count,o.size);});
+// ARP tables
+function arpRows(net,d){const c=arpPrune(net,d);return Object.keys(c).map(Number).sort((a,b)=>a-b).map(ip=>{const o=ipOwner(net,ip),i=o&&Object.values(o.ifs).find(x=>x.hsrp&&hsrpVip(net,o,x)===ip),g=i&&i.hsrp.find(g=>g.ip===ip);
+  return {ip,ifn:c[ip],mac:g?'0000.0c07.ac'+(+g.grp).toString(16).padStart(2,'0'):o?macOf(o):'Incomplete'};});}
+Cn(EX,'show ip arp',e=>{const d=e.d,rows=[];for(const i of Object.values(d.ifs))if(i.ip!=null&&ifUp(e.net,d,i))rows.push({ip:i.ip,age:'-',mac:macOf(d),ifn:i.name});
+  arpRows(e.net,d).forEach(r=>rows.push({...r,age:'0'}));rows.sort((a,b)=>a.ip-b.ip);
+  e.out('Protocol  Address          Age (min)  Hardware Addr   Type   Interface',...rows.map(r=>'Internet  '+n2ip(r.ip).padEnd(17)+r.age.padStart(9)+'   '+r.mac.padEnd(16)+'ARPA   '+r.ifn));});
+Cn(EX,'show arp',e=>run(e,'show ip arp',e.s.mode));
+Cn('priv','clear arp-cache',e=>{e.d.arpc={};});
+Cn('pc','arp -a',e=>{const rows=arpRows(e.net,e.d),i=nic(e.d);if(!rows.length){e.out('No ARP Entries Found.');return;}
+  e.out('','Interface: '+n2ip(i.ip)+' --- 0x3','  Internet Address      Physical Address      Type',...rows.map(r=>'  '+n2ip(r.ip).padEnd(22)+r.mac.replace(/\./g,'').replace(/(..)(?=.)/g,'$1-').padEnd(22)+'dynamic'),'');});
+Cn('pc','arp -d <rest?>',e=>{e.d.arpc={};});
+Object.assign(WHYC,{
+'ping <ip> <rest>':'Extended ping: repeat sends more echoes and size changes the packet size. A long run of ! shows a stable path; a run that flips between ! and . shows something intermittent.',
+'show ip arp':'Lists the IP-to-MAC mappings this device has learned. A missing or Incomplete entry for the next hop explains why the first ping loses a packet, or why nothing gets through at all.',
+'show arp':'Same as show ip arp: the IP-to-MAC mappings this device has learned.',
+'clear arp-cache':'Empties the ARP table. The next ping has to resolve every next hop again, which is why its first echo usually times out.',
+'arp -a':'Shows the PC\'s ARP cache: the MAC address it learned for each IP on its own subnet, usually just the default gateway and local hosts.',
+'arp -d <rest?>':'Clears the PC\'s ARP cache, so the next packet has to ARP for its next hop again.'});
 // Runs the steps on a scratch copy of the lab to record the prompt that precedes each command.
 function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
   const out=lab.steps.map(task=>task.map(g=>{const d=net.devs[g.dev],s=sess[g.dev]||(sess[g.dev]={mode:d.type==='pc'?'pc':'user',ctx:null});
@@ -3116,19 +3228,42 @@ function renderBrief(){if(cur.view==='drill')return renderDrill();if(cur.view===
   $('bSol').onclick=()=>{cur.showSol=!cur.showSol;renderBrief();};bindClues();
   $('bReset').onclick=()=>{dialog('Start this lab over?',`<p>This removes this lab’s saved commands and checklist. Its earned pass stays in your progress.</p><button class="btn primary" id="confirmReset">Start with a fresh network</button>`);$('confirmReset').onclick=()=>{$('dialog').close();openLab(cur.idx,true);notify('Lab reset. Previously earned progress kept.');};};
   if($('nextLab'))$('nextLab').onclick=()=>{const next=LABS.findIndex((l,i)=>i>cur.idx&&!progress[l.title]);const first=LABS.findIndex(l=>!progress[l.title]);openLab(next>=0?next:first>=0?first:0);};}
-function lineClass(l){if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';if(/^%|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
+function lineClass(l){if(/^[!.U]+$/.test(l)&&l.length<=70)return /^!+$/.test(l)?'good':/!/.test(l)?'warn':'bad';{const m=/^Success rate is (\d+) percent/.exec(l);if(m)return m[1]==='100'?'good':m[1]==='0'?'bad':'warn';}
+  if(/unreachable|General failure|!H|!A|could not find host/.test(l))return 'bad';if(/^ {0,2}\d+ \*  \*/.test(l))return 'warn';if(/changed state to up/.test(l))return 'good';if(/changed state to down/.test(l))return 'warn';if(/^%|refused|timed out|failed|^\.{5}$|rejected/i.test(l))return 'bad';if(/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l))return 'good';return '';}
 function renderTerm(){if(cur.view!=='lab')return;const {net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],n=s.lines.length,fresh=s.fresh||0;s.fresh=0;
   $('tabs').innerHTML=Object.keys(net.devs).map(x=>`<button class="tab" role="tab" id="tab-${x}" aria-controls="term" tabindex="${x===sel?0:-1}" data-dev="${x}" aria-selected="${x===sel}"><span class="device-dot ${net.devs[x].type}"></span>${esc(net.devs[x].hostname)}</button>`).join('');
   $('term').setAttribute('aria-labelledby','tab-'+sel);$('tout').innerHTML=s.lines.map((l,k)=>`<span class="${l[0]==='\u0001'?'cmd':lineClass(l)}${k>=n-fresh?' new':''}">${esc(l[0]==='\u0001'?l.slice(1):l)}</span>`).join('\n');
-  $('prompt').textContent=promptOf(d,s);$('mode').textContent=MODE[s.mode]||s.mode;$('term').scrollTop=$('term').scrollHeight;
+  $('prompt').textContent=STREAM&&STREAM.s===s?'':promptOf(d,s);$('mode').textContent=MODE[s.mode]||s.mode;$('term').scrollTop=$('term').scrollHeight;
   $('deviceInfo').textContent=`${d.hostname} · ${d.type==='pc'?'host':d.type} · ${Object.values(d.ifs).filter(i=>ifUp(net,d,i)).length} interfaces up`;}
 function select(n){cur.sel=n;$('tin').value='';drawTopo();renderTerm();$('tin').focus({preventScroll:true});}
 function mobilePanel(network){document.body.classList.toggle('mobile-network',network);$('missionView').setAttribute('aria-pressed',String(!network));$('networkView').setAttribute('aria-pressed',String(network));if(cur?.view==='lab')renderTerm();}
-function execute(line){if(cur.view!=='lab')return;const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];TRACE=null;
+function execute(line){if(cur.view!=='lab')return;streamStop(false);const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];TRACE=null;
   if(line.length>512){notify('Keep each command under 512 characters.');return;}
   if(cur.journal.length>=5000){notify('This lab has reached its saved command limit. Export your work, then start over.');return;}
-  push(s,['\u0001'+promptOf(d,s)+line]);if(line.trim()){s.hist.push(line);s.last=null;const out=execLine(net,d,s,line);if(out.length)push(s,out.join('\n').split('\n'));cur.journal.push({device:sel,line});const w=s.last&&WHYC[s.last];$('hint').textContent=w?'Why: '+w:HINT;$('hint').className=w?'why':'';}
+  push(s,['\u0001'+promptOf(d,s)+line]);if(line.trim()){s.hist.push(line);s.last=null;s.pace=null;const out=execLine(net,d,s,line);if(out.length){const L=out.join('\n').split('\n');if(s.pace&&L.length===out.length&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)streamStart(s,L,s.pace);else push(s,L);}s.pace=null;cur.journal.push({device:sel,line});const w=s.last&&WHYC[s.last];$('hint').textContent=w?'Why: '+w:HINT;$('hint').className=w?'why':'';}
   s.hi=s.hist.length;if(cur.graded){cur.graded=null;$('grade').innerHTML='<p>Commands run since grading. Grade again to check the current network.</p>';}drawTopo();renderTerm();if(TRACE){cur.trace=TRACE;renderTrace();playTrace(TRACE);}saveWork();}
+// ---------- live console output (ping, traceroute) ----------
+// The engine attaches timing to ping and traceroute output (s.pace). The console plays it back a character or
+// line at a time, hides the prompt until it finishes, and stops early on Ctrl+C or Ctrl+Shift+6. Running another
+// command first finishes the current output instantly, so nothing is ever lost or reordered.
+let STREAM=null;
+function streamStart(s,lines,pace){const units=[];
+  lines.forEach((line,i)=>{const p=pace.t[i];let parts;
+    if(p&&p.chars)parts=[...line].map((c,k)=>[p.chars[k]||0,c,true]);
+    else if(p&&p.parts)parts=p.parts.map(([ms,txt])=>[ms,txt,false]);
+    else parts=[[typeof p==='number'?p:p&&p.d||0,line,!!(p&&p.pkt)]];
+    parts.forEach(([ms,txt,pkt],k)=>units.push({ms,txt,pkt,first:k===0}));});
+  STREAM={s,units,pos:0,pkts:0,abort:pace.abort,ph:$('tin').placeholder};$('tin').placeholder='Running… Ctrl+C or Ctrl+Shift+6 to stop';streamTick(true);}
+function streamUnit(S,u){if(u.first||!S.s.lines.length)push(S.s,[u.txt]);else S.s.lines[S.s.lines.length-1]+=u.txt;
+  if(u.pkt){S.pkts++;const f=window.l4nFun&&window.l4nFun.sfx;if(f){const t=u.txt;if(t==='!'||/^Reply from .*bytes=/.test(t))f.echo();else if(t==='U'||/unreachable|General failure/.test(t))f.unreach();else f.drop();}}}
+function streamTick(firstCall){const S=STREAM;if(!S)return;S.timer=null;
+  if(!cur||!Object.values(cur.sess||{}).includes(S.s)){STREAM=null;return;}
+  let k=0;while(S.pos<S.units.length&&(S.units[S.pos].ms===0||(!firstCall&&k===0))){streamUnit(S,S.units[S.pos++]);k++;}
+  if(S.pos>=S.units.length){streamStop(false);return;}
+  if(cur.sess[cur.sel]===S.s)renderTerm();S.timer=setTimeout(()=>streamTick(false),S.units[S.pos].ms);}
+function streamStop(abort){const S=STREAM;if(!S)return;if(S.timer)clearTimeout(S.timer);STREAM=null;$('tin').placeholder=S.ph||'';
+  if(abort)push(S.s,S.abort(S.pkts));else while(S.pos<S.units.length)streamUnit(S,S.units[S.pos++]);
+  if(cur&&cur.sess&&cur.sess[cur.sel]===S.s)renderTerm();}
 function renderTrace(){const T=cur.trace;if(!T)return;const last=p=>p.hops.path.at(-1);const result=T.ok?'Reply received':T.refused?'Destination port closed':!T.f.ok?T.f.reason:T.r?'Reply failed: '+(T.r.reason||'did not return to source'):'No reply';
   $('trace').innerHTML=`<div class="trace-title ${T.ok?'good':'bad'}">${T.ok?'✓':'!'} ${esc(result)}<button class="small-btn" id="replayTrace">Replay</button></div><div class="trace-path"><b>Request</b> ${T.f.hops.path.map(esc).join(' → ')}${!T.f.ok?` <span class="bad">· stopped at ${esc(last(T.f))}</span>`:''}</div>${T.r?`<div class="trace-path"><b>Reply</b> ${T.r.hops.path.map(esc).join(' → ')}</div>`:''}<p>${T.ok?'Both directions succeeded. A request reaching the destination alone is not enough.':T.refused?'The network path works, but the destination is not listening on that port.':T.f.blocked||T.r?.blocked?'Read the ACL in order. The first matching rule wins; unmatched traffic is denied.':'Verify interface state and addressing first, then the next hop and the return route.'}</p><p>Last connectivity test · Run the command again after changing configuration.</p>`;$('replayTrace').onclick=()=>playTrace(cur.trace);}
 function dialog(title,body){$('dialogTitle').textContent=title;$('dialogBody').innerHTML=body;if(!$('dialog').open)$('dialog').showModal();}
@@ -3252,7 +3387,7 @@ $('tabs').onkeydown=e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.ke
 $('topo').onclick=e=>{const g=e.target.closest('[data-dev]');if(g)select(g.dataset.dev);};$('topo').onkeydown=e=>{const g=e.target.closest('[data-dev]');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select(g.dataset.dev);}};
 $('clearConsole').onclick=()=>{cur.sess[cur.sel].lines=[];renderTerm();};$('term').onclick=()=>{if(!String(window.getSelection()))$('tin').focus({preventScroll:true});};
 const tin=$('tin');tin.oninput=()=>{if(!tin.value.includes('?'))return;const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],line=tin.value.replace(/\?/g,'');const c=candidates(d,s.mode,line);push(s,['\u0001'+promptOf(d,s)+line+'?',...(c.length?c.map(x=>'  '+x):['% Unrecognized command'])]);tin.value=line;renderTerm();};
-tin.onkeydown=e=>{const s=cur.sess[cur.sel],d=cur.net.devs[cur.sel];if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(d.type!=='pc'&&!['user','priv'].includes(s.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
+tin.onkeydown=e=>{const s=cur.sess[cur.sel],d=cur.net.devs[cur.sel];if(STREAM&&e.ctrlKey&&((e.key.toLowerCase()==='c'&&tin.selectionStart===tin.selectionEnd)||e.key==='^'||(e.shiftKey&&(e.key==='6'||e.code==='Digit6')))){e.preventDefault();streamStop(true);return;}if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(d.type!=='pc'&&!['user','priv'].includes(s.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
 tin.onpaste=e=>{const text=e.clipboardData.getData('text');if(!/[\r\n]/.test(text))return;e.preventDefault();const lines=text.split(/\r?\n/).filter(x=>x.trim());if(lines.length>100||lines.some(x=>x.length>512)){notify('Paste up to 100 commands, each under 512 characters.');return;}dialog('Review pasted commands',`<p>Run these ${lines.length} commands on <b>${esc(cur.net.devs[cur.sel].hostname)}</b> in the order shown.</p><pre class="paste-preview">${esc(lines.join('\n'))}</pre><button class="btn primary" id="runPaste">Run commands</button>`);$('runPaste').onclick=()=>{$('dialog').close();lines.forEach(execute);tin.value='';tin.focus();};};
 let guideOn=true;try{guideOn=localStorage.getItem('lab4net-guide')!=='0';}catch(e){}
 const DESK=window.matchMedia('(min-width:861px)');let guidePop=false;try{guidePop=localStorage.getItem('lab4net-guide-pop')==='1';}catch(e){}
@@ -3421,7 +3556,7 @@ function setGuidePop(on){if(on&&!DESK.matches){dialog('Step-by-step guide',guide
   const KEY='lab4net-fun-v1';let F={ranks:{},ach:{},days:[],runs:{},cleared:{},sound:true};
   try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object')F=Object.assign(F,p);}catch(e){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(F));}catch(e){}};
-  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal()};
+  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal(),sfx:{echo:()=>tone(1568,.03,'square',0,.018),drop:()=>tone(196,.09,'triangle',0,.04),unreach:()=>{tone(220,.05,'sawtooth',0,.03);tone(165,.07,'sawtooth',.05,.03);}}};
   const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 
   // sound (generated, no audio files)

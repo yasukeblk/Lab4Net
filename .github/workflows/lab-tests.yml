@@ -14,3 +14,4 @@ jobs:
       - run: node tests/forwarding.cjs
       - run: node tests/curriculum.cjs
       - run: node tests/lessons.cjs
+      - run: node tests/ping.cjs
