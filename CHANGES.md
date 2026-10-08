@@ -1,5 +1,12 @@
 # Lab4Net changes
 
+## Quicker ping and traceroute playback
+
+- Live ping and traceroute output now plays at 40% of real time. A router timeout (`.`) takes 0.8 seconds instead of 2, PC replies arrive every 0.4 seconds instead of 1, and a clean `!!!!!` takes about a third of a second. Traceroute stars are quicker too, so a broken path reaches hop 30 in well under a minute (Ctrl+C or Ctrl+Shift+6 still stops it sooner).
+- The engine still describes real-world timings; the console applies one speed setting (`PACE_SCALE` in the live console block), so the pace can be changed in one place.
+
+Verification: all six test files pass. In headless Chromium a cold router ping (`...!!`) finished in about 3 seconds, a warm `!!!!!` in under half a second, and a PC ping in about 2 seconds, with no page errors.
+
 ## Pings and traceroutes that behave like real life
 
 - Ping and traceroute output now plays live in the console instead of appearing all at once. On a router each `!` lands as its echo returns, a `.` waits the full 2-second timeout, and the prompt only comes back when the run is over. On a PC each "Reply from" line arrives about a second apart. Ctrl+C or Ctrl+Shift+6 stops a run early and prints the summary for the echoes actually sent, as IOS and Windows do. Typing the next command finishes the current output instantly. Reduced motion shows everything at once.

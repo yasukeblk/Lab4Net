@@ -3246,13 +3246,14 @@ function execute(line){if(cur.view!=='lab')return;streamStop(false);const{net,se
 // The engine attaches timing to ping and traceroute output (s.pace). The console plays it back a character or
 // line at a time, hides the prompt until it finishes, and stops early on Ctrl+C or Ctrl+Shift+6. Running another
 // command first finishes the current output instantly, so nothing is ever lost or reordered.
-let STREAM=null;
+// PACE_SCALE speeds playback up from the engine's real-world timings (1 = real time; 0.4 = a 2-second timeout plays in 0.8s).
+let STREAM=null;const PACE_SCALE=0.4;
 function streamStart(s,lines,pace){const units=[];
   lines.forEach((line,i)=>{const p=pace.t[i];let parts;
     if(p&&p.chars)parts=[...line].map((c,k)=>[p.chars[k]||0,c,true]);
     else if(p&&p.parts)parts=p.parts.map(([ms,txt])=>[ms,txt,false]);
     else parts=[[typeof p==='number'?p:p&&p.d||0,line,!!(p&&p.pkt)]];
-    parts.forEach(([ms,txt,pkt],k)=>units.push({ms,txt,pkt,first:k===0}));});
+    parts.forEach(([ms,txt,pkt],k)=>units.push({ms:Math.round(ms*PACE_SCALE),txt,pkt,first:k===0}));});
   STREAM={s,units,pos:0,pkts:0,abort:pace.abort,ph:$('tin').placeholder};$('tin').placeholder='Running… Ctrl+C or Ctrl+Shift+6 to stop';streamTick(true);}
 function streamUnit(S,u){if(u.first||!S.s.lines.length)push(S.s,[u.txt]);else S.s.lines[S.s.lines.length-1]+=u.txt;
   if(u.pkt){S.pkts++;const f=window.l4nFun&&window.l4nFun.sfx;if(f){const t=u.txt;if(t==='!'||/^Reply from .*bytes=/.test(t))f.echo();else if(t==='U'||/unreachable|General failure/.test(t))f.unreach();else f.drop();}}}
