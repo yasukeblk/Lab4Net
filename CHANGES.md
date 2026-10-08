@@ -1,5 +1,18 @@
 # Lab4Net changes
 
+## Ranks scored on results, not on how many commands you run
+
+- Checking your work no longer costs anything. Extra `show`, `ping` or other commands, and the time they take, are never counted against your rank. Time and command count still appear on the results card, marked "not scored".
+- A rank now comes from:
+  - **Finishing the lab.** Every check must pass, as before.
+  - **Testing it yourself.** An S needs at least one check of your own during the run: `show`, `ping`, `traceroute`/`tracert`, `telnet`, `ssh`, `ipconfig` or `arp`. Without one the best you can get is A, because a real engineer verifies before closing a ticket.
+  - **Doing it yourself.** Help still lowers the rank: the walkthrough costs 25 points (B), the step-by-step guide 15 (A), each incident clue 5.
+  - **Typos.** The first two rejected commands are free; after that each costs 2 points, up to 10.
+- Removed: the command par and the time par. The results card now shows checks passed, how many checks you ran, rejected commands, time and commands (not scored), and help used.
+- The Trophy case explains the new rules. Ranks you already earned are kept.
+
+Verification: all six test files pass. In headless Chromium: Static routing with 150 extra show commands still gave S; a run with no check commands gave A; the guide gave A; two typos stayed S; five typos dropped to A. No page errors; the results card was checked by eye.
+
 ## Quicker ping and traceroute playback
 
 - Live ping and traceroute output now plays at 40% of real time. A router timeout (`.`) takes 0.8 seconds instead of 2, PC replies arrive every 0.4 seconds instead of 1, and a clean `!!!!!` takes about a third of a second. Traceroute stars are quicker too, so a broken path reaches hop 30 in well under a minute (Ctrl+C or Ctrl+Shift+6 still stops it sooner).
