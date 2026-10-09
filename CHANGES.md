@@ -1,5 +1,18 @@
 # Lab4Net changes
 
+## Ping and traceroute from a chosen source, and the interactive extended ping
+
+- `ping 192.168.3.10 source g0/0` (or `source 192.168.1.1`, or `source loopback 0`) sends the echoes from that address, and prints "Packet sent with a source address of 192.168.1.1" like IOS. The replies must find their way back to that address, so this is the real test of a return route: a ping from a loopback nobody has a route to comes back `.....`, and the map shows the reply failing.
+- An address or interface that is not one of the router's own up interfaces is refused with "% Invalid source address - IP address not on any of our up interfaces".
+- `traceroute 192.168.3.10 source g0/0` works the same way.
+- `ping` on its own (on a router or switch) starts the extended ping dialog with the real questions and defaults: Protocol [ip], Target IP address, Repeat count [5], Datagram size [100], Timeout in seconds [2], Extended commands [n], and with `y`: Source address or interface, Type of service, DF bit, Validate reply data, Data pattern, Loose/Strict/Record/Timestamp/Verbose, Sweep range of sizes. Enter accepts a default; a bad number gets "% A decimal number between 1 and 2147483647." and the question again; a host name is looked up like anywhere else.
+- `traceroute` on its own asks its own questions (target, source, numeric display, timeout, probe count, TTLs, port).
+- The walkthrough shows "⏎ Enter" where a step is just Enter.
+
+Tests: `tests/prompts.cjs` now also covers source by address, interface and spaced interface name, the invalid-source message, the traceroute source, both dialogs question by question, and a bare `ping` on a PC still printing the Windows usage text.
+
+Verification: all nine suites pass.
+
 ## Passwords that are asked for, real Telnet and SSH sessions, and reload
 
 **The console now asks**

@@ -133,6 +133,39 @@ go(net,net.devs.PC1,{mode:'pc'},'ping '+n2ip(net.devs.PC2.ifs.FastEthernet0.ip))
 const sticky=Object.values(SW1.ifs).flatMap(i=>(i.ps&&i.ps.macs||[]).filter(m=>m.kind==='sticky').map(m=>m.mac));
 go(net,SW1,ss,'reload');go(net,SW1,ss,'yes');r=go(net,SW1,ss,'');assert.ok(r.text.includes('C2960')||r.text.includes('Base ethernet MAC'),r.text);
 assert.equal(SW1.mact,undefined);assert.deepEqual(Object.values(SW1.ifs).flatMap(i=>(i.ps&&i.ps.macs||[]).filter(m=>m.kind==='sticky').map(m=>m.mac)),sticky);
+
+// ----- ping and traceroute with a source address: the reply must find its way back to that address
+net=solve('Static routing');R1=net.devs.R1;s=S();go(net,R1,s,'enable');
+r=go(net,R1,s,'ping 192.168.3.10 source g0/0');
+assert.ok(r.out.includes('Packet sent with a source address of 192.168.1.1 '),r.text);assert.ok(/^\\.{0,3}!{2,5}$/.test(r.out.find(l=>/^[!.U]+$/.test(l))),r.text);
+assert.ok(r.out.includes('Packet sent with a source address of 192.168.1.1 ')&&r.out[1].endsWith('timeout is 2 seconds:'));
+r=go(net,R1,s,'ping 192.168.3.10 source 192.168.1.1');assert.ok(/!{4,5}/.test(r.text));
+go(net,R1,s,'configure terminal');go(net,R1,s,'interface loopback 0');go(net,R1,s,'ip address 9.9.9.9 255.255.255.255');go(net,R1,s,'end');
+r=go(net,R1,s,'ping 192.168.3.10 source loopback 0');assert.ok(r.out.includes('Packet sent with a source address of 9.9.9.9 '));assert.equal(r.out.find(l=>/^[!.U]+$/.test(l)),'.....','nobody has a route back to the loopback');
+assert.equal(TRACE.r.ok,false,'the trace shows the reply failing');
+r=go(net,R1,s,'ping 192.168.3.10 source 1.2.3.4');assert.deepEqual(r.out,['% Invalid source address - IP address not on any of our up interfaces']);
+r=go(net,R1,s,'ping 192.168.3.10 source g0/9');assert.ok(r.out.includes(BAD));
+r=go(net,R1,s,'traceroute 192.168.3.10 source g0/0');assert.ok(r.text.includes('Tracing the route to 192.168.3.10')&&/192\\.168\\.3\\.10/.test(r.out.at(-1)),r.text);
+r=go(net,R1,s,'traceroute 192.168.3.10 source loopback 0');assert.ok(/\\*  \\*  \\*/.test(r.text),'no reply can come back to the loopback');
+// the interactive (extended) ping asks the real questions, with defaults on Enter
+r=go(net,R1,s,'ping');assert.equal(r.prompt,'Protocol [ip]: ');
+r=go(net,R1,s,'ipx');assert.ok(r.text.includes('% Unknown protocol'));assert.equal(r.prompt,'Protocol [ip]: ');
+r=go(net,R1,s,'');assert.equal(r.prompt,'Target IP address: ');r=go(net,R1,s,'192.168.3.10');assert.equal(r.prompt,'Repeat count [5]: ');
+r=go(net,R1,s,'abc');assert.ok(r.text.includes('% A decimal number between 1 and 2147483647.'));assert.equal(r.prompt,'Repeat count [5]: ');
+r=go(net,R1,s,'3');assert.equal(r.prompt,'Datagram size [100]: ');r=go(net,R1,s,'');assert.equal(r.prompt,'Timeout in seconds [2]: ');r=go(net,R1,s,'');assert.equal(r.prompt,'Extended commands [n]: ');
+r=go(net,R1,s,'y');assert.equal(r.prompt,'Source address or interface: ');r=go(net,R1,s,'g0/0');assert.equal(r.prompt,'Type of service [0]: ');
+for(const q of ['Set DF bit in IP header? [no]: ','Validate reply data? [no]: ','Data pattern [0xABCD]: ','Loose, Strict, Record, Timestamp, Verbose[none]: ','Sweep range of sizes [n]: ']){r=go(net,R1,s,'');assert.equal(r.prompt,q);}
+r=go(net,R1,s,'');assert.ok(r.out[0]==='Type escape sequence to abort.'&&r.out[1]==='Sending 3, 100-byte ICMP Echos to 192.168.3.10, timeout is 2 seconds:'&&r.out[2]==='Packet sent with a source address of 192.168.1.1 ',r.text);
+assert.ok(/^[!.]{3}$/.test(r.out[3]));assert.equal(r.prompt,'R1#');assert.ok(s.pace&&s.pace.t.length,'plays live');
+// plain Enter everywhere gives a normal 5-echo ping
+go(net,R1,s,'ping');go(net,R1,s,'');go(net,R1,s,'192.168.3.10');go(net,R1,s,'');go(net,R1,s,'');go(net,R1,s,'');r=go(net,R1,s,'');
+assert.ok(r.out[1].startsWith('Sending 5, 100-byte')&&!r.text.includes('Packet sent with'),r.text);
+// the interactive traceroute
+r=go(net,R1,s,'traceroute');assert.equal(r.prompt,'Protocol [ip]: ');go(net,R1,s,'');r=go(net,R1,s,'192.168.3.10');assert.equal(r.prompt,'Source address: ');r=go(net,R1,s,'');assert.equal(r.prompt,'Numeric display [n]: ');
+for(let k=0;k<7;k++){r=go(net,R1,s,'');}
+assert.ok(r.text.includes('Tracing the route to 192.168.3.10'),r.text);assert.equal(r.prompt,'R1#');
+// a PC still prints the usage text for a bare ping
+assert.ok(go(net,net.devs.PC1,{mode:'pc'},'ping').text.includes('Usage: ping'));
 }
 `,context);
-console.log('PASS prompts: enable secret and password prompts, console logout/login (password, local, locked), telnet sessions with VTY login and remote commands, three-strike close, syslog kept off the VTY, login block-for quiet mode and logs, password-required-but-none-set, OpenSSH host key and password flow, Windows telnet messages, IOS ssh client, copy run start filename prompt, write, <cr>, reload with Save?/confirm, saved config restored, learned state cleared, setup dialog on a factory device, switch reload.');
+console.log('PASS prompts: enable secret and password prompts, console logout/login (password, local, locked), telnet sessions with VTY login and remote commands, three-strike close, syslog kept off the VTY, login block-for quiet mode and logs, password-required-but-none-set, OpenSSH host key and password flow, Windows telnet messages, IOS ssh client, copy run start filename prompt, write, <cr>, reload with Save?/confirm, saved config restored, learned state cleared, setup dialog on a factory device, switch reload, ping/traceroute source (address, interface, invalid), interactive extended ping and traceroute.');
