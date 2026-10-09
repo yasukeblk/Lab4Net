@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of the switching realism build on `main` (9 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+State as of the prompts build (passwords, Telnet/SSH sessions, reload) on `main` (9 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -14,6 +14,7 @@ It currently has:
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
 - Real-life ping and traceroute: output plays live, ARP loses the first echo through a cold router, routers send unreachables (`U.U.U`, `!H`, `!A`), Windows quirks are kept, Ctrl+C or Ctrl+Shift+6 stops a run
 - Switching realism: each switch learns a MAC address table from the frames the console sends, floods unknown destinations and ARP requests (the map shows the flood), ages entries out, and frames follow the spanning tree, so the animated path matches `show spanning-tree`. `show mac address-table` and friends, `clear mac address-table dynamic`, static entries and aging time
+- Prompts: `enable` asks for the secret, the console logs out on `exit` and asks for the line password or local login, Telnet and SSH open a real session on the far device (its prompt, its commands, VTY login, `login block-for` quiet mode, Windows and OpenSSH messages from PCs), `reload` asks Save?/confirm and restores the saved config, `copy run start` asks for the filename
 - An IOS-style console that errors like IOS (`^` marker, % Incomplete, % Ambiguous, hostname lookup on a typo), with `| include/exclude/begin/section/count` and `?` descriptions; PCs answer like Windows
 - The step-by-step guide can open in its own browser window for a second monitor
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
@@ -111,6 +112,8 @@ How `run()` decides now: output modifiers first (`pipeRun`). Then it takes the f
 
 8. `// ---------- switching realism`, after console realism and just before `//ENGINE-END`: the MAC address table. Each switch has `d.mact` (`[{mac, vlan, ifn, kind: DYNAMIC|STATIC, t}]`) and `d.macAging` (seconds, default 300). `macTx(net, d, ifc)` is the source MAC a device uses on an interface (hosts one address, router and switch ports their own via `macIf`, SVIs and port-channels the chassis address); `macLearn`, `macPrune` (age, port down, VLAN gone; also run after every command by an `execLine` wrapper) and `macLookup` (the switch's own address is a CPU entry). `stpBlocked(net, vlan)` is the set of `switch|port` the spanning tree blocks; `l2peers` consults it, so a blocked port carries nothing. `l2frame()` is called from `fwd()` for every Layer 2 hop of a live console command (`LIVE && L2LIVE`; `L2LIVE` is set by the `run` wrapper, so grading, tests and `pq` never learn): it decides whether the sender had to ARP (a broadcast every switch in the VLAN learns from; `L2WARM` marks the reply's first hop as already resolved), otherwise learns the sender on each switch's ingress port and floods at the first switch that does not know the destination. Events go on `hops.l2` as `{at, seg, from, to, nh, srcMac, dstMac, arp, flood, sw:[{sw, vlan, out, known}], edges:[[from, to, blocked]]}`; `l2peers` results now carry `trail` (per switch: `sw, vlan, inp, outp`) and the array has `edges` (every link the flood reached). `dhcpRenew` is wrapped so a lease learns the client and the answering server or relay. The commands (`show mac address-table …`, `show mac-address-table`, `clear mac address-table dynamic …`, `mac address-table static|aging-time`) are registered here with `Cn`; `globalExtra` is wrapped for the running-config.
 
+9. `// ---------- prompts`, after the switching block and just before `//ENGINE-END`: questions and remote sessions. `ask(s, text, on, mask)` puts `s.prompt = {text, mask, on(answer, env)}` on a session; the base `execLine` feeds the next line to `on` instead of parsing it (so every wrapper still runs), and maps the line `<cr>` (the `CR` constant, defined at the top of the engine) to an empty line, which is how guides, tests and journals press Enter. `s.remote = {d, s, ip, proto, win, from, user}` sends lines to the far device's own session (`vty:true`); `closeMsg(R)` is printed when it closes (`exit` sets `s.closed`), the far device's syslog lines are moved to its `conq` unless `terminal monitor` set `s.termMon`, and `s.pace`/`s.last` are copied back. `promptOf` is wrapped to show the prompt text or the far prompt; `effSess`, `effPair`, `effPrompt` follow the chain for the UI. `lineLogin(d, kind)` says what a line asks for; `authLine(d, sIn, sTo, kind, done, fail, fixedUser)` runs the three-try password or local login; `conLogout`/`conLogin` handle the console (Press RETURN, banner, User Access Verification, "% Login disabled on line 0"); `vtyOpen(e, ip, proto, user)` opens Telnet/SSH (IOS or Windows/OpenSSH messages, `knownHosts` on PCs, `d.vtys` for `show users`); `loginFailed`/`loginOk`/`quietMode` implement `login block-for` with `d.loginFails`, `d.quietUntil`, `d.loginLog`. Saved configuration: `snapBoot(net, d)` stores `d.boot` (a `deepClone` of the device) and `d.bootCfg` (the running-config text); `mkNet` is wrapped to snapshot factory devices (`d.factoryCfg`) and every lab's `build` is wrapped to snapshot after the build and set `d.startup` when the build configured anything; `saveCfg` (copy run start after the filename prompt, write) refreshes both; `reload` asks Save? when `cfgText` differs from `bootCfg`, then `doReload` calls `restoreBoot` (puts the clone back, re-links from `net.links`, `clearVolatile` drops ARP, MAC, logs, NAT, DHCP, snooping, err-disable, dynamic secure MACs, `ospf.active`, bumps `d.boots` so remote sessions into it drop), prints a paced boot (`BOOT_ROUTER`/`BOOT_SWITCH`) and the setup-dialog question for a never-saved factory device. The `enable`, `exit`, `telnet`, `ssh -l`, `copy running-config startup-config`, `write`, `show login` and `terminal monitor` handlers are replaced in place by looking them up in `CMDS`.
+
 The `// ---------- v3 engine` section, just before the "why" recorder, holds commands added for the library (`clear ip ospf process`, `show ip protocols`, `show ip ospf`) and an `execLine` wrapper that logs native VLAN mismatches. The library block adds a second `execLine` wrapper that logs OSPF adjacency changes. Other library changes were made in place: `type7`/`pwText` near the top (type 7 passwords), `isPassive` and the router-ID lock (`ospf.active`) beside `ospfNeighbors`/`routerId`, `vtyDenied` beside `reach` (access-class), `cdpPeers` with the CDP commands, and the `root primary` macro with the spanning-tree commands.
 
 Phase 2 changed the core in place too:
@@ -182,11 +185,12 @@ node tests/lessons.cjs
 node tests/ping.cjs
 node tests/console.cjs
 node tests/switching.cjs
+node tests/prompts.cjs
 node tests/ui.cjs
 node tests/guidewin.cjs
 ```
 
-Current result: 73 labs (36 build, 35 incidents, 2 capstones), 416 checks, 1439 guide commands; 54 lessons (36 lab, 18 topic).
+Current result: 73 labs (36 build, 35 incidents, 2 capstones), 416 checks, 1465 guide commands; 54 lessons (36 lab, 18 topic).
 
 On Yasuke's desktop there is no Node install. Claude Code runs the tests with Deno's Node-compatible binary (`%LOCALAPPDATA%\deno\node_compat_bin\node.exe`) and runs `ui.cjs` with Playwright installed by Deno into a folder outside the repo, linked in as `node_modules` (git-ignored), with `LAB4NET_BROWSER_CHANNEL=msedge`.
 
@@ -197,6 +201,7 @@ On Yasuke's desktop there is no Node install. Claude Code runs the tests with De
 - An incident's `symptom` is either `[source, target, proto, port]` (a packet test with `reach`) or a function of the network for services that are not a single packet (CDP or LLDP discovery, NTP, IPv6, a preferred path). The curriculum test checks it fails after the build and works after the repair, and compares configuration before and after the probe, ignoring counters, logs and NAT translations.
 - `console.cjs` covers the parser errors (caret, incomplete, ambiguous, exact keywords, hostname lookup, Windows messages), output modifiers, `?` help and the everyday commands. It runs in GitHub Actions.
 - `switching.cjs` covers the spanning-tree path (blocking honoured, root change, island roots, EtherChannel as one port), MAC learning from ARP and unicast frames, flooding, every `show mac address-table` form and layout, clear/static/aging, per-port router MACs, the HSRP virtual MAC, DHCP learning and a switch SVI as sender. It runs in GitHub Actions.
+- `prompts.cjs` covers enable and line passwords, console logout and login (password, local, locked), Telnet and SSH sessions from IOS and from PCs, three-strike closes, syslog kept off the VTY, `login block-for`, the filename prompt, `write`, `<cr>`, and `reload` (Save?, confirm, restore, volatile state cleared, setup dialog). It runs in GitHub Actions.
 - `guidewin.cjs` (optional, Playwright, like `ui.cjs`) serves the page over http and checks the guide window: open, steps to the console, lab changes, reconnect after reload, fall back when closed, dock.
 - `ping.cjs` covers the ping and traceroute output rules (ARP first echo, unreachables, Windows quirks, extended options, abort summaries). It runs in GitHub Actions.
 - `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
@@ -222,13 +227,13 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 
 - The simulator implements the commands the labs need, not all of IOS. Anything else returns "Invalid input".
 - No `--More--` paging. `?` descriptions cover the common keywords only; argument help is generic (A.B.C.D, WORD) rather than IOS's specific ranges. The ambiguity check only knows the keywords Lab4Net implements, so a few abbreviations that are ambiguous on real IOS (because of commands we lack) are accepted here.
-- No `reload`, interactive extended ping or `copy` filename prompt yet (needs the prompt mechanism planned with password prompts). Duplex and speed are saved and shown but a mismatch has no effect. `login block-for` cannot trigger until logins prompt. No DNS server, so no `nslookup`; names resolve only from `ip host`. Only `debug ip icmp` exists. `show version` uses fixed models (2911, 2960-24TT, 3560-24PS) whatever the port count.
+- No interactive extended ping or `ping x source y` yet. Duplex and speed are saved and shown but a mismatch has no effect. No DNS server, so no `nslookup`; names resolve only from `ip host`. Only `debug ip icmp` exists. `show version` uses fixed models (2911, 2960-24TT, 3560-24PS) whatever the port count.
+- Prompts: `exec-timeout` is stored but never fires; `show users` has no idle times; the setup dialog is not simulated (answer no); a reload's boot text is fixed per device type; Telnet to ports other than 23 stays a port test; the IOS SSH client has no host-key prompt (real IOS has none either), but a PC's known hosts are per device and never expire. Password answers are stored in the saved journal in clear text (it is a simulator).
 - Spanning tree: frames follow it, so a blocked port carries nothing and the animated path matches `show spanning-tree`. Every switch always runs PVST or Rapid PVST on every VLAN; there is no `no spanning-tree vlan`, so a loop without STP (a broadcast storm) cannot be shown. Costs are the IEEE short values (19, 4; a two-link bundle 12 or 3). Rapid PVST+ and PVST+ converge instantly and identically.
 - MAC address tables learn only from the traffic you send from a console (ping, traceroute, telnet, ssh, DHCP). A real switch would also learn its neighbours from their CDP, STP and other background frames, so a freshly opened lab has empty tables until you send something. IPv6 traffic does not learn. Aging uses the browser clock; after a reload the replayed journal relearns everything with fresh timestamps. No per-VLAN aging time, no `mac address-table notification`.
 - `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. Hello and dead timers must match, as on a real router; a network-type mismatch forms the adjacency but the link is left out of SPF, so routes through it disappear. Authentication is not modelled. Equal-cost paths are not load-shared; one is used.
 - Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
 - show access-lists lists standard entries in sequence order; real IOS may list host entries first.
-- `enable` and line passwords are stored and graded but never prompted for.
 - Ping and traceroute use ICMP for every probe (real IOS traceroute uses UDP), so an extended ACL that permits only some ICMP or UDP can disagree slightly with real gear. Unreachables are sent only for no-route and ACL drops; a failed next-hop ARP on a router gives timeouts. Extended ping has `repeat` and `size` but not `source`, and there is no interactive extended ping. IPv6 pings do not play live and have no ARP/ND first-echo loss. Playback runs at 40% of real time (`PACE_SCALE`), at Yasuke's request.
 - No wireless. IPv6 has static routing only: no OSPFv3, no DHCPv6, no IPv6 ACLs. Only the Layer 3 switch model (a 3560) routes; 2960s reject ip routing and static routes.
 - HSRP has no object tracking and fails over at once rather than after the 10-second hold time. The DHCP snooping rate limit is stored and shown but not enforced. DAI has no ARP ACLs or extra validation options.
@@ -244,7 +249,7 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 Carry this list forward and keep it in every summary.
 
 - Switching follow-ups: learning neighbours from CDP/STP background frames, per-VLAN aging time, IPv6 neighbour learning, and a broadcast storm when STP is switched off (needs `no spanning-tree vlan`)
-- Prompts: `enable` and console password prompts, `reload` (with "Save? [yes/no]" and losing unsaved changes), the interactive extended ping, `ping x source <interface>`
+- Interactive extended ping (`ping` alone, with the question sequence) and `ping x source <interface|address>`; `traceroute` with a source
 - Exam sim mode (random lab or incident, countdown, no guide or "why"), with randomised faults for incidents
 - A fuller theory question bank (28 questions so far)
 - XP and trophies for sandbox challenges
@@ -252,4 +257,4 @@ Carry this list forward and keep it in every summary.
 - Duplex and speed mismatch effects
 - Waiting on his decision: keep or drop "test it yourself" as a requirement for an S rank
 
-His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. The console realism fixes, the guide window and the switching realism build are done.
+His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. The console realism fixes, the guide window, the switching realism build and the prompts build (passwords, Telnet/SSH sessions, reload) are done.

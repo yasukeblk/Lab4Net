@@ -559,6 +559,7 @@ ul.plain li{margin-bottom:8px}
 <div id="notice" role="status" onclick="this.textContent=''" title="Click to dismiss"></div>
 <script>
 //ENGINE-START
+const CR='<cr>'; // in guides, tests and journals: press Enter (an empty line)
 const ip2n=s=>{const p=String(s).split('.');if(p.length!==4)return null;let n=0;for(const x of p){if(!/^\d+$/.test(x)||+x>255)return null;n=n*256+ +x;}return n;};
 const n2ip=n=>[n>>>24,(n>>>16)&255,(n>>>8)&255,n&255].join('.');
 const isIp=s=>ip2n(s)!==null;
@@ -907,6 +908,16 @@ function run(env,line,mode){if(env.raw==null){env.raw=line;env.p0=env.s.mode==='
   if(m){if(used!==mode){s.mode='config';s.ctx=null;}env.args=m.args;withCaret(env,line,toks,()=>m.c.fn(env));return;}
   parseFail(env,line,toks,mode,partial);}
 function execLine(net,d,s,line){const out=[];const env={net,d,s,out:(...x)=>out.push(...x)};
+  if(line===CR)line='';
+  // A pending question takes the line as its answer; a remote (telnet/ssh) session takes it on the far device.
+  if(s.prompt){const p=s.prompt;s.prompt=null;p.on(line,env);return out;}
+  if(s.remote){const R=s.remote,rd=R.d,rs=R.s;
+    if((rd.boots||0)!==rs.boot){s.remote=null;rd.vtys=(rd.vtys||[]).filter(x=>x!==R);out.push('',closeMsg(R));return out;}
+    const o=execLine(net,rd,rs,line);
+    for(const l of o){if(!rs.termMon&&/^(\*?[A-Z][a-z]{2} +\d+ [\d:.]+: )?%[A-Z0-9_]+-\d-/.test(l))(rd.conq=rd.conq||[]).push(l);else out.push(l);}
+    s.pace=rs.pace;rs.pace=null;s.last=rs.last;
+    if(rs.closed){s.remote=null;rd.vtys=(rd.vtys||[]).filter(x=>x!==R);out.push('',closeMsg(R));}
+    return out;}
   const snap=()=>{const m={};for(const n in d.ifs)m[n]=ifUp(net,d,d.ifs[n]);return m;};
   const before=d.type==='pc'?null:snap();
   run(env,line,s.mode);
@@ -941,7 +952,7 @@ const LABS=[
  addr:[['R1','G0/0','192.168.1.1/24'],['SW1','VLAN 1','192.168.1.2/24'],['PC1','NIC','192.168.1.10/24']],
  tasks:['On R1, set the hostname to <code>HQ-R1</code>.','Set the enable secret to <code>cisco123</code>.','Set the console password to <code>conpass</code> and require login.','Set the VTY 0–4 password to <code>vtypass</code> and require login.','Turn off DNS lookup so typos don\'t hang the console.','Add a message-of-the-day banner containing the word <code>Authorized</code>.','Configure G0/0 with the description <code>LAN</code> and its address from the table, then bring it up.','Save the running configuration to startup.','On SW1, set the hostname to <code>ACCESS-SW1</code>, address interface VLAN 1, bring it up, and set the default gateway to R1.','From PC1, ping the router and the switch.'],
  checks:[['R1 hostname is HQ-R1',n=>n.devs.R1.hostname==='HQ-R1'],['Enable secret is set',n=>n.devs.R1.secret==='cisco123'],['Console line has password and login',n=>n.devs.R1.lines.con.password==='conpass'&&n.devs.R1.lines.con.login],['VTY lines have password and login',n=>n.devs.R1.lines.vty.password==='vtypass'&&n.devs.R1.lines.vty.login],['DNS lookup is disabled',n=>n.devs.R1.noLookup===true],['Banner contains "Authorized"',n=>/authorized/i.test(n.devs.R1.banner||'')],['G0/0 is addressed, described and up',n=>hasIp(n,'R1','g0/0','192.168.1.1',24)&&!IF(n,'R1','g0/0').shutdown&&/^lan$/i.test(IF(n,'R1','g0/0').desc.trim())],['R1 configuration is saved with the interface address',n=>!!n.devs.R1.startup&&n.devs.R1.startup.some(l=>l.includes('ip address 192.168.1.1'))],['SW1 hostname, VLAN 1 address and gateway are set',n=>n.devs.SW1.hostname==='ACCESS-SW1'&&hasIp(n,'SW1','vlan1','192.168.1.2',24)&&n.devs.SW1.gw===ip2n('192.168.1.1')],['PC1 can ping the router and the switch',n=>P(n,'PC1','192.168.1.1')&&P(n,'PC1','192.168.1.2')]],
- solution:{R1:['enable','configure terminal','hostname HQ-R1','enable secret cisco123','no ip domain-lookup','banner motd #Authorized access only#','line console 0','password conpass','login','line vty 0 4','password vtypass','login','interface g0/0','description LAN','ip address 192.168.1.1 255.255.255.0','no shutdown','end','copy running-config startup-config'],
+ solution:{R1:['enable','configure terminal','hostname HQ-R1','enable secret cisco123','no ip domain-lookup','banner motd #Authorized access only#','line console 0','password conpass','login','line vty 0 4','password vtypass','login','interface g0/0','description LAN','ip address 192.168.1.1 255.255.255.0','no shutdown','end','copy running-config startup-config','<cr>'],
   SW1:['enable','configure terminal','hostname ACCESS-SW1','interface vlan 1','ip address 192.168.1.2 255.255.255.0','no shutdown','exit','ip default-gateway 192.168.1.1','end']}},
 {title:'VLANs and access ports',brief:'Split one switch into two broadcast domains and prove hosts only reach their own VLAN.',
  pos:{SW1:[300,60],PC1:[90,190],PC2:[230,190],PC3:[370,190],PC4:[510,190]},start:'SW1',
@@ -1571,7 +1582,7 @@ LABS.push(
  tasks:['From PC1, run <code>telnet 192.168.1.1</code> to see that Telnet is open right now.','On R1, set the domain name to <code>lab.local</code>.','Create user <code>admin</code> with privilege 15 and secret <code>S3cure-Pass</code>.','Generate RSA keys with a 2048-bit modulus.','Force SSH version 2.','On VTY lines 0 to 4, use the local user database and allow only SSH.','From PC1, <code>ssh -l admin 192.168.1.1</code> should work and <code>telnet 192.168.1.1</code> should be refused.'],
  why:['Telnet sends everything, including the password, in clear text. Anyone on the path can read it.','The key pair is named hostname.domain, so IOS refuses to generate keys without a domain name.','Individual accounts mean you know who logged in and can remove one person without changing a shared password. secret stores a hash.','SSH encrypts with this key pair. 2048 bits is the sensible minimum today.','Version 1 has known flaws. Without this line the router accepts both.','login local makes the lines ask for a username. transport input ssh is the line that actually closes Telnet.','Always test both halves: the secure way in works, and the insecure way in is gone.'],
  checks:[['Domain name is set',n=>!!n.devs.R1.domain],['User admin exists with a hashed secret',n=>(n.devs.R1.users||[]).some(u=>u.name==='admin'&&u.kind==='secret')],['RSA keys are at least 2048 bits',n=>n.devs.R1.rsa>=2048],['SSH version 2 is forced',n=>n.devs.R1.sshv===2],['VTY lines use local login and SSH only',n=>{const v=n.devs.R1.lines.vty;return !!v.local&&(v.transport||'').trim().toLowerCase()==='ssh';}],['PC1 can reach R1 over SSH',n=>T(n,'PC1','192.168.1.1',22)],['Telnet to R1 is refused',n=>!T(n,'PC1','192.168.1.1',23)]],
- solution:{R1:['enable','configure terminal','ip domain-name lab.local','username admin privilege 15 secret S3cure-Pass','crypto key generate rsa modulus 2048','ip ssh version 2','line vty 0 4','login local','transport input ssh','end'],PC1:['ssh -l admin 192.168.1.1','telnet 192.168.1.1']}}
+ solution:{R1:['enable','configure terminal','ip domain-name lab.local','username admin privilege 15 secret S3cure-Pass','crypto key generate rsa modulus 2048','ip ssh version 2','line vty 0 4','login local','transport input ssh','end'],PC1:['ssh -l admin 192.168.1.1','yes','S3cure-Pass','exit','telnet 192.168.1.1']}}
 );
 
 LABS.push({title:'Static NAT: publish a server',group:'IP services',
@@ -1590,7 +1601,7 @@ LABS.push({title:'Static NAT: publish a server',group:'IP services',
 
 // ---------- step-by-step instructions (one entry per task; "DEV: cmd | cmd ; DEV: cmd") ----------
 const STEPS={
-'Basic device setup':['R1: enable | configure terminal | hostname HQ-R1','R1: enable secret cisco123','R1: line console 0 | password conpass | login','R1: line vty 0 4 | password vtypass | login','R1: exit | no ip domain-lookup','R1: banner motd #Authorized access only#','R1: interface g0/0 | description LAN | ip address 192.168.1.1 255.255.255.0 | no shutdown','R1: end | copy running-config startup-config','SW1: enable | configure terminal | hostname ACCESS-SW1 | interface vlan 1 | ip address 192.168.1.2 255.255.255.0 | no shutdown | exit | ip default-gateway 192.168.1.1 | end','PC1: ping 192.168.1.1 | ping 192.168.1.2'],
+'Basic device setup':['R1: enable | configure terminal | hostname HQ-R1','R1: enable secret cisco123','R1: line console 0 | password conpass | login','R1: line vty 0 4 | password vtypass | login','R1: exit | no ip domain-lookup','R1: banner motd #Authorized access only#','R1: interface g0/0 | description LAN | ip address 192.168.1.1 255.255.255.0 | no shutdown','R1: end | copy running-config startup-config | <cr>','SW1: enable | configure terminal | hostname ACCESS-SW1 | interface vlan 1 | ip address 192.168.1.2 255.255.255.0 | no shutdown | exit | ip default-gateway 192.168.1.1 | end','PC1: ping 192.168.1.1 | ping 192.168.1.2'],
 'VLANs and access ports':['SW1: enable | configure terminal | vlan 10 | name SALES | vlan 20 | name ENGINEERING','SW1: interface range f0/1 - 2 | switchport mode access | switchport access vlan 10','SW1: interface range f0/3 - 4 | switchport mode access | switchport access vlan 20','SW1: end | show vlan brief','PC1: ping 192.168.10.12 | # this one should fail: PC3 is in another VLAN | ping 192.168.20.13'],
 '802.1Q trunking':['SW2: enable | configure terminal | vlan 10 | name SALES | vlan 20 | name ENGINEERING','SW2: interface f0/1 | switchport mode access | switchport access vlan 10 | interface f0/2 | switchport mode access | switchport access vlan 20','SW2: interface g0/1 | switchport mode trunk ; SW1: enable | configure terminal | interface g0/1 | switchport mode trunk','SW2: switchport trunk allowed vlan 10,20 | end ; SW1: switchport trunk allowed vlan 10,20 | end','SW1: show interfaces trunk ; PC1: ping 192.168.10.13 ; PC2: ping 192.168.20.14'],
 'Router-on-a-stick':['SW1: enable | configure terminal | interface g0/1 | switchport mode trunk | end','R1: enable | configure terminal | interface g0/0 | no shutdown','R1: interface g0/0.10 | encapsulation dot1q 10 | ip address 192.168.10.1 255.255.255.0','R1: interface g0/0.20 | encapsulation dot1q 20 | ip address 192.168.20.1 255.255.255.0 | end','R1: show ip route ; PC1: ping 192.168.20.10'],
@@ -1603,7 +1614,7 @@ const STEPS={
 'Standard ACL':['PC1: ping 192.168.3.10 ; PC2: ping 192.168.3.10','R2: enable | configure terminal | access-list 10 deny 192.168.2.0 0.0.0.255','R2: access-list 10 permit any','R2: interface g0/1 | ip access-group 10 out | end','PC1: ping 192.168.3.10 ; PC2: # this one should now fail | ping 192.168.3.10 | ping 10.0.0.2','R2: show access-lists'],
 'Extended named ACL':['R1: enable | configure terminal | ip access-list extended WEB-ONLY','R1: permit tcp 192.168.1.0 0.0.0.255 host 192.168.3.10 eq 80','R1: deny ip 192.168.1.0 0.0.0.255 host 192.168.3.10','R1: permit ip any any','R1: interface g0/0 | ip access-group WEB-ONLY in | end','PC1: telnet 192.168.3.10 80 | # the ping should fail: ICMP is not TCP port 80 | ping 192.168.3.10 | ping 10.0.0.2'],
 'Port security':['SW1: enable | configure terminal | interface range f0/1 - 2 | switchport mode access','SW1: switchport port-security','SW1: switchport port-security mac-address sticky','SW1: interface f0/2 | switchport port-security maximum 2 | switchport port-security violation restrict','SW1: interface range f0/3 - 8 | shutdown | end','SW1: show port-security ; PC1: ping 192.168.1.12'],
-'SSH remote access':['PC1: telnet 192.168.1.1','R1: enable | configure terminal | ip domain-name lab.local','R1: username admin privilege 15 secret S3cure-Pass','R1: crypto key generate rsa modulus 2048','R1: ip ssh version 2','R1: line vty 0 4 | login local | transport input ssh | end','PC1: ssh -l admin 192.168.1.1 | # Telnet should now be refused | telnet 192.168.1.1'],
+'SSH remote access':['PC1: telnet 192.168.1.1','R1: enable | configure terminal | ip domain-name lab.local','R1: username admin privilege 15 secret S3cure-Pass','R1: crypto key generate rsa modulus 2048','R1: ip ssh version 2','R1: line vty 0 4 | login local | transport input ssh | end','PC1: ssh -l admin 192.168.1.1 | # accept the host key the first time | yes | S3cure-Pass | exit | # Telnet should now be refused | telnet 192.168.1.1'],
 'Static NAT: publish a server':['R1: enable | configure terminal | ip route 0.0.0.0 0.0.0.0 203.0.113.1','R1: interface g0/0 | ip nat inside | interface g0/1 | ip nat outside | exit','R1: ip nat inside source static 192.168.1.10 203.0.113.10 | end','R1: show ip nat translations','CLIENT: ping 203.0.113.10 | telnet 203.0.113.10 80']
 };
 LABS.forEach(l=>{l.steps=(STEPS[l.title]||[]).map(t=>t.split(' ; ').map(g=>{const k=g.indexOf(': ');return {dev:g.slice(0,k),cmds:g.slice(k+2).split(' | ')};}));});
@@ -1665,8 +1676,8 @@ const INCIDENTS=[
  {title:'Incident 06: ping works, SSH does not',base:'SSH remote access',start:'PC1',
   brief:'PC1 can ping the router, but SSH is unavailable. Retain local authentication and the existing keys. Restore SSH-only management without opening Telnet.',
   symptom:['PC1','192.168.1.1','tcp',22],fault:{R1:['enable','configure terminal','line vty 0 4','transport input telnet','end']},
-  repair:{R1:['enable','configure terminal','line vty 0 4','transport input ssh','end','show ip ssh'],PC1:['ssh -l admin 192.168.1.1','telnet 192.168.1.1']},
-  steps:['PC1: ping 192.168.1.1 | ssh -l admin 192.168.1.1','R1: enable | show ip ssh | show running-config','R1: configure terminal | line vty 0 4 | transport input ssh | end','PC1: ssh -l admin 192.168.1.1 | telnet 192.168.1.1'],
+  repair:{R1:['enable','configure terminal','line vty 0 4','transport input ssh','end','show ip ssh'],PC1:['ssh -l admin 192.168.1.1','yes','S3cure-Pass','exit','telnet 192.168.1.1']},
+  steps:['PC1: ping 192.168.1.1 | ssh -l admin 192.168.1.1','R1: enable | show ip ssh | show running-config','R1: configure terminal | line vty 0 4 | transport input ssh | end','PC1: ssh -l admin 192.168.1.1 | yes | S3cure-Pass | exit | telnet 192.168.1.1'],
   hints:['ICMP reachability and an open SSH service are different requirements. Rebuilding routing is unlikely to fix a refused service.','Inspect the VTY transport setting in show running-config, alongside show ip ssh. Keys and version alone do not permit incoming SSH.','The VTY transport allows Telnet only. Restore transport input ssh; verify SSH succeeds and Telnet is refused.'],
   lesson:'Remote management requires both network reachability and a permitted listening service. Keep the encrypted service enabled and the cleartext alternative closed.'}
 ];
@@ -1738,14 +1749,14 @@ addLab({title:'Switch management access',group:'Fundamentals',
  tasks:['From ADMIN, ping the switch at <code>192.168.99.2</code>. It fails: the switch has no management address yet.','On SW1, create VLAN 99 named <code>MGMT</code>.','Create <code>interface vlan 99</code>, give it 192.168.99.2/24 and bring it up.','Ping again from ADMIN. It still fails. Work out why, then set the switch\'s default gateway to R1 (192.168.99.1).','Prepare SSH on SW1: domain name <code>lab.local</code>, a 2048-bit RSA key, and user <code>netadmin</code> with secret <code>Mgmt-Pass1</code>.','On VTY lines 0 to 4, use the local user database and allow only SSH.','From ADMIN, <code>ssh -l netadmin 192.168.99.2</code> should work and Telnet should be refused.'],
  why:['Start from the symptom. A switch can forward frames perfectly while having no IP address at all: switching needs none. Management does.','A dedicated management VLAN keeps management traffic away from user VLANs, so users cannot even reach the switch\'s login prompt unless you route them there.','The SVI is the switch\'s own Layer 3 interface in that VLAN. It only comes up when the VLAN exists and at least one port carrying it is up, here the trunk to R1.','The ping request reaches the switch, but the reply is addressed to 192.168.50.10, which is not on the switch\'s subnet. A Layer 2 switch does not route, so it needs a default gateway, exactly like a PC.','SSH needs an RSA key, the key is named hostname.domain, and SSH logins need a username. Individual accounts beat one shared VTY password.','login local asks for a username and password; transport input ssh closes Telnet, which would send that password in clear text.','Test both sides: the secure way in works from another subnet, which proves the gateway too, and the insecure way is closed.'],
  checks:[['VLAN 99 named MGMT exists on SW1',n=>vlanIs(n,'SW1',99,'MGMT')],['Interface VLAN 99 is 192.168.99.2/24 and up',n=>hasIp(n,'SW1','vlan99','192.168.99.2',24)&&ifUp(n,n.devs.SW1,IF(n,'SW1','vlan99'))],['SW1 uses R1 as its default gateway',n=>n.devs.SW1.gw===ip2n('192.168.99.1')],['ADMIN, on another subnet, can ping SW1',n=>P(n,'ADMIN','192.168.99.2')],['VTY lines use local login and SSH only',n=>{const v=n.devs.SW1.lines.vty;return !!v.local&&(v.transport||'').trim().toLowerCase()==='ssh'&&(n.devs.SW1.users||[]).some(u=>u.name==='netadmin'&&u.kind==='secret');}],['ADMIN can SSH to SW1 and Telnet is refused',n=>T(n,'ADMIN','192.168.99.2',22)&&!T(n,'ADMIN','192.168.99.2',23)]],
- solution:{SW1:['enable','configure terminal','vlan 99','name MGMT','interface vlan 99','ip address 192.168.99.2 255.255.255.0','no shutdown','exit','ip default-gateway 192.168.99.1','ip domain-name lab.local','crypto key generate rsa modulus 2048','username netadmin privilege 15 secret Mgmt-Pass1','line vty 0 4','login local','transport input ssh','end'],ADMIN:['ssh -l netadmin 192.168.99.2']}},
+ solution:{SW1:['enable','configure terminal','vlan 99','name MGMT','interface vlan 99','ip address 192.168.99.2 255.255.255.0','no shutdown','exit','ip default-gateway 192.168.99.1','ip domain-name lab.local','crypto key generate rsa modulus 2048','username netadmin privilege 15 secret Mgmt-Pass1','line vty 0 4','login local','transport input ssh','end'],ADMIN:['ssh -l netadmin 192.168.99.2','yes','Mgmt-Pass1','exit']}},
  ['ADMIN: # this ping fails: SW1 has no management address yet | ping 192.168.99.2',
   'SW1: enable | configure terminal | vlan 99 | name MGMT | exit',
   'SW1: interface vlan 99 | ip address 192.168.99.2 255.255.255.0 | no shutdown | end | show ip interface brief',
   'ADMIN: # still fails: the reply to 192.168.50.10 has nowhere to go | ping 192.168.99.2 ; SW1: configure terminal | ip default-gateway 192.168.99.1 ; ADMIN: ping 192.168.99.2',
   'SW1: ip domain-name lab.local | crypto key generate rsa modulus 2048 | username netadmin privilege 15 secret Mgmt-Pass1',
   'SW1: line vty 0 4 | login local | transport input ssh | end | show ip ssh',
-  'ADMIN: ssh -l netadmin 192.168.99.2 | # Telnet should be refused | telnet 192.168.99.2']);
+  'ADMIN: ssh -l netadmin 192.168.99.2 | yes | Mgmt-Pass1 | exit | # Telnet should be refused | telnet 192.168.99.2']);
 
 // ----- phase 1, lab 3
 Cn('config','no enable password',e=>{e.d.enPass=null;});
@@ -1766,15 +1777,15 @@ addLab({title:'Locking down device access',group:'Security',
  tasks:['Run <code>show running-config</code> on R1 and find the readable passwords. Turn on <code>service password-encryption</code> and look again.','Replace the shared enable password with <code>enable secret En-Secret9</code>, remove the old one, and create user <code>admin</code> with privilege 15 and secret <code>Adm1n-Pass</code>.','On VTY lines 0 to 4: log in with local accounts, allow only SSH, and time idle sessions out after 5 minutes.','On the console line: log in with local accounts and time out after 5 minutes.','Create standard ACL 10 that permits only the admin subnet, 192.168.10.0/24.','Apply ACL 10 to the VTY lines with <code>access-class 10 in</code>.','Test: SSH from ADMIN as admin works; SSH from PC1 is refused.','Save the configuration and confirm it with <code>show startup-config</code>.'],
  why:['Anyone who sees a printout or a screen share of the config learns every password. Type 7 hides them from casual view, but it is reversible, so it is the first step, not the last.','enable secret is stored as a hash, unlike enable password. Personal accounts mean every login is attributable, and one person leaving does not force a password change for everyone.','login local asks for a username. transport input ssh closes Telnet, which sends credentials in clear text. The timeout closes sessions people forget about.','The console is physical access and deserves the same rules: a name per person and no session left logged in on an unattended laptop.','A standard ACL matches only the source address, which is exactly what access-class needs: who is allowed to log in. Anything not permitted hits the implicit deny.','access-class filters connections to the VTY lines themselves. Unlike an interface ACL, it protects the router however the connection arrives, on any of its addresses.','A refused connection from the user subnet proves the filter, and a working one from the admin subnet proves you did not lock yourself out.','Everything so far is in RAM. Until you copy it to startup-config, a reload undoes the whole hardening job.'],
  checks:[['No password is readable in the running config',n=>{const d=n.devs.R1;return !!d.svcEnc&&!runningConfig(n,d).some(l=>/(password|secret) (conpass|vtypass|cisco|Adm1n-Pass|En-Secret9)\b/.test(l));}],['An enable secret replaces the enable password, and admin has its own secret',n=>{const d=n.devs.R1;return d.secret==='En-Secret9'&&!d.enPass&&(d.users||[]).some(u=>u.name==='admin'&&u.kind==='secret'&&u.priv===15);}],['VTY lines: local login, SSH only, 5-minute timeout',n=>{const v=n.devs.R1.lines.vty;return !!v.local&&(v.transport||'').trim().toLowerCase()==='ssh'&&!!v.timeout&&v.timeout[0]===5&&v.timeout[1]===0;}],['Console: local login and a 5-minute timeout',n=>{const c=n.devs.R1.lines.con;return !!c.local&&!!c.timeout&&c.timeout[0]===5&&c.timeout[1]===0;}],['access-class 10 lets only the admin subnet reach the VTY lines',n=>{const d=n.devs.R1,v=d.lines.vty;return v.aclClass==='10'&&v.aclDir==='in'&&!vtyDenied(d,22,ip2n('192.168.10.10'))&&vtyDenied(d,22,ip2n('192.168.20.10'));}],['ADMIN can SSH to R1',n=>T(n,'ADMIN','192.168.10.1',22)],['PC1 is refused, even over SSH',n=>!T(n,'PC1','192.168.20.1',22)&&!T(n,'PC1','192.168.20.1',23)],['The startup config matches the running config',n=>{const d=n.devs.R1;return !!d.startup&&JSON.stringify(d.startup)===JSON.stringify(runningConfig(n,d).slice(2));}]],
- solution:{R1:['enable','configure terminal','service password-encryption','enable secret En-Secret9','no enable password','username admin privilege 15 secret Adm1n-Pass','line vty 0 4','login local','transport input ssh','exec-timeout 5 0','line console 0','login local','exec-timeout 5 0','exit','access-list 10 permit 192.168.10.0 0.0.0.255','line vty 0 4','access-class 10 in','end','copy running-config startup-config'],ADMIN:['ssh -l admin 192.168.10.1']}},
- ['R1: enable | show running-config | configure terminal | service password-encryption | do show running-config',
+ solution:{R1:['enable','cisco','configure terminal','service password-encryption','enable secret En-Secret9','no enable password','username admin privilege 15 secret Adm1n-Pass','line vty 0 4','login local','transport input ssh','exec-timeout 5 0','line console 0','login local','exec-timeout 5 0','exit','access-list 10 permit 192.168.10.0 0.0.0.255','line vty 0 4','access-class 10 in','end','copy running-config startup-config','<cr>'],ADMIN:['ssh -l admin 192.168.10.1','yes','Adm1n-Pass','exit']}},
+ ['R1: enable | cisco | show running-config | configure terminal | service password-encryption | do show running-config',
   'R1: enable secret En-Secret9 | no enable password | username admin privilege 15 secret Adm1n-Pass',
   'R1: line vty 0 4 | login local | transport input ssh | exec-timeout 5 0',
   'R1: line console 0 | login local | exec-timeout 5 0 | exit',
   'R1: access-list 10 permit 192.168.10.0 0.0.0.255',
   'R1: line vty 0 4 | access-class 10 in | end',
-  'ADMIN: ssh -l admin 192.168.10.1 ; PC1: # refused: the user subnet is not in ACL 10 | ssh -l admin 192.168.20.1',
-  'R1: copy running-config startup-config | show startup-config']);
+  'ADMIN: ssh -l admin 192.168.10.1 | yes | Adm1n-Pass | exit ; PC1: # refused: the user subnet is not in ACL 10 | ssh -l admin 192.168.20.1',
+  'R1: copy running-config startup-config | <cr> | show startup-config']);
 
 // ----- phase 1, lab 4
 // Adjacency changes are logged on the router where the command was typed, as IOS does.
@@ -2830,8 +2841,8 @@ addIncident({title:'Incident 16: the switch answers only locally',base:'Switch m
  brief:'SW1 still forwards user traffic, and its management interface is up, but the admin workstation on another subnet can no longer ping it or log in. Find what changed on SW1 and restore remote management.',
  symptom:['ADMIN','192.168.99.2'],
  fault:{SW1:[...EN,'ip default-gateway 192.168.99.254','end']},
- repair:{SW1:[...EN,'ip default-gateway 192.168.99.1','end','show running-config'],ADMIN:['ping 192.168.99.2','ssh -l netadmin 192.168.99.2']},
- steps:['ADMIN: ping 192.168.99.2 ; R1: enable | ping 192.168.99.2','SW1: enable | show ip interface brief | show running-config','SW1: configure terminal | ip default-gateway 192.168.99.1 | end','ADMIN: ping 192.168.99.2 | ssh -l netadmin 192.168.99.2'],
+ repair:{SW1:[...EN,'ip default-gateway 192.168.99.1','end','show running-config'],ADMIN:['ping 192.168.99.2','ssh -l netadmin 192.168.99.2','yes','Mgmt-Pass1','exit']},
+ steps:['ADMIN: ping 192.168.99.2 ; R1: enable | ping 192.168.99.2','SW1: enable | show ip interface brief | show running-config','SW1: configure terminal | ip default-gateway 192.168.99.1 | end','ADMIN: ping 192.168.99.2 | ssh -l netadmin 192.168.99.2 | yes | Mgmt-Pass1 | exit'],
  hints:['R1, on the same subnet as SW1\'s management address, can still reach it. Only devices on other subnets cannot, which points at the way back, not the way in.','The VLAN 99 interface is up with the right address. Look for the default gateway in show running-config and compare it with R1\'s address in VLAN 99.','The default gateway points at 192.168.99.254, which does not exist. Set it back to R1, 192.168.99.1.'],
  lesson:'A Layer 2 switch replies to remote managers through its default gateway, exactly like a PC. A wrong gateway leaves the switch reachable from its own subnet and silent to everything else.'});
 
@@ -2839,9 +2850,9 @@ addIncident({title:'Incident 16: the switch answers only locally',base:'Switch m
 addIncident({title:'Incident 17: the admins are locked out',base:'Locking down device access',start:'R1',
  brief:'After someone edited the VTY filter, the administrators can no longer SSH to R1 from their own subnet, while the rest of the hardening is intact. Fix the filter, and make sure the fix survives a reload.',
  symptom:['ADMIN','192.168.10.1','tcp',22],
- fault:{R1:[...EN,'no access-list 10','access-list 10 permit 192.168.20.0 0.0.0.255','end']},
- repair:{R1:[...EN,'ip access-list standard 10','no 10','10 permit 192.168.10.0 0.0.0.255','end','copy running-config startup-config'],ADMIN:['ssh -l admin 192.168.10.1']},
- steps:['ADMIN: ssh -l admin 192.168.10.1 ; PC1: ssh -l admin 192.168.20.1','R1: enable | show access-lists | show running-config','R1: configure terminal | ip access-list standard 10 | no 10 | 10 permit 192.168.10.0 0.0.0.255 | end | copy running-config startup-config','ADMIN: ssh -l admin 192.168.10.1 ; PC1: # still refused, as intended | ssh -l admin 192.168.20.1'],
+ fault:{R1:['enable','En-Secret9','configure terminal','no access-list 10','access-list 10 permit 192.168.20.0 0.0.0.255','end']},
+ repair:{R1:['enable','En-Secret9','configure terminal','ip access-list standard 10','no 10','10 permit 192.168.10.0 0.0.0.255','end','copy running-config startup-config','<cr>'],ADMIN:['ssh -l admin 192.168.10.1','yes','Adm1n-Pass','exit']},
+ steps:['ADMIN: ssh -l admin 192.168.10.1 ; PC1: ssh -l admin 192.168.20.1','R1: enable | En-Secret9 | show access-lists | show running-config','R1: configure terminal | ip access-list standard 10 | no 10 | 10 permit 192.168.10.0 0.0.0.255 | end | copy running-config startup-config | <cr>','ADMIN: ssh -l admin 192.168.10.1 | yes | Adm1n-Pass | exit ; PC1: # still refused, as intended | ssh -l admin 192.168.20.1'],
  hints:['SSH is refused, not timing out, so the router is reachable and something is turning the session away on purpose.','The VTY lines still use access-class 10. Read ACL 10 in show access-lists: which subnet does it permit?','ACL 10 permits the user subnet instead of the admin subnet. Edit line 10 to permit 192.168.10.0/24, then save, because the startup config no longer matches.'],
  lesson:'access-class turns away anyone the ACL does not permit, including the people who wrote it. Numbered ACLs can be edited line by line in ip access-list mode, and any change to a saved hardening config needs saving again.'});
 
@@ -3065,7 +3076,7 @@ addCapstone({title:'Capstone: branch office from scratch',
   'R1: interface g0/1 | ip address 203.0.113.2 255.255.255.252 | no shutdown | exit | ip route 0.0.0.0 0.0.0.0 203.0.113.1 | access-list 1 permit 192.168.10.0 0.0.0.255 | access-list 1 permit 192.168.20.0 0.0.0.255 | interface g0/0.10 | ip nat inside | interface g0/0.20 | ip nat inside | interface g0/1 | ip nat outside | exit | ip nat inside source list 1 interface g0/1 overload',
   'R1: ip access-list extended GUEST-IN | # DHCP discovers come in here too | permit udp any any eq bootps | deny ip 192.168.20.0 0.0.0.255 192.168.0.0 0.0.255.255 | permit udp 192.168.20.0 0.0.0.255 any eq domain | permit tcp 192.168.20.0 0.0.0.255 any eq www | permit tcp 192.168.20.0 0.0.0.255 any eq 443 | interface g0/0.20 | ip access-group GUEST-IN in | exit',
   'R1: ip domain-name branch.local | crypto key generate rsa modulus 2048 | username admin privilege 15 secret Br4nch-Admin | access-list 10 permit 192.168.10.0 0.0.0.255 | line vty 0 4 | login local | transport input ssh | access-class 10 in | end',
-  'PC1: ipconfig /renew | telnet 198.51.100.10 80 | ping 192.168.99.2 | ssh -l admin 192.168.10.1 ; PC2: ipconfig /renew | telnet 198.51.100.10 443 | # blocked: guests reach nothing internal | ping 192.168.99.2']);
+  'PC1: ipconfig /renew | telnet 198.51.100.10 80 | ping 192.168.99.2 | ssh -l admin 192.168.10.1 | yes | Br4nch-Admin | exit ; PC2: ipconfig /renew | telnet 198.51.100.10 443 | # blocked: guests reach nothing internal | ping 192.168.99.2']);
 
 // ----- capstone 2
 CCNA_LAB_MAP['Capstone: campus core']=['2.1','2.4','2.5','3.4','4.6','5.7'];
@@ -3318,7 +3329,7 @@ const bwOf=i=>i.bw||(i.name.startsWith('Fast')?100000:i.name.startsWith('Loopbac
       if(cur.desc&&!L.some(x=>x.trim()==='Description: '+cur.desc))R.push('  Description: '+cur.desc);}continue;}
     R.push(l);}
   R.push(...tail(cur));e.out(...R);};}
-Cn(EX,'terminal length <n>',e=>{});Cn(EX,'terminal width <n>',e=>{});Cn(EX,'terminal monitor',e=>{});Cn(EX,'terminal no monitor',e=>{});
+Cn(EX,'terminal length <n>',e=>{});Cn(EX,'terminal width <n>',e=>{});Cn(EX,'terminal monitor',e=>{e.s.termMon=true;});Cn(EX,'terminal no monitor',e=>{e.s.termMon=false;});
 // host table and name servers
 Cn('config','ip host <w> <ip>',e=>{(e.d.hosts=e.d.hosts||{})[e.args[0].toLowerCase()]=e.args[1];(e.d.hostNames=e.d.hostNames||{})[e.args[0].toLowerCase()]=e.args[0];},['router','switch']);
 Cn('config','no ip host <w> <rest?>',e=>{if(e.d.hosts)delete e.d.hosts[e.args[0].toLowerCase()];},['router','switch']);
@@ -3513,6 +3524,151 @@ Object.assign(WHYC,{
 'no mac address-table static <w> vlan <n> <rest?>':'Removes a pinned entry.',
 'mac address-table aging-time <n>':'Changes how long learned addresses live (0 keeps them forever). A short time means more flooding; a long time means stale entries after a host moves.',
 'no mac address-table aging-time <rest?>':'Back to the default of 300 seconds.'});
+// ---------- prompts: enable and line passwords, console logout, telnet and ssh sessions, login block, reload, copy ----------
+// A session may hold a pending question, s.prompt = {text, mask, on(answer, env)}: the next line typed answers it
+// instead of being parsed (mask hides what is typed, as IOS does for passwords). A session may also be inside a
+// remote device, s.remote = {d, s, ip, proto, win}: lines go to that device's session until it closes. The base
+// execLine checks both before parsing, so every wrapper still runs around them. In guides, tests and journals the
+// line "<cr>" means "press Enter" (an empty line), which is how a default answer is accepted.
+function ask(s,text,on,mask){s.prompt={text,mask:!!mask,on};}
+function effSess(s){while(s.remote)s=s.remote.s;return s;}
+function effPair(d,s){while(s.remote){d=s.remote.d;s=s.remote.s;}return [d,s];}
+function effPrompt(s){while(s){if(s.prompt)return s.prompt;s=s.remote&&s.remote.s;}return null;}
+{const p0=promptOf;promptOf=function(d,s){if(s.prompt)return s.prompt.text;if(s.remote)return promptOf(s.remote.d,s.remote.s);return p0(d,s);};}
+const privOfUser=u=>u&&u.priv===15?'priv':'user';
+// What a line asks for when a session opens on it: a password, a local username and password, or nothing.
+function lineLogin(d,kind){const l=(d.lines||{})[kind]||{};if(!l.login)return null;return l.local?'local':l.password?'password':'none';}
+const iosClock=()=>{const t=new Date(),p=n=>String(n).padStart(2,'0'),D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return p(t.getUTCHours())+':'+p(t.getUTCMinutes())+':'+p(t.getUTCSeconds())+' UTC '+D[t.getUTCDay()]+' '+M[t.getUTCMonth()]+' '+t.getUTCDate()+' '+t.getUTCFullYear();};
+// Login block: after too many failures inside the watch window the device refuses every new login for a while.
+function quietMode(net,d){if(!d.quietUntil)return false;if(Date.now()<d.quietUntil)return true;delete d.quietUntil;logEvent(net,d,'%SEC_LOGIN-5-QUIET_MODE_OFF: Quiet Mode is OFF, because block period timed out at '+iosClock());return false;}
+function loginFailed(net,d,srcIp,user,port){const now=Date.now(),B=d.blockFor;d.loginTotal=(d.loginTotal||0)+1;
+  if(d.loginLog&&d.loginLog.fail)logEvent(net,d,'%SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: '+(user||'')+'] [Source: '+n2ip(srcIp)+'] [localport: '+port+'] [Reason: Login Authentication Failed - BadPassword] at '+iosClock());
+  if(!B||quietMode(net,d))return;(d.loginFails=d.loginFails||[]).push(now);d.loginFails=d.loginFails.filter(t=>now-t<=B.w*1000);
+  if(d.loginFails.length>=B.a){d.quietUntil=now+B.b*1000;d.loginFails=[];
+    logEvent(net,d,'%SEC_LOGIN-1-QUIET_MODE_ON: Still timeleft for watching failures is 0 secs, [user: '+(user||'')+'] [Source: '+n2ip(srcIp)+'] [localport: '+port+'] [Reason: Login Authentication Failed - BadPassword] [ACL: sl_def_acl] at '+iosClock());}}
+function loginOk(net,d,srcIp,user,port){if(d.loginLog&&d.loginLog.success)logEvent(net,d,'%SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: '+(user||'')+'] [Source: '+n2ip(srcIp)+'] [localport: '+port+'] at '+iosClock());}
+// Authenticate a session on a line. Questions go to sIn (the session typing); the mode lands on sTo (the session
+// being opened). done(ok, env) runs after success or the third failure; fail(env, user) after each failure.
+function authLine(d,sIn,sTo,kind,done,fail,fixedUser){const how=lineLogin(d,kind);let tries=0;
+  const pw=()=>ask(sIn,'Password: ',(a,env)=>{if(a===d.lines[kind].password){sTo.mode='user';return done(true,env,null);}
+    tries++;if(fail)fail(env,null);if(tries>=3)return done(false,env,null);pw();},true);
+  const local=u=>ask(sIn,'Password: ',(p,env)=>{const x=(d.users||[]).find(x=>x.name===u&&x.pw===p);
+    if(x){sTo.mode=privOfUser(x);return done(true,env,u);}tries++;if(fail)fail(env,u);if(tries>=3)return done(false,env,u);
+    if(fixedUser)return local(u);env.out('% Login invalid','');user();},true);
+  const user=()=>ask(sIn,'Username: ',(u,env)=>local(u.trim()));
+  if(how==='local')fixedUser?local(fixedUser):user();else pw();}
+// The console: exit or logout at the > or # prompt ends the session, and the next Enter starts a new one.
+function conLogout(e){const d=e.d,s=e.s;s.mode='user';s.ctx=null;e.out('',d.hostname+' con0 is now available','','','','Press RETURN to get started.','');
+  ask(s,'',(a,env)=>conLogin(env));}
+function conLogin(e){const d=e.d,s=e.s,how=lineLogin(d,'con');
+  if(how==='none'){e.out('','% Login disabled on line 0, until \'password\' is set','');return ask(s,'',(a,env)=>conLogin(env));}
+  if(d.banner)e.out(d.banner);
+  if(how===null){s.mode='user';return;}
+  e.out('User Access Verification','');
+  authLine(d,s,s,'con',(ok,env)=>{if(ok)return;env.out('% Bad passwords','',d.hostname+' con0 is now available','','','','Press RETURN to get started.','');ask(env.s,'',(a,env2)=>conLogin(env2));});}
+{const c=CMDS.find(c=>c.pat.join(' ')==='exit'&&c.modes.includes('user'));c.fn=e=>{if(e.s.vty){e.s.closed=true;return;}conLogout(e);};
+ C(EX,'logout',e=>c.fn(e));}
+// enable asks for the secret (or the enable password when there is no secret). Three misses: % Bad secrets.
+{const c=CMDS.find(c=>c.pat.join(' ')==='enable'&&c.modes.includes('user'));c.fn=e=>{const d=e.d,s=e.s,pw=d.secret||d.enPass;if(!pw){s.mode='priv';return;}
+  let tries=0;const again=()=>ask(s,'Password: ',(a,env)=>{if(a===pw){s.mode='priv';return;}tries++;if(tries>=3)return env.out('% Bad secrets');again();},true);again();};}
+// A remote session: telnet or ssh into a device that listens, then that device's own login.
+const closeMsg=R=>R.win?(R.proto==='ssh'?'Connection to '+n2ip(R.ip)+' closed.':'Connection to host lost.'):'[Connection to '+n2ip(R.ip)+' closed by foreign host]';
+function vtyOpen(e,ip,proto,user){const{net,d,s}=e,r=reach(net,d,ip,'tcp',proto==='ssh'?22:23),win=d.type==='pc',port=proto==='ssh'?22:23;
+  if(!win&&proto==='telnet')e.out('Trying '+n2ip(ip)+' ...');
+  if(win&&proto==='telnet')e.out('Connecting To '+n2ip(ip)+'...');
+  const rd=r.f.ok?r.f.dest:null;
+  if(r.ok&&rd&&quietMode(net,rd)){e.out(win?(proto==='ssh'?'ssh: connect to host '+n2ip(ip)+' port 22: Connection refused':'Could not open connection to the host, on port 23: Connect failed'):'% Connection refused by remote host');return;}
+  if(!r.ok){if(r.refused&&rd&&proto==='telnet'&&lineLogin(rd,'vty')==='none'&&!win){e.out('Open','','Password required, but none set','','[Connection to '+n2ip(ip)+' closed by foreign host]');return;}
+    e.out(win?(proto==='ssh'?'ssh: connect to host '+n2ip(ip)+' port 22: Connection '+(r.refused?'refused':'timed out'):'Could not open connection to the host, on port 23: Connect failed'):FAILMSG(r));return;}
+  if(!win&&proto==='telnet')e.out('Open');
+  const srcIp=r.f.pk.src,rs={mode:'user',ctx:null,vty:true,boot:rd.boots||0,hist:[],hi:0,lines:[]};
+  s.remote={d:rd,s:rs,ip,proto,win,from:srcIp,user:null};
+  const R=s.remote,finish=(ok,env,u)=>{if(ok){R.user=u;(rd.vtys=rd.vtys||[]).push(R);loginOk(net,rd,srcIp,u,port);return;}
+    if(proto==='telnet'&&!win)env.out('% Bad passwords');if(win&&proto==='ssh')env.out((user||'')+'@'+n2ip(ip)+': Permission denied (password).');
+    env.out('',closeMsg(R));env.s.remote=null;};
+  const failed=(env,u)=>{if(win&&proto==='ssh')env.out('Permission denied, please try again.');loginFailed(net,rd,srcIp,u,port);};
+  if(proto==='telnet'){if(rd.banner)e.out(rd.banner);e.out('User Access Verification','');authLine(rd,s,rs,'vty',finish,failed);return;}
+  // ssh: the username came on the command line; the server only asks for the password
+  if(lineLogin(rd,'vty')!=='local'){e.out(win?'Permission denied (publickey,password).':'% Authentication failed.','',closeMsg(R));s.remote=null;return;}
+  if(rd.banner)e.out(rd.banner);
+  if(win){const known=d.knownHosts||(d.knownHosts=[]),pq='Password: '.replace('Password: ',user+'@'+n2ip(ip)+'\'s password: ');
+    const go=()=>{let tries=0;const check=(p2,env2)=>{const y=(rd.users||[]).find(x=>x.name===user&&x.pw===p2);if(y){rs.mode=privOfUser(y);return finish(true,env2,user);}tries++;failed(env2,user);if(tries>=3)return finish(false,env2,user);ask(s,pq,check,true);};ask(s,pq,check,true);};
+    if(!known.includes(ip)){e.out('The authenticity of host \''+n2ip(ip)+' ('+n2ip(ip)+')\' can\'t be established.','RSA key fingerprint is SHA256:'+fp(rd)+'.');
+      const q=()=>ask(s,'Are you sure you want to continue connecting (yes/no/[fingerprint])? ',(a,env)=>{const x=a.trim().toLowerCase();if(x==='yes'){known.push(ip);env.out('Warning: Permanently added \''+n2ip(ip)+'\' (RSA) to the list of known hosts.');return go();}
+        if(x==='no'){env.out('Host key verification failed.');env.s.remote=null;return;}env.out('Please type \'yes\', \'no\' or the fingerprint: ');q();});q();}
+    else go();return;}
+  authLine(rd,s,rs,'vty',finish,failed,user);}
+const fp=d=>{const A='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';let h=7,o='';for(const c of d.name+macOf(d))h=(h*33+c.charCodeAt(0))>>>0;for(let k=0;k<43;k++){h=(h*1103515245+12345)>>>0;o+=A[(h>>>16)&63];}return o;};
+{const t=CMDS.find(c=>c.pat.join(' ')==='telnet <ip> <rest?>'),t0=t.fn;t.fn=e=>{const p=/^\d+$/.test(e.args[1])?+e.args[1]:23;if(p!==23)return t0(e);vtyOpen(e,e.args[0],'telnet');};
+ const sh=CMDS.find(c=>c.pat.join(' ')==='ssh -l <w> <ip>');sh.fn=e=>vtyOpen(e,e.args[1],'ssh',e.args[0]);
+ Cn('pc','ssh <w>',e=>{const m=/^([^@]+)@(.+)$/.exec(e.args[0]);if(!m||!isIp(m[2]))return e.out('ssh: Could not resolve hostname '+(m?m[2]:e.args[0])+': Name or service not known');vtyOpen(e,ip2n(m[2]),'ssh',m[1]);});}
+Cn(EX,'show users',e=>{const d=e.d,rows=[];rows.push('    Line       User       Host(s)              Idle       Location');rows.push('*  0 con 0                idle                 00:00:00   ');
+  (d.vtys||[]).forEach((R,k)=>rows.push(pad(' '+(514+k)+' vty '+k,15)+pad(R.user||'',11)+pad('idle',21)+pad('00:00:00',11)+n2ip(R.from)));rows.push('','  Interface    User               Mode         Idle     Peer Address','');e.out(...rows);},['router','switch']);
+Cn('line','no password <rest?>',e=>{delete e.d.lines[e.s.ctx].password;});
+Cn('config','no banner motd <rest?>',e=>{delete e.d.banner;});
+Cn('config','login on-failure log',e=>{(e.d.loginLog=e.d.loginLog||{}).fail=true;},['router','switch']);
+Cn('config','login on-success log',e=>{(e.d.loginLog=e.d.loginLog||{}).success=true;},['router','switch']);
+Cn('config','no login on-failure <rest?>',e=>{if(e.d.loginLog)e.d.loginLog.fail=false;},['router','switch']);
+Cn('config','no login on-success <rest?>',e=>{if(e.d.loginLog)e.d.loginLog.success=false;},['router','switch']);
+{const c=CMDS.find(c=>c.pat.join(' ')==='show login');c.fn=e=>{const d=e.d,B=d.blockFor,q=quietMode(e.net,d);const L=[];
+  if(!B)L.push('     No login delay has been applied.','     No Quiet-Mode access list has been configured.','','     Router NOT enabled to watch for login Attacks');
+  else{L.push('     A login delay of 1 seconds is applied.','     No Quiet-Mode access list has been configured.','','     Router enabled to watch for login Attacks.','     If more than '+B.a+' login failures occur in '+B.w+' seconds or less,','     logins will be disabled for '+B.b+' seconds.','');
+    if(q)L.push('     Router presently in Quiet-Mode.','     Will remain in Quiet-Mode for '+Math.max(1,Math.ceil((d.quietUntil-Date.now())/1000))+' seconds.','     Denying logins from all sources.');
+    else{const f=(d.loginFails||[]).filter(t=>Date.now()-t<=B.w*1000);L.push('     Router presently in Normal-Mode.','     Current Watch Window','         Time remaining: '+(f.length?Math.max(1,Math.ceil((f[0]+B.w*1000-Date.now())/1000)):B.w)+' seconds.','         Login failures for current window: '+f.length+'.','     Total login failures: '+(d.loginTotal||0)+'.');}}
+  e.out(...L);};}
+{const ge0=globalExtra;globalExtra=function(d){const L=ge0(d);if(d.loginLog&&d.loginLog.fail)L.push('login on-failure log');if(d.loginLog&&d.loginLog.success)L.push('login on-success log');return L;};}
+
+// ----- saved configuration and reload
+// d.boot is a copy of the device as it was last saved (or as the lab built it); reload puts it back and clears
+// everything a real device loses: ARP and MAC tables, logs, NAT translations, DHCP bindings, err-disabled ports.
+function deepClone(x){if(x===null||typeof x!=='object')return x;if(Array.isArray(x))return x.map(deepClone);const o={};for(const k in x)o[k]=deepClone(x[k]);return o;}
+const cfgText=(net,d)=>runningConfig(net,d).slice(2).join('\n');
+function snapBoot(net,d){if(d.type==='pc')return;const {boot,boots,startup,bootCfg,factoryCfg,...rest}=d;d.boot=deepClone(rest);d.bootCfg=cfgText(net,d);}
+function clearVolatile(d){delete d.arpc;delete d.mact;delete d.conq;delete d.logBuf;delete d.trapSent;delete d.icmpSeq;delete d.loginFails;delete d.quietUntil;delete d.vtys;
+  if(d.nat){d.nat.table=[];d.nat.dyn=[];d.nat.hits=0;d.nat.misses=0;}if(d.dhcp)d.dhcp.bindings=[];if(d.snoop)d.snoop.bind=[];if(d.dai){d.dai.drops=0;d.dai.fwd=0;}
+  if(d.ospf){d.ospf.active=null;d.ospf.resetting=false;}for(const a of Object.values(d.acls||{}))for(const en of a.entries||[])en.hits=0;
+  for(const i of Object.values(d.ifs)){delete i.errdis;if(i.ps){i.ps.macs=(i.ps.macs||[]).filter(m=>m.kind!=='dynamic');i.ps.viol=0;i.ps.blocked=[];delete i.ps.last;}}}
+function restoreBoot(net,d){const snap=d.boot;if(!snap)return;const keep={name:d.name,type:d.type,boot:d.boot,boots:(d.boots||0)+1,startup:d.startup,bootCfg:d.bootCfg,factoryCfg:d.factoryCfg};
+  for(const k of Object.keys(d))delete d[k];Object.assign(d,deepClone(snap),keep);
+  for(const l of net.links){if(l.a===d.name&&d.ifs[l.ai])d.ifs[l.ai].link={dev:l.b,ifn:l.bi};if(l.b===d.name&&d.ifs[l.bi])d.ifs[l.bi].link={dev:l.a,ifn:l.ai};}
+  clearVolatile(d);if(net.hsrp)for(const k of Object.keys(net.hsrp))if(String(net.hsrp[k].active).startsWith(d.name+'|')||String(net.hsrp[k].standby).startsWith(d.name+'|'))delete net.hsrp[k];}
+// Every device starts with a factory copy; a lab's build then saves what it configured, as if someone had written it to NVRAM.
+{const mk0=mkNet;mkNet=function(devs){const net=mk0(devs);for(const d of devs){snapBoot(net,d);d.factoryCfg=d.bootCfg;}return net;};
+ for(const l of LABS){const b=l.build;l.build=function(){const net=b.apply(this,arguments);for(const d of Object.values(net.devs)){if(d.type==='pc')continue;snapBoot(net,d);if(d.bootCfg!==d.factoryCfg&&!d.startup)d.startup=runningConfig(net,d).slice(2);}return net;};}}
+function saveCfg(e){e.d.startup=runningConfig(e.net,e.d).slice(2);snapBoot(e.net,e.d);e.out('Building configuration...','[OK]');}
+{const c=CMDS.find(c=>c.pat.join(' ')==='copy running-config startup-config');c.fn=e=>ask(e.s,'Destination filename [startup-config]? ',(a,env)=>saveCfg(Object.assign({},env,{d:e.d})));
+ const w=CMDS.find(c=>c.pat.join(' ')==='write <rest?>');w.fn=e=>{const a=(e.args[0]||'').trim().toLowerCase();if(a&&!'memory'.startsWith(a))return e.out(BAD);saveCfg(e);};}
+const BOOT_ROUTER=['','System Bootstrap, Version 15.0(1r)M16, RELEASE SOFTWARE (fc1)','Technical Support: http://www.cisco.com/techsupport','Copyright (c) 2012 by cisco Systems, Inc.','','Total memory size = 512 MB - On-board = 512 MB, DIMM0 = 0 MB','CISCO2911/K9 platform with 524288 Kbytes of main memory with parity disabled','','Readonly ROMMON initialized','','program load complete, entry point: 0x80803000, size: 0x1b340','','Self decompressing the image : ################################################ [OK]','','Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.2(4)M3, RELEASE SOFTWARE (fc2)','Copyright (c) 1986-2012 by Cisco Systems, Inc.','','cisco CISCO2911/K9 (revision 1.0) with 491520K/32768K bytes of memory.','3 Gigabit Ethernet interfaces','255K bytes of non-volatile configuration memory.','250880K bytes of ATA System CompactFlash 0 (Read/Write)',''];
+const BOOT_SWITCH=['','Base ethernet MAC Address: 0019.e8a2.3c00','Xmodem file system is available.','Initializing Flash...','flashfs[0]: 2 files, 1 directories','flashfs[0]: 0 orphaned files, 0 orphaned directories','flashfs[0]: Total bytes: 32514048','flashfs[0]: Bytes used: 11015680','flashfs[0]: Bytes available: 21498368','flashfs[0]: flashfs fsck took 1 seconds.','...done Initializing Flash.','','Loading "flash:/c2960-lanbasek9-mz.150-2.SE4.bin"...','########################################################################## [OK]','','Cisco IOS Software, C2960 Software (C2960-LANBASEK9-M), Version 15.2(7)E2, RELEASE SOFTWARE (fc3)','Copyright (c) 1986-2019 by Cisco Systems, Inc.','','cisco WS-C2960-24TT-L (PowerPC405) processor (revision B0) with 65536K bytes of memory.','24 FastEthernet interfaces','2 Gigabit Ethernet interfaces','',''];
+function doReload(e){const{net,d,s}=e;const hadStartup=!!d.startup||(d.bootCfg!==d.factoryCfg);
+  restoreBoot(net,d);
+  const boot=(d.type==='router'?BOOT_ROUTER:BOOT_SWITCH.map(l=>l.startsWith('Base ethernet MAC')?'Base ethernet MAC Address: '+macOf(d):l)).slice();
+  const lines=[(d.tsLog?stamp(net,d):'')+'%SYS-5-RELOAD: Reload requested by console. Reload Reason: Reload Command.',...boot];
+  const t=lines.map((l,k)=>k===0?0:l===''?80:220);
+  if(hadStartup){lines.push('','Press RETURN to get started!','');t.push(300,0,0);ask(s,'',(a,env)=>conLogin(env));}
+  else{lines.push('','         --- System Configuration Dialog ---','','');t.push(300,0,0,0);
+    const dlg=()=>ask(s,'Would you like to enter the initial configuration dialog? [yes/no]: ',(a,env)=>{const x=a.trim().toLowerCase();
+      if(x==='no'||x==='n'){env.out('','Press RETURN to get started!','');return ask(env.s,'',(a2,env2)=>conLogin(env2));}
+      if(x==='yes'||x==='y'){env.out('[Lab4Net does not simulate the setup dialog. Answer no and configure from the console.]','');return dlg();}
+      env.out('% Please answer \'yes\' or \'no\'.');dlg();});dlg();}
+  s.mode='user';s.ctx=null;e.out(...lines);s.pace={t,abort:()=>[]};}
+Cn('priv','reload',e=>{const{net,d,s}=e;
+  if(s.vty){s.closed=true;restoreBoot(net,d);return;}
+  const dirty=cfgText(net,d)!==(d.bootCfg||'');
+  const go=()=>ask(s,'Proceed with reload? [confirm]',(a,env)=>{if(/^n/i.test(a.trim()))return;doReload(Object.assign({},env,{d}));});
+  const saveQ=()=>ask(s,'System configuration has been modified. Save? [yes/no]: ',(a,env)=>{const x=a.trim().toLowerCase();
+    if(x==='yes'||x==='y'){saveCfg(Object.assign({},env,{d}));return go();}if(x==='no'||x==='n')return go();env.out('% Please answer \'yes\' or \'no\'.');saveQ();});
+  if(dirty)saveQ();else go();},['router','switch']);
+Object.assign(KWHELP,{reload:'Halt and perform a cold restart',logout:'Exit from the EXEC',users:'Display information about terminal lines','on-failure':'Set options for failed login attempt','on-success':'Set options for successful login attempt'});
+Object.assign(WHYC,{
+'reload':'Restarts the device from its saved startup configuration. Anything not saved with copy running-config startup-config is lost, which is why IOS asks first.',
+'logout':'Ends this console session. The next person to press Enter gets the login prompt, if the console line has one.',
+'show users':'Who is connected: the console and every open Telnet or SSH session, with where it came from.',
+'login on-failure log':'Logs every failed login with the user and source address, so brute-force attempts leave a trail.',
+'login on-success log':'Logs every successful login, so you can see who got in and from where.',
+'no login on-failure <rest?>':'Stops logging failed logins.','no login on-success <rest?>':'Stops logging successful logins.',
+'ssh <w>':'OpenSSH on a PC: ssh user@address. The first connection asks you to accept the host key; then the device asks for that user\'s password.'});
 //ENGINE-END
 // ---------- guide-only page: index.html?guide, opened as its own browser window for a second monitor ----------
 // It shows the step-by-step guide sent by the main window and stops here, so it never reads or writes saved work.
@@ -3556,7 +3712,7 @@ function push(s,lines){s.lines.push(...lines);if(s.lines.length>600)s.lines.spli
 function replay(lab,draft){const net=lab.build(),sess=sessions(net);const journal=draft?.journal||[];
   if(!Array.isArray(journal)||journal.length>5000)throw Error('Invalid command history');
   for(const entry of journal){if(!entry||!Object.hasOwn(net.devs,entry.device)||typeof entry.line!=='string'||entry.line.length>512||/[\r\n]/.test(entry.line))throw Error('Invalid saved command');
-    const d=net.devs[entry.device],s=sess[entry.device];push(s,['\u0001'+promptOf(d,s)+entry.line,...(o=>o.length?o.join('\n').split('\n'):[])(execLine(net,d,s,entry.line))]);s.hist.push(entry.line);s.hi=s.hist.length;drainConsoles(net,sess,null);}
+    const d=net.devs[entry.device],s=sess[entry.device],pr=effPrompt(s);push(s,['\u0001'+promptOf(d,s)+(pr&&pr.mask?'':entry.line),...(o=>o.length?o.join('\n').split('\n'):[])(execLine(net,d,s,entry.line))]);s.hist.push(entry.line);s.hi=s.hist.length;drainConsoles(net,sess,null);}
   TRACE=null;return {net,sess,journal:journal.map(e=>({device:e.device,line:e.line}))};}
 function openLab(idx,fresh=false){if(cur?.view==='lab'&&!fresh)saveWork();const lab=LABS[idx];let state;
   try{state=replay(lab,fresh?null:drafts[lab.title]);}catch(e){state=replay(lab,null);notify('Could not restore this lab. A fresh topology is ready.');}
@@ -3587,14 +3743,14 @@ function lineClass(l){if(/^ *\^$/.test(l)||/is not recognized as an internal|^op
 function renderTerm(){if(cur.view!=='lab')return;const {net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],n=s.lines.length,fresh=s.fresh||0;s.fresh=0;
   $('tabs').innerHTML=Object.keys(net.devs).map(x=>`<button class="tab" role="tab" id="tab-${x}" aria-controls="term" tabindex="${x===sel?0:-1}" data-dev="${x}" aria-selected="${x===sel}"><span class="device-dot ${net.devs[x].type}"></span>${esc(net.devs[x].hostname)}</button>`).join('');
   $('term').setAttribute('aria-labelledby','tab-'+sel);$('tout').innerHTML=s.lines.map((l,k)=>`<span class="${l[0]==='\u0001'?'cmd':lineClass(l)}${k>=n-fresh?' new':''}">${esc(l[0]==='\u0001'?l.slice(1):l)}</span>`).join('\n');
-  $('prompt').textContent=STREAM&&STREAM.s===s?'':promptOf(d,s);$('mode').textContent=MODE[s.mode]||s.mode;$('term').scrollTop=$('term').scrollHeight;
+  $('prompt').textContent=STREAM&&STREAM.s===s?'':promptOf(d,s);{const es=effSess(s),pr=effPrompt(s);$('mode').textContent=pr?'answer':MODE[es.mode]||es.mode;const ti=$('tin');ti.type=pr&&pr.mask?'password':'text';ti.autocomplete='off';}$('term').scrollTop=$('term').scrollHeight;
   $('deviceInfo').textContent=`${d.hostname} · ${d.type==='pc'?'host':d.type} · ${Object.values(d.ifs).filter(i=>ifUp(net,d,i)).length} interfaces up`;}
 function select(n){cur.sel=n;$('tin').value='';drawTopo();renderTerm();$('tin').focus({preventScroll:true});}
 function mobilePanel(network){document.body.classList.toggle('mobile-network',network);$('missionView').setAttribute('aria-pressed',String(!network));$('networkView').setAttribute('aria-pressed',String(network));if(cur?.view==='lab')renderTerm();}
 function execute(line){if(cur.view!=='lab')return;streamStop(false);const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];TRACE=null;
   if(line.length>512){notify('Keep each command under 512 characters.');return;}
   if(cur.journal.length>=5000){notify('This lab has reached its saved command limit. Export your work, then start over.');return;}
-  push(s,['\u0001'+promptOf(d,s)+line]);if(line.trim()){s.hist.push(line);s.last=null;s.pace=null;s.lastOut=[];const out=execLine(net,d,s,line);if(out.length){const L=out.join('\n').split('\n');s.lastOut=L;if(s.pace&&L.length===out.length&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)streamStart(s,L,s.pace);else push(s,L);}s.pace=null;drainConsoles(net,sess,STREAM&&STREAM.s===s?sel:null);cur.journal.push({device:sel,line});const w=s.last&&WHYC[s.last];$('hint').textContent=w?'Why: '+w:HINT;$('hint').className=w?'why':'';}
+  const pr=effPrompt(s),masked=!!(pr&&pr.mask);push(s,['\u0001'+promptOf(d,s)+(masked?'':line)]);if(line.trim()||pr){if(line.trim()&&!masked)s.hist.push(line);s.last=null;s.pace=null;s.lastOut=[];const out=execLine(net,d,s,line);if(out.length){const L=out.join('\n').split('\n');s.lastOut=L;if(s.pace&&L.length===out.length&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)streamStart(s,L,s.pace);else push(s,L);}s.pace=null;drainConsoles(net,sess,STREAM&&STREAM.s===s?sel:null);cur.journal.push({device:sel,line});const w=s.last&&WHYC[s.last];$('hint').textContent=w?'Why: '+w:HINT;$('hint').className=w?'why':'';}
   s.hi=s.hist.length;if(cur.graded){cur.graded=null;$('grade').innerHTML='<p>Commands run since grading. Grade again to check the current network.</p>';}drawTopo();renderTerm();if(TRACE){cur.trace=TRACE;renderTrace();playTrace(TRACE);}saveWork();}
 // ---------- live console output (ping, traceroute) ----------
 // The engine attaches timing to ping and traceroute output (s.pace). The console plays it back a character or
@@ -3743,14 +3899,14 @@ $('tabs').onclick=e=>{const b=e.target.closest('[data-dev]');if(b)select(b.datas
 $('tabs').onkeydown=e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const names=Object.keys(cur.net.devs),i=names.indexOf(cur.sel);const next=e.key==='Home'?0:e.key==='End'?names.length-1:(i+(e.key==='ArrowRight'?1:-1)+names.length)%names.length;select(names[next]);$('tab-'+names[next]).focus();}};
 $('topo').onclick=e=>{const g=e.target.closest('[data-dev]');if(g)select(g.dataset.dev);};$('topo').onkeydown=e=>{const g=e.target.closest('[data-dev]');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select(g.dataset.dev);}};
 $('clearConsole').onclick=()=>{cur.sess[cur.sel].lines=[];renderTerm();};$('term').onclick=()=>{if(!String(window.getSelection()))$('tin').focus({preventScroll:true});};
-const tin=$('tin');tin.oninput=()=>{if(!tin.value.includes('?'))return;const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel],line=tin.value.replace(/\?/g,'');const c=candidates(d,s.mode,line),w=Math.max(0,...c.map(x=>x.length));push(s,['\u0001'+promptOf(d,s)+line+'?',...(c.length?c.map(x=>('  '+x.padEnd(w+2)+(s.mode==='pc'?'':KWHELP[x]||'')).trimEnd()):['% Unrecognized command'])]);tin.value=line;renderTerm();};
-tin.onkeydown=e=>{const s=cur.sess[cur.sel],d=cur.net.devs[cur.sel];if(STREAM&&e.ctrlKey&&((e.key.toLowerCase()==='c'&&tin.selectionStart===tin.selectionEnd)||e.key==='^'||(e.shiftKey&&(e.key==='6'||e.code==='Digit6')))){e.preventDefault();streamStop(true);return;}if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(d.type!=='pc'&&!['user','priv'].includes(s.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();const c=candidates(d,s.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
+const tin=$('tin');tin.oninput=()=>{if(!tin.value.includes('?'))return;const{net,sess,sel}=cur,s0=sess[sel];if(effPrompt(s0))return;const [d,s]=effPair(net.devs[sel],s0),line=tin.value.replace(/\?/g,'');const c=candidates(d,s.mode,line),w=Math.max(0,...c.map(x=>x.length));push(s,['\u0001'+promptOf(d,s)+line+'?',...(c.length?c.map(x=>('  '+x.padEnd(w+2)+(s.mode==='pc'?'':KWHELP[x]||'')).trimEnd()):['% Unrecognized command'])]);tin.value=line;renderTerm();};
+tin.onkeydown=e=>{const s=cur.sess[cur.sel],[d,es]=effPair(cur.net.devs[cur.sel],s),asking=!!effPrompt(s);if(STREAM&&e.ctrlKey&&((e.key.toLowerCase()==='c'&&tin.selectionStart===tin.selectionEnd)||e.key==='^'||(e.shiftKey&&(e.key==='6'||e.code==='Digit6')))){e.preventDefault();streamStop(true);return;}if(e.key==='Enter'){e.preventDefault();const line=tin.value;tin.value='';execute(line);}else if(e.ctrlKey&&e.key.toLowerCase()==='z'){e.preventDefault();if(!asking&&d.type!=='pc'&&!['user','priv'].includes(es.mode))execute('end');}else if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();s.lines=[];renderTerm();}else if(e.key==='Tab'){e.preventDefault();if(asking)return;const c=candidates(d,es.mode,tin.value).filter(x=>/^[a-z\/-]/.test(x));if(c.length===1&&!/\s$/.test(tin.value))tin.value=tin.value.replace(/\S*$/,c[0]+' ');}else if(e.key==='ArrowUp'){e.preventDefault();if(s.hi>0)tin.value=s.hist[--s.hi];}else if(e.key==='ArrowDown'){e.preventDefault();tin.value=s.hi<s.hist.length-1?s.hist[++s.hi]:(s.hi=s.hist.length,'');}};
 tin.onpaste=e=>{const text=e.clipboardData.getData('text');if(!/[\r\n]/.test(text))return;e.preventDefault();const lines=text.split(/\r?\n/).filter(x=>x.trim());if(lines.length>100||lines.some(x=>x.length>512)){notify('Paste up to 100 commands, each under 512 characters.');return;}dialog('Review pasted commands',`<p>Run these ${lines.length} commands on <b>${esc(cur.net.devs[cur.sel].hostname)}</b> in the order shown.</p><pre class="paste-preview">${esc(lines.join('\n'))}</pre><button class="btn primary" id="runPaste">Run commands</button>`);$('runPaste').onclick=()=>{$('dialog').close();lines.forEach(execute);tin.value='';tin.focus();};};
 let guideOn=true;try{guideOn=localStorage.getItem('lab4net-guide')!=='0';}catch(e){}
 const DESK=window.matchMedia('(min-width:861px)');let extAlive=false,guidePop=false;try{guidePop=localStorage.getItem('lab4net-guide-pop')==='1';}catch(e){}
 function stepsHtml(k){return guideOn&&!(guidePop&&(DESK.matches||extAlive))?stepsBlock(k):'';}
 function stepsBlock(k){if(!cur.guide)cur.guide=guideFor(cur.lab);const task=cur.guide[k]||[];
-  return '<div class="steps">'+task.map(g=>`<div class="step-dev">On ${esc(g.dev)}</div>`+g.lines.map(x=>x.note?`<div class="step-note">${esc(x.note)}</div>`:`<button class="step" data-dev="${esc(g.dev)}" data-cmd="${esc(x.cmd)}" title="Click to place this command in the console"><span class="sp">${esc(x.prompt)}</span>${esc(x.cmd)}</button>`).join('')).join('')+'</div>';}
+  return '<div class="steps">'+task.map(g=>`<div class="step-dev">On ${esc(g.dev)}</div>`+g.lines.map(x=>x.note?`<div class="step-note">${esc(x.note)}</div>`:`<button class="step" data-dev="${esc(g.dev)}" data-cmd="${esc(x.cmd)}" title="Click to place this command in the console"><span class="sp">${esc(x.prompt)}</span>${x.cmd===CR?'⏎ Enter':esc(x.cmd)}</button>`).join('')).join('')+'</div>';}
 document.addEventListener('click',e=>{const b=e.target.closest('.step');if(!b||cur.view!=='lab')return;if($('dialog').open)$('dialog').close();select(b.dataset.dev);$('tin').value=b.dataset.cmd;$('tin').focus({preventScroll:true});});
 openLab(Math.max(0,Math.min(LABS.length-1,lastLab)));
 
@@ -3996,7 +4152,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
   const ol0=openLab;openLab=function(idx,isFresh){closeResult();ol0(idx,isFresh);combo=0;ensureRun(!!isFresh);renderCombo();renderRunHud();};
   const ex0=execute;execute=function(line){if(!cur||cur.view!=='lab'||!line.trim())return ex0(line);
     const s=cur.sess[cur.sel],n0=s.lines.length;ex0(line);const r=run()||{done:true,valid:false,max:0,cmds:0};
-    const bad=(s.lastOut||[]).some(l=>/^% (Invalid|Incomplete|Ambiguous|Unrecognized|Unknown|Bad|Please|Password too short)|^%Inconsistent|^Command rejected|^Bad mask|is not recognized as an internal|^Error: unrecognized|^Bad option|^Usage: /.test(l));
+    const bad=(s.lastOut||[]).some(l=>/^% (Invalid|Incomplete|Ambiguous|Unrecognized|Unknown|Bad|Please|Login invalid|Password too short)|^%Inconsistent|^Command rejected|^Bad mask|is not recognized as an internal|^Error: unrecognized|^Bad option|^Usage: |^Permission denied/.test(l));
     markDay();if(!r.done&&r.valid){r.cmds++;if(bad)r.errs++;else if(CHECKCMD.test(line))r.checks=(r.checks||0)+1;r.help=r.help||guideOn||guidePop;}
     if(bad){const had=combo>=3;combo=0;SFX.err();renderCombo(had);}
     else{combo++;if(r.valid&&combo>r.max)r.max=combo;if(combo>=3)SFX.combo(combo);else SFX.key();if(combo>=10)unlock('combo10');renderCombo();}

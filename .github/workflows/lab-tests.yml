@@ -17,3 +17,4 @@ jobs:
       - run: node tests/ping.cjs
       - run: node tests/console.cjs
       - run: node tests/switching.cjs
+      - run: node tests/prompts.cjs

@@ -1,5 +1,33 @@
 # Lab4Net changes
 
+## Passwords that are asked for, real Telnet and SSH sessions, and reload
+
+**The console now asks**
+- `enable` asks for the enable secret (or the enable password when there is no secret). What you type is hidden, as on a real router. Three misses: `% Bad secrets`.
+- `exit` or `logout` at the `>` or `#` prompt ends the console session, as on real gear: "R1 con0 is now available … Press RETURN to get started." The next Enter starts a new session, and if the console line has `login` it asks for the password (or, with `login local`, a username and password; a privilege-15 user lands straight in `#`). Three misses: `% Bad passwords` and back to Press RETURN. A banner motd is shown first. `login` with no password set locks the console with the real message ("% Login disabled on line 0, until 'password' is set"), so set the password first.
+- `copy running-config startup-config` asks "Destination filename [startup-config]?"; press Enter to accept. `write memory` and `wr` save without asking.
+- Guides and walkthroughs show the extra lines: the password after `enable` where a lab starts with one set, and "⏎ Enter" where a prompt wants Enter.
+
+**Telnet and SSH open a real session on the other device**
+- `telnet 10.0.12.2` from a router or switch: "Trying … Open", the far device's banner, "User Access Verification", its VTY password (or username and password with `login local`), and then you are on that device: its prompt, its commands, its `enable` secret. `exit` prints "[Connection to 10.0.12.2 closed by foreign host]". Three bad passwords close the connection.
+- From a PC, Windows messages: "Connecting To 10.0.12.2...", and "Connection to host lost." when it ends; a refused connection says "Could not open connection to the host, on port 23: Connect failed".
+- `ssh -l admin 192.168.1.1` from IOS asks only for the password. From a PC it behaves like OpenSSH: the first connection asks you to accept the host key ("Are you sure you want to continue connecting (yes/no/[fingerprint])?"), then "admin@192.168.1.1's password:", "Permission denied, please try again." on a miss, and "Connection to 192.168.1.1 closed." at the end. `ssh admin@192.168.1.1` works too.
+- A VTY line with `login` but no password answers "Password required, but none set". Console messages from the far device stay on its own console (switch to its tab), unless you run `terminal monitor` in the session.
+- `show users` lists the console and every open Telnet or SSH session with where it came from. `login block-for` now really triggers: too many failures put the device in quiet mode (new connections refused, `%SEC_LOGIN-1-QUIET_MODE_ON` logged, `show login` shows the countdown). `login on-failure log` and `login on-success log` log each attempt.
+- Commands you run over Telnet or SSH count for grading and for your rank like any other.
+
+**reload**
+- "System configuration has been modified. Save? [yes/no]:" when the running config differs from what is saved, then "Proceed with reload? [confirm]" (Enter or y; n cancels). The device logs `%SYS-5-RELOAD`, prints a short boot, and comes back with its saved configuration. Everything a real device loses is gone: unsaved changes, ARP and MAC tables, logs, NAT translations, DHCP bindings, err-disabled ports, unsaved sticky addresses.
+- A lab that starts with a configured device counts that as saved (so `show startup-config` shows it, and a reload keeps it). A factory device that was never saved boots into "Would you like to enter the initial configuration dialog? [yes/no]:"; answer no.
+- Any Telnet or SSH session into a device that reloads is dropped.
+
+**Mind the change**
+- Saved work in your browser replays through the new prompts. A journal that typed `exit` at the `#` prompt and carried on, or saved with `copy run start` and carried on, will now stop at the prompt it never answered. If a lab you resume looks wrong, start it over.
+
+Tests: new `tests/prompts.cjs` (in GitHub Actions) covers every flow above. `labs.cjs` now runs 1465 guide commands (the extra lines are the passwords, the host-key answers and the Enters).
+
+Verification: all nine suites pass (labs, forwarding, curriculum, lessons, ping, console, switching, prompts, ui, guidewin). In a real browser: `enable` on R1 showed "Password:" with the typed text hidden; telnet from R1 to R2 asked for R2's VTY password, showed `R2>` with the mode chip "User EXEC", ran `show ip interface brief` on R2 and closed with the foreign-host message; `reload` asked Save?, then confirm, played the boot, and came back as R1 without the unsaved enable secret.
+
 ## Switching realism: MAC address tables, flooding on the map, and frames that follow the spanning tree
 
 **Switches learn, like real ones**
