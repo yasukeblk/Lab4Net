@@ -1,5 +1,19 @@
 # Lab4Net changes
 
+## Campaign: the labs as a story in eight stages
+
+**Where**: Lab library → "Campaign →" (first button), or "Campaign" at the top of the Practice group in the lab menu.
+
+- You are the new network engineer at Harbor Street Logistics. Eight stages follow the lab groups in order: First day (fundamentals), The warehouse floor (switching), Three sites, one network (routing), The address that never runs out (IPv6), The things people only notice when they break (IP services), Lock the doors (security), On call (troubleshooting), The big build (capstones). Each has a short story and an outro.
+- A stage's missions are the labs you already have, graded exactly as always; passes you already earned count. Finish the missions to unlock the next stage. Beat the stage's boss to clear it: a sabotage exam on one of that stage's own labs (First day, Three sites, IPv6, services), a specific incident (The warehouse floor: the broadcast storm; Lock the doors: the admins locked out), or a boss fight (On call, after any twelve incidents). The big build has no boss: the two capstones are the finale.
+- The stage select is an arcade map: locked, open, current and cleared stages, a progress bar each, the boss state. Each stage page lists its missions with your best rank, a "Next mission" button, and the boss button once the missions are done.
+- Rewards: 150 XP per cleared stage, Stage Clear (first stage) and Harbor Street Legend (all eight) trophies, and a status-line fanfare when a stage clears.
+- Nothing here changes how labs or ranks work; the campaign only reads your progress and the exam history.
+
+Tests: new `tests/campaign.cjs` (in GitHub Actions): eight stages, every lab group exactly once, stories, mission counts reachable, boss incidents exist, sabotage bosses have a lab they can break.
+
+Verification: all fifteen suites pass. In a real browser: the stage select showed stage 1 open and seven locked; passing the two fundamentals labs opened stage 2 and the boss button; the boss started a sabotage exam limited to a stage-1 lab (tagged for the campaign); fixing it and grading cleared the exam, marked stage 1 CLEAR with its outro, and unlocked Stage Clear.
+
 ## Switching follow-ups: broadcast storms, neighbours in the MAC table, per-VLAN aging, IPv6 learning
 
 **Broadcast storms**

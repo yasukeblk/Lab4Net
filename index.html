@@ -251,6 +251,11 @@ td:last-child{font:400 18px/1.15 var(--mono);color:var(--ph)}
 .boss{display:flex;align-items:center;gap:12px;margin:-4px 0 12px;padding:8px 12px;border:3px solid var(--line);background:#120812} .boss b{font:italic 800 18px var(--px);color:#ff6b7c;letter-spacing:.1em} .boss span{font:400 15px var(--mono);color:var(--ph);white-space:nowrap}
 .boss-hp{flex:1;height:16px;border:2px solid var(--line);background:#2a0d14;overflow:hidden} .boss-hp i{display:block;height:100%;background:linear-gradient(90deg,#ff3d6a,#ff8a1f);box-shadow:0 0 12px rgba(255,61,106,.8);transition:width .6s cubic-bezier(.2,1.4,.4,1)}
 .boss.hit{animation:shake .4s ease-in-out}
+.stage-map{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:12px 0}
+.stage{position:relative;text-align:left;padding:12px 14px;border:3px solid var(--line);background:linear-gradient(var(--panel3),var(--panel));color:inherit;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.45);transform:skewX(-3deg)} .stage>*{display:block;transform:skewX(3deg)}
+.stage .stage-no{font:italic 800 13px var(--px);letter-spacing:.12em;text-transform:uppercase;color:var(--mag)} .stage b{font:italic 800 20px var(--px);line-height:1.1;margin:2px 0 8px} .stage small{font:400 14px var(--mono);color:var(--muted);margin-top:6px}
+.stage.locked{opacity:.45;cursor:not-allowed;filter:grayscale(.6)} .stage.open:hover{transform:skewX(-3deg) translateY(-2px)} .stage.clear{border-color:var(--yel);box-shadow:0 6px 0 rgba(0,0,0,.45),0 0 18px rgba(255,210,63,.45)} .stage.clear .stage-no{color:var(--yel)} .stage.current{outline:3px solid var(--cy);outline-offset:2px}
+.missions{list-style:none;padding:0;margin:8px 0 14px;display:grid;gap:6px} .missions li{display:flex;align-items:center;gap:10px} .missions li.ok .small-btn{color:var(--go)} .missions .rankbadge{position:static}
 .exam-daily{margin:10px 0 14px;padding:10px 14px;border:3px solid var(--line);background:rgba(255,210,63,.07)}
 .exam-opts{display:flex;flex-direction:column;gap:6px;margin:8px 0}.exam-opts.row{flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px}.exam-opts label{cursor:pointer}
 body[data-exam] .guide-row,body[data-exam] .tasks details,body[data-exam] #bSol,body[data-exam] #reference,body[data-exam] #hint.why,body[data-exam] #guideWin,body[data-exam] .steps,body[data-exam] .clue,body[data-exam] .clues{display:none!important}
@@ -4475,7 +4480,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
   const KEY='lab4net-fun-v1';let F={ranks:{},ach:{},days:[],runs:{},cleared:{},sound:true};
   try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object')F=Object.assign(F,p);}catch(e){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(F));}catch(e){}};
-  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal(),unlock:id=>unlock(id),sfx:{start:()=>[523,659,784].forEach((f,i)=>tone(f,.12,'square',i*.1,.05)),tick:()=>tone(1200,.03,'square',0,.03),timeup:()=>{tone(392,.25,'sawtooth',0,.06);tone(262,.4,'sawtooth',.2,.06);},echo:()=>tone(1568,.03,'square',0,.018),drop:()=>tone(196,.09,'triangle',0,.04),unreach:()=>{tone(220,.05,'sawtooth',0,.03);tone(165,.07,'sawtooth',.05,.03);},flood:()=>{tone(392,.05,'triangle',0,.016);tone(523,.05,'triangle',.05,.016);tone(659,.07,'triangle',.1,.016);}}};
+  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal(),unlock:id=>unlock(id),sfx:{clear:()=>SFX.clear(),start:()=>[523,659,784].forEach((f,i)=>tone(f,.12,'square',i*.1,.05)),tick:()=>tone(1200,.03,'square',0,.03),timeup:()=>{tone(392,.25,'sawtooth',0,.06);tone(262,.4,'sawtooth',.2,.06);},echo:()=>tone(1568,.03,'square',0,.018),drop:()=>tone(196,.09,'triangle',0,.04),unreach:()=>{tone(220,.05,'sawtooth',0,.03);tone(165,.07,'sawtooth',.05,.03);},flood:()=>{tone(392,.05,'triangle',0,.016);tone(523,.05,'triangle',.05,.016);tone(659,.07,'triangle',.1,.016);}}};
   const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 
   // sound (generated, no audio files)
@@ -4493,7 +4498,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
   const BONUS={S:100,A:60,B:30,C:10,D:0},ORDER='DCBAS';
   function xp(){let x=0;for(const l of LABS)if(progress[l.title])x+=100+(BONUS[F.ranks[l.title]]||0);const d=progress.drill;if(d)x+=Math.min(100,d.r)*5;
     x+=Object.values(progress.quiz||{}).filter(v=>v===true).length*20;
-    if(window.lessonStats){const ls=lessonStats();x+=ls.read*30+ls.correct*10;}if(window.examStats)x+=examStats().cleared*80;if(window.sandboxStats)x+=sandboxStats().done*60;return x+Object.keys(F.ach).length*50;}
+    if(window.lessonStats){const ls=lessonStats();x+=ls.read*30+ls.correct*10;}if(window.examStats)x+=examStats().cleared*80;if(window.sandboxStats)x+=sandboxStats().done*60;if(window.campaignStats)x+=campaignStats().cleared*150;return x+Object.keys(F.ach).length*50;}
   function level(x){let i=0;while(i+1<TITLES.length&&x>=TITLES[i+1][0])i++;const lo=TITLES[i][0],hi=i+1<TITLES.length?TITLES[i+1][0]:lo;return {n:i+1,title:TITLES[i][1],pct:hi>lo?(x-lo)/(hi-lo)*100:100,next:hi>lo?hi-x:0};}
   const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
   function streak(){const set=new Set(F.days);let n=0;const d=new Date();if(!set.has(today()))d.setDate(d.getDate()-1);
@@ -4510,7 +4515,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
     ['theory','Theory Check','Answer every theory question correctly.'],['half','Halfway There','Pass half of the labs.'],['all','Full Clear','Pass every lab.'],['streak3','Three-Day Streak','Study three days in a row.'],
     ['detective','Detective','Solve a troubleshooting incident with no clues, guide or walkthrough.'],['faults','Fault Finder','Solve every troubleshooting incident.'],['scholar','Bookworm','Read every lesson.'],
     ['exam','Exam Ready','Clear an exam sim before the clock runs out.'],['saboteur','Fault Hunter','Clear a sabotage exam: hidden faults, no help.'],['daily3','Daily Grind','Clear three daily challenges.'],
-    ['builder','Builder','Complete a sandbox challenge.'],['architect','Architect','Complete every sandbox challenge.'],['boss','Boss Slayer','Win a boss fight: three hidden faults, one clock.']];
+    ['builder','Builder','Complete a sandbox challenge.'],['architect','Architect','Complete every sandbox challenge.'],['boss','Boss Slayer','Win a boss fight: three hidden faults, one clock.'],['chapter','Stage Clear','Clear your first campaign stage.'],['campaign','Harbor Street Legend','Clear every campaign stage.']];
   function toast(kicker,title,sub,icon){const t=document.createElement('div');t.className='toast';t.innerHTML=`<i>${icon||'★'}</i><small>${kicker}</small><b>${title}</b><span>${sub}</span>`;$('toasts').appendChild(t);setTimeout(()=>t.remove(),4800);}
   const fresh=[];
   function unlock(id){if(F.ach[id])return;F.ach[id]=Date.now();save();const a=ACH.find(a=>a[0]===id);fresh.push(a[1]);toast('Trophy unlocked',a[1],a[2]);SFX.ach();renderHud();}
@@ -6215,10 +6220,10 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   const buildLabs=()=>LABS.filter(l=>l.kind==='build'&&!l.capstone&&!l.exam),incidents=()=>LABS.filter(l=>l.kind==='incident');
   window.examStats=()=>({cleared:X.history.filter(h=>h.cleared).length,daily:X.history.filter(h=>h.mode==='daily'&&h.cleared).length});
   const MODES={sabotage:'A finished lab with hidden faults',lab:'Build it from the checklist',incident:'A broken network to repair',daily:'Daily challenge · two hidden faults',boss:'Boss fight · three hidden faults'};
-  function makeExam(mode,minutes,seed){const rnd=seedRng(seed);let base=null,faults=null;
-    if(mode==='incident')base=rpick(rnd,incidents());
-    else if(mode==='lab')base=rpick(rnd,buildLabs());
-    else for(const b of shuffled(rnd,buildLabs())){const want=mode==='boss'?3:mode==='daily'?2:(rnd()<.3?2:1);const f=examFault(b,seed+'|'+b.title,want);if(f&&(mode!=='boss'||f.length>=2)){base=b;faults=f;break;}}
+  function makeExam(mode,minutes,seed,pool){const rnd=seedRng(seed);let base=null,faults=null;const inPool=l=>!pool||pool.includes(l.title);
+    if(mode==='incident')base=rpick(rnd,incidents().filter(inPool));
+    else if(mode==='lab')base=rpick(rnd,buildLabs().filter(inPool));
+    else for(const b of shuffled(rnd,buildLabs().filter(inPool))){const want=mode==='boss'?3:mode==='daily'?2:(rnd()<.3?2:1);const f=examFault(b,seed+'|'+b.title,want);if(f&&(mode!=='boss'||f.length>=2)){base=b;faults=f;break;}}
     if(!base)return null;return {mode,seed,base:base.title,faults,minutes,deadline:null,started:null,state:'new',date:today()};}
   // The exam lab object, kept at the end of LABS while the exam exists.
   function labIndex(ex){const title='Exam · '+ex.base;let i=LABS.findIndex(l=>l.exam);
@@ -6230,7 +6235,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   function start(ex){const i=labIndex(ex);if(i<0)return notify('Could not build that exam.');ex.started=Date.now();ex.deadline=ex.started+ex.minutes*60000;ex.state='running';X.current=ex;save();
     openLab(i,true);sfx('start');notify('Exam started. '+ex.minutes+' minutes on the clock. No guide, no why, no walkthrough.');tick();}
   function record(ex,cleared,passed,total){const r=window.l4nFun&&window.l4nFun.run&&window.l4nFun.run();
-    X.history.push({date:today(),base:ex.base,mode:ex.mode,cleared,passed,total,rank:cleared&&r?r.rank||null:null,secs:Math.round((Date.now()-ex.started)/1000),minutes:ex.minutes});X.history=X.history.slice(-40);save();}
+    X.history.push({date:today(),base:ex.base,mode:ex.mode,tag:ex.tag||null,cleared,passed,total,rank:cleared&&r?r.rank||null:null,secs:Math.round((Date.now()-ex.started)/1000),minutes:ex.minutes});X.history=X.history.slice(-40);save();}
   function gradeNow(){const l=cur.lab;cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});const all=cur.graded.every(g=>g[1]);
     if(all){progress[l.title]=true;persist();celebrate();}renderLabs();renderBrief();return all;}
   function timeUp(){const ex=X.current;if(!ex)return;ex.state='timeup';save();sfx('timeup');const all=gradeNow();
@@ -6285,6 +6290,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     $('exStart').onclick=()=>{const mode=($('dialogBody').querySelector('input[name=exMode]:checked')||{}).value||'sabotage',min=+(($('dialogBody').querySelector('input[name=exMin]:checked')||{}).value||20);
       let ex=null;try{ex=makeExam(mode,mode==='boss'?30:min,mode+'-'+Date.now()+'-'+Math.floor(Math.random()*1e6));}catch(e){ex=null;}if(!ex)return notify('Could not build an exam of that kind.');$('dialog').close();start(ex);};}
   window.examDialog=examDialog;
+  window.l4nExam={start:(mode,minutes,seed,pool,tag)=>{let ex=null;try{ex=makeExam(mode,minutes,seed,pool);}catch(e){ex=null;}if(!ex)return false;ex.tag=tag||null;start(ex);return true;},history:()=>X.history.slice()};
   // entry points: the lab library's practice buttons and the lab menu
   const lib0=library;library=function(){lib0();const pb=$('dialogBody').querySelector('.practice-buttons');if(pb&&!$('examBtn')){pb.insertAdjacentHTML('beforeend','<button class="btn" id="examBtn">Exam sim →</button>');$('examBtn').onclick=()=>{$('dialog').close();examDialog();};}};
   $('library').onclick=library;
@@ -6305,6 +6311,85 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   window.sandboxStats=()=>({done:Object.keys(D).length});
   window.l4nSbxDone=function(i,total){if(!D[i]){D[i]=Date.now();try{localStorage.setItem(KEY,JSON.stringify(D));}catch(e){}}
     const f=window.l4nFun;if(f&&f.unlock){f.unlock('builder');if(Object.keys(D).length>=total)f.unlock('architect');}if(f&&f.check)f.check();};
+})();
+// ---------- campaign: the labs as a story in eight stages, each with a boss ----------
+// You are the new network engineer at Harbor Street Logistics. Each stage is one lab group in order; its missions are
+// the labs you already have, its boss is an incident or a sabotage exam. A stage unlocks when the one before is
+// finished (missions only); it is cleared when its missions and its boss are done. Nothing here changes grading.
+const CAMPAIGN=[
+ {id:'start',group:'Fundamentals',title:'First day',boss:{mode:'sabotage',minutes:10},
+  story:'Harbor Street Logistics just lost its only network engineer, and the new router is still in its box. The office manager hands you a console cable and a sticky note with the addresses. Everything else is up to you.',
+  outro:'The router boots clean, the switch answers on its management address, and the manager stops hovering. Someone broke it the moment you turned your back, of course, and you fixed that too.'},
+ {id:'floor',group:'Switching',title:'The warehouse floor',boss:{mode:'incident',title:'Incident 36: the network that ate itself'},
+  story:'Forty pickers, six scanners, a phone on every desk and three switches cabled in a triangle by whoever was nearest. Sales and Engineering share one flat network and can see each other\'s printers. Carve it up, make the trunks honest, and tame the loop.',
+  outro:'VLANs where they belong, one trunk that carries only what it should, a root bridge you chose on purpose. When the triangle finally turned into a storm, you knew exactly which line someone had removed.'},
+ {id:'sites',group:'Routing',title:'Three sites, one network',boss:{mode:'sabotage',minutes:15},
+  story:'Harbor Street buys two more depots. Now there are three routers in a row and a sales team that wants to print at the far site by Monday. Static routes get you there; OSPF keeps you there when a link dies at 2 a.m.',
+  outro:'Packets find their own way now. You know why the router preferred one route over another, and when the junior engineer "tidied" a network statement, the neighbour table told you in seconds.'},
+ {id:'v6',group:'IPv6',title:'The address that never runs out',boss:{mode:'sabotage',minutes:10},
+  story:'The parent company runs IPv6 and wants the depots on it by the end of the quarter. New notation, link-local addresses that appear on their own, and routes that point at FE80 next hops. Same ideas, bigger numbers.',
+  outro:'Global addresses on every link, a default route that reads ::/0, and a neighbour cache you can explain. The quarter ends with the auditors ticking a box.'},
+ {id:'services',group:'IP services',title:'The things people only notice when they break',boss:{mode:'sabotage',minutes:15},
+  story:'Nobody thanks you for DHCP, NAT, NTP or syslog. They do notice when a laptop gets no address, the web server vanishes from the internet, or every log carries the wrong time. This stage is the plumbing.',
+  outro:'Leases, translations, a published server and synchronised clocks. Boring is the goal, and you reached it; the sabotaged pool proved you can read a binding table under pressure.'},
+ {id:'security',group:'Security',title:'Lock the doors',boss:{mode:'incident',title:'Incident 17: the admins are locked out'},
+  story:'An auditor plugs a laptop into a meeting-room port and reaches the finance server. Shared passwords, Telnet in clear text, ports that accept anything. Harbor Street gets a stern letter, and you get a weekend.',
+  outro:'ACLs that match what you meant, ports that know their owner, SSH only, snooping and inspection on the access layer. When the hardening locked the admins out, the fix was one ACL line, found by reading, not guessing.'},
+ {id:'oncall',group:'Troubleshooting',title:'On call',need:12,boss:{mode:'boss',minutes:30},
+  story:'The pager is yours now. Every ticket is a network that used to work. Reproduce the failure, find the evidence, make the smallest repair, prove it. Clear twelve incidents to earn the right to face the big one.',
+  outro:'Twelve tickets closed without a walkthrough, and a boss fight with three faults at once. You stopped guessing somewhere around ticket four.'},
+ {id:'finale',group:'Capstone',title:'The big build',boss:null,
+  story:'The board approves a new branch and a campus core, from factory defaults, no step-by-step guide. Everything you have learned, in one sitting, twice.',
+  outro:'Two networks built from nothing, both passing every check. Harbor Street Logistics has a network engineer. The campaign is complete; the exam sim and the daily challenge will keep you sharp.'}
+];
+(function(){
+  const KEY='lab4net-campaign-v1';let C={stage:null};try{C=Object.assign(C,JSON.parse(localStorage.getItem(KEY)||'{}')||{});}catch(e){}
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(C));}catch(e){}};
+  const sfx=n=>{const f=window.l4nFun&&window.l4nFun.sfx;if(f&&f[n])try{f[n]();}catch(e){}};
+  const unlock=id=>{if(window.l4nFun&&window.l4nFun.unlock)window.l4nFun.unlock(id);};
+  const missions=ch=>LABS.filter(l=>l.group===ch.group&&!l.exam);
+  const ranks=()=>{try{return JSON.parse(localStorage.getItem('lab4net-fun-v1')||'{}').ranks||{};}catch(e){return {};}};
+  const bossDone=ch=>{if(!ch.boss)return true;if(ch.boss.mode==='incident')return !!progress[ch.boss.title];
+    const h=(window.l4nExam&&window.l4nExam.history()||[]).find(x=>x.cleared&&x.tag==='campaign:'+ch.id);return !!h;};
+  const stateOf=k=>{const ch=CAMPAIGN[k],ms=missions(ch),done=ms.filter(l=>progress[l.title]).length,need=ch.need||ms.length,missionsDone=done>=need,boss=bossDone(ch);
+    const prev=k===0?true:stateOf(k-1).missionsDone;return {ch,ms,done,need,missionsDone,boss,unlocked:prev,clear:missionsDone&&boss};};
+  const all=()=>CAMPAIGN.map((_,k)=>stateOf(k));
+  window.campaignStats=()=>({cleared:all().filter(s=>s.clear).length,total:CAMPAIGN.length});
+  let known=null;
+  function checkCampaign(quiet){const st=all(),n=st.filter(s=>s.clear).length;if(n>=1)unlock('chapter');if(n===CAMPAIGN.length)unlock('campaign');
+    if(known!==null&&n>known&&!quiet){const s=st.filter(s=>s.clear).pop();notify('Stage '+(CAMPAIGN.indexOf(s.ch)+1)+' cleared: '+s.ch.title+'.');sfx('clear');}known=n;if(window.l4nFun&&window.l4nFun.check)window.l4nFun.check();}
+  function fightBoss(ch){if(!ch.boss)return;if(ch.boss.mode==='incident'){const i=LABS.findIndex(l=>l.title===ch.boss.title);if(i>=0)openLab(i);return;}
+    const pool=ch.boss.mode==='boss'?null:missions(ch).map(l=>l.title);
+    if(!(window.l4nExam&&window.l4nExam.start(ch.boss.mode,ch.boss.minutes,'campaign-'+ch.id+'-'+Date.now(),pool,'campaign:'+ch.id)))notify('Could not start the boss right now.');}
+  function renderCampaign(){const st=all();let k=CAMPAIGN.findIndex(c=>c.id===C.stage);if(k<0||!st[k].unlocked)k=Math.max(0,st.findIndex(s=>!s.clear&&s.unlocked));if(k<0)k=CAMPAIGN.length-1;C.stage=CAMPAIGN[k].id;save();
+    const cleared=st.filter(s=>s.clear).length,R=ranks();
+    $('brief').innerHTML=`<div class="eyebrow">Campaign · Harbor Street Logistics</div><h2>Stage select.</h2><p>Eight stages, one per topic, in the order a new engineer meets them. Finish a stage's missions to open the next; beat its boss to clear it. The missions are the labs you know, graded exactly as always.</p><p><b>${cleared} / ${CAMPAIGN.length}</b> stages cleared.</p>
+      <div class="stage-map">${st.map((s,i)=>`<button class="stage${s.clear?' clear':s.unlocked?' open':' locked'}${i===k?' current':''}" data-stage="${i}"${s.unlocked?'':' disabled'}><span class="stage-no">Stage ${i+1}</span><b>${esc(s.ch.title)}</b><div class="progressbar"><span style="width:${Math.min(100,s.done/s.need*100)}%"></span></div><small>${s.clear?'CLEAR':s.unlocked?s.done+' / '+s.need+' missions'+(s.ch.boss?(s.boss?' · boss down':' · boss waiting'):''):'LOCKED'}</small></button>`).join('')}</div>`;
+    $('brief').querySelectorAll('[data-stage]').forEach(b=>b.onclick=()=>{C.stage=CAMPAIGN[+b.dataset.stage].id;save();renderCampaign();});
+    const s=st[k],ch=s.ch,next=s.ms.find(l=>!progress[l.title]);
+    const bossHtml=!ch.boss?'':`<h3>Boss</h3><p>${ch.boss.mode==='incident'?`<b>${esc(ch.boss.title.replace(/^Incident \d+: /,'').replace(/^./,c=>c.toUpperCase()))}</b> · a troubleshooting incident; clues, guide and walkthrough are allowed but cost rank.`:ch.boss.mode==='boss'?'<b>Boss fight</b> · three hidden faults on a finished lab, 30 minutes, no help.':`<b>Sabotage</b> · one of this stage's labs, finished and then broken; ${ch.boss.minutes} minutes, no help.`}</p>
+      ${s.boss?'<p class="good"><b>Boss down.</b></p>':s.missionsDone?`<button class="btn primary" id="cFight">${ch.boss.mode==='incident'?'Open the incident →':'Fight the boss →'}</button>`:'<p class="study-note">Finish the missions first.</p>'}`;
+    $('practice').innerHTML=`<div class="eyebrow">Stage ${k+1} <span>${esc(ch.group)}</span></div><h2>${esc(ch.title)}</h2><p>${esc(ch.story)}</p>
+      ${s.clear?`<div class="lesson-tip"><b>Stage clear.</b><br>${esc(ch.outro)}</div>`:''}
+      <h3>Missions <span>${s.done}/${s.need}${ch.need?' of '+s.ms.length:''}</span></h3><ol class="missions">${s.ms.map(l=>{const i=LABS.indexOf(l),rk=R[l.title];return `<li class="${progress[l.title]?'ok':''}"><button class="small-btn" data-lab="${i}">${progress[l.title]?'✓ ':''}${esc(l.kind==='incident'?l.title.replace(/^Incident \d+: /,''):l.title)}</button>${rk?`<i class="rankbadge r${rk}">${rk}</i>`:''}</li>`;}).join('')}</ol>
+      ${next&&!s.missionsDone?`<button class="btn primary" id="cNext">Next mission: ${esc(next.kind==='incident'?next.title.replace(/^Incident \d+: /,''):next.title)} →</button>`:''}
+      ${bossHtml}
+      ${s.clear&&k<CAMPAIGN.length-1?`<div class="actions"><button class="btn" id="cNextStage">Stage ${k+2} →</button></div>`:''}`;
+    $('practice').querySelectorAll('[data-lab]').forEach(b=>b.onclick=()=>openLab(+b.dataset.lab));
+    if($('cNext'))$('cNext').onclick=()=>openLab(LABS.indexOf(next));
+    if($('cFight'))$('cFight').onclick=()=>fightBoss(ch);
+    if($('cNextStage'))$('cNextStage').onclick=()=>{C.stage=CAMPAIGN[k+1].id;save();renderCampaign();};
+    $('workspaceTitle').textContent='Campaign';}
+  const rb0=renderBrief;renderBrief=function(){if(cur&&cur.view==='campaign')return renderCampaign();return rb0();};
+  const rl0=renderLabs;renderLabs=function(){rl0();const g=[...$('labs').querySelectorAll('optgroup')].find(o=>o.label==='Practice');
+    if(g&&!g.querySelector('option[value="campaign"]')){const o=document.createElement('option');o.value='campaign';o.textContent='Campaign';g.prepend(o);}
+    if(cur&&cur.view==='campaign'){$('labs').value='campaign';$('workspaceTitle').textContent='Campaign';}};
+  $('labs').addEventListener('change',e=>{if(e.target.value==='campaign'){e.stopImmediatePropagation();openPractice('campaign');}},true);
+  const lib0=library;library=function(){lib0();const pb=$('dialogBody').querySelector('.practice-buttons');if(pb&&!$('campaignBtn')){pb.insertAdjacentHTML('afterbegin','<button class="btn primary" id="campaignBtn">Campaign →</button>');$('campaignBtn').onclick=()=>{$('dialog').close();openPractice('campaign');};}};
+  $('library').onclick=library;
+  const cel0=celebrate;celebrate=function(){cel0();setTimeout(()=>checkCampaign(false),1600);};
+  window.openCampaign=()=>openPractice('campaign');
+  checkCampaign(true);
 })();
 </script>
 </body>
