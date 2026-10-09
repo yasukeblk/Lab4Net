@@ -79,6 +79,40 @@ R2.quietUntil=Date.now()-1;assert.match(go(net,R2,s2,'show login').text,/present
 go(net,R2,s2,'configure terminal');go(net,R2,s2,'line vty 0 4');go(net,R2,s2,'no password');go(net,R2,s2,'end');
 r=go(net,R1,s,'telnet 10.0.12.2');assert.ok(r.text.includes('Password required, but none set'),r.text);assert.equal(s.remote,null);
 
+// ----- REVIEW-FIXES 18: IOS 15 VTY defaults. Out of the box line vty 0 4 has login and no password:
+// "Password required, but none set" (not "Connection refused"). no login lets you straight in; login local with no
+// usernames asks for one and refuses it.
+{const n=solve('Static routing'),R1=n.devs.R1,R2=n.devs.R2,a=S(),b=S();go(n,R1,a,'enable');
+  assert.equal(R2.lines.vty.login,true,'a fresh device has login on the VTY lines');
+  let q=go(n,R1,a,'telnet 10.0.12.2');assert.ok(q.text.includes('Open')&&q.text.includes('Password required, but none set')&&q.text.includes('closed by foreign host'),q.text);assert.ok(!q.text.includes('refused'),q.text);assert.ok(!a.remote,'no session opens');
+  go(n,R2,b,'enable');go(n,R2,b,'configure terminal');go(n,R2,b,'line vty 0 4');go(n,R2,b,'no login');go(n,R2,b,'end');
+  q=go(n,R1,a,'telnet 10.0.12.2');assert.equal(q.prompt,'R2>','no login: straight in');assert.ok(!q.text.includes('User Access Verification'));go(n,R1,a,'exit');
+  go(n,R2,b,'configure terminal');go(n,R2,b,'line vty 0 4');go(n,R2,b,'login local');go(n,R2,b,'end');
+  q=go(n,R1,a,'telnet 10.0.12.2');assert.equal(q.prompt,'Username: ','login local asks for a username even with none configured');
+  go(n,R1,a,'nobody');q=go(n,R1,a,'pw');assert.ok(q.text.includes('% Login invalid'),q.text);
+  // REVIEW-FIXES 19: login replaces login local
+  go(n,R1,a,'x');go(n,R1,a,'y');go(n,R1,a,'z');go(n,R1,a,'w');a.remote=null;a.prompt=null;
+  go(n,R2,b,'configure terminal');go(n,R2,b,'line vty 0 4');go(n,R2,b,'login');go(n,R2,b,'password pw');go(n,R2,b,'end');
+  assert.equal(lineLogin(R2,'vty'),'password');assert.ok(!R2.lines.vty.local);
+  q=go(n,R1,a,'telnet 10.0.12.2');assert.equal(q.prompt,'Password: ','login (not local) asks only for the line password');}
+
+// ----- REVIEW-FIXES 16 and 17: reload over Telnet asks Save? and [confirm] like the console, then closes the session; the
+// device's own console, left in interface configuration, comes back at > with Press RETURN instead of a dead mode.
+{const n=solve('Static routing'),R1=n.devs.R1,R2=n.devs.R2,a=S(),c=S();
+  go(n,R2,c,'enable');go(n,R2,c,'configure terminal');go(n,R2,c,'line vty 0 4');go(n,R2,c,'password vv');go(n,R2,c,'enable secret es');go(n,R2,c,'end');go(n,R2,c,'copy running-config startup-config');go(n,R2,c,'');
+  go(n,R2,c,'configure terminal');go(n,R2,c,'interface g0/0');assert.equal(promptOf(R2,c),'R2(config-if)#');
+  go(n,R1,a,'enable');go(n,R1,a,'telnet 10.0.12.2');go(n,R1,a,'vv');go(n,R1,a,'enable');go(n,R1,a,'es');go(n,R1,a,'configure terminal');go(n,R1,a,'hostname UNSAVED');go(n,R1,a,'end');
+  let q=go(n,R1,a,'reload');assert.equal(q.prompt,'System configuration has been modified. Save? [yes/no]: ');
+  q=go(n,R1,a,'no');assert.equal(q.prompt,'Proceed with reload? [confirm]');assert.ok(a.remote,'still connected until confirmed');
+  q=go(n,R1,a,'');assert.ok(q.text.includes('closed by foreign host'),q.text);assert.equal(a.remote,null);assert.equal(q.prompt,'R1#');
+  assert.equal(R2.hostname,'R2','the unsaved change was lost in the reload');
+  assert.ok((R2.conq||[]).some(l=>/%SYS-5-RELOAD: Reload requested by .* on vty0/.test(l)),'the boot messages go to the console of R2');
+  assert.ok((R2.conq||[]).includes('Press RETURN to get started!'));
+  q=go(n,R2,c,'');assert.equal(c.mode,'user');assert.ok(!/config/.test(q.prompt),'the console no longer sits in a dead config mode: '+q.prompt);assert.equal(q.prompt,'R2>');
+  // and a reload over Telnet with nothing to save still asks to confirm; answering n keeps the session
+  go(n,R1,a,'telnet 10.0.12.2');go(n,R1,a,'vv');go(n,R1,a,'enable');go(n,R1,a,'es');q=go(n,R1,a,'reload');assert.equal(q.prompt,'Proceed with reload? [confirm]');
+  q=go(n,R1,a,'n');assert.ok(a.remote&&a.remote.d===R2,'n keeps the session');go(n,R1,a,'exit');}
+
 // ----- REVIEW-FIXES 4: enable over Telnet with no enable secret or password: % No password set, still at R2>.
 // The console still goes straight in.
 {const n=solve('Static routing'),a=S(),b=S();go(n,n.devs.R2,b,'enable');go(n,n.devs.R2,b,'configure terminal');go(n,n.devs.R2,b,'line vty 0 4');go(n,n.devs.R2,b,'password vv');go(n,n.devs.R2,b,'login');go(n,n.devs.R2,b,'end');

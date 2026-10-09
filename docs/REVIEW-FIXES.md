@@ -79,14 +79,19 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
    - **Done (milestone 2).** A boss now looks for three faults across its whole pool first and settles for two only when no lab can give three (40 of 40 free-choice seeds give three; a campaign boss limited to the IPv6 labs can give two). The exam bar names the real count, the trophy and campaign texts say "two or three", and the health bar starts at the real number of failing checks (`hp0`). Test: `pageflows.cjs`. (8 of 40 seeds; `makeExam` accepts `f.length>=2`). Either always build three, or make the UI and trophy text say "two or three". The health bar should also start at the real number of failing checks.
 
 **Sessions and logins**
-16. **`reload` over Telnet/SSH skips "Save? [yes/no]" and "[confirm]"** and throws away unsaved changes (~3835). Real IOS asks on VTY lines too.
-17. **After a reload over Telnet, the device's own console is left in a dead mode.** It stays at `(config-if)#` pointing at the old interface objects, so its next commands are silently lost (`restoreBoot`, ~3810). After a reload, reset every session on that device to `>` with "Press RETURN to get started".
-18. **VTY defaults are wrong** (`listens()` ~1157, default lines ~602):
+16. **`reload` over Telnet/SSH skips "Save? [yes/no]" and "[confirm]"**
+   - **Done (milestone 3).** A VTY reload asks Save? (when the configuration changed) and [confirm] exactly like the console; confirming closes the session and puts `%SYS-5-RELOAD … on vty0` and the boot messages on the device's own console (`vtyReload`); `n` keeps the session. Test: `prompts.cjs`. and throws away unsaved changes (~3835). Real IOS asks on VTY lines too.
+17. **After a reload over Telnet, the device's own console is left in a dead mode.**
+   - **Done (milestone 3).** Every session records which boot of its device it belongs to (`s.boot` against `d.boots`, set by an `execLine` wrapper). After a reload any other session on that device starts again at `>` and its next line is the RETURN of "Press RETURN to get started". Test: `prompts.cjs` (a console left in interface configuration comes back at `R2>`). It stays at `(config-if)#` pointing at the old interface objects, so its next commands are silently lost (`restoreBoot`, ~3810). After a reload, reset every session on that device to `>` with "Press RETURN to get started".
+18. **VTY defaults are wrong**
+   - **Done (milestone 3).** Routers and switches start with `login` on `line vty 0 4` and no password. Port 23 answers whenever the VTY transport allows Telnet; the login decides the rest: no password set gives "Password required, but none set" (IOS) or "Connection to host lost." (Windows), `no login` lets you straight in, `login local` with no users asks `Username:` and says "% Login invalid". Test: `prompts.cjs`. (`listens()` ~1157, default lines ~602):
     - A fresh IOS 15 router has `login` on `line vty 0 4` by default, so telnet should say "Password required, but none set", not "% Connection refused by remote host".
     - `no login` on the VTY should let you straight in with no password. That's the insecure case students should see.
     - `login local` with no usernames should show `Username:` and then "% Login invalid".
-19. **`login` after `login local` stays local** (~902). In IOS, `login` replaces `login local`.
-20. **Passwords end up in command history after a reload.** Live typing keeps masked answers out of history (~4146), but replay (~4108) pushes every journal line. Mark password answers in the journal and keep them out of history on replay.
+19. **`login` after `login local` stays local**
+   - **Done (milestone 3).** `login` now clears `login local`. Test: `prompts.cjs`. (~902). In IOS, `login` replaces `login local`.
+20. **Passwords end up in command history after a reload.**
+   - **Done (milestone 3).** Fixed with item 2 in milestone 1: `replay` checks whether each line answered a masked prompt and keeps it out of history, as live typing does. Test: `pageflows.cjs` (after the reload of the block-for journal, the history holds no password answers). Live typing keeps masked answers out of history (~4146), but replay (~4108) pushes every journal line. Mark password answers in the journal and keep them out of history on replay.
 
 **Switching**
 21. **Blocked ports still learn MAC addresses** (`macBackground`, ~3551). In the spanning-tree lab, SW1 lists SW2's MAC as DYNAMIC on Gi0/1, which is Altn BLK. Skip blocked ports, and only learn BPDU senders when the far port is forwarding.

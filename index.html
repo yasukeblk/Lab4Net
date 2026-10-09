@@ -603,8 +603,9 @@ function type7(pw){let s=0;for(const c of pw)s=(s+c.charCodeAt(0))%16;let o=Stri
 const pwText=(d,pw)=>d.svcEnc?'7 '+type7(pw):pw;
 
 function addIf(d,n,o){d.ifs[n]=Object.assign({name:n,ip:null,len:null,shutdown:false,desc:'',link:null,mode:'access',modeSet:false,accessVlan:1,native:1,allowed:'all',dot1q:null},o||{});return d.ifs[n];}
-function mkRouter(name){const d={name,type:'router',hostname:name,ifs:{},statics:[],ospf:null,lines:{con:{},vty:{}}};['0/0','0/1','0/2'].forEach(x=>addIf(d,'GigabitEthernet'+x,{shutdown:true}));return d;}
-function mkSwitch(name){const d={name,type:'switch',hostname:name,ifs:{},vlans:{1:{name:'default'}},gw:null,lines:{con:{},vty:{}}};
+// A fresh IOS 15 device has `login` on line vty 0 4 and no password, so Telnet answers "Password required, but none set".
+function mkRouter(name){const d={name,type:'router',hostname:name,ifs:{},statics:[],ospf:null,lines:{con:{},vty:{login:true}}};['0/0','0/1','0/2'].forEach(x=>addIf(d,'GigabitEthernet'+x,{shutdown:true}));return d;}
+function mkSwitch(name){const d={name,type:'switch',hostname:name,ifs:{},vlans:{1:{name:'default'}},gw:null,lines:{con:{},vty:{login:true}}};
   for(let i=1;i<=8;i++)addIf(d,'FastEthernet0/'+i);addIf(d,'GigabitEthernet0/1');addIf(d,'GigabitEthernet0/2');addIf(d,'Vlan1',{shutdown:true});return d;}
 function mkPC(name,ip,len,gw){const d={name,type:'pc',hostname:name,ifs:{},gw:gw?ip2n(gw):null};addIf(d,'FastEthernet0',{ip:ip2n(ip),len});return d;}
 function mkNet(devs){const net={devs:{},links:[]};devs.forEach(d=>net.devs[d.name]=d);return net;}
@@ -903,7 +904,7 @@ C('if','switchport trunk native vlan <n>',e=>e.s.ctx.forEach(i=>{i.native=e.args
 C('if','switchport trunk encapsulation dot1q',e=>e.s.ctx.forEach(i=>{i.encap='dot1q';}),['switch']);
 C('vlan','name <w>',e=>{e.d.vlans[e.s.ctx].name=e.args[0];});
 C('line','password <w>',e=>{e.d.lines[e.s.ctx].password=e.args[0];});
-C('line','login',e=>{e.d.lines[e.s.ctx].login=true;});
+C('line','login',e=>{const l=e.d.lines[e.s.ctx];l.login=true;l.local=false;});
 C('line','no login',e=>{e.d.lines[e.s.ctx].login=false;});
 C('line','transport input <rest>',e=>{e.d.lines[e.s.ctx].transport=e.args[0];});
 C('line','exec-timeout <rest>',e=>{const t=e.args[0].trim().split(/\s+/);if(t.length>2||!t.every(x=>/^\d+$/.test(x)))return e.out(BAD);e.d.lines[e.s.ctx].timeout=[+t[0],t[1]?+t[1]:0];});
@@ -1159,7 +1160,7 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
     hops.push(hopIp);hops.path.push(...peer.path.slice(1));d=peer.dev;inIf=peer.ifc;}
   return {ok:false,hops,reason:'Hop limit reached; check for a routing loop'};}
 function listens(d,port){if(d.services)return d.services.includes(port);if(d.type==='pc')return false;if(port===123)return !!(d.ntpMaster||(d.ntpServers||[]).length);const v=d.lines.vty,tr=(v.transport||'all').toLowerCase();
-  if(port===23)return (tr.includes('telnet')||tr==='all')&&!!v.login&&(v.local?!!(d.users&&d.users.length):!!v.password);
+  if(port===23)return tr.includes('telnet')||tr==='all';
   if(port===22)return (tr.includes('ssh')||tr==='all')&&!!d.rsa&&!!v.local&&!!(d.users&&d.users.length);return false;}
 // access-class on the VTY lines filters who may open a Telnet or SSH session to the device itself; a denied source is refused.
 function vtyDenied(d,port,src){if(d.type==='pc'||(port!==22&&port!==23))return false;const v=d.lines.vty;if(!v.aclClass||v.aclDir!=='in')return false;
@@ -3765,15 +3766,18 @@ function vtyOpen(e,ip,proto,user){const{net,d,s}=e,r=reach(net,d,ip,'tcp',proto=
   if(win&&proto==='telnet')e.out('Connecting To '+n2ip(ip)+'...');
   const rd=r.f.ok?r.f.dest:null;
   if(r.ok&&rd&&quietMode(net,rd)){e.out(win?(proto==='ssh'?'ssh: connect to host '+n2ip(ip)+' port 22: Connection refused':'Could not open connection to the host, on port 23: Connect failed'):'% Connection refused by remote host');return;}
-  if(!r.ok){if(r.refused&&rd&&proto==='telnet'&&lineLogin(rd,'vty')==='none'&&!win){e.out('Open','','Password required, but none set','','[Connection to '+n2ip(ip)+' closed by foreign host]');return;}
-    e.out(win?(proto==='ssh'?'ssh: connect to host '+n2ip(ip)+' port 22: Connection '+(r.refused?'refused':'timed out'):'Could not open connection to the host, on port 23: Connect failed'):FAILMSG(r));return;}
+  if(!r.ok){e.out(win?(proto==='ssh'?'ssh: connect to host '+n2ip(ip)+' port 22: Connection '+(r.refused?'refused':'timed out'):'Could not open connection to the host, on port 23: Connect failed'):FAILMSG(r));return;}
   if(!win&&proto==='telnet')e.out('Open');
+  // login with no password set: IOS accepts the connection, says so, and closes it
+  if(proto==='telnet'&&lineLogin(rd,'vty')==='none'){if(win)e.out('','Password required, but none set','','Connection to host lost.');else e.out('','','Password required, but none set','','[Connection to '+n2ip(ip)+' closed by foreign host]');return;}
   const srcIp=r.f.pk.src,rs={mode:'user',ctx:null,vty:true,boot:rd.boots||0,hist:[],hi:0,lines:[]};
   s.remote={d:rd,s:rs,ip,proto,win,from:srcIp,user:null};
   const R=s.remote,finish=(ok,env,u)=>{if(ok){R.user=u;(rd.vtys=rd.vtys||[]).push(R);loginOk(net,rd,srcIp,u,port);return;}
     if(proto==='telnet'&&!win)env.out('% Bad passwords');if(win&&proto==='ssh')env.out((user||'')+'@'+n2ip(ip)+': Permission denied (password).');
     env.out('',closeMsg(R));env.s.remote=null;};
   const failed=(env,u)=>{if(win&&proto==='ssh')env.out('Permission denied, please try again.');loginFailed(net,rd,srcIp,u,port);};
+  // no login on the VTY lines: straight in with no password at all (the insecure case)
+  if(proto==='telnet'&&lineLogin(rd,'vty')===null){if(rd.banner)e.out(rd.banner);finish(true,e,null);return;}
   if(proto==='telnet'){if(rd.banner)e.out(rd.banner);e.out('User Access Verification','');authLine(rd,s,rs,'vty',finish,failed);return;}
   // ssh: the username came on the command line; the server only asks for the password
   if(lineLogin(rd,'vty')!=='local'){e.out(win?'Permission denied (publickey,password).':'% Authentication failed.','',closeMsg(R));s.remote=null;return;}
@@ -3828,7 +3832,7 @@ function saveCfg(e){e.d.startup=runningConfig(e.net,e.d).slice(2);snapBoot(e.net
 const BOOT_ROUTER=['','System Bootstrap, Version 15.0(1r)M16, RELEASE SOFTWARE (fc1)','Technical Support: http://www.cisco.com/techsupport','Copyright (c) 2012 by cisco Systems, Inc.','','Total memory size = 512 MB - On-board = 512 MB, DIMM0 = 0 MB','CISCO2911/K9 platform with 524288 Kbytes of main memory with parity disabled','','Readonly ROMMON initialized','','program load complete, entry point: 0x80803000, size: 0x1b340','','Self decompressing the image : ################################################ [OK]','','Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.2(4)M3, RELEASE SOFTWARE (fc2)','Copyright (c) 1986-2012 by Cisco Systems, Inc.','','cisco CISCO2911/K9 (revision 1.0) with 491520K/32768K bytes of memory.','3 Gigabit Ethernet interfaces','255K bytes of non-volatile configuration memory.','250880K bytes of ATA System CompactFlash 0 (Read/Write)',''];
 const BOOT_SWITCH=['','Base ethernet MAC Address: 0019.e8a2.3c00','Xmodem file system is available.','Initializing Flash...','flashfs[0]: 2 files, 1 directories','flashfs[0]: 0 orphaned files, 0 orphaned directories','flashfs[0]: Total bytes: 32514048','flashfs[0]: Bytes used: 11015680','flashfs[0]: Bytes available: 21498368','flashfs[0]: flashfs fsck took 1 seconds.','...done Initializing Flash.','','Loading "flash:/c2960-lanbasek9-mz.150-2.SE4.bin"...','########################################################################## [OK]','','Cisco IOS Software, C2960 Software (C2960-LANBASEK9-M), Version 15.2(7)E2, RELEASE SOFTWARE (fc3)','Copyright (c) 1986-2019 by Cisco Systems, Inc.','','cisco WS-C2960-24TT-L (PowerPC405) processor (revision B0) with 65536K bytes of memory.','24 FastEthernet interfaces','2 Gigabit Ethernet interfaces','',''];
 function doReload(e){const{net,d,s}=e;const hadStartup=!!d.startup||(d.bootCfg!==d.factoryCfg);
-  restoreBoot(net,d);
+  restoreBoot(net,d);s.boot=d.boots||0;
   const boot=(d.type==='router'?BOOT_ROUTER:BOOT_SWITCH.map(l=>l.startsWith('Base ethernet MAC')?'Base ethernet MAC Address: '+macOf(d):l)).slice();
   const lines=[(d.tsLog?stamp(net,d):'')+'%SYS-5-RELOAD: Reload requested by console. Reload Reason: Reload Command.',...boot];
   const t=lines.map((l,k)=>k===0?0:l===''?80:220);
@@ -3839,13 +3843,20 @@ function doReload(e){const{net,d,s}=e;const hadStartup=!!d.startup||(d.bootCfg!=
       if(x==='yes'||x==='y'){env.out('[Lab4Net does not simulate the setup dialog. Answer no and configure from the console.]','');return dlg();}
       env.out('% Please answer \'yes\' or \'no\'.');dlg();});dlg();}
   s.mode='user';s.ctx=null;e.out(...lines);s.pace={t,abort:()=>[]};}
+// A reload typed over Telnet or SSH: the session closes, and the boot messages land on the device's own console.
+function vtyReload(net,d,s){const who=s.user||'',from=s.from?' ('+n2ip(s.from)+')':'';restoreBoot(net,d);
+  const boot=(d.type==='router'?BOOT_ROUTER:BOOT_SWITCH.map(l=>l.startsWith('Base ethernet MAC')?'Base ethernet MAC Address: '+macOf(d):l));
+  (d.conq=d.conq||[]).push((d.tsLog?stamp(net,d):'')+'%SYS-5-RELOAD: Reload requested by '+(who||'vty0')+' on vty0'+from+'. Reload Reason: Reload Command.',...boot,'','Press RETURN to get started!','');
+  s.closed=true;}
 Cn('priv','reload',e=>{const{net,d,s}=e;
-  if(s.vty){s.closed=true;restoreBoot(net,d);return;}
   const dirty=cfgText(net,d)!==(d.bootCfg||'');
-  const go=()=>ask(s,'Proceed with reload? [confirm]',(a,env)=>{if(/^n/i.test(a.trim()))return;doReload(Object.assign({},env,{d}));});
+  const go=()=>ask(s,'Proceed with reload? [confirm]',(a,env)=>{if(/^n/i.test(a.trim()))return;if(env.s.vty)return vtyReload(net,d,env.s);doReload(Object.assign({},env,{d}));});
   const saveQ=()=>ask(s,'System configuration has been modified. Save? [yes/no]: ',(a,env)=>{const x=a.trim().toLowerCase();
     if(x==='yes'||x==='y'){saveCfg(Object.assign({},env,{d}));return go();}if(x==='no'||x==='n')return go();env.out('% Please answer \'yes\' or \'no\'.');saveQ();});
   if(dirty)saveQ();else go();},['router','switch']);
+{const ex0=execLine;execLine=function(net,d,s,line){if(d&&s&&d.type!=='pc'&&!s.vty){const b=d.boots||0;
+    if(s.boot===undefined)s.boot=b;else if(s.boot!==b){s.boot=b;s.mode='user';s.ctx=null;s.remote=null;s.prompt=null;ask(s,'',(a,env)=>conLogin(env));}}
+  return ex0(net,d,s,line);};}
 Object.assign(KWHELP,{reload:'Halt and perform a cold restart',logout:'Exit from the EXEC',users:'Display information about terminal lines','on-failure':'Set options for failed login attempt','on-success':'Set options for successful login attempt'});
 Object.assign(WHYC,{
 'reload':'Restarts the device from its saved startup configuration. Anything not saved with copy running-config startup-config is lost, which is why IOS asks first.',

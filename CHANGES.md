@@ -1,5 +1,19 @@
 # Lab4Net changes
 
+## Review fixes, part 3: sessions and logins
+
+Items 16 to 20 of `docs/REVIEW-FIXES.md`.
+
+- **`reload` over Telnet or SSH asks first**, like the console: "System configuration has been modified. Save? [yes/no]" when something changed, then "Proceed with reload? [confirm]". Confirming closes your session; the reload message and the boot text appear on the device's own console. Answering `n` keeps you connected.
+- **A device's own console wakes up properly after a reload.** If someone reloads a router over Telnet while its console was in interface configuration, the console now starts again at `R2>` ("Press RETURN to get started") instead of sitting in a mode whose interfaces no longer exist.
+- **VTY lines behave like a fresh IOS 15 router.** `line vty 0 4` has `login` out of the box and no password, so Telnet connects and is told "Password required, but none set" (Windows: "Connection to host lost."), not "Connection refused". `no login` lets anyone straight in with no password at all, which is the insecure case to recognise. `login local` with no usernames asks for a username and answers "% Login invalid".
+- **`login` replaces `login local`** on a line, as in IOS.
+- Password answers stay out of the command history after a reload (fixed with part 1).
+
+Tests: `prompts.cjs` covers the VTY defaults, `no login`, `login local` with no users, `login` replacing `login local`, the VTY reload questions, the session closing, the boot messages on the console, and the console coming back at `>`.
+
+Verification: all seventeen suites pass.
+
 ## Review fixes, part 2: exams and the campaign
 
 Items 8 to 15 of `docs/REVIEW-FIXES.md`.
