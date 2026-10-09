@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of the campaign build on `main` (9 Oct 2026). Ten builds landed on 9 Oct: the campaign, the follow-ups (storms, neighbours in the MAC table, per-VLAN aging, IPv6 learning), switching realism, prompts, ping source, exam sim, theory bank and sandbox rewards, duplex/speed, live IPv6 pings, boss fights. Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+State as of the multi-area OSPF and wireless build on `main` (9 Oct 2026). Eleven builds landed on 9 Oct: multi-area OSPF plus the wireless-wiring lab, the campaign, the follow-ups (storms, neighbours in the MAC table, per-VLAN aging, IPv6 learning), switching realism, prompts, ping source, exam sim, theory bank and sandbox rewards, duplex/speed, live IPv6 pings, boss fights. Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -8,8 +8,8 @@ Lab4Net is a browser-based lab simulator for the Cisco CCNA exam, modeled on Bos
 
 It currently has:
 
-- 36 graded build labs: the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phases 1 and 2 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build, floating static routes, how a router chooses a route, OSPF on a shared segment, LLDP, voice VLAN with an IP phone, dynamic NAT with a pool, named ACLs edited by sequence number, NTP and syslog, inter-VLAN routing on a Layer 3 switch, DHCP snooping, Dynamic ARP Inspection, IPv6 addressing, IPv6 static and default routes, HSRP)
-- 36 troubleshooting incidents built from those labs (one or more for every build lab), each with three clues that cost rank points
+- 38 graded build labs (multi-area OSPF and the wired side of a wireless LAN joined on 9 Oct): the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phases 1 and 2 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build, floating static routes, how a router chooses a route, OSPF on a shared segment, LLDP, voice VLAN with an IP phone, dynamic NAT with a pool, named ACLs edited by sequence number, NTP and syslog, inter-VLAN routing on a Layer 3 switch, DHCP snooping, Dynamic ARP Inspection, IPv6 addressing, IPv6 static and default routes, HSRP)
+- 37 troubleshooting incidents built from those labs (one or more for every build lab), each with three clues that cost rank points
 - 2 capstones that build a whole network from factory defaults (a branch office; a campus core with a Layer 3 switch). They open with the step-by-step guide off
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
 - Real-life ping and traceroute: output plays live, ARP loses the first echo through a cold router, routers send unreachables (`U.U.U`, `!H`, `!A`), Windows quirks are kept, Ctrl+C or Ctrl+Shift+6 stops a run
@@ -21,7 +21,7 @@ It currently has:
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
 - A network map that animates each ping, telnet or ssh along the path the packet really takes, and labels where and why it fails
 - Step-by-step instructions per task (switchable, and can pop out into its own window), plus a "why" for every task and every command
-- 54 lessons that teach the concept before the commands: one per build lab (opens on the first visit, with a step-through animation on the lab's map) and 18 topic lessons for exam objectives with no lab, in a Lessons view and on the Study map. Each has key terms, exam notes, common mistakes and a quick check
+- 56 lessons that teach the concept before the commands: one per build lab (opens on the first visit, with a step-through animation on the lab's map) and 18 topic lessons for exam objectives with no lab, in a Lessons view and on the Study map. Each has key terms, exam notes, common mistakes and a quick check
 - Exam sim: a random build lab, a random incident, or a sabotage (a finished lab with one or two seeded hidden faults), timed, with no guide, why, walkthrough, clues or command guide; a daily challenge seeded by the date, and boss fights (three faults, 30 minutes, a health bar of failing checks); results, trophies and XP
 - A campaign: eight stages over the lab groups (`CAMPAIGN` data in the interface: id, group, title, story, outro, boss, optional `need`), a stage map, bosses (sabotage exams limited to the stage's labs, named incidents, a boss fight), trophies and XP
 - A subnetting drill and a 110-question theory check (`QUIZ`, in the interface: `[domain, question, [4 options], answer index, explanation]`; append new questions at the end so saved answers keep their indices)
@@ -126,7 +126,7 @@ The `// ---------- v3 engine` section, just before the "why" recorder, holds com
 Phase 2 changed the core in place too:
 
 - Routing: `routes()` builds a real table, one route per prefix with the lowest administrative distance (connected 0, static `ad` default 1, OSPF 110). `staticRoutes()` decides which statics are usable (exit interface up, or next hop on a connected subnet). `nextHop()` does longest match and returns `{ifc, nh, proxy, route}`; `fwd()` uses proxy ARP for exit-interface-only statics. Statics are `{net, len, nh, ifn, ad, name}`.
-- OSPF: `ospfRoutes()` is Dijkstra over `ospfCost()` (interface `ospfCost`, else reference bandwidth `ospf.refBw` / speed). Interfaces may carry `ospfArea` (from `ip ospf PID area N`), `ospfPrio`, `ospfNet` ('point-to-point'). `ospfElect(net)` runs the RFC 2328 election after every command (an `execLine` wrapper in the v3 section) and keeps state in `net.ospfDR[segment]`; `ospfRole(net, d, ifc)` reads it. `ospf.resetting` is set briefly by `clear ip ospf process` so the router leaves every segment.
+- OSPF: `ospfRoutes()` is a per-area SPF (`ospfAreasOf`, `ospfIsAbr`; intra-area routes are `O`, summaries from area border routers are `O IA` and never beat an intra-area route; summaries only cross area 0, so an area without a backbone interface is isolated; `ospfNeighbors` entries carry `area`) over `ospfCost()` (interface `ospfCost`, else reference bandwidth `ospf.refBw` / speed). Interfaces may carry `ospfArea` (from `ip ospf PID area N`), `ospfPrio`, `ospfNet` ('point-to-point'). `ospfElect(net)` runs the RFC 2328 election after every command (an `execLine` wrapper in the v3 section) and keeps state in `net.ospfDR[segment]`; `ospfRole(net, d, ifc)` reads it. `ospf.resetting` is set briefly by `clear ip ospf process` so the router leaves every segment.
 - Layer 2: access ports may have `voiceVlan`. Phones are `pc` devices with `phone:true`, a PC port `FastEthernet1` and a CDP name `cdpId`; `phoneVlan()` gives the VLAN a phone tags with, and `l2peers()` bridges through the phone.
 - NAT: `nat.pools`, pool rules `{acl, pool, overload}`, one-to-one bindings in `nat.dyn`, `nat.hits`/`misses`. `natOut()` returns a reason string when it has to drop a packet. Echo requests use query ID 1 as their "port".
 - ACL entries have `seq` and are kept sorted; `aclLine()` formats standard entries for show access-lists.
@@ -201,11 +201,12 @@ node tests/quiz.cjs
 node tests/duplex.cjs
 node tests/ping6.cjs
 node tests/campaign.cjs
+node tests/ospfarea.cjs
 node tests/ui.cjs
 node tests/guidewin.cjs
 ```
 
-Current result: 74 labs (36 build, 36 incidents, 2 capstones), 421 checks, 1483 guide commands; 54 lessons (36 lab, 18 topic).
+Current result: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1571 guide commands; 56 lessons (38 lab, 18 topic).
 
 On Yasuke's desktop there is no Node install. Claude Code runs the tests with Deno's Node-compatible binary (`%LOCALAPPDATA%\deno\node_compat_bin\node.exe`) and runs `ui.cjs` with Playwright installed by Deno into a folder outside the repo, linked in as `node_modules` (git-ignored), with `LAB4NET_BROWSER_CHANNEL=msedge`.
 
@@ -222,6 +223,7 @@ On Yasuke's desktop there is no Node install. Claude Code runs the tests with De
 - `duplex.cjs` covers autonegotiation, the forced-vs-auto mismatch (link up, CDP warnings, counters), matching ends, half/auto, `clear counters`, speed sensing, a forced speed mismatch (down), `show interfaces status` columns, the PC NIC fallback and the speed exam fault. It runs in GitHub Actions.
 - `ping6.cjs` covers the live IPv6 ping on Windows and IOS (cold first echo, warm cache, repeat/size), show/clear ipv6 neighbors, traceroute and tracert, and the no-route case. It runs in GitHub Actions.
 - `campaign.cjs` reads `CAMPAIGN` out of the page and checks the stages against the lab groups and bosses. It runs in GitHub Actions.
+- `ospfarea.cjs` covers multi-area OSPF: areas and ABRs, O versus O IA with metrics, the route output, the backbone rule, intra beating inter, single-area unchanged. It runs in GitHub Actions.
 - `guidewin.cjs` (optional, Playwright, like `ui.cjs`) serves the page over http and checks the guide window: open, steps to the console, lab changes, reconnect after reload, fall back when closed, dock.
 - `ping.cjs` covers the ping and traceroute output rules (ARP first echo, unreachables, Windows quirks, extended options, abort summaries). It runs in GitHub Actions.
 - `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
@@ -251,6 +253,8 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - Prompts: `exec-timeout` is stored but never fires; `show users` has no idle times; the setup dialog is not simulated (answer no); a reload's boot text is fixed per device type; Telnet to ports other than 23 stays a port test; the IOS SSH client has no host-key prompt (real IOS has none either), but a PC's known hosts are per device and never expire. Password answers are stored in the saved journal in clear text (it is a simulator).
 - Spanning tree: frames follow it, so a blocked port carries nothing and the animated path matches `show spanning-tree`. `no spanning-tree vlan` is modelled: a transparent switch, a self-loop block, and a storm when the whole loop is off. A transparent switch joining three or more STP switches is approximated as pairwise links rather than one shared segment. A storm makes the whole VLAN segment unusable at once (no partial degradation). Costs are the IEEE short values (19, 4; a two-link bundle 12 or 3). Rapid PVST+ and PVST+ converge instantly and identically.
 - MAC address tables learn from the traffic you send from a console (ping, traceroute, telnet, ssh, DHCP, IPv4 and IPv6) plus the computed neighbour rows (CDP and BPDUs); hosts are unknown until they send something. Aging uses the browser clock; after a reload the replayed journal relearns everything with fresh timestamps. No `mac address-table notification`.
+- OSPF areas: no virtual links, no stub or NSSA areas, no external (E1/E2) routes. A transparent (STP-off) switch joining three or more STP switches is approximated as pairwise links.
+- The wireless lab models only the wired side: the AP is a host-type device (its console has the host tools), the controller a server listening on 5246, 5247, 443 and 22; no radios, clients, WLANs or controller GUI.
 - `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. Hello and dead timers must match, as on a real router; a network-type mismatch forms the adjacency but the link is left out of SPF, so routes through it disappear. Authentication is not modelled. Equal-cost paths are not load-shared; one is used.
 - Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
 - show access-lists lists standard entries in sequence order; real IOS may list host entries first.
@@ -271,4 +275,4 @@ Carry this list forward and keep it in every summary.
 
 - Nothing. Yasuke decided on 9 Oct 2026 to keep "test it yourself" (at least one show, ping, traceroute, telnet, ssh, ipconfig or arp during the run) as a requirement for an S rank. Do not remove it.
 
-His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. Done on 9 Oct: the console realism fixes, the guide window, switching realism, prompts (passwords, Telnet/SSH sessions, reload), ping/traceroute with a source and the interactive dialogs, the exam sim (seeded sabotage faults, daily challenge, boss fights), the 110-question theory bank, sandbox rewards, duplex/speed mismatch effects, live IPv6 pings, boss fights, the switching follow-ups (storms, neighbour rows, per-VLAN aging, IPv6 learning) and the campaign. Nothing is owed; ideas for later would be new labs (wireless with a WLC, OSPF multi-area, more IPv6) and a second campaign.
+His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. Done on 9 Oct: the console realism fixes, the guide window, switching realism, prompts (passwords, Telnet/SSH sessions, reload), ping/traceroute with a source and the interactive dialogs, the exam sim (seeded sabotage faults, daily challenge, boss fights), the 110-question theory bank, sandbox rewards, duplex/speed mismatch effects, live IPv6 pings, boss fights, the switching follow-ups (storms, neighbour rows, per-VLAN aging, IPv6 learning) the campaign, multi-area OSPF and the wireless-wiring lab. Nothing is owed; ideas for later: more IPv6 (an OSPFv3 engine would be the big one), a second campaign once the first is cleared.

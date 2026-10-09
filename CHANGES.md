@@ -1,5 +1,22 @@
 # Lab4Net changes
 
+## Multi-area OSPF, and the wired side of a wireless LAN
+
+**Multi-area OSPF in the engine**
+- OSPF now runs its shortest-path calculation per area, over the adjacencies on that area's interfaces. Routes inside your own area are `O`; prefixes an area border router summarises from another area are `O IA`, with the metric being the cost to the ABR plus what the ABR advertised. An intra-area route always wins over an inter-area route to the same prefix, before the metric is compared, as on real gear.
+- An ABR is a router with an interface in area 0 and in another area. It advertises its other areas into each area, and passes summaries it heard over area 0 into its non-backbone areas, never the other way round, so an area that does not touch area 0 is isolated (no virtual links). Moving one end of a link into another area breaks that adjacency, as before.
+- `show ip route` prints `O IA` lines (the legend now lists IA), `show ip route <address>` says "type inter area", `show ip route ospf` lists both kinds, and `show ip ospf` says "It is an area border router" where that is true. Single-area labs behave exactly as before.
+
+**Two new labs, each with a lesson**
+- **Multi-area OSPF** (Routing, lab 37): four routers in a line, R2 and R3 as ABRs between area 1, area 0 and area 2; verify the ABR lines, the neighbours per area and the O IA routes, then ping across. Lesson: "Why OSPF is split into areas".
+- **Incident 37: the area that lost its backbone**: one end of the backbone link was moved into area 1.
+- **Wiring a wireless LAN** (Fundamentals, lab 38): a controller and a lightweight access point on the switch. Management and client VLANs, an access port in the management VLAN for the AP, a trunk with native VLAN 10 for the controller, router-on-a-stick gateways, then prove the AP reaches the controller on CAPWAP (UDP 5246/5247) and that the admin PC can open its web page. Lesson: "How an access point joins its controller" (CAPWAP, which port is which, how the AP finds the controller, where the WLAN itself is built). The AP's console here only has the host tools; the radio side is not simulated.
+- Both labs sit in the campaign (stage 3 and stage 1) and in the exam sim's pool.
+
+Tests: new `tests/ospfarea.cjs` (in GitHub Actions): areas and ABRs, O versus O IA with exact metrics, the route output, the backbone rule two ways, intra beating a cheaper inter-area route, single-area unchanged. `lessons.cjs` now checks 56 lessons; `labs.cjs` 77 labs, 445 checks, 1571 guide commands.
+
+Verification: all sixteen suites pass. In a real browser: both labs opened on their lessons, the solutions graded clean, `show ip route` on R1 showed the three `O IA` routes with metrics 2, 3 and 4, and the wireless lab's final telnet to the controller's port 443 opened.
+
 ## Campaign: the labs as a story in eight stages
 
 **Where**: Lab library → "Campaign →" (first button), or "Campaign" at the top of the Practice group in the lab menu.
