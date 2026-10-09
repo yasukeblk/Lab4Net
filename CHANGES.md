@@ -1,5 +1,12 @@
 # Lab4Net changes
 
+## Boss fights
+
+- Exam sim → **Boss fight**: a finished lab with three hidden faults at once and 30 minutes on the clock. The boss has a health bar in the mission window: its HP is the number of checks still failing, so every Grade is a strike. When it drops, the bar shakes and the hit sounds; at zero it reads BOSS DOWN and the exam is cleared with the normal rank.
+- New trophy: Boss Slayer. Everything else follows the exam rules: no guide, no why, no walkthrough, no clues, results scored as always, and the fault list is revealed as the root cause once you win or the clock runs out.
+
+Verification: all thirteen suites pass. In a real browser: a boss fight started on Standard ACL with three faults (a removed route, a wrong next hop, a deny slipped into the ACL); the first Grade took the boss from 5/5 to 2/5 HP.
+
 ## IPv6 pings and traceroutes play live, with a neighbour cache
 
 - `ping 2001:db8::1` on a router or switch now plays echo by echo like the IPv4 ping, with `repeat` and `size`. Each device keeps an IPv6 neighbour cache (Neighbor Discovery's answer to ARP): the first echo through a cold IOS device is lost (`.!!!!`), the next ping is clean. A router with no route answers `U` when it can reach you back.

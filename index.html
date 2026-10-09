@@ -247,6 +247,10 @@ td:last-child{font:400 18px/1.15 var(--mono);color:var(--ph)}
 .exam-clock{font:400 27px/1 var(--mono);color:var(--yel);text-shadow:0 0 10px rgba(255,210,63,.7);min-width:72px}
 .exam-clock.late{color:#ff8a98;animation:blink 1s steps(1) infinite}
 .exam-note{color:var(--muted);font-size:14px;flex:1}
+.exam-bar.boss-mode{background:linear-gradient(90deg,#3a0a12,#1a0a24);box-shadow:0 0 22px rgba(255,61,106,.45)} .exam-bar.boss-mode b{color:#ff6b7c;text-shadow:0 0 10px rgba(255,61,106,.8)}
+.boss{display:flex;align-items:center;gap:12px;margin:-4px 0 12px;padding:8px 12px;border:3px solid var(--line);background:#120812} .boss b{font:italic 800 18px var(--px);color:#ff6b7c;letter-spacing:.1em} .boss span{font:400 15px var(--mono);color:var(--ph);white-space:nowrap}
+.boss-hp{flex:1;height:16px;border:2px solid var(--line);background:#2a0d14;overflow:hidden} .boss-hp i{display:block;height:100%;background:linear-gradient(90deg,#ff3d6a,#ff8a1f);box-shadow:0 0 12px rgba(255,61,106,.8);transition:width .6s cubic-bezier(.2,1.4,.4,1)}
+.boss.hit{animation:shake .4s ease-in-out}
 .exam-daily{margin:10px 0 14px;padding:10px 14px;border:3px solid var(--line);background:rgba(255,210,63,.07)}
 .exam-opts{display:flex;flex-direction:column;gap:6px;margin:8px 0}.exam-opts.row{flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px}.exam-opts label{cursor:pointer}
 body[data-exam] .guide-row,body[data-exam] .tasks details,body[data-exam] #bSol,body[data-exam] #reference,body[data-exam] #hint.why,body[data-exam] #guideWin,body[data-exam] .steps,body[data-exam] .clue,body[data-exam] .clues{display:none!important}
@@ -4460,7 +4464,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
     ['theory','Theory Check','Answer every theory question correctly.'],['half','Halfway There','Pass half of the labs.'],['all','Full Clear','Pass every lab.'],['streak3','Three-Day Streak','Study three days in a row.'],
     ['detective','Detective','Solve a troubleshooting incident with no clues, guide or walkthrough.'],['faults','Fault Finder','Solve every troubleshooting incident.'],['scholar','Bookworm','Read every lesson.'],
     ['exam','Exam Ready','Clear an exam sim before the clock runs out.'],['saboteur','Fault Hunter','Clear a sabotage exam: hidden faults, no help.'],['daily3','Daily Grind','Clear three daily challenges.'],
-    ['builder','Builder','Complete a sandbox challenge.'],['architect','Architect','Complete every sandbox challenge.']];
+    ['builder','Builder','Complete a sandbox challenge.'],['architect','Architect','Complete every sandbox challenge.'],['boss','Boss Slayer','Win a boss fight: three hidden faults, one clock.']];
   function toast(kicker,title,sub,icon){const t=document.createElement('div');t.className='toast';t.innerHTML=`<i>${icon||'★'}</i><small>${kicker}</small><b>${title}</b><span>${sub}</span>`;$('toasts').appendChild(t);setTimeout(()=>t.remove(),4800);}
   const fresh=[];
   function unlock(id){if(F.ach[id])return;F.ach[id]=Date.now();save();const a=ACH.find(a=>a[0]===id);fresh.push(a[1]);toast('Trophy unlocked',a[1],a[2]);SFX.ach();renderHud();}
@@ -6162,11 +6166,11 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
   const buildLabs=()=>LABS.filter(l=>l.kind==='build'&&!l.capstone&&!l.exam),incidents=()=>LABS.filter(l=>l.kind==='incident');
   window.examStats=()=>({cleared:X.history.filter(h=>h.cleared).length,daily:X.history.filter(h=>h.mode==='daily'&&h.cleared).length});
-  const MODES={sabotage:'A finished lab with hidden faults',lab:'Build it from the checklist',incident:'A broken network to repair',daily:'Daily challenge · two hidden faults'};
+  const MODES={sabotage:'A finished lab with hidden faults',lab:'Build it from the checklist',incident:'A broken network to repair',daily:'Daily challenge · two hidden faults',boss:'Boss fight · three hidden faults'};
   function makeExam(mode,minutes,seed){const rnd=seedRng(seed);let base=null,faults=null;
     if(mode==='incident')base=rpick(rnd,incidents());
     else if(mode==='lab')base=rpick(rnd,buildLabs());
-    else for(const b of shuffled(rnd,buildLabs())){const f=examFault(b,seed+'|'+b.title,mode==='daily'?2:(rnd()<.3?2:1));if(f){base=b;faults=f;break;}}
+    else for(const b of shuffled(rnd,buildLabs())){const want=mode==='boss'?3:mode==='daily'?2:(rnd()<.3?2:1);const f=examFault(b,seed+'|'+b.title,want);if(f&&(mode!=='boss'||f.length>=2)){base=b;faults=f;break;}}
     if(!base)return null;return {mode,seed,base:base.title,faults,minutes,deadline:null,started:null,state:'new',date:today()};}
   // The exam lab object, kept at the end of LABS while the exam exists.
   function labIndex(ex){const title='Exam · '+ex.base;let i=LABS.findIndex(l=>l.exam);
@@ -6195,7 +6199,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   setInterval(tick,1000);
   // No help while an exam runs: the body attribute hides the guide switch, the why, the walkthrough, the command guide and clues.
   const sh0=stepsHtml;stepsHtml=function(k){return cur&&cur.lab&&cur.lab.exam?'':sh0(k);};
-  const TAGS={sabotage:'HIDDEN FAULTS',daily:'DAILY CHALLENGE',lab:'BUILD',incident:'INCIDENT'};
+  const TAGS={sabotage:'HIDDEN FAULTS',daily:'DAILY CHALLENGE',lab:'BUILD',incident:'INCIDENT',boss:'BOSS FIGHT'};
   const lt0=labTag;labTag=function(idx){return LABS[idx]&&LABS[idx].exam?(TAGS[LABS[idx].examMode]||'EXAM'):lt0(idx);};
   // The guide is hidden during an exam, so it must not count as help: switch it off while an exam lab is open, as the capstone block does.
   let savedGuide=null;const ol0=openLab;openLab=function(idx,isFresh){const l=LABS[idx];if(!(l&&l.exam)&&savedGuide!==null){guideOn=savedGuide;savedGuide=null;}ol0(idx,isFresh);
@@ -6205,15 +6209,19 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     document.body.dataset.exam='1';const ex=X.current&&X.current.seed===l.examSeed?X.current:null;
     const state=ex?ex.state:'done',left=ex&&ex.state==='running'?Math.max(0,Math.ceil((ex.deadline-Date.now())/1000)):0;
     const status=state==='running'?`<span class="exam-clock${left<=60?' late':''}" id="examClock">${mmss(left)}</span>`:state==='timeup'?'<span class="exam-clock late">Time\'s up</span>':'<span class="exam-clock">Done</span>';
-    const bar=`<div class="exam-bar"><b>EXAM</b>${status}<span class="exam-note">${esc(MODES[l.examMode]||'')} · ${ex?ex.minutes+' min':''} · no guide, no why, no walkthrough</span>${state==='running'?'<button class="small-btn" id="examQuit" type="button">Quit</button>':'<button class="small-btn" id="examNew" type="button">New exam</button>'}</div>`;
-    $('brief').insertAdjacentHTML('afterbegin',bar);
+    let boss='';if(l.examMode==='boss'){const total=l.checks.length;const hp=cur.graded?cur.graded.filter(g=>!g[1]).length:total;const pct=Math.round(hp/total*100);
+      boss=`<div class="boss"><b>BOSS</b><div class="boss-hp" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${hp}"><i style="width:${pct}%"></i></div><span>${hp?hp+' / '+total+' HP · grade to strike':'BOSS DOWN'}</span></div>`;}
+    const bar=`<div class="exam-bar${l.examMode==='boss'?' boss-mode':''}"><b>${l.examMode==='boss'?'BOSS':'EXAM'}</b>${status}<span class="exam-note">${esc(MODES[l.examMode]||'')} · ${ex?ex.minutes+' min':''} · no guide, no why, no walkthrough</span>${state==='running'?'<button class="small-btn" id="examQuit" type="button">Quit</button>':'<button class="small-btn" id="examNew" type="button">New exam</button>'}</div>`;
+    $('brief').insertAdjacentHTML('afterbegin',bar+boss);
     if($('examQuit'))$('examQuit').onclick=()=>{const ex=X.current;if(ex&&ex.state==='running'){ex.state='quit';const g=l.checks.map(([,f])=>{try{return !!f(cur.net);}catch(e){return false;}});record(ex,false,g.filter(Boolean).length,g.length);}X.current=null;save();notify('Exam ended.');renderBrief();};
     if($('examNew'))$('examNew').onclick=examDialog;
     // grading in an exam records the result; a clear stops the clock
-    $('bGrade').onclick=()=>{const all=gradeNow();if(!all&&$('grade'))$('grade').scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});};};
+    $('bGrade').onclick=()=>{const before=cur.graded?cur.graded.filter(g=>!g[1]).length:l.checks.length,all=gradeNow();
+      if(l.examMode==='boss'&&!all){const hp=cur.graded.filter(g=>!g[1]).length;if(hp<before){sfx('unreach');const b=$('brief').querySelector('.boss');if(b&&!REDUCED){b.classList.remove('hit');void b.offsetWidth;b.classList.add('hit');}}}
+      if(!all&&$('grade'))$('grade').scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});};};
   const cel0=celebrate;celebrate=function(){cel0();const l=cur&&cur.lab,ex=X.current;if(!l||!l.exam||!ex||ex.seed!==l.examSeed||ex.state!=='running')return;
     ex.state='done';save();const run=window.l4nFun&&window.l4nFun.run&&window.l4nFun.run();record(ex,true,l.checks.length,l.checks.length);
-    unlock('exam');if(ex.faults){const noHelp=run&&!run.help&&!run.walk;if(noHelp)unlock('saboteur');}if(window.examStats().daily>=3)unlock('daily3');};
+    unlock('exam');if(ex.faults){const noHelp=run&&!run.help&&!run.walk;if(noHelp)unlock('saboteur');}if(ex.mode==='boss')unlock('boss');if(window.examStats().daily>=3)unlock('daily3');};
   // Leaving the exam lab for another one leaves the clock running until it ends; opening it again shows it.
   // The exam setup card
   function examDialog(){const seedDaily='daily-'+today(),done=X.history.find(h=>h.mode==='daily'&&h.date===today());
@@ -6221,13 +6229,13 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const hist=X.history.slice(-8).reverse().map(h=>`<tr><td>${h.date}</td><td>${esc(h.base)}</td><td>${esc(MODES[h.mode]||h.mode)}</td><td class="${h.cleared?'good':'bad'}">${h.cleared?'Cleared · rank '+(h.rank||'—'):'Not cleared · '+h.passed+'/'+h.total}</td></tr>`).join('');
     dialog('Exam sim',`<p>A random lab, a clock, and no help: no guide, no "why", no walkthrough, no clues. The network is graded as it stands when time runs out. Ranks are scored on results, as always.</p>
       <div class="exam-daily"><div class="eyebrow">Daily challenge · ${today()}</div>${done?`<p><b>${done.cleared?'Cleared today · rank '+(done.rank||'—'):'Attempted today · '+done.passed+'/'+done.total+' checks'}</b> · ${esc(done.base)}</p>`:daily?`<p><b>${esc(daily.base)}</b> with two hidden faults · 20 minutes · the same for everyone today.</p><button class="btn primary" id="exDaily">Start today's challenge →</button>`:'<p>No daily challenge could be built.</p>'}</div>
-      <h3>Pick your own</h3><div class="exam-opts"><label><input type="radio" name="exMode" value="sabotage" checked> <b>Sabotage</b> · a finished lab with one or two hidden faults (never the same twice)</label><label><input type="radio" name="exMode" value="lab"> <b>Build lab</b> · configure it from the checklist alone</label><label><input type="radio" name="exMode" value="incident"> <b>Incident</b> · a troubleshooting incident with no clues</label></div>
+      <h3>Pick your own</h3><div class="exam-opts"><label><input type="radio" name="exMode" value="sabotage" checked> <b>Sabotage</b> · a finished lab with one or two hidden faults (never the same twice)</label><label><input type="radio" name="exMode" value="lab"> <b>Build lab</b> · configure it from the checklist alone</label><label><input type="radio" name="exMode" value="incident"> <b>Incident</b> · a troubleshooting incident with no clues</label><label><input type="radio" name="exMode" value="boss"> <b>Boss fight</b> · three hidden faults at once, a health bar that drops as checks pass (30 minutes)</label></div>
       <div class="exam-opts row"><span>Clock</span>${[10,15,20,30].map(m=>`<label><input type="radio" name="exMin" value="${m}"${m===20?' checked':''}> ${m} min</label>`).join('')}</div>
       <div class="actions"><button class="btn primary" id="exStart">Start exam →</button></div>
       ${hist?`<h3>Recent exams</h3><div class="table-wrap"><table><thead><tr><th>Date</th><th>Lab</th><th>Mode</th><th>Result</th></tr></thead><tbody>${hist}</tbody></table></div>`:''}`);
     if($('exDaily'))$('exDaily').onclick=()=>{$('dialog').close();start(daily);};
     $('exStart').onclick=()=>{const mode=($('dialogBody').querySelector('input[name=exMode]:checked')||{}).value||'sabotage',min=+(($('dialogBody').querySelector('input[name=exMin]:checked')||{}).value||20);
-      let ex=null;try{ex=makeExam(mode,min,mode+'-'+Date.now()+'-'+Math.floor(Math.random()*1e6));}catch(e){ex=null;}if(!ex)return notify('Could not build an exam of that kind.');$('dialog').close();start(ex);};}
+      let ex=null;try{ex=makeExam(mode,mode==='boss'?30:min,mode+'-'+Date.now()+'-'+Math.floor(Math.random()*1e6));}catch(e){ex=null;}if(!ex)return notify('Could not build an exam of that kind.');$('dialog').close();start(ex);};}
   window.examDialog=examDialog;
   // entry points: the lab library's practice buttons and the lab menu
   const lib0=library;library=function(){lib0();const pb=$('dialogBody').querySelector('.practice-buttons');if(pb&&!$('examBtn')){pb.insertAdjacentHTML('beforeend','<button class="btn" id="examBtn">Exam sim →</button>');$('examBtn').onclick=()=>{$('dialog').close();examDialog();};}};
