@@ -577,6 +577,10 @@ ul.plain li{margin-bottom:8px}
 <script>
 //ENGINE-START
 const CR='<cr>'; // in guides, tests and journals: press Enter (an empty line)
+// The engine's clock for anything whose outcome depends on time (login quiet mode, MAC aging). It is the real clock,
+// except while saved work is replayed: replay sets SIM_NOW to the time each command was first typed (journal t),
+// so a replay reproduces exactly what happened live instead of running the whole history in one instant.
+let SIM_NOW=null;function simNow(){return SIM_NOW!=null?SIM_NOW:Date.now();}
 const ip2n=s=>{const p=String(s).split('.');if(p.length!==4)return null;let n=0;for(const x of p){if(!/^\d+$/.test(x)||+x>255)return null;n=n*256+ +x;}return n;};
 const n2ip=n=>[n>>>24,(n>>>16)&255,(n>>>8)&255,n&255].join('.');
 const isIp=s=>ip2n(s)!==null;
@@ -1301,7 +1305,9 @@ function stpCalc(net,v){const sws=Object.values(net.devs).filter(d=>d.type==='sw
     while(q.length){const [nb,inIfn]=q.shift();if(nb.type!=='switch'||!nb.vlans[v])continue;if(!stpOff(nb,v))return nb.name;if(been.has(nb.name))continue;been.add(nb.name);
       for(const x of Object.values(nb.ifs)){if(x.name===inIfn||!x.link||x.routed||x.name.startsWith('Vlan')||!ifUp(net,nb,x)||!(x.mode==='trunk'?allowed(x,v):x.accessVlan===v||x.voiceVlan===v))continue;const y=net.devs[x.link.dev];if(y.type!=='switch'||!y.vlans[v])continue;if(!stpOff(y,v))return y.name;if(!been.has(y.name))q.push([y,x.link.ifn]);}}
     return p.link.dev;}
-  const ports=new Map(sws.map(s=>[s.name,stpPorts(s)])),isSw=n=>{const x=net.devs[n];return x.type==='switch'&&!!x.vlans[v];};
+  // Only switches that run STP for this VLAN are neighbours in the tree. A port whose chain of STP-off switches
+  // dead-ends (through() returns an STP-off switch) leads to no bridge, so it is treated like an edge port.
+  const ports=new Map(sws.map(s=>[s.name,stpPorts(s)])),isSw=n=>ports.has(n);
   // Connected groups of switches; each group elects the lowest bridge ID it can hear as its root.
   const comp=new Map();
   for(const s of sws){if(comp.has(s.name))continue;const grp=[s];comp.set(s.name,null);
@@ -3545,7 +3551,7 @@ const MACRE=/^[0-9a-f]{4}\.[0-9a-f]{4}\.[0-9a-f]{4}$/i;
 // The source MAC a device puts on a frame it sends from an interface: hosts have one address; router and switch
 // ports each have their own; a switch's SVIs and port-channels use the chassis address.
 function macTx(net,d,i){if(d.type==='pc')return macOf(d);const p=phys(d,i);return p.name.startsWith('Vlan')||p.name.startsWith('Port-channel')?macOf(d):macIf(d,p);}
-const macNow=()=>Date.now();
+const macNow=()=>simNow();
 // Neighbours announce themselves all the time (CDP every 60 s, BPDUs every 2 s), so a switch always knows the MAC of the
 // switch or router port on the other end of a link: these rows are computed, never age, and come straight back after a clear.
 function macBackground(net,sw){const rows=[];if(sw.type!=='switch')return rows;for(const p of Object.values(sw.ifs)){if(!p.link||!physIf(p)||p.routed||!ifUp(net,sw,p))continue;const nb=net.devs[p.link.dev],np=nb.ifs[p.link.ifn];if(nb.type==='pc')continue;
@@ -3719,8 +3725,8 @@ function lineLogin(d,kind){const l=(d.lines||{})[kind]||{};if(!l.login)return nu
 const iosClock=()=>{const t=new Date(),p=n=>String(n).padStart(2,'0'),D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return p(t.getUTCHours())+':'+p(t.getUTCMinutes())+':'+p(t.getUTCSeconds())+' UTC '+D[t.getUTCDay()]+' '+M[t.getUTCMonth()]+' '+t.getUTCDate()+' '+t.getUTCFullYear();};
 // Login block: after too many failures inside the watch window the device refuses every new login for a while.
-function quietMode(net,d){if(!d.quietUntil)return false;if(Date.now()<d.quietUntil)return true;delete d.quietUntil;logEvent(net,d,'%SEC_LOGIN-5-QUIET_MODE_OFF: Quiet Mode is OFF, because block period timed out at '+iosClock());return false;}
-function loginFailed(net,d,srcIp,user,port){const now=Date.now(),B=d.blockFor;d.loginTotal=(d.loginTotal||0)+1;
+function quietMode(net,d){if(!d.quietUntil)return false;if(simNow()<d.quietUntil)return true;delete d.quietUntil;logEvent(net,d,'%SEC_LOGIN-5-QUIET_MODE_OFF: Quiet Mode is OFF, because block period timed out at '+iosClock());return false;}
+function loginFailed(net,d,srcIp,user,port){const now=simNow(),B=d.blockFor;d.loginTotal=(d.loginTotal||0)+1;
   if(d.loginLog&&d.loginLog.fail)logEvent(net,d,'%SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: '+(user||'')+'] [Source: '+n2ip(srcIp)+'] [localport: '+port+'] [Reason: Login Authentication Failed - BadPassword] at '+iosClock());
   if(!B||quietMode(net,d))return;(d.loginFails=d.loginFails||[]).push(now);d.loginFails=d.loginFails.filter(t=>now-t<=B.w*1000);
   if(d.loginFails.length>=B.a){d.quietUntil=now+B.b*1000;d.loginFails=[];
@@ -3748,7 +3754,9 @@ function conLogin(e){const d=e.d,s=e.s,how=lineLogin(d,'con');
 {const c=CMDS.find(c=>c.pat.join(' ')==='exit'&&c.modes.includes('user'));c.fn=e=>{if(e.s.vty){e.s.closed=true;return;}conLogout(e);};
  C(EX,'logout',e=>c.fn(e));}
 // enable asks for the secret (or the enable password when there is no secret). Three misses: % Bad secrets.
-{const c=CMDS.find(c=>c.pat.join(' ')==='enable'&&c.modes.includes('user'));c.fn=e=>{const d=e.d,s=e.s,pw=d.secret||d.enPass;if(!pw){s.mode='priv';return;}
+// With neither set, the console goes straight in, but a VTY (Telnet/SSH) session is refused: IOS says
+// "% No password set", which is why a router cannot be managed remotely without an enable secret.
+{const c=CMDS.find(c=>c.pat.join(' ')==='enable'&&c.modes.includes('user'));c.fn=e=>{const d=e.d,s=e.s,pw=d.secret||d.enPass;if(!pw){if(s.vty)return e.out('% No password set');s.mode='priv';return;}
   let tries=0;const again=()=>ask(s,'Password: ',(a,env)=>{if(a===pw){s.mode='priv';return;}tries++;if(tries>=3)return env.out('% Bad secrets');again();},true);again();};}
 // A remote session: telnet or ssh into a device that listens, then that device's own login.
 const closeMsg=R=>R.win?(R.proto==='ssh'?'Connection to '+n2ip(R.ip)+' closed.':'Connection to host lost.'):'[Connection to '+n2ip(R.ip)+' closed by foreign host]';
@@ -3792,8 +3800,8 @@ Cn('config','no login on-success <rest?>',e=>{if(e.d.loginLog)e.d.loginLog.succe
 {const c=CMDS.find(c=>c.pat.join(' ')==='show login');c.fn=e=>{const d=e.d,B=d.blockFor,q=quietMode(e.net,d);const L=[];
   if(!B)L.push('     No login delay has been applied.','     No Quiet-Mode access list has been configured.','','     Router NOT enabled to watch for login Attacks');
   else{L.push('     A login delay of 1 seconds is applied.','     No Quiet-Mode access list has been configured.','','     Router enabled to watch for login Attacks.','     If more than '+B.a+' login failures occur in '+B.w+' seconds or less,','     logins will be disabled for '+B.b+' seconds.','');
-    if(q)L.push('     Router presently in Quiet-Mode.','     Will remain in Quiet-Mode for '+Math.max(1,Math.ceil((d.quietUntil-Date.now())/1000))+' seconds.','     Denying logins from all sources.');
-    else{const f=(d.loginFails||[]).filter(t=>Date.now()-t<=B.w*1000);L.push('     Router presently in Normal-Mode.','     Current Watch Window','         Time remaining: '+(f.length?Math.max(1,Math.ceil((f[0]+B.w*1000-Date.now())/1000)):B.w)+' seconds.','         Login failures for current window: '+f.length+'.','     Total login failures: '+(d.loginTotal||0)+'.');}}
+    if(q)L.push('     Router presently in Quiet-Mode.','     Will remain in Quiet-Mode for '+Math.max(1,Math.ceil((d.quietUntil-simNow())/1000))+' seconds.','     Denying logins from all sources.');
+    else{const f=(d.loginFails||[]).filter(t=>simNow()-t<=B.w*1000);L.push('     Router presently in Normal-Mode.','     Current Watch Window','         Time remaining: '+(f.length?Math.max(1,Math.ceil((f[0]+B.w*1000-simNow())/1000)):B.w)+' seconds.','         Login failures for current window: '+f.length+'.','     Total login failures: '+(d.loginTotal||0)+'.');}}
   e.out(...L);};}
 {const ge0=globalExtra;globalExtra=function(d){const L=ge0(d);if(d.loginLog&&d.loginLog.fail)L.push('login on-failure log');if(d.loginLog&&d.loginLog.success)L.push('login on-success log');return L;};}
 
@@ -3929,8 +3937,11 @@ function examLab(base,faults,title){const l=Object.assign({},base,{title,group:'
   l.tasks=base.tasks.slice();return l;}
 // ---------- duplex and speed: autonegotiation, mismatches, interface counters ----------
 // Each physical port settles its speed and duplex against the far end (IEEE 802.3 rules): two forced, different
-// speeds keep the link down; a forced speed on one end is sensed by an auto end; a forced duplex on one end leaves an
-// autonegotiating end at half duplex, which is the classic mismatch. A mismatch keeps the link up and lets light
+// speeds keep the link down; a forced speed on one end is sensed by an auto end. A port stops autonegotiating only
+// when BOTH its speed and duplex are hard-coded; forcing just one of them limits what it advertises. An
+// autonegotiating port facing one that does not negotiate senses the speed and falls back to half duplex at 10 or
+// 100 Mb/s, and full at 1000 Mb/s (half-duplex gigabit does not exist in practice). So the classic mismatch is
+// "speed 100 + duplex full" on one end against auto on the other. A mismatch keeps the link up and lets light
 // traffic through, logs %CDP-4-DUPLEX_MISMATCH on both ends when CDP sees it, and shows up in the counters: late
 // collisions on the half-duplex end, CRC errors and runts on the full-duplex end. PC NICs always autonegotiate.
 const defSpeed=i=>i.name.startsWith('Gigabit')?'1000':'100';
@@ -3938,7 +3949,12 @@ function linkSettle(net,d,i){const p=i.link&&net.devs[i.link.dev],q=p&&p.ifs[i.l
   if(!physIf(i)||!q)return {speed:i.speed||defSpeed(i),duplex:i.duplex||'full',farDuplex:i.duplex||'full',speedOk:true,mismatch:false};
   const my=i.speed||null,far=q.speed||null;let speed,speedOk=true;
   if(my&&far){speed=my;speedOk=my===far;}else if(my)speed=my;else if(far)speed=far;else speed=String(Math.min(+defSpeed(i),+defSpeed(q)));
-  const duplex=i.duplex||(q.duplex?'half':'full'),farDuplex=q.duplex||(i.duplex?'half':'full');
+  const neg=x=>!(x.speed&&x.duplex),adv=x=>x.duplex?[x.duplex]:['full','half'],fall=+speed>=1000?'full':'half';
+  let duplex,farDuplex;
+  if(neg(i)&&neg(q)){const c=adv(i).filter(x=>adv(q).includes(x));if(c.length)duplex=farDuplex=c.includes('full')?'full':'half';else{duplex=i.duplex;farDuplex=q.duplex;}}
+  else if(neg(i)){duplex=i.duplex||fall;farDuplex=q.duplex;}
+  else if(neg(q)){duplex=i.duplex;farDuplex=q.duplex||fall;}
+  else{duplex=i.duplex;farDuplex=q.duplex;}
   return {speed,duplex,farDuplex,speedOk,mismatch:speedOk&&duplex!==farDuplex};}
 {const up0=ifUp;ifUp=function(net,d,i){const r=up0(net,d,i);if(!r||!physIf(i)||!i.link)return r;return linkSettle(net,d,i).speedOk;};}
 function duplexMismatches(net,d){if(d.type==='pc'||d.cdp===false)return [];const r=[];
@@ -4102,11 +4118,19 @@ function saveWork(){if(cur?.view==='lab'){drafts[cur.lab.title]={journal:cur.jou
 function notify(text){$('notice').textContent=text;}
 function sessions(net){const sess={};for(const [n,d] of Object.entries(net.devs))sess[n]={mode:d.type==='pc'?'pc':'user',ctx:null,lines:[d.type==='pc'?'Host console · ipconfig, ping, tracert, telnet, ssh':d.hostname+' console ready',''],hist:[],hi:0,fresh:0};return sess;}
 function push(s,lines){s.lines.push(...lines);if(s.lines.length>600)s.lines.splice(0,s.lines.length-600);}
+// A simulator bug must never leave the page half-updated or throw saved work away: the console shows an error line
+// for that one command, and replay carries on with the rest of the journal.
+function safeExec(net,d,s,line){try{return execLine(net,d,s,line);}catch(e){console.error('Lab4Net engine error on "'+line+'":',e);s.pace=null;if(s.prompt)s.prompt=null;return ['% Lab4Net internal error: '+String(e&&e.message||e).slice(0,160),'% The command did not complete. The rest of the lab still works.'];}}
+// A journal entry is {device, line, t}: t is when it was typed (ms), so replay can run it at that time.
+function jEntry(e){const o={device:e.device,line:e.line};if(typeof e.t==='number'&&isFinite(e.t))o.t=e.t;return o;}
 function replay(lab,draft){const net=lab.build(),sess=sessions(net);const journal=draft?.journal||[];
   if(!Array.isArray(journal)||journal.length>5000)throw Error('Invalid command history');
-  for(const entry of journal){if(!entry||!Object.hasOwn(net.devs,entry.device)||typeof entry.line!=='string'||entry.line.length>512||/[\r\n]/.test(entry.line))throw Error('Invalid saved command');
-    const d=net.devs[entry.device],s=sess[entry.device],pr=effPrompt(s);push(s,['\u0001'+promptOf(d,s)+(pr&&pr.mask?'':entry.line),...(o=>o.length?o.join('\n').split('\n'):[])(execLine(net,d,s,entry.line))]);s.hist.push(entry.line);s.hi=s.hist.length;drainConsoles(net,sess,null);}
-  TRACE=null;return {net,sess,journal:journal.map(e=>({device:e.device,line:e.line}))};}
+  try{for(const entry of journal){if(!entry||!Object.hasOwn(net.devs,entry.device)||typeof entry.line!=='string'||entry.line.length>512||/[\r\n]/.test(entry.line))throw Error('Invalid saved command');
+    if(typeof entry.t==='number'&&isFinite(entry.t))SIM_NOW=entry.t;
+    // A masked answer (a password) is shown and kept out of history exactly as it was live.
+    const d=net.devs[entry.device],s=sess[entry.device],pr=effPrompt(s),masked=!!(pr&&pr.mask);push(s,['\u0001'+promptOf(d,s)+(masked?'':entry.line),...(o=>o.length?o.join('\n').split('\n'):[])(safeExec(net,d,s,entry.line))]);if(entry.line.trim()&&!masked)s.hist.push(entry.line);s.hi=s.hist.length;drainConsoles(net,sess,null);}}
+  finally{SIM_NOW=null;}
+  TRACE=null;return {net,sess,journal:journal.map(jEntry)};}
 function openLab(idx,fresh=false){if(cur?.view==='lab'&&!fresh)saveWork();const lab=LABS[idx];let state;
   try{state=replay(lab,fresh?null:drafts[lab.title]);}catch(e){state=replay(lab,null);notify('Could not restore this lab. A fresh topology is ready.');}
   cur={view:'lab',idx,lab,...state,sel:lab.start,graded:null,showSol:false,tasks:fresh?[]:(drafts[lab.title]?.tasks||[]),intro:true,links:{},trace:null};
@@ -4143,7 +4167,7 @@ function mobilePanel(network){document.body.classList.toggle('mobile-network',ne
 function execute(line){if(cur.view!=='lab')return;streamStop(false);const{net,sess,sel}=cur,s=sess[sel],d=net.devs[sel];TRACE=null;
   if(line.length>512){notify('Keep each command under 512 characters.');return;}
   if(cur.journal.length>=5000){notify('This lab has reached its saved command limit. Export your work, then start over.');return;}
-  const pr=effPrompt(s),masked=!!(pr&&pr.mask);push(s,['\u0001'+promptOf(d,s)+(masked?'':line)]);if(line.trim()||pr){if(line.trim()&&!masked)s.hist.push(line);s.last=null;s.pace=null;s.lastOut=[];const out=execLine(net,d,s,line);if(out.length){const L=out.join('\n').split('\n');s.lastOut=L;if(s.pace&&L.length===out.length&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)streamStart(s,L,s.pace);else push(s,L);}s.pace=null;drainConsoles(net,sess,STREAM&&STREAM.s===s?sel:null);cur.journal.push({device:sel,line});const w=s.last&&WHYC[s.last];$('hint').textContent=w?'Why: '+w:HINT;$('hint').className=w?'why':'';}
+  const pr=effPrompt(s),masked=!!(pr&&pr.mask);push(s,['\u0001'+promptOf(d,s)+(masked?'':line)]);if(line.trim()||pr){if(line.trim()&&!masked)s.hist.push(line);s.last=null;s.pace=null;s.lastOut=[];const out=safeExec(net,d,s,line);if(out.length){const L=out.join('\n').split('\n');s.lastOut=L;if(s.pace&&L.length===out.length&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)streamStart(s,L,s.pace);else push(s,L);}s.pace=null;drainConsoles(net,sess,STREAM&&STREAM.s===s?sel:null);cur.journal.push({device:sel,line,t:Date.now()});const w=s.last&&WHYC[s.last];$('hint').textContent=w?'Why: '+w:HINT;$('hint').className=w?'why':'';}
   s.hi=s.hist.length;if(cur.graded){cur.graded=null;$('grade').innerHTML='<p>Commands run since grading. Grade again to check the current network.</p>';}drawTopo();renderTerm();if(TRACE){cur.trace=TRACE;renderTrace();playTrace(TRACE);}saveWork();}
 // ---------- live console output (ping, traceroute) ----------
 // The engine attaches timing to ping and traceroute output (s.pace). The console plays it back a character or
@@ -4258,7 +4282,7 @@ const QUIZ=[
   ["Routing", "Which OSPF router becomes the DR on a multi-access segment?", ["The one with the most interfaces", "The one that booted first", "The one with the lowest router ID", "The one with the highest interface priority, then highest router ID"], 3, "Priority wins first (default 1; 0 means never). Ties go to the highest router ID. Once elected, a DR is not pre-empted by a better router joining later."],
   ["Routing", "How is the OSPF router ID chosen when none is configured?", ["The lowest IP of any interface", "The highest IP of any loopback, otherwise the highest IP of an active interface", "The MAC address of the first interface", "The hostname converted to a number"], 1, "Configure it explicitly with router-id so it is predictable; otherwise loopbacks are preferred, then physical interfaces. A new router ID takes effect only after clear ip ospf process or a reload."],
   ["Routing", "Two OSPF routers on the same link will not become neighbours if…", ["One has a loopback", "They have different router IDs", "Their hello and dead timers differ", "They are in area 0"], 2, "Hello and dead intervals, area ID, subnet and mask, authentication and the stub flag must all match. Router IDs must differ, not match."],
-  ["Routing", "What is the default OSPF cost of a FastEthernet interface with the default reference bandwidth?", ["100", "64", "1", "10"], 3, "Cost = reference bandwidth (100 Mbps) divided by interface bandwidth: 100/100 = 10. A GigabitEthernet interface also gets 1, which is why auto-cost reference-bandwidth is often raised."],
+  ["Routing", "What is the default OSPF cost of a FastEthernet interface with the default reference bandwidth?", ["100", "64", "1", "10"], 2, "Cost = reference bandwidth (100 Mbps) divided by interface bandwidth: 100/100 = 1. A 10 Mbps Ethernet interface gets 10. A GigabitEthernet interface also gets 1, because the cost cannot go below 1, which is why auto-cost reference-bandwidth is often raised."],
   ["Routing", "What does passive-interface do to an OSPF interface?", ["Stops OSPF advertising its subnet", "Stops hellos, so no neighbours form there, while its subnet is still advertised", "Lowers its cost to 1", "Makes it the DR"], 1, "Use it on LAN interfaces that face only hosts: the network is still in OSPF, but the router stops sending hellos out of it."],
   ["Routing", "In HSRP, which router forwards traffic sent to the virtual IP?", ["The router with the highest priority always, even without preempt", "All routers in the group, in turn", "The active router; the standby takes over if it fails", "The router with the lowest IP"], 2, "One active router owns the virtual IP and MAC. Without preempt, a router with a higher priority that comes back does not take the role until the active router fails."],
   ["Routing", "Which command shows the OSPF neighbours and their state?", ["show ip protocols", "show ip ospf database", "show ip route ospf", "show ip ospf neighbor"], 3, "show ip ospf neighbor lists each neighbour, its state (FULL, 2WAY, EXSTART…), the DR/BDR role and the interface. FULL/DR or FULL/BDR means a working adjacency."],
@@ -4783,7 +4807,7 @@ $('studyMap').onclick=studyMap;
     $('ipDhcp').onclick=()=>{$('dialog').close();select(n);execute('ipconfig /renew');};}
   function renameDialog(n){dialog('Rename '+n,`<p>Letters, digits and hyphens, starting with a letter. On routers and switches this is the device label; the <code>hostname</code> command still sets the prompt.</p><input id="rnName" class="search" autocomplete="off" value="${esc(n)}" maxlength="15"><div class="actions"><button class="btn primary" id="rnOk">Rename</button></div><p id="rnMsg" role="status" class="bad"></p>`);
     const go=()=>{const v=$('rnName').value.trim();if(v===n)return $('dialog').close();if(!/^[A-Za-z][A-Za-z0-9-]{0,14}$/.test(v))return $('rnMsg').textContent='Use letters, digits and hyphens, starting with a letter.';if(def.devs.some(d=>d.name===v))return $('rnMsg').textContent='Another device already has that name.';
-      def.devs.find(d=>d.name===n).name=v;for(const l of def.links){if(l.a===n)l.a=v;if(l.b===n)l.b=v;}cur.journal=cur.journal.map(e=>e.device===n?{device:v,line:e.line}:e);if(cur.sel===n)cur.sel=v;$('dialog').close();rebuild();};
+      def.devs.find(d=>d.name===n).name=v;for(const l of def.links){if(l.a===n)l.a=v;if(l.b===n)l.b=v;}cur.journal=cur.journal.map(e=>e.device===n?{...jEntry(e),device:v}:e);if(cur.sel===n)cur.sel=v;$('dialog').close();rebuild();};
     $('rnOk').onclick=go;$('rnName').onkeydown=e=>{if(e.key==='Enter')go();};$('rnName').select();}
   function noteDialog(i){const n=i==null?null:def.notes[i];dialog(n?'Edit note':'Add a note',`<p>A short label on the map, such as a subnet or a site name. Drag it wherever you like.</p><input id="ntText" class="search" autocomplete="off" maxlength="60" value="${n?esc(n.text):''}" placeholder="LAN A · 192.168.1.0/24"><div class="actions"><button class="btn primary" id="ntOk">${n?'Save note':'Add note'}</button></div>`);
     const go=()=>{const t=$('ntText').value.trim();if(!t)return;if(n)n.text=t;else{if(def.notes.length>=30)return notify('The sandbox holds up to 30 notes.');const v=view();def.notes.push({text:t,x:Math.round(v.x+v.w/2),y:Math.round(v.y+30+def.notes.length%6*18)});}$('dialog').close();saveDef();drawTopo();};
@@ -4836,7 +4860,7 @@ $('studyMap').onclick=studyMap;
   function saveFile(){const url=URL.createObjectURL(new Blob([JSON.stringify({format:'lab4net-sandbox',version:1,def,journal:cur.journal},null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='lab4net-sandbox.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Sandbox saved to lab4net-sandbox.json.');}
   async function loadFile(file){try{if(!file)return;if(file.size>2*1024*1024)throw Error('the file is larger than 2 MB');const p=JSON.parse(await file.text());if(p.format!=='lab4net-sandbox')throw Error('it is not a Lab4Net sandbox file');
       const next=clean(p.def);if(!next)throw Error('its devices or cables are not valid');const names=new Set(next.devs.map(d=>d.name));
-      const journal=(Array.isArray(p.journal)?p.journal:[]).filter(e=>e&&names.has(e.device)&&typeof e.line==='string'&&e.line.length<=512&&!/[\r\n]/.test(e.line)).slice(0,5000).map(e=>({device:e.device,line:e.line}));
+      const journal=(Array.isArray(p.journal)?p.journal:[]).filter(e=>e&&names.has(e.device)&&typeof e.line==='string'&&e.line.length<=512&&!/[\r\n]/.test(e.line)).slice(0,5000).map(jEntry);
       const keep=def;def=next;try{replay(SBX,{journal});}catch(e){def=keep;throw Error('its cables use ports that do not exist');}def=keep;
       replaceWith(next,journal,'Sandbox loaded from file.');}catch(err){notify('Could not load that file: '+err.message+'.');}}
 
@@ -4915,7 +4939,7 @@ $('studyMap').onclick=studyMap;
 
 // ---------- backup: include ranks, trophies, layout and the sandbox in Transfer progress ----------
 (function(){
-  const EXTRA=['lab4net-fun-v1','lab4net-sandbox-v1','lab4net-layout-v3','lab4net-guide','lab4net-guide-pop','lab4net-last','lab4net-incident-hints','lab4net-capstone-guide','lab4net-lessons-v1'];
+  const EXTRA=['lab4net-fun-v1','lab4net-sandbox-v1','lab4net-layout-v3','lab4net-guide','lab4net-guide-pop','lab4net-last','lab4net-incident-hints','lab4net-capstone-guide','lab4net-lessons-v1','lab4net-exam-v1','lab4net-campaign-v1','lab4net-sbx-done-v1'];
   const tr0=transfer;transfer=function(){tr0();
     $('export').onclick=()=>{saveWork();const extras={};for(const k of EXTRA){try{const v=localStorage.getItem(k);if(v!=null)extras[k]=v;}catch(e){}}
       const sj=drafts.Sandbox&&Array.isArray(drafts.Sandbox.journal)?drafts.Sandbox.journal:[];
@@ -4926,7 +4950,7 @@ $('studyMap').onclick=studyMap;
       setTimeout(()=>{const st=$('transferStatus');if(st&&/^Import failed/.test(st.textContent))return;
         try{const pend={};for(const k of EXTRA){const v=p.extras[k];if(typeof v!=='string'||v.length>2e6)continue;if(/-v\d$/.test(k)){try{JSON.parse(v);}catch(x){continue;}}pend[k]=v;}
           localStorage.setItem('lab4net-pending',JSON.stringify(pend));
-          if(Array.isArray(p.sandboxJournal)){drafts.Sandbox={journal:p.sandboxJournal.filter(x=>x&&typeof x.device==='string'&&typeof x.line==='string'&&x.line.length<=512&&!/[\r\n]/.test(x.line)).slice(0,5000).map(x=>({device:x.device,line:x.line})),tasks:[]};persist();}
+          if(Array.isArray(p.sandboxJournal)){drafts.Sandbox={journal:p.sandboxJournal.filter(x=>x&&typeof x.device==='string'&&typeof x.line==='string'&&x.line.length<=512&&!/[\r\n]/.test(x.line)).slice(0,5000).map(jEntry),tasks:[]};persist();}
           if(st){st.textContent='Backup imported. Lab progress is restored now; reload to bring in ranks, trophies, your window layout and the sandbox. ';const btn=document.createElement('button');btn.className='small-btn';btn.textContent='Reload now';btn.onclick=()=>location.reload();st.appendChild(btn);}
         }catch(x){}},700);});};
   $('transfer').onclick=transfer;
@@ -6342,7 +6366,10 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 // runs out the network is graded as it stands. Ranks are scored on results, exactly as in any lab.
 (function(){
   const KEY='lab4net-exam-v1';let X={current:null,history:[]};
-  try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object')X=Object.assign(X,p);}catch(e){}
+  try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object'&&!Array.isArray(p))X=Object.assign(X,p);}catch(e){}
+  // A damaged store (a backup edited by hand, an older format) is repaired rather than allowed to break the page.
+  if(!Array.isArray(X.history))X.history=[];X.history=X.history.filter(h=>h&&typeof h==='object'&&typeof h.base==='string');
+  if(X.current&&(typeof X.current!=='object'||typeof X.current.seed!=='string'||typeof X.current.base!=='string'))X.current=null;
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(X));}catch(e){}};
   const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
   const sfx=n=>{const f=window.l4nFun&&window.l4nFun.sfx;if(f&&f[n])try{f[n]();}catch(e){}};
@@ -6369,8 +6396,11 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     X.history.push({date:today(),base:ex.base,mode:ex.mode,tag:ex.tag||null,cleared,passed,total,rank:cleared&&r?r.rank||null:null,secs:Math.round((Date.now()-ex.started)/1000),minutes:ex.minutes});X.history=X.history.slice(-40);save();}
   function gradeNow(){const l=cur.lab;cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});const all=cur.graded.every(g=>g[1]);
     if(all){progress[l.title]=true;persist();celebrate();}renderLabs();renderBrief();return all;}
-  function timeUp(){const ex=X.current;if(!ex)return;ex.state='timeup';save();sfx('timeup');const all=gradeNow();
-    if(!all){const ok=cur.graded.filter(g=>g[1]).length;record(ex,false,ok,cur.graded.length);$('tin').disabled=true;
+  // The network is graded as it stands when the clock runs out. Grade while the exam still counts as running, so an
+  // all-passing network is recorded as a clear by the celebrate wrapper (which ends the exam); only a failing one is a time-up.
+  function timeUp(){const ex=X.current;if(!ex)return;sfx('timeup');const all=gradeNow();
+    if(all&&ex.state==='running'){ex.state='done';save();record(ex,true,cur.graded.length,cur.graded.length);}
+    if(!all){ex.state='timeup';save();const ok=cur.graded.filter(g=>g[1]).length;record(ex,false,ok,cur.graded.length);$('tin').disabled=true;
       $('resultBody').innerHTML=`<div class="result"><div class="stamp rD">×</div><div class="rrows"><div style="--i:0"><span>Time's up</span><b>${ok}/${cur.graded.length} checks passed</b></div><div style="--i:1"><span>What was wrong</span><b>${esc(l4nExamCause())}</b></div></div></div><p>The network was graded as it stood when the clock ran out. Review it as long as you like; nothing more counts for this exam.</p><div class="actions"><button class="btn primary" id="exReview">Review the network</button><button class="btn" id="exAgain">New exam</button></div>`;
       $('resultCard').hidden=false;$('exReview').onclick=()=>{$('resultCard').hidden=true;$('tin').disabled=false;$('tin').focus();};$('exAgain').onclick=()=>{$('resultCard').hidden=true;$('tin').disabled=false;examDialog();};}
     renderBrief();}
@@ -6434,11 +6464,11 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   // the why line after a command stays quiet during an exam
   const ex0=execute;execute=function(line){ex0(line);if(cur&&cur.lab&&cur.lab.exam){$('hint').textContent=HINT;$('hint').className='';}};
   // resume a running exam after a reload
-  if(X.current&&X.current.state==='running'){const i=labIndex(X.current);if(i>=0)openLab(i,false);}
+  try{if(X.current&&X.current.state==='running'){const i=labIndex(X.current);if(i>=0)openLab(i,false);}}catch(e){console.error('Could not resume the exam:',e);X.current=null;save();}
   if(cur&&cur.view==='lab')renderAll();
 })();
 // ---------- sandbox challenges count: XP and trophies for completed challenges ----------
-(function(){const KEY='lab4net-sbx-done-v1';let D={};try{D=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}
+(function(){const KEY='lab4net-sbx-done-v1';let D={};try{D=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}if(typeof D!=='object'||Array.isArray(D))D={};
   window.sandboxStats=()=>({done:Object.keys(D).length});
   window.l4nSbxDone=function(i,total){if(!D[i]){D[i]=Date.now();try{localStorage.setItem(KEY,JSON.stringify(D));}catch(e){}}
     const f=window.l4nFun;if(f&&f.unlock){f.unlock('builder');if(Object.keys(D).length>=total)f.unlock('architect');}if(f&&f.check)f.check();};
@@ -6474,7 +6504,7 @@ const CAMPAIGN=[
   outro:'Two networks built from nothing, both passing every check. Harbor Street Logistics has a network engineer. The campaign is complete; the exam sim and the daily challenge will keep you sharp.'}
 ];
 (function(){
-  const KEY='lab4net-campaign-v1';let C={stage:null};try{C=Object.assign(C,JSON.parse(localStorage.getItem(KEY)||'{}')||{});}catch(e){}
+  const KEY='lab4net-campaign-v1';let C={stage:null};try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object'&&!Array.isArray(p))C=Object.assign(C,p);}catch(e){}if(C.stage!==null&&typeof C.stage!=='string')C.stage=null;
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(C));}catch(e){}};
   const sfx=n=>{const f=window.l4nFun&&window.l4nFun.sfx;if(f&&f[n])try{f[n]();}catch(e){}};
   const unlock=id=>{if(window.l4nFun&&window.l4nFun.unlock)window.l4nFun.unlock(id);};

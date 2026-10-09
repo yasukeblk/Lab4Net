@@ -17,12 +17,21 @@ let net=solve('Static routing');const R1=net.devs.R1,R2=net.devs.R2,s1=S(),s2=S(
 const r1=R1.ifs['GigabitEthernet0/1'],r2=R2.ifs['GigabitEthernet0/0'];
 let st=linkSettle(net,R1,r1);assert.deepEqual([st.speed,st.duplex,st.mismatch,st.speedOk],['1000','full',false,true],'both auto: gigabit full duplex');
 assert.match(go(net,R1,s1,'show interfaces g0/1').text,/Full Duplex, 1Gbps/);
-// one end forced full, the other still auto: the auto end falls back to half duplex, both log the CDP mismatch
+// REVIEW-FIXES 5: forcing duplex alone does not turn autonegotiation off, so both ends still agree on full
 let r=go(net,R1,s1,'configure terminal');go(net,R1,s1,'interface g0/1');r=go(net,R1,s1,'duplex full');go(net,R1,s1,'end');
-st=linkSettle(net,R2,r2);assert.equal(st.duplex,'half');assert.equal(st.mismatch,true);assert.equal(ifUp(net,R2,r2),true,'a duplex mismatch keeps the link up');
+st=linkSettle(net,R2,r2);assert.deepEqual([st.speed,st.duplex,st.farDuplex,st.mismatch],['1000','full','full',false],'duplex alone: still negotiated');
+assert.ok(!r.text.includes('DUPLEX_MISMATCH'),r.text);
+// forcing both at 1000 turns negotiation off; the auto end senses 1000 and falls back to FULL (gigabit is never half)
+go(net,R1,s1,'configure terminal');go(net,R1,s1,'interface g0/1');go(net,R1,s1,'speed 1000');go(net,R1,s1,'end');
+st=linkSettle(net,R2,r2);assert.deepEqual([st.speed,st.duplex,st.mismatch],['1000','full',false],'auto end at 1000 falls back to full');
+assert.match(go(net,R2,s2,'show interfaces g0/0').text,/Full Duplex, 1Gbps/);
+// the classic mismatch: speed 100 and duplex full forced on one end, auto on the other: the auto end senses 100 Mb/s and
+// falls back to half duplex, and both ends log the CDP mismatch
+go(net,R1,s1,'configure terminal');go(net,R1,s1,'interface g0/1');r=go(net,R1,s1,'speed 100');go(net,R1,s1,'end');
+st=linkSettle(net,R2,r2);assert.deepEqual([st.speed,st.duplex,st.farDuplex],['100','half','full']);assert.equal(st.mismatch,true);assert.equal(ifUp(net,R2,r2),true,'a duplex mismatch keeps the link up');
 assert.ok(r.text.includes('%CDP-4-DUPLEX_MISMATCH: duplex mismatch discovered on GigabitEthernet0/1 (not half duplex), with R2 GigabitEthernet0/0 (half duplex).'),r.text);
 assert.ok((R2.logBuf||[]).some(l=>/CDP-4-DUPLEX_MISMATCH: duplex mismatch discovered on GigabitEthernet0\\/0 \\(not full duplex\\), with R1 GigabitEthernet0\\/1 \\(full duplex\\)/.test(l)),'the far end logs it from its own point of view');
-assert.match(go(net,R2,s2,'show interfaces g0/0').text,/Half Duplex, 1Gbps/);
+assert.match(go(net,R2,s2,'show interfaces g0/0').text,/Half Duplex, 100Mbps/);
 // light traffic still gets through, and the counters tell the story
 r=go(net,net.devs.PC1,{mode:'pc'},'ping 192.168.3.10');assert.match(r.text,/Reply from 192.168.3.10/);
 const c1=r1.cnt,c2=r2.cnt;assert.ok(c1&&c2,'counters exist on both ends');
@@ -35,6 +44,7 @@ go(net,R2,s2,'configure terminal');go(net,R2,s2,'interface g0/0');go(net,R2,s2,'
 assert.equal(linkSettle(net,R1,r1).mismatch,false);assert.match(go(net,R2,s2,'show interfaces g0/0').text,/Full Duplex/);
 // half forced on one end with auto on the other is NOT a mismatch (auto falls back to half as well)
 go(net,R2,s2,'configure terminal');go(net,R2,s2,'interface g0/0');go(net,R2,s2,'no duplex');go(net,R2,s2,'end');
+go(net,R1,s1,'configure terminal');go(net,R1,s1,'interface g0/1');go(net,R1,s1,'no speed');go(net,R1,s1,'end');
 go(net,R1,s1,'configure terminal');go(net,R1,s1,'interface g0/1');go(net,R1,s1,'duplex half');go(net,R1,s1,'end');
 st=linkSettle(net,R2,r2);assert.deepEqual([st.duplex,st.farDuplex,st.mismatch],['half','half',false]);
 go(net,R1,s1,'configure terminal');go(net,R1,s1,'interface g0/1');go(net,R1,s1,'no duplex');go(net,R1,s1,'end');

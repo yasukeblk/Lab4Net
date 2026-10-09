@@ -79,6 +79,28 @@ R2.quietUntil=Date.now()-1;assert.match(go(net,R2,s2,'show login').text,/present
 go(net,R2,s2,'configure terminal');go(net,R2,s2,'line vty 0 4');go(net,R2,s2,'no password');go(net,R2,s2,'end');
 r=go(net,R1,s,'telnet 10.0.12.2');assert.ok(r.text.includes('Password required, but none set'),r.text);assert.equal(s.remote,null);
 
+// ----- REVIEW-FIXES 4: enable over Telnet with no enable secret or password: % No password set, still at R2>.
+// The console still goes straight in.
+{const n=solve('Static routing'),a=S(),b=S();go(n,n.devs.R2,b,'enable');go(n,n.devs.R2,b,'configure terminal');go(n,n.devs.R2,b,'line vty 0 4');go(n,n.devs.R2,b,'password vv');go(n,n.devs.R2,b,'login');go(n,n.devs.R2,b,'end');
+  go(n,n.devs.R1,a,'enable');go(n,n.devs.R1,a,'telnet 10.0.12.2');let q=go(n,n.devs.R1,a,'vv');assert.equal(q.prompt,'R2>');
+  q=go(n,n.devs.R1,a,'enable');assert.deepEqual(q.out,['% No password set']);assert.equal(q.prompt,'R2>');
+  const c=S();q=go(n,n.devs.R2,c,'enable');assert.equal(q.prompt,'R2#','the console needs no password');
+  go(n,n.devs.R2,c,'configure terminal');go(n,n.devs.R2,c,'enable secret es');go(n,n.devs.R2,c,'end');
+  q=go(n,n.devs.R1,a,'enable');assert.equal(q.prompt,'Password: ');q=go(n,n.devs.R1,a,'es');assert.equal(q.prompt,'R2#');}
+
+// ----- REVIEW-FIXES 2: replaying saved work must give the live result. Quiet mode is timed on the engine clock, and a
+// replay runs each journal line at the time it was typed (SIM_NOW = entry.t), as the interface's replay() does.
+{const t0=1700000000000,J=[];const add=(dev,line,sec)=>J.push({device:dev,line,t:t0+sec*1000});
+  add('R2','enable',0);add('R2','configure terminal',0);add('R2','line vty 0 4',1);add('R2','password vv',1);add('R2','login',1);add('R2','enable secret es',1);add('R2','login block-for 30 attempts 3 within 60',2);add('R2','end',2);
+  add('R1','enable',3);add('R1','telnet 10.0.12.2',4);add('R1','a',5);add('R1','b',6);add('R1','c',7);   // three failures: 30 s of quiet mode
+  add('R1','telnet 10.0.12.2',52);add('R1','vv',53);add('R1','enable',54);add('R1','es',55);add('R1','configure terminal',56);add('R1','hostname HACKED',57);add('R1','end',58);
+  const replayJ=journal=>{const n=build('Static routing'),ss={};for(const k in n.devs)ss[k]=S();
+    try{for(const e of journal){SIM_NOW=e.t;execLine(n,n.devs[e.device],ss[e.device],e.line);}}finally{SIM_NOW=null;}return n;};
+  const n=replayJ(J);assert.equal(n.devs.R2.hostname,'HACKED','45 s later the login worked, so the rename happened on R2');assert.equal(n.devs.R1.hostname,'R1','R1 kept its name');
+  // and inside the 30 s the telnet is still refused, so nothing reaches R2 (the later lines run on R1 and are rejected or harmless)
+  const J2=J.map(e=>e.t>=t0+52000?{...e,t:e.t-40000}:e),n2=replayJ(J2);assert.equal(n2.devs.R2.hostname,'R2');
+  assert.equal(simNow()>t0+1e9,true,'the clock is real again after a replay');}
+
 // ----- ssh from a PC: OpenSSH host key question, password, then the far prompt; from IOS: just the password
 net=solve('SSH remote access');const pc=net.devs.PC1;const sp={mode:'pc',hist:[],hi:0,lines:[]};R1=net.devs.R1;delete pc.knownHosts;
 r=go(net,pc,sp,'ssh -l admin 192.168.1.1');assert.ok(r.text.includes("can't be established")&&r.text.includes('RSA key fingerprint is SHA256:'),r.text);

@@ -9,35 +9,42 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
 ## Must fix (HIGH)
 
 ### 1. Simulator crash: spanning tree off on a dead-end switch
+- **Done (milestone 1).** `stpCalc` counts a neighbour as a bridge only when that switch runs STP for the VLAN (`ports.has`), so a dead-end chain of STP-off switches is an edge port. The console and replay call the engine through `safeExec`: an engine error prints `% Lab4Net internal error: …` for that one command and the rest carries on. Tests: `switching.cjs` (dead end, tail off a triangle), `pageflows.cjs` (error contained live and in replay).
 - **Repro:** two switches A–B cabled, STP on A, then on B `no spanning-tree vlan 1`. Any ping from a PC, or `show spanning-tree` on A, throws `TypeError: ports.get is not a function`. A tail switch off an STP-off triangle does the same.
 - **Cause:** `through()` inside `stpCalc` (~line 1300) returns the STP-off neighbour's name when a chain of STP-off switches dead-ends; `stpCalc` then looks it up in `ports`, which doesn't have it.
 - **Impact:** `stpCalc` sits under `l2peers`, so pings, OSPF and the map all break. A student who turns STP off "to see what happens" kills the lab.
 - **Also:** wrap the UI's command execution (`execute` and the replay loop) in a try/catch that prints a console error line instead of leaving the page half-updated.
 
 ### 2. Saved work replays onto the wrong device (login block-for)
+- **Done (milestone 1).** Journal entries now keep the time they were typed (`t`), and the engine has its own clock (`simNow()`, `SIM_NOW`). Replay runs each command at its typed time, so quiet mode ends exactly as it did live. MAC aging uses the same clock. Old journals without times replay as before. Tests: `prompts.cjs` (the exact journal, both inside and after the quiet period), `pageflows.cjs` (a real page reload of that journal: R1 keeps its name).
 - **Repro:** R2 has `login block-for 30 attempts 3 within 60`. Fail three telnet logins from R1, wait 45 s, telnet again, log in, `enable`, `configure terminal`, `hostname HACKED`. Live, R2 is renamed. Reload the page: the journal replays instantly, quiet mode is still "on", the telnet is refused, and the remaining lines run on **R1**, so R1 becomes HACKED.
 - **Cause:** quiet mode is timed with the real clock (`quietMode`/`loginFailed`, ~3722) while replay is instant.
 - **Fix:** replay must reproduce the live result. Record time-dependent outcomes in the journal entry (e.g. accepted/refused), or use a simulated clock advanced by journal timestamps. Add a test that replays this exact journal and checks R1 keeps its hostname.
 
 ### 3. Transfer progress loses the new progress
+- **Done (milestone 1).** The three keys are in `EXTRA` and in the HANDOFF storage list. The exam, campaign and sandbox-challenge stores repair damaged values on load, and a failed exam resume is dropped instead of breaking the page. Test: `pageflows.cjs` (export carries the keys, a clean browser imports them, damaged values load with no errors).
 - `EXTRA` in the backup block (~4918) is missing `lab4net-exam-v1`, `lab4net-campaign-v1` and `lab4net-sbx-done-v1`. Export then import in a clean browser: XP 640 → 350, stages cleared 1 → 0, exam history and daily count gone.
 - Add the keys; add them to the HANDOFF storage-key list too. Make loading tolerant of damaged values (`{"history":null}` in `lab4net-exam-v1` currently throws on load).
 
 ### 4. `enable` over Telnet works with no enable password
+- **Done (milestone 1).** A VTY session with no enable secret or password gets `% No password set` and stays at `>`; the console still goes straight in. Test: `prompts.cjs`.
 - **Repro:** R2 has `line vty 0 4`, `password vv`, `login`, and no enable secret or password. From R1: `telnet 10.0.12.2`, `vv`, `enable`. The result is `R2#`.
 - **Real IOS:** `% No password set`, and you stay at `R2>`. This is a classic CCNA point: you can't manage a router remotely without an enable secret. The console still allows `enable` with no password. Fix around line 3751 by checking the session is a VTY.
 
 ### 5. Gigabit links fall back to half duplex
+- **Done (milestone 1).** A port stops autonegotiating only when both speed and duplex are forced; forcing one of them limits what it advertises. An auto port facing a non-negotiating one falls back to half at 10/100 and full at 1000. Which Catalysts refuse `duplex` with speed auto could not be confirmed, so the textbook rule is used and noted in Known limits. `tests/duplex.cjs` was corrected: the classic mismatch is now `speed 100` + `duplex full` against auto, and gigabit forced against auto settles at full.
 - **Repro:** set `duplex full` on SW1 Gi0/1 (Spanning tree lab) and leave SW2 on auto. SW2 shows `a-half a-1000`, and both ends log a duplex mismatch. `tests/duplex.cjs` locks in "Half Duplex, 1Gbps" on R2.
 - **Real rule (the CCNA one):** an auto port that can't negotiate falls back to half duplex at 10/100 and full at 1000. Half duplex at 1 Gb/s effectively doesn't exist.
 - **Also:** forcing duplex alone, with speed still auto, should not count as turning negotiation off. Only forcing both speed and duplex does. Check how a 2960 handles `duplex` with `speed auto`; some Catalysts refuse with "Duplex will not be set until speed is set to non-auto value". If you can't confirm the behaviour, use the textbook rule and note it in Known limits. Fix `linkSettle` (~3941) and correct the test.
 
 ### 6. Exams: a pass when time runs out is never recorded
+- **Done (milestone 1).** `timeUp` grades while the exam still counts as running, so an all-passing network is recorded as a clear (campaign bosses included); only a failing one becomes a time-up. Test: `pageflows.cjs`.
 - **Repro:** fix every fault, then let the clock reach 0. `timeUp` sets the state to `timeup` before `gradeNow()`, so the `celebrate` wrapper returns early (~6363/6406).
 - **Result:** no clear and no fail are recorded, no card shows, the console isn't locked, and the campaign boss isn't cleared. Meanwhile `progress['Exam · X']` and a rank are still saved.
 - **Rule:** the network is graded as it stands when time runs out, so an all-passing network counts as a clear.
 
 ### 7. Quiz #60 marks the wrong answer (~4261)
+- **Done (milestone 1).** The answer is 1, and the explanation now reads 100/100 = 1, with 10 for 10 Mbps Ethernet. Test: `quiz.cjs`.
 - The question is "Default OSPF cost of a FastEthernet interface". It marks **10** with the explanation "100/100 = 10".
 - **Correct:** **1** (100 Mbps ÷ 100 Mbps). Cost 10 is for 10 Mbps Ethernet. The explanation also contradicts itself ("GigabitEthernet also gets 1"), and the lab engine itself gives FastEthernet a cost of 1.
 - Fix the answer index and the explanation.

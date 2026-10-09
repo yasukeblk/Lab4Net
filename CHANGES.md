@@ -1,5 +1,21 @@
 # Lab4Net changes
 
+## Review fixes, part 1: the seven "must fix" items
+
+From `docs/REVIEW-FIXES.md` (a review of the 9 October builds). Each fix has a regression test that fails without it.
+
+- **No more crash with spanning tree off.** Turning spanning tree off on a switch at the end of a chain (`no spanning-tree vlan 10` on a two-switch lab, or a switch hanging off a triangle with STP off) crashed pings, `show spanning-tree` and the map. The switch that still runs STP now sees an ordinary edge port there. If the simulator ever hits a bug on one command, the console prints an internal-error line for that command and everything else keeps working; saved work replays past it instead of being thrown away.
+- **Saved work replays exactly as you typed it.** Each saved command now remembers when it was typed, and replay runs it at that time. Before, a lab using `login block-for` could replay wrongly after a reload: the quiet period had not "ended" during the instant replay, the telnet was refused, and the commands meant for R2 ran on R1. Password answers also stay out of the command history after a reload.
+- **Transfer progress keeps everything.** The backup now includes exam history, the campaign and sandbox challenges, so XP, cleared stages and the daily-challenge count survive a move to another browser. Damaged stored values no longer stop the page loading.
+- **`enable` over Telnet needs an enable password.** With no enable secret or password, a Telnet or SSH session now gets `% No password set` and stays at `R2>`, as on real IOS. The console still goes straight in.
+- **Duplex follows the real rule.** A port stops negotiating only when both speed and duplex are hard-coded. An auto port facing one that does not negotiate falls back to half duplex at 10/100 Mb/s but full at 1000 Mb/s. So the classic mismatch is `speed 100` plus `duplex full` on one end with auto on the other; forcing duplex alone, or gigabit, no longer causes one.
+- **A pass at time-up counts.** If every check passes when an exam's clock reaches zero, it is recorded as a clear (and clears a campaign boss).
+- **Quiz fix.** The default OSPF cost of a FastEthernet interface is 1, not 10.
+
+Tests: new `tests/pageflows.cjs` (browser, like `ui.cjs`): replaying a saved `login block-for` journal on reload, an engine error contained live and in replay, Transfer progress carrying the new stores and loading damaged ones, a time-up clear. New checks in `switching.cjs`, `prompts.cjs`, `duplex.cjs` (corrected) and `quiz.cjs`.
+
+Verification: all seventeen suites pass (fourteen Node, plus `ui.cjs`, `guidewin.cjs` and `pageflows.cjs` in Edge). Each new check was run against the previous `index.html` and failed there.
+
 ## Multi-area OSPF, and the wired side of a wireless LAN
 
 **Multi-area OSPF in the engine**

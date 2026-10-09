@@ -219,6 +219,16 @@ net=solve('EtherChannel with LACP');assert.equal(reach(net,net.devs.PC1,ip2n('19
 {const lab=LABS.find(l=>l.title==='Spanning tree: root bridge and edge ports'),g=EXAM_FAULTS.find(x=>x.id==='stp'),f=g.gen(solvedNet(lab),seedRng('s'));assert.ok(f&&Object.keys(f.cmds).length===3,'all three switches');
   const n=solvedNet(lab);applyCmds(n,f.cmds);assert.ok(failingChecks(lab,n)>0);}
 assert.ok(LABS.some(l=>l.title.startsWith('Incident 36')),'incident 36 exists');
+// REVIEW-FIXES 1: spanning tree off on a dead-end switch (a chain of STP-off switches leading nowhere) used to crash
+// stpCalc, which broke pings, show spanning-tree and the map. The STP switch now sees an edge port there.
+{const n=solve('802.1Q trunking');ios(n,'SW2',['configure terminal','no spanning-tree vlan 10','end']);
+  const r=stpCalc(n,10);assert.equal(r.root,n.devs.SW1);assert.equal(r.info.SW1.ports[parseIf('g0/1')].role,'Desg');
+  assert.ok(cmd(n,'SW1','show spanning-tree vlan 10').text.includes('This bridge is the root'));
+  assert.equal(reach(n,n.devs.PC1,ip2n('192.168.10.13')).ok,true);}
+// a tail switch hanging off a triangle whose switches all have STP off
+{const n=build('Spanning tree: root bridge and edge ports');const T=mkSwitch('SW4');n.devs.SW4=T;link(n,'SW3','f0/2','SW4','g0/1');
+  for(const sw of ['SW1','SW2','SW3'])ios(n,sw,['configure terminal','no spanning-tree vlan 1','end']);
+  const r=stpCalc(n,1);assert.equal(r.root,T);assert.equal(r.info.SW4.ports[parseIf('g0/1')].role,'Desg');}
 }
 `,context);
 console.log('PASS switching: spanning-tree forwarding, island roots, MAC learning from ARP and unicast, flooding of unknown addresses, clear/static/aging, show mac address-table layouts, per-port router MACs, HSRP virtual MAC, EtherChannel as one STP port, DHCP learning, SVI as sender, neighbours known from CDP/BPDUs, per-VLAN aging, no spanning-tree vlan with a real broadcast storm (MAC flap logs, transparent switch, self-loop block, repair), EtherChannel never a loop, the storm exam fault and incident.');
