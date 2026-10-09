@@ -1,5 +1,17 @@
 # Lab4Net changes
 
+## IPv6 pings and traceroutes play live, with a neighbour cache
+
+- `ping 2001:db8::1` on a router or switch now plays echo by echo like the IPv4 ping, with `repeat` and `size`. Each device keeps an IPv6 neighbour cache (Neighbor Discovery's answer to ARP): the first echo through a cold IOS device is lost (`.!!!!`), the next ping is clean. A router with no route answers `U` when it can reach you back.
+- On a PC, `ping` to an IPv6 address prints the Windows lines live ("Reply from 2001:db8::1: time<1ms", no TTL, as Windows does for IPv6), with the statistics; a host queues its first packet while it resolves the gateway.
+- `traceroute 2001:db8::1` (and `traceroute ipv6`) on IOS, and `tracert` on a PC, show each hop live, answering from its global address.
+- `show ipv6 neighbors` lists the learned neighbours with their link-layer address, state and interface; `clear ipv6 neighbors` forgets them.
+- The map animates IPv6 pings as before (no flooding story yet: IPv6 traffic does not teach the MAC tables).
+
+Tests: new `tests/ping6.cjs` (in GitHub Actions).
+
+Verification: all thirteen suites pass.
+
 ## Duplex and speed mismatches that behave like the real thing
 
 - Every physical port now settles its speed and duplex against the far end by the IEEE rules. Two ends forced to different speeds keep the link down (down/down, with the LINK-3-UPDOWN logs). A forced speed on one end is simply sensed by an auto end. A forced duplex on one end leaves an autonegotiating far end at half duplex: the classic mismatch.

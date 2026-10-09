@@ -21,3 +21,4 @@ jobs:
       - run: node tests/exam.cjs
       - run: node tests/quiz.cjs
       - run: node tests/duplex.cjs
+      - run: node tests/ping6.cjs
