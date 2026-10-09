@@ -1,0 +1,143 @@
+# Lab4Net review fixes (review of cf0e852..440ac77, 9 Oct 2026)
+
+Review of Fable's 14 commits (switching realism through multi-area OSPF). All 14 Node test files, `ui.cjs` and `guidewin.cjs` pass, and the design holds up. The items below were found by driving the engine and the page directly; the HIGH ones were each reproduced twice. Fix them in this order. **Add a regression test for every HIGH and MEDIUM fix** (in the matching `tests/*.cjs`), so they stay fixed.
+
+Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, full suite before each push, check visual changes in a real browser, update CHANGES.md / HANDOFF.md / "Still owed".
+
+---
+
+## Must fix (HIGH)
+
+### 1. Simulator crash: spanning tree off on a dead-end switch
+- **Repro:** two switches A–B cabled, STP on A, then on B `no spanning-tree vlan 1`. Any ping from a PC, or `show spanning-tree` on A, throws `TypeError: ports.get is not a function`. A tail switch off an STP-off triangle does the same.
+- **Cause:** `through()` inside `stpCalc` (~line 1300) returns the STP-off neighbour's name when a chain of STP-off switches dead-ends; `stpCalc` then looks it up in `ports`, which doesn't have it.
+- **Impact:** `stpCalc` sits under `l2peers`, so pings, OSPF and the map all break. A student who turns STP off "to see what happens" kills the lab.
+- **Also:** wrap the UI's command execution (`execute` and the replay loop) in a try/catch that prints a console error line instead of leaving the page half-updated.
+
+### 2. Saved work replays onto the wrong device (login block-for)
+- **Repro:** R2 has `login block-for 30 attempts 3 within 60`. Fail three telnet logins from R1, wait 45 s, telnet again, log in, `enable`, `configure terminal`, `hostname HACKED`. Live, R2 is renamed. Reload the page: the journal replays instantly, quiet mode is still "on", the telnet is refused, and the remaining lines run on **R1**, so R1 becomes HACKED.
+- **Cause:** quiet mode is timed with the real clock (`quietMode`/`loginFailed`, ~3722) while replay is instant.
+- **Fix:** replay must reproduce the live result. Record time-dependent outcomes in the journal entry (e.g. accepted/refused), or use a simulated clock advanced by journal timestamps. Add a test that replays this exact journal and checks R1 keeps its hostname.
+
+### 3. Transfer progress loses the new progress
+- `EXTRA` in the backup block (~4918) is missing `lab4net-exam-v1`, `lab4net-campaign-v1` and `lab4net-sbx-done-v1`. Export then import in a clean browser: XP 640 → 350, stages cleared 1 → 0, exam history and daily count gone.
+- Add the keys; add them to the HANDOFF storage-key list too. Make loading tolerant of damaged values (`{"history":null}` in `lab4net-exam-v1` currently throws on load).
+
+### 4. `enable` over Telnet works with no enable password
+- **Repro:** R2 has `line vty 0 4`, `password vv`, `login`, and no enable secret or password. From R1: `telnet 10.0.12.2`, `vv`, `enable`. The result is `R2#`.
+- **Real IOS:** `% No password set`, and you stay at `R2>`. This is a classic CCNA point: you can't manage a router remotely without an enable secret. The console still allows `enable` with no password. Fix around line 3751 by checking the session is a VTY.
+
+### 5. Gigabit links fall back to half duplex
+- **Repro:** set `duplex full` on SW1 Gi0/1 (Spanning tree lab) and leave SW2 on auto. SW2 shows `a-half a-1000`, and both ends log a duplex mismatch. `tests/duplex.cjs` locks in "Half Duplex, 1Gbps" on R2.
+- **Real rule (the CCNA one):** an auto port that can't negotiate falls back to half duplex at 10/100 and full at 1000. Half duplex at 1 Gb/s effectively doesn't exist.
+- **Also:** forcing duplex alone, with speed still auto, should not count as turning negotiation off. Only forcing both speed and duplex does. Check how a 2960 handles `duplex` with `speed auto`; some Catalysts refuse with "Duplex will not be set until speed is set to non-auto value". If you can't confirm the behaviour, use the textbook rule and note it in Known limits. Fix `linkSettle` (~3941) and correct the test.
+
+### 6. Exams: a pass when time runs out is never recorded
+- **Repro:** fix every fault, then let the clock reach 0. `timeUp` sets the state to `timeup` before `gradeNow()`, so the `celebrate` wrapper returns early (~6363/6406).
+- **Result:** no clear and no fail are recorded, no card shows, the console isn't locked, and the campaign boss isn't cleared. Meanwhile `progress['Exam · X']` and a rank are still saved.
+- **Rule:** the network is graded as it stands when time runs out, so an all-passing network counts as a clear.
+
+### 7. Quiz #60 marks the wrong answer (~4261)
+- The question is "Default OSPF cost of a FastEthernet interface". It marks **10** with the explanation "100/100 = 10".
+- **Correct:** **1** (100 Mbps ÷ 100 Mbps). Cost 10 is for 10 Mbps Ethernet. The explanation also contradicts itself ("GigabitEthernet also gets 1"), and the lab engine itself gives FastEthernet a cost of 1.
+- Fix the answer index and the explanation.
+
+---
+
+## Should fix (MEDIUM)
+
+**Exams and campaign**
+8. **Exams can be cheated, and runs go unrecorded.**
+   - The daily challenge can be restarted with a fresh 20-minute clock by reopening Exam sim and clicking start again; the abandoned run is never recorded. The same goes for any exam replaced by a new start. An exam already in progress should resume, not restart.
+   - The exam title names the base lab, so you can switch to it, read its Walkthrough or lesson, and come back.
+   - **Fix:** while an exam or boss is running, block opening other labs (or count it as help and record it), and block Walkthrough/lesson access.
+9. **Leaving a running exam strands it.**
+   - Once you open another lab there's no way back. The menu has no entry and the Exam dialog has no "Resume".
+   - `timeUp` only fires while the exam lab is open.
+   - The next reload drags you back into it with a Time's-up fail.
+   - Add Resume, and record time-up even when the exam isn't the open lab.
+10. **XP goes up, then down after a reload.** `xp()` (~4584) loops over `LABS`, which includes the temporary exam lab, so its XP disappears after a reload. Exam titles also stay forever in `ccna-bench-v2`, the drafts and the ranks. Keep exam XP in the exam store and keep exam titles out of normal lab progress.
+11. **Reloading after an exam opens the wrong lab.** `lastLab` is saved as the exam's index (77), which doesn't exist after a reload, so it opens a capstone instead. Save the last real lab.
+12. **Boss health refills on reload** (2/6 → 6/6). Save the last graded state, or re-grade silently on load.
+13. **The time's-up failure card is titled "STAGE CLEAR"** (fixed header text, ~575). Give it a proper failure title.
+14. **The "Exam started…" notice covers the Grade lab button** at 1440×1000 and never goes away by itself. Auto-dismiss it after a few seconds, or move it.
+15. **Boss fights sometimes have only two faults** (8 of 40 seeds; `makeExam` accepts `f.length>=2`). Either always build three, or make the UI and trophy text say "two or three". The health bar should also start at the real number of failing checks.
+
+**Sessions and logins**
+16. **`reload` over Telnet/SSH skips "Save? [yes/no]" and "[confirm]"** and throws away unsaved changes (~3835). Real IOS asks on VTY lines too.
+17. **After a reload over Telnet, the device's own console is left in a dead mode.** It stays at `(config-if)#` pointing at the old interface objects, so its next commands are silently lost (`restoreBoot`, ~3810). After a reload, reset every session on that device to `>` with "Press RETURN to get started".
+18. **VTY defaults are wrong** (`listens()` ~1157, default lines ~602):
+    - A fresh IOS 15 router has `login` on `line vty 0 4` by default, so telnet should say "Password required, but none set", not "% Connection refused by remote host".
+    - `no login` on the VTY should let you straight in with no password. That's the insecure case students should see.
+    - `login local` with no usernames should show `Username:` and then "% Login invalid".
+19. **`login` after `login local` stays local** (~902). In IOS, `login` replaces `login local`.
+20. **Passwords end up in command history after a reload.** Live typing keeps masked answers out of history (~4146), but replay (~4108) pushes every journal line. Mark password answers in the journal and keep them out of history on replay.
+
+**Switching**
+21. **Blocked ports still learn MAC addresses** (`macBackground`, ~3551). In the spanning-tree lab, SW1 lists SW2's MAC as DYNAMIC on Gi0/1, which is Altn BLK. Skip blocked ports, and only learn BPDU senders when the far port is forwarding.
+22. **MAC entries go stale after a topology change.** Ping both ways, shut SW1 Gi0/2, then ping PC2 → PC1. The trace says SW2 forwarded out the same port the frame came in on. On a spanning-tree topology change, flush dynamic entries (or age them in 15 s), and treat a lookup that points back at the ingress port as unknown.
+23. **Forced speed doesn't change STP cost or BW.** After `speed 10` the STP cost should be 100 (19 at 100 Mb/s) and `show interfaces` should show BW 10000 Kbit (~1292).
+24. **Error counters count the wrong direction** (~3956). After a 4-echo ping the full-duplex end showed "4 packets input, 6 input errors, 4 CRC". CRC and runts count only on received frames; late collisions only on sent frames.
+
+**OSPF**
+25. **An ABR uses inter-area routes from non-backbone areas.** In real OSPF (RFC 2328 §16.2) an ABR uses only the area-0 copies of other areas' routes.
+    - Repro: two ABRs share areas 0 and 1, and the area-0 link between them costs 100. The sim installs `O IA … [110/3]` through area 1. Real IOS gives `[110/101]` through area 0.
+    - When an ABR advertises a route into another area, it should use the cost it actually uses itself.
+26. **No log message for an area mismatch** (this is Incident 37's main clue). Real IOS repeatedly logs `%OSPF-4-ERRRCV: Received invalid packet: mismatched area ID from backbone area must be virtual-link but not found from <ip>, <interface>` (or `mismatched area ID` for non-backbone areas). Log it, rate-limited, the same way other syslog messages are.
+
+**Quiz**
+27. **Quiz #45 (~4246) is misleading.** It marks "BPDU guard and BPDU filter" as the protection when someone plugs a switch into a PortFast port. BPDU filter set on an interface makes the port ignore BPDUs, which can cause a loop. Reword to ask for a single feature (BPDU guard), or pair BPDU guard with root guard.
+
+---
+
+## Polish (LOW)
+
+- **Phone:**
+  - the exam/boss bar squeezes its text into a one-word column about 330px tall; let it wrap under the clock
+  - starting a campaign boss on a phone leaves the page scrolled down, with the clock off screen
+- **Exam UI:**
+  - after Quit the bar reads "· · no guide…" (minutes missing)
+  - Quit has no confirmation
+  - the Exam dialog's Clock option stays on 20 when Boss is picked
+  - root-cause text can start a sentence in lower case
+- **Telnet and SSH:**
+  - IOS prints `Trying x ... Open` on one line, then blank lines before "User Access Verification"
+  - `show users` inside a VTY session should put `*` on your own VTY line
+  - three failed `enable password` attempts should say `% Bad passwords` (with `enable secret` set, `% Bad secrets` is correct)
+  - Windows telnet to a VTY with `login` and no password should show "Password required, but none set" then "Connection to host lost.", not "Connect failed"
+  - suspending a session (Ctrl+Shift+6 then x, `show sessions`, `resume`, `disconnect`) doesn't exist yet; add it to Still owed
+- **Copy and extended ping:**
+  - `copy run start` ignores a typed destination filename
+  - extended ping: answering "Sweep range of sizes" with `y` skips the min/max/interval questions, and the DF-bit and timeout answers are ignored
+- **Switching:**
+  - `show interfaces counters` and `show interfaces counters errors` are missing; they're the standard duplex-troubleshooting views
+  - `clear counters fa0/1` should ask "Clear "show interface" counters on this interface [confirm]"
+  - "Last clearing" shows the clock time instead of time elapsed
+  - the CDP mismatch warning should repeat every 60 s
+  - `show interfaces status` should right-align Duplex and Speed
+  - Gig ports say "media type is 10/100BaseTX"
+  - an ARP that gets no reply should still flood the VLAN and teach switches the sender's MAC
+  - the storm description names switches that aren't in the loop, and the map animates a link that doesn't exist
+- **OSPF show commands:**
+  - `show ip ospf` / `show ip protocols` count areas from `network` statements only, missing `ip ospf 1 area 0`
+  - areas should be listed in number order
+  - `show ip protocols` should say "It is an area border router"
+  - `show ip ospf database` is missing (Still owed)
+- **IPv6:** neighbours are always REACH with age 0 (no STALE/DELAY/PROBE, no FE80 entries). IOS usually holds the first IPv6 echo while it resolves the neighbour, so `!!!!!` is often seen first time. Check before changing; if unsure, leave it and note it.
+- **Exam faults:** the `gw` fault uses the gateway +1 without checking that address is free.
+- **Quiz:**
+  - near-duplicate question pairs to merge or vary: 13/29, 4/90, 17/98, 7/69, 8/70, 16/97, 11/104, 3/99, 2/18/101
+  - #75's explanation should say the hang comes from `ip domain-lookup` being on (the default) with no reachable name server
+- **Speed:** the Exam sim dialog builds the daily challenge (~240 ms) every time it opens; cache it per day.
+
+---
+
+## Checked and fine
+- Ranks still score results only: extra `show` commands never lower a rank. 50 extras with the guide off still gave S on 3 labs.
+- No external requests.
+- Old saved progress loads, and the campaign unlocks from existing passes.
+- Reduced motion turns the new animations off.
+- No JS errors across campaign, exam, sandbox and lab switching.
+- The design matches the arcade style at desktop and phone sizes.
+- Performance is fine (a 20-switch ping takes 5–16 ms).
+- The basics are right: enable/console prompts, the MAC table format and filters, the duplex-mismatch symptoms, the O IA metric and next hop, the IPv6 ping formats, and 108 of 110 quiz answers.
