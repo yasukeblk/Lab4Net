@@ -1,5 +1,30 @@
 # Lab4Net changes
 
+## Exam sim: a random lab, a clock, and no help
+
+**Where to find it**: Lab library → "Exam sim →", or "Exam sim" at the bottom of the lab menu.
+
+**Three kinds of exam**
+- **Sabotage** (the one that cannot be memorised): a finished lab, built and working, with one or two hidden faults. You get the lab's requirements (the checklist) and nothing else: find what changed, fix it, and prove it. The faults are real misconfigurations chosen to fit the lab: a shut interface, a port in the wrong VLAN, a deleted VLAN, a missing or misdirected static route, a trunk turned into an access port, a VLAN pruned from a trunk, a native VLAN mismatch, a missing OSPF network statement, a passive interface facing a neighbour, a duplicate router ID, a wrong mask or address, NAT missing from an interface, a wrong default gateway, a "deny any" slipped into an applied ACL, Telnet-only VTY lines on an SSH lab, ip routing switched off on a Layer 3 switch, a subinterface tagging the wrong VLAN, a bogus static MAC on a secure port. Every fault is applied through real IOS commands and is only used when it breaks one of the lab's own checks.
+- **Build lab**: a random build lab, timed, with no help.
+- **Incident**: a random troubleshooting incident with no clues.
+- **Daily challenge**: a sabotage with two faults, chosen by the date, so it is the same for everyone on that day. Cleared, it is recorded for the day.
+
+**The rules**
+- No step-by-step guide, no "why" after commands, no walkthrough, no clues, no command guide. The console still gives `?` and Tab, as IOS does.
+- A clock (10, 15, 20 or 30 minutes; the daily is 20). The exam bar at the top of the mission window shows it; the last minute flashes. When it runs out the network is graded as it stands, the console locks, and a card shows what passed and what was wrong. "Review the network" unlocks the console; nothing more counts for that exam.
+- Ranks are scored on results, exactly as in any lab: a clear before the clock runs out gets the normal rank, and time and command count never lower it. Grade whenever you like; a full pass ends the exam.
+- Leaving the exam for another lab leaves the clock running. A reload resumes the exam where it was.
+- New trophies: Exam Ready (clear an exam), Fault Hunter (clear a sabotage with no help), Daily Grind (three daily challenges). Each cleared exam is worth 80 XP, and recent exams are listed in the Exam sim card.
+
+**Behind the scenes**
+- An exam is a temporary lab, "Exam · <lab>", that exists while it runs and is not counted in the lab totals.
+- Sabotage faults come from a seeded random generator, so the same seed always gives the same exam (that is how the daily works).
+
+Tests: new `tests/exam.cjs` (in GitHub Actions) builds every build lab, applies its solution, and proves that each fault generator produces real, accepted configuration that breaks a check on at least one lab, that most lab/seed pairs yield a fault, that a seed reproduces its fault, and that the exam lab carries the base requirements, checks and root cause.
+
+Verification: all ten suites pass (labs, forwarding, curriculum, lessons, ping, console, switching, prompts, exam, ui, guidewin). In a real browser: the Exam sim card showed today's daily; a 10-minute sabotage started with the exam bar and clock, the guide switch, why text, walkthrough and command guide hidden, and two faults applied; a shortened deadline plus a reload resumed the exam and ended it with the time's-up card and a locked console; a second sabotage was fixed and graded, which stopped the clock, recorded the result with its rank, and unlocked Exam Ready; the guide setting came back untouched after the exam.
+
 ## Ping and traceroute from a chosen source, and the interactive extended ping
 
 - `ping 192.168.3.10 source g0/0` (or `source 192.168.1.1`, or `source loopback 0`) sends the echoes from that address, and prints "Packet sent with a source address of 192.168.1.1" like IOS. The replies must find their way back to that address, so this is the real test of a return route: a ping from a loopback nobody has a route to comes back `.....`, and the map shows the reply failing.

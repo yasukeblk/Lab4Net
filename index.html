@@ -242,6 +242,14 @@ td:last-child{font:400 18px/1.15 var(--mono);color:var(--ph)}
 .trail.flood{stroke:var(--mag);stroke-width:4;filter:drop-shadow(0 0 5px var(--mag));animation-duration:.6s} .trail.blk{stroke:var(--bad);filter:drop-shadow(0 0 5px var(--bad))}
 .pkt.arp{stroke:var(--yel);fill:#fff6c2;r:4;filter:drop-shadow(0 0 6px var(--yel))} .trail.arp{stroke:var(--yel);stroke-width:4;filter:drop-shadow(0 0 5px var(--yel))}
 .burst.flood{stroke:var(--mag)} .spark.flood{fill:#ff7bf0} .bit.flood{fill:var(--mag)} .fxlabel.flood{fill:#ffb3ff}
+.exam-bar{display:flex;align-items:center;gap:12px;margin:0 0 12px;padding:8px 12px;border:3px solid var(--line);background:linear-gradient(90deg,#2b0a2e,#140a24);box-shadow:0 0 18px rgba(255,61,214,.35),inset 0 0 0 1px rgba(255,255,255,.06)}
+.exam-bar b{font:italic 800 20px var(--px);color:var(--mag);letter-spacing:.1em;text-shadow:0 0 10px rgba(255,61,214,.7)}
+.exam-clock{font:400 27px/1 var(--mono);color:var(--yel);text-shadow:0 0 10px rgba(255,210,63,.7);min-width:72px}
+.exam-clock.late{color:#ff8a98;animation:blink 1s steps(1) infinite}
+.exam-note{color:var(--muted);font-size:14px;flex:1}
+.exam-daily{margin:10px 0 14px;padding:10px 14px;border:3px solid var(--line);background:rgba(255,210,63,.07)}
+.exam-opts{display:flex;flex-direction:column;gap:6px;margin:8px 0}.exam-opts.row{flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px}.exam-opts label{cursor:pointer}
+body[data-exam] .guide-row,body[data-exam] .tasks details,body[data-exam] #bSol,body[data-exam] #reference,body[data-exam] #hint.why,body[data-exam] #guideWin,body[data-exam] .steps,body[data-exam] .clue,body[data-exam] .clues{display:none!important}
 .trace-l2{margin:8px 0 2px;font:400 17px/1.3 var(--mono);color:var(--ph)} .trace-l2-h{font:italic 800 15px var(--px);letter-spacing:.08em;text-transform:uppercase;color:var(--mag)} .trace-l2 b{color:var(--cy);font-weight:400} .trace-l2 .tip{color:var(--muted);margin-top:3px}
 @keyframes label{0%{opacity:0;transform:scale(.4) skewX(-10deg)}9%{opacity:1;transform:scale(1.12) skewX(-10deg)}14%{transform:scale(1) skewX(-10deg)}85%{opacity:1;transform:scale(1) skewX(-10deg)}100%{opacity:0;transform:scale(1) skewX(-10deg)}}
 .clear{font:italic 800 62px var(--px);letter-spacing:.03em;fill:url(#gY);text-anchor:middle;paint-order:stroke;stroke:var(--line);stroke-width:9px;stroke-linejoin:round;transform-box:fill-box;transform-origin:center;filter:drop-shadow(0 6px 0 rgba(0,0,0,.65)) drop-shadow(0 0 22px rgba(255,210,63,.75));animation:clearin 2.8s cubic-bezier(.2,1.5,.3,1) forwards}
@@ -3702,6 +3710,86 @@ Object.assign(WHYC,{
 'login on-success log':'Logs every successful login, so you can see who got in and from where.',
 'no login on-failure <rest?>':'Stops logging failed logins.','no login on-success <rest?>':'Stops logging successful logins.',
 'ssh <w>':'OpenSSH on a PC: ssh user@address. The first connection asks you to accept the host key; then the device asks for that user\'s password.'});
+// ---------- exam sim: surprise faults for a finished lab ----------
+// examFault(lab, seed, count) takes a build lab, applies its solution, and breaks it with `count` faults chosen by a
+// seeded random generator from EXAM_FAULTS. Every fault is real IOS configuration (applied through execLine, so a
+// typo in a generator fails loudly), and a fault is only kept when at least one of the lab's own checks fails
+// afterwards: the lab's checks are the exam's marking scheme, and they still describe the required end state.
+function seedRng(seed){let h=2166136261;for(const c of String(seed))h=Math.imul(h^c.charCodeAt(0),16777619);let a=h>>>0;
+  return ()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
+const rpick=(rnd,arr)=>arr.length?arr[Math.floor(rnd()*arr.length)]:null;
+function shuffled(rnd,arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const enterCfg=d=>['enable',...(d.secret||d.enPass?[d.secret||d.enPass]:[]),'configure terminal'];
+function applyCmds(net,cmds){for(const [name,lines] of Object.entries(cmds)){const d=net.devs[name],s={mode:d.type==='pc'?'pc':'user'};
+  for(const line of lines){const out=execLine(net,d,s,line);if(out.some(l=>/^% (Invalid|Incomplete|Ambiguous|Unrecognized|Unknown)|^Command rejected|is not recognized as an internal/.test(l)))throw Error('rejected '+line+' on '+name+': '+out.join(' | '));}}}
+function solvedNet(lab){const net=lab.build();applyCmds(net,lab.solution);return net;}
+const labPasses=(lab,net)=>lab.checks.every(([,f])=>{try{return !!f(net);}catch(e){return false;}});
+const failingChecks=(lab,net)=>lab.checks.filter(([,f])=>{try{return !f(net);}catch(e){return true;}}).length;
+const netDevs=(net,types)=>Object.values(net.devs).filter(d=>types.includes(d.type)&&!d.phone);
+const physPorts=d=>Object.values(d.ifs).filter(i=>i.link&&!/^(Vlan|Loopback|Port-channel)/.test(i.name)&&!i.name.includes('.'));
+const trunkPorts=d=>physPorts(d).filter(i=>i.mode==='trunk'&&!i.routed&&!i.chan);
+const accessPorts=d=>physPorts(d).filter(i=>i.mode!=='trunk'&&!i.routed&&!i.chan);
+const addrIfs=(net,d)=>Object.values(d.ifs).filter(i=>i.ip!==null&&i.len!=null&&ifUp(net,d,i)&&!i.name.startsWith('Loopback'));
+const others=(net,ip)=>Object.values(net.devs).some(x=>Object.values(x.ifs).some(i=>i.ip===ip));
+const vlanList=i=>i.allowed==='all'?null:i.allowed.slice();
+const EXAM_FAULTS=[
+ {id:'shut',generic:true,gen(net,rnd){const c=[];for(const d of netDevs(net,['router','switch']))for(const i of physPorts(d))if(!i.shutdown)c.push([d,i]);const p=rpick(rnd,c);if(!p)return null;const [d,i]=p;
+   return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'shutdown','end']},desc:d.hostname+' '+shortIf(i.name)+' was shut down'};}},
+ {id:'vlan',gen(net,rnd){const c=[];for(const d of netDevs(net,['switch']))for(const i of accessPorts(d)){const o=Object.keys(d.vlans).map(Number).filter(v=>v!==i.accessVlan&&v<1002);if(o.length)c.push([d,i,o]);}
+   const p=rpick(rnd,c);if(!p)return null;const [d,i,o]=p,v=rpick(rnd,o);return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'switchport access vlan '+v,'end']},desc:d.hostname+' '+shortIf(i.name)+' was moved from VLAN '+i.accessVlan+' to VLAN '+v};}},
+ {id:'route',gen(net,rnd){const c=[];for(const d of netDevs(net,['router','switch']))for(const s of d.statics||[])c.push([d,s]);const p=rpick(rnd,c);if(!p)return null;const [d,s]=p;
+   const spec=n2ip(s.net)+' '+n2ip(lenMask(s.len))+(s.ifn?' '+s.ifn:'')+(s.nh!=null?' '+n2ip(s.nh):'');return {cmds:{[d.name]:[...enterCfg(d),'no ip route '+spec,'end']},desc:'the route to '+n2ip(s.net)+'/'+s.len+' was removed from '+d.hostname};}},
+ {id:'nexthop',gen(net,rnd){const c=[];for(const d of netDevs(net,['router','switch']))for(const s of d.statics||[])if(s.nh!=null&&!s.ifn)c.push([d,s]);const p=rpick(rnd,c);if(!p)return null;const [d,s]=p;
+   let nh=null;for(const conn of shuffled(rnd,addrIfs(net,d))){for(let k=1;k<6&&nh===null;k++){const x=(conn.ip+k)>>>0;if(x!==s.nh&&netOf(x,conn.len)===netOf(conn.ip,conn.len)&&!others(net,x)&&(x&~lenMask(conn.len))!==(~lenMask(conn.len)>>>0))nh=x;}if(nh!==null)break;}if(nh===null)return null;
+   const spec=n2ip(s.net)+' '+n2ip(lenMask(s.len));return {cmds:{[d.name]:[...enterCfg(d),'no ip route '+spec+' '+n2ip(s.nh),'ip route '+spec+' '+n2ip(nh)+(s.ad&&s.ad!==1?' '+s.ad:''),'end']},desc:d.hostname+'\'s route to '+n2ip(s.net)+'/'+s.len+' points at '+n2ip(nh)+', an address nobody has'};}},
+ {id:'trunk',gen(net,rnd){const c=[];for(const d of netDevs(net,['switch']))for(const i of trunkPorts(d))c.push([d,i]);const p=rpick(rnd,c);if(!p)return null;const [d,i]=p;
+   return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'switchport mode access','end']},desc:d.hostname+' '+shortIf(i.name)+' is an access port instead of a trunk'};}},
+ {id:'allowed',gen(net,rnd){const c=[];for(const d of netDevs(net,['switch']))for(const i of trunkPorts(d)){const used=Object.keys(d.vlans).map(Number).filter(v=>v!==1&&v<1002&&v!==i.native&&(i.allowed==='all'||i.allowed.includes(v)));if(used.length)c.push([d,i,used]);}
+   const p=rpick(rnd,c);if(!p)return null;const [d,i,used]=p,v=rpick(rnd,used);const keep=(vlanList(i)||Object.keys(d.vlans).map(Number).filter(x=>x<1002)).filter(x=>x!==v);if(!keep.length)return null;
+   return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'switchport trunk allowed vlan '+keep.join(','),'end']},desc:'VLAN '+v+' is no longer allowed on '+d.hostname+' '+shortIf(i.name)};}},
+ {id:'native',gen(net,rnd){const c=[];for(const d of netDevs(net,['switch']))for(const i of trunkPorts(d))c.push([d,i]);const p=rpick(rnd,c);if(!p)return null;const [d,i]=p,v=i.native===99?98:99;
+   return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'switchport trunk native vlan '+v,'end']},desc:d.hostname+' '+shortIf(i.name)+' has native VLAN '+v+' while the other end does not'};}},
+ {id:'novlan',gen(net,rnd){const c=[];for(const d of netDevs(net,['switch']))for(const v of Object.keys(d.vlans).map(Number))if(v!==1&&v<1002&&accessPorts(d).some(i=>i.accessVlan===v||i.voiceVlan===v))c.push([d,v]);const p=rpick(rnd,c);if(!p)return null;const [d,v]=p;
+   return {cmds:{[d.name]:[...enterCfg(d),'no vlan '+v,'end']},desc:'VLAN '+v+' was deleted from '+d.hostname};}},
+ {id:'ospfnet',gen(net,rnd){const c=[];for(const d of netDevs(net,['router','switch']))if(d.ospf)for(const n of d.ospf.networks||[])c.push([d,n]);const p=rpick(rnd,c);if(!p)return null;const [d,n]=p;
+   return {cmds:{[d.name]:[...enterCfg(d),'router ospf '+(d.ospf.pid||1),'no network '+n2ip(n.net)+' '+n2ip(n.wild)+' area '+n.area,'end']},desc:d.hostname+' no longer runs OSPF on '+n2ip(n.net)+' ('+n2ip(n.wild)+')'};}},
+ {id:'passive',gen(net,rnd){const c=[];for(const d of netDevs(net,['router','switch']))if(d.ospf&&!d.ospf.passiveDef)for(const nb of ospfNeighbors(net,d))if(!c.some(x=>x[1]===nb.ifc))c.push([d,nb.ifc]);const p=rpick(rnd,c);if(!p)return null;const [d,i]=p;
+   return {cmds:{[d.name]:[...enterCfg(d),'router ospf '+(d.ospf.pid||1),'passive-interface '+i.name,'end']},desc:d.hostname+' made '+shortIf(i.name)+' passive, so it stopped talking OSPF to its neighbour there'};}},
+ {id:'rid',gen(net,rnd){const rs=netDevs(net,['router','switch']).filter(d=>d.ospf&&ospfNeighbors(net,d).length);if(rs.length<2)return null;const d=rpick(rnd,rs),nb=rpick(rnd,ospfNeighbors(net,d)).dev;
+   return {cmds:{[d.name]:[...enterCfg(d),'router ospf '+(d.ospf.pid||1),'router-id '+n2ip(routerId(nb)),'end','clear ip ospf process']},desc:d.hostname+' uses the same OSPF router ID as '+nb.hostname+' ('+n2ip(routerId(nb))+')'};}},
+ {id:'mask',generic:true,gen(net,rnd){const c=[];for(const d of netDevs(net,['router']))for(const i of addrIfs(net,d))if(i.len===24&&!i.name.includes('.'))c.push([d,i]);const p=rpick(rnd,c);if(!p)return null;const [d,i]=p;
+   return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'ip address '+n2ip(i.ip)+' 255.255.255.128','end']},desc:d.hostname+' '+shortIf(i.name)+' has a /25 mask instead of /24'};}},
+ {id:'ip',generic:true,gen(net,rnd){const c=[];for(const d of netDevs(net,['router']))for(const i of addrIfs(net,d))if(!i.name.includes('.')&&!i.hsrp){const x=(i.ip+1)>>>0;if(netOf(x,i.len)===netOf(i.ip,i.len)&&(x&~lenMask(i.len))!==(~lenMask(i.len)>>>0)&&!others(net,x))c.push([d,i,x]);}
+   const p=rpick(rnd,c);if(!p)return null;const [d,i,x]=p;return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'ip address '+n2ip(x)+' '+n2ip(lenMask(i.len)),'end']},desc:d.hostname+' '+shortIf(i.name)+' is addressed '+n2ip(x)+' instead of '+n2ip(i.ip)};}},
+ {id:'nat',gen(net,rnd){const c=[];for(const d of netDevs(net,['router']))for(const i of Object.values(d.ifs))if(i.nat)c.push([d,i]);const p=rpick(rnd,c);if(!p)return null;const [d,i]=p;
+   return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'no ip nat '+i.nat,'end']},desc:d.hostname+' '+shortIf(i.name)+' is no longer marked ip nat '+i.nat};}},
+ {id:'gw',gen(net,rnd){const c=netDevs(net,['switch']).filter(d=>d.gw!=null);const d=rpick(rnd,c);if(!d)return null;const x=(d.gw+1)>>>0;
+   return {cmds:{[d.name]:[...enterCfg(d),'ip default-gateway '+n2ip(x),'end']},desc:d.hostname+'\'s default gateway points at '+n2ip(x)+' instead of '+n2ip(d.gw)};}},
+ {id:'acl',gen(net,rnd){const c=[];for(const d of netDevs(net,['router','switch'])){const used=new Set();for(const i of Object.values(d.ifs)){if(i.aclIn)used.add(i.aclIn);if(i.aclOut)used.add(i.aclOut);}if(d.lines&&d.lines.vty&&d.lines.vty.aclClass)used.add(d.lines.vty.aclClass);
+     for(const n of used)if(d.acls&&d.acls[n])c.push([d,n]);}const p=rpick(rnd,c);if(!p)return null;const [d,n]=p,A=d.acls[n],ext=A.type!=='standard';
+   return {cmds:{[d.name]:[...enterCfg(d),'ip access-list '+(ext?'extended':'standard')+' '+n,'5 deny '+(ext?'ip any any':'any'),'end']},desc:'a "deny '+(ext?'ip any any':'any')+'" was slipped in at the top of ACL '+n+' on '+d.hostname};}},
+ {id:'ssh',gen(net,rnd){const c=netDevs(net,['router','switch']).filter(d=>d.lines&&d.lines.vty&&d.lines.vty.local&&d.rsa&&/ssh/i.test(d.lines.vty.transport||'all')&&!/telnet/i.test(d.lines.vty.transport||''));const d=rpick(rnd,c);if(!d)return null;
+   return {cmds:{[d.name]:[...enterCfg(d),'line vty 0 4','transport input telnet','end']},desc:d.hostname+'\'s VTY lines accept only Telnet now, so SSH is refused'};}},
+ {id:'l3',gen(net,rnd){const c=netDevs(net,['switch']).filter(d=>d.ipRouting);const d=rpick(rnd,c);if(!d)return null;return {cmds:{[d.name]:[...enterCfg(d),'no ip routing','end']},desc:'ip routing was switched off on '+d.hostname};}},
+ {id:'encap',gen(net,rnd){const c=[];for(const d of netDevs(net,['router']))for(const i of Object.values(d.ifs))if(i.name.includes('.')&&i.dot1q&&!i.nativeTag)c.push([d,i]);const p=rpick(rnd,c);if(!p)return null;const [d,i]=p,v=i.dot1q+1;
+   return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'encapsulation dot1q '+v,'end']},desc:d.hostname+' '+shortIf(i.name)+' tags VLAN '+v+' instead of VLAN '+i.dot1q};}},
+ {id:'portsec',gen(net,rnd){const c=[];for(const d of netDevs(net,['switch']))for(const i of accessPorts(d))if(i.ps&&i.ps.on&&net.devs[i.link.dev].type==='pc'&&!i.errdis)c.push([d,i]);const p=rpick(rnd,c);if(!p)return null;const [d,i]=p;
+   return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'switchport port-security maximum 1','switchport port-security mac-address 0000.5e00.5301','end']},desc:'a wrong static MAC address on '+d.hostname+' '+shortIf(i.name)+' made the real device a violation'};}}
+];
+function examFault(lab,seed,count){const rnd=seedRng(seed),base=solvedNet(lab);if(!labPasses(lab,base))return null;const found=[];
+  const order=shuffled(rnd,EXAM_FAULTS.filter(g=>!g.generic)).concat(shuffled(rnd,EXAM_FAULTS.filter(g=>g.generic)));
+  for(const g of order){if(found.length>=(count||1))break;
+    for(let t=0;t<3;t++){const net=solvedNet(lab);try{for(const f of found)applyCmds(net,f.cmds);}catch(e){break;}
+      let r=null;try{r=g.gen(net,rnd);}catch(e){r=null;}if(!r)break;
+      try{applyCmds(net,r.cmds);}catch(e){continue;}
+      if(failingChecks(lab,net)>0){found.push({id:g.id,desc:r.desc,cmds:r.cmds});break;}}}
+  return found.length?found:null;}
+// The exam's own lab object: the base lab's topology, requirements and checks, its solution already applied, and the faults on top.
+function examLab(base,faults,title){const l=Object.assign({},base,{title,group:'Exam',kind:'exam',exam:true,baseTitle:base.title,why:[],steps:[],ccna:base.ccna,
+  brief:'This network was built to the requirements in the checklist and was working. Something has changed since. Find out what, repair it, and prove it works: every check must pass.',
+  lesson:faults.map(f=>f.desc).join('. ')+'.',
+  build(){const net=solvedNet(base);for(const f of faults)applyCmds(net,f.cmds);return net;}});
+  l.tasks=base.tasks.slice();return l;}
 //ENGINE-END
 // ---------- guide-only page: index.html?guide, opened as its own browser window for a second monitor ----------
 // It shows the step-by-step guide sent by the main window and stops here, so it never reads or writes saved work.
@@ -4123,7 +4211,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
   const KEY='lab4net-fun-v1';let F={ranks:{},ach:{},days:[],runs:{},cleared:{},sound:true};
   try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object')F=Object.assign(F,p);}catch(e){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(F));}catch(e){}};
-  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal(),sfx:{echo:()=>tone(1568,.03,'square',0,.018),drop:()=>tone(196,.09,'triangle',0,.04),unreach:()=>{tone(220,.05,'sawtooth',0,.03);tone(165,.07,'sawtooth',.05,.03);},flood:()=>{tone(392,.05,'triangle',0,.016);tone(523,.05,'triangle',.05,.016);tone(659,.07,'triangle',.1,.016);}}};
+  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal(),unlock:id=>unlock(id),sfx:{start:()=>[523,659,784].forEach((f,i)=>tone(f,.12,'square',i*.1,.05)),tick:()=>tone(1200,.03,'square',0,.03),timeup:()=>{tone(392,.25,'sawtooth',0,.06);tone(262,.4,'sawtooth',.2,.06);},echo:()=>tone(1568,.03,'square',0,.018),drop:()=>tone(196,.09,'triangle',0,.04),unreach:()=>{tone(220,.05,'sawtooth',0,.03);tone(165,.07,'sawtooth',.05,.03);},flood:()=>{tone(392,.05,'triangle',0,.016);tone(523,.05,'triangle',.05,.016);tone(659,.07,'triangle',.1,.016);}}};
   const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 
   // sound (generated, no audio files)
@@ -4141,7 +4229,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
   const BONUS={S:100,A:60,B:30,C:10,D:0},ORDER='DCBAS';
   function xp(){let x=0;for(const l of LABS)if(progress[l.title])x+=100+(BONUS[F.ranks[l.title]]||0);const d=progress.drill;if(d)x+=Math.min(100,d.r)*5;
     x+=Object.values(progress.quiz||{}).filter(v=>v===true).length*20;
-    if(window.lessonStats){const ls=lessonStats();x+=ls.read*30+ls.correct*10;}return x+Object.keys(F.ach).length*50;}
+    if(window.lessonStats){const ls=lessonStats();x+=ls.read*30+ls.correct*10;}if(window.examStats)x+=examStats().cleared*80;return x+Object.keys(F.ach).length*50;}
   function level(x){let i=0;while(i+1<TITLES.length&&x>=TITLES[i+1][0])i++;const lo=TITLES[i][0],hi=i+1<TITLES.length?TITLES[i+1][0]:lo;return {n:i+1,title:TITLES[i][1],pct:hi>lo?(x-lo)/(hi-lo)*100:100,next:hi>lo?hi-x:0};}
   const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
   function streak(){const set=new Set(F.days);let n=0;const d=new Date();if(!set.has(today()))d.setDate(d.getDate()-1);
@@ -4156,7 +4244,8 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
   const ACH=[['first','First Clear','Pass your first lab.'],['nohelp','No Hand-Holding','Pass a lab with the guide off and the walkthrough closed.'],['flawless','Flawless','Pass a lab without a single rejected command.'],['srank','S Rank','Earn an S on any lab.'],
     ['combo10','Combo x10','Enter 10 valid commands in a row.'],['tracer','Tracer','Get your first successful ping.'],['bouncer','Bouncer','Watch an ACL drop a packet.'],['subnet','Subnet Sniper','Get 30 subnetting fields right.'],
     ['theory','Theory Check','Answer every theory question correctly.'],['half','Halfway There','Pass half of the labs.'],['all','Full Clear','Pass every lab.'],['streak3','Three-Day Streak','Study three days in a row.'],
-    ['detective','Detective','Solve a troubleshooting incident with no clues, guide or walkthrough.'],['faults','Fault Finder','Solve every troubleshooting incident.'],['scholar','Bookworm','Read every lesson.']];
+    ['detective','Detective','Solve a troubleshooting incident with no clues, guide or walkthrough.'],['faults','Fault Finder','Solve every troubleshooting incident.'],['scholar','Bookworm','Read every lesson.'],
+    ['exam','Exam Ready','Clear an exam sim before the clock runs out.'],['saboteur','Fault Hunter','Clear a sabotage exam: hidden faults, no help.'],['daily3','Daily Grind','Clear three daily challenges.']];
   function toast(kicker,title,sub,icon){const t=document.createElement('div');t.className='toast';t.innerHTML=`<i>${icon||'★'}</i><small>${kicker}</small><b>${title}</b><span>${sub}</span>`;$('toasts').appendChild(t);setTimeout(()=>t.remove(),4800);}
   const fresh=[];
   function unlock(id){if(F.ach[id])return;F.ach[id]=Date.now();save();const a=ACH.find(a=>a[0]===id);fresh.push(a[1]);toast('Trophy unlocked',a[1],a[2]);SFX.ach();renderHud();}
@@ -5842,6 +5931,103 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   $('studyMap').onclick=studyMap;
   if(cur&&cur.view==='lab'&&cur.lab&&LESSONS[cur.lab.title]&&cur.lab.kind==='build'&&!isRead(cur.lab.title)){on=true;renderBrief();}
   renderLabs();
+})();
+// ---------- exam sim: a random lab, a clock, and no help ----------
+// An exam is a temporary lab object ("Exam · <base lab>") appended to LABS while it runs: a random build lab, a
+// random incident, or a finished lab with hidden faults (sabotage; the daily challenge is a sabotage seeded by the
+// date, the same for everyone). No guide, no "why", no walkthrough, no clues, no command guide. When the clock
+// runs out the network is graded as it stands. Ranks are scored on results, exactly as in any lab.
+(function(){
+  const KEY='lab4net-exam-v1';let X={current:null,history:[]};
+  try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object')X=Object.assign(X,p);}catch(e){}
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(X));}catch(e){}};
+  const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  const sfx=n=>{const f=window.l4nFun&&window.l4nFun.sfx;if(f&&f[n])try{f[n]();}catch(e){}};
+  const unlock=id=>{if(window.l4nFun&&window.l4nFun.unlock)window.l4nFun.unlock(id);};
+  const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  const buildLabs=()=>LABS.filter(l=>l.kind==='build'&&!l.capstone&&!l.exam),incidents=()=>LABS.filter(l=>l.kind==='incident');
+  window.examStats=()=>({cleared:X.history.filter(h=>h.cleared).length,daily:X.history.filter(h=>h.mode==='daily'&&h.cleared).length});
+  const MODES={sabotage:'A finished lab with hidden faults',lab:'Build it from the checklist',incident:'A broken network to repair',daily:'Daily challenge · two hidden faults'};
+  function makeExam(mode,minutes,seed){const rnd=seedRng(seed);let base=null,faults=null;
+    if(mode==='incident')base=rpick(rnd,incidents());
+    else if(mode==='lab')base=rpick(rnd,buildLabs());
+    else for(const b of shuffled(rnd,buildLabs())){const f=examFault(b,seed+'|'+b.title,mode==='daily'?2:(rnd()<.3?2:1));if(f){base=b;faults=f;break;}}
+    if(!base)return null;return {mode,seed,base:base.title,faults,minutes,deadline:null,started:null,state:'new',date:today()};}
+  // The exam lab object, kept at the end of LABS while the exam exists.
+  function labIndex(ex){const title='Exam · '+ex.base;let i=LABS.findIndex(l=>l.exam);
+    if(i>=0&&LABS[i].examSeed===ex.seed&&LABS[i].title===title)return i;if(i>=0)LABS.splice(i,1);
+    const base=LABS.find(l=>l.title===ex.base);if(!base)return -1;
+    const l=ex.faults?examLab(base,ex.faults,title):Object.assign({},base,{title,group:'Exam',kind:'exam',exam:true,baseTitle:base.title,why:[],steps:[]});
+    l.examSeed=ex.seed;l.examMode=ex.mode;LABS.push(l);return LABS.length-1;}
+  const running=()=>X.current&&X.current.state==='running'&&cur&&cur.view==='lab'&&cur.lab&&cur.lab.exam&&cur.lab.examSeed===X.current.seed;
+  function start(ex){const i=labIndex(ex);if(i<0)return notify('Could not build that exam.');ex.started=Date.now();ex.deadline=ex.started+ex.minutes*60000;ex.state='running';X.current=ex;save();
+    openLab(i,true);sfx('start');notify('Exam started. '+ex.minutes+' minutes on the clock. No guide, no why, no walkthrough.');tick();}
+  function record(ex,cleared,passed,total){const r=window.l4nFun&&window.l4nFun.run&&window.l4nFun.run();
+    X.history.push({date:today(),base:ex.base,mode:ex.mode,cleared,passed,total,rank:cleared&&r?r.rank||null:null,secs:Math.round((Date.now()-ex.started)/1000),minutes:ex.minutes});X.history=X.history.slice(-40);save();}
+  function gradeNow(){const l=cur.lab;cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});const all=cur.graded.every(g=>g[1]);
+    if(all){progress[l.title]=true;persist();celebrate();}renderLabs();renderBrief();return all;}
+  function timeUp(){const ex=X.current;if(!ex)return;ex.state='timeup';save();sfx('timeup');const all=gradeNow();
+    if(!all){const ok=cur.graded.filter(g=>g[1]).length;record(ex,false,ok,cur.graded.length);$('tin').disabled=true;
+      $('resultBody').innerHTML=`<div class="result"><div class="stamp rD">×</div><div class="rrows"><div style="--i:0"><span>Time's up</span><b>${ok}/${cur.graded.length} checks passed</b></div><div style="--i:1"><span>What was wrong</span><b>${esc(l4nExamCause())}</b></div></div></div><p>The network was graded as it stood when the clock ran out. Review it as long as you like; nothing more counts for this exam.</p><div class="actions"><button class="btn primary" id="exReview">Review the network</button><button class="btn" id="exAgain">New exam</button></div>`;
+      $('resultCard').hidden=false;$('exReview').onclick=()=>{$('resultCard').hidden=true;$('tin').disabled=false;$('tin').focus();};$('exAgain').onclick=()=>{$('resultCard').hidden=true;$('tin').disabled=false;examDialog();};}
+    renderBrief();}
+  window.l4nExamCause=()=>{const l=cur&&cur.lab;if(!l||!l.exam)return '';return l.lesson||'';};
+  let lastTickSec=null;
+  function tick(){if(!running())return;const ex=X.current,left=Math.max(0,Math.ceil((ex.deadline-Date.now())/1000)),c=$('examClock');
+    if(c){c.textContent=mmss(left);c.classList.toggle('late',left<=60);}
+    if(left<=10&&left>0&&left!==lastTickSec)sfx('tick');lastTickSec=left;
+    if(left<=0)timeUp();}
+  setInterval(tick,1000);
+  // No help while an exam runs: the body attribute hides the guide switch, the why, the walkthrough, the command guide and clues.
+  const sh0=stepsHtml;stepsHtml=function(k){return cur&&cur.lab&&cur.lab.exam?'':sh0(k);};
+  const TAGS={sabotage:'HIDDEN FAULTS',daily:'DAILY CHALLENGE',lab:'BUILD',incident:'INCIDENT'};
+  const lt0=labTag;labTag=function(idx){return LABS[idx]&&LABS[idx].exam?(TAGS[LABS[idx].examMode]||'EXAM'):lt0(idx);};
+  // The guide is hidden during an exam, so it must not count as help: switch it off while an exam lab is open, as the capstone block does.
+  let savedGuide=null;const ol0=openLab;openLab=function(idx,isFresh){const l=LABS[idx];if(!(l&&l.exam)&&savedGuide!==null){guideOn=savedGuide;savedGuide=null;}ol0(idx,isFresh);
+    if(l&&l.exam){if(savedGuide===null)savedGuide=guideOn;guideOn=false;if(guidePop&&typeof setGuidePop==='function')setGuidePop(false);}};
+  const os0=window.openSandbox;if(os0)window.openSandbox=function(){if(savedGuide!==null){guideOn=savedGuide;savedGuide=null;}os0();};
+  const rb0=renderBrief;renderBrief=function(){rb0();const l=cur&&cur.view==='lab'&&cur.lab;if(!l||!l.exam){delete document.body.dataset.exam;return;}
+    document.body.dataset.exam='1';const ex=X.current&&X.current.seed===l.examSeed?X.current:null;
+    const state=ex?ex.state:'done',left=ex&&ex.state==='running'?Math.max(0,Math.ceil((ex.deadline-Date.now())/1000)):0;
+    const status=state==='running'?`<span class="exam-clock${left<=60?' late':''}" id="examClock">${mmss(left)}</span>`:state==='timeup'?'<span class="exam-clock late">Time\'s up</span>':'<span class="exam-clock">Done</span>';
+    const bar=`<div class="exam-bar"><b>EXAM</b>${status}<span class="exam-note">${esc(MODES[l.examMode]||'')} · ${ex?ex.minutes+' min':''} · no guide, no why, no walkthrough</span>${state==='running'?'<button class="small-btn" id="examQuit" type="button">Quit</button>':'<button class="small-btn" id="examNew" type="button">New exam</button>'}</div>`;
+    $('brief').insertAdjacentHTML('afterbegin',bar);
+    if($('examQuit'))$('examQuit').onclick=()=>{const ex=X.current;if(ex&&ex.state==='running'){ex.state='quit';const g=l.checks.map(([,f])=>{try{return !!f(cur.net);}catch(e){return false;}});record(ex,false,g.filter(Boolean).length,g.length);}X.current=null;save();notify('Exam ended.');renderBrief();};
+    if($('examNew'))$('examNew').onclick=examDialog;
+    // grading in an exam records the result; a clear stops the clock
+    $('bGrade').onclick=()=>{const all=gradeNow();if(!all&&$('grade'))$('grade').scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});};};
+  const cel0=celebrate;celebrate=function(){cel0();const l=cur&&cur.lab,ex=X.current;if(!l||!l.exam||!ex||ex.seed!==l.examSeed||ex.state!=='running')return;
+    ex.state='done';save();const run=window.l4nFun&&window.l4nFun.run&&window.l4nFun.run();record(ex,true,l.checks.length,l.checks.length);
+    unlock('exam');if(ex.faults){const noHelp=run&&!run.help&&!run.walk;if(noHelp)unlock('saboteur');}if(window.examStats().daily>=3)unlock('daily3');};
+  // Leaving the exam lab for another one leaves the clock running until it ends; opening it again shows it.
+  // The exam setup card
+  function examDialog(){const seedDaily='daily-'+today(),done=X.history.find(h=>h.mode==='daily'&&h.date===today());
+    let daily=null;try{daily=makeExam('daily',20,seedDaily);}catch(e){daily=null;}
+    const hist=X.history.slice(-8).reverse().map(h=>`<tr><td>${h.date}</td><td>${esc(h.base)}</td><td>${esc(MODES[h.mode]||h.mode)}</td><td class="${h.cleared?'good':'bad'}">${h.cleared?'Cleared · rank '+(h.rank||'—'):'Not cleared · '+h.passed+'/'+h.total}</td></tr>`).join('');
+    dialog('Exam sim',`<p>A random lab, a clock, and no help: no guide, no "why", no walkthrough, no clues. The network is graded as it stands when time runs out. Ranks are scored on results, as always.</p>
+      <div class="exam-daily"><div class="eyebrow">Daily challenge · ${today()}</div>${done?`<p><b>${done.cleared?'Cleared today · rank '+(done.rank||'—'):'Attempted today · '+done.passed+'/'+done.total+' checks'}</b> · ${esc(done.base)}</p>`:daily?`<p><b>${esc(daily.base)}</b> with two hidden faults · 20 minutes · the same for everyone today.</p><button class="btn primary" id="exDaily">Start today's challenge →</button>`:'<p>No daily challenge could be built.</p>'}</div>
+      <h3>Pick your own</h3><div class="exam-opts"><label><input type="radio" name="exMode" value="sabotage" checked> <b>Sabotage</b> · a finished lab with one or two hidden faults (never the same twice)</label><label><input type="radio" name="exMode" value="lab"> <b>Build lab</b> · configure it from the checklist alone</label><label><input type="radio" name="exMode" value="incident"> <b>Incident</b> · a troubleshooting incident with no clues</label></div>
+      <div class="exam-opts row"><span>Clock</span>${[10,15,20,30].map(m=>`<label><input type="radio" name="exMin" value="${m}"${m===20?' checked':''}> ${m} min</label>`).join('')}</div>
+      <div class="actions"><button class="btn primary" id="exStart">Start exam →</button></div>
+      ${hist?`<h3>Recent exams</h3><div class="table-wrap"><table><thead><tr><th>Date</th><th>Lab</th><th>Mode</th><th>Result</th></tr></thead><tbody>${hist}</tbody></table></div>`:''}`);
+    if($('exDaily'))$('exDaily').onclick=()=>{$('dialog').close();start(daily);};
+    $('exStart').onclick=()=>{const mode=($('dialogBody').querySelector('input[name=exMode]:checked')||{}).value||'sabotage',min=+(($('dialogBody').querySelector('input[name=exMin]:checked')||{}).value||20);
+      let ex=null;try{ex=makeExam(mode,min,mode+'-'+Date.now()+'-'+Math.floor(Math.random()*1e6));}catch(e){ex=null;}if(!ex)return notify('Could not build an exam of that kind.');$('dialog').close();start(ex);};}
+  window.examDialog=examDialog;
+  // entry points: the lab library's practice buttons and the lab menu
+  const lib0=library;library=function(){lib0();const pb=$('dialogBody').querySelector('.practice-buttons');if(pb&&!$('examBtn')){pb.insertAdjacentHTML('beforeend','<button class="btn" id="examBtn">Exam sim →</button>');$('examBtn').onclick=()=>{$('dialog').close();examDialog();};}};
+  $('library').onclick=library;
+  const rl0=renderLabs;renderLabs=function(){rl0();const g=[...$('labs').querySelectorAll('optgroup')].find(o=>o.label==='Practice');
+    if(g&&!g.querySelector('option[value="exam"]')){const o=document.createElement('option');o.value='exam';o.textContent='Exam sim';g.appendChild(o);}
+    if(cur&&cur.view==='lab'&&cur.lab&&cur.lab.exam){const ex=LABS.indexOf(cur.lab);let o=$('labs').querySelector('option[value="'+ex+'"]');if(!o){o=document.createElement('option');o.value=String(ex);g.parentNode.insertBefore(o,g);}o.textContent='Exam · '+cur.lab.baseTitle;o.selected=true;}
+    // the progress meter counts real labs only
+    const real=LABS.filter(l=>!l.exam),count=real.filter(l=>progress[l.title]).length,m=$('meter');if(m&&LABS.some(l=>l.exam))m.innerHTML=`<div class="progressbar" role="progressbar" aria-label="Labs passed" aria-valuemin="0" aria-valuemax="${real.length}" aria-valuenow="${count}"><span style="width:${count/real.length*100}%"></span></div><span>${count} / ${real.length} passed</span>`;};
+  $('labs').addEventListener('change',e=>{if(e.target.value==='exam'){e.stopImmediatePropagation();renderLabs();examDialog();}},true);
+  // the why line after a command stays quiet during an exam
+  const ex0=execute;execute=function(line){ex0(line);if(cur&&cur.lab&&cur.lab.exam){$('hint').textContent=HINT;$('hint').className='';}};
+  // resume a running exam after a reload
+  if(X.current&&X.current.state==='running'){const i=labIndex(X.current);if(i>=0)openLab(i,false);}
+  if(cur&&cur.view==='lab')renderAll();
 })();
 </script>
 </body>

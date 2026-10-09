@@ -18,3 +18,4 @@ jobs:
       - run: node tests/console.cjs
       - run: node tests/switching.cjs
       - run: node tests/prompts.cjs
+      - run: node tests/exam.cjs
