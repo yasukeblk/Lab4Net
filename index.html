@@ -238,6 +238,11 @@ td:last-child{font:400 18px/1.15 var(--mono);color:var(--ph)}
 @keyframes bit{to{transform:translate(var(--dx),var(--dy));opacity:0}}
 .fxlabel{font:italic 800 17px var(--px);letter-spacing:.06em;text-transform:uppercase;text-anchor:middle;paint-order:stroke;stroke:var(--line);stroke-width:5px;transform-box:fill-box;transform-origin:center;animation:label 3.2s cubic-bezier(.2,1.6,.4,1) forwards}
 .fxlabel.good{fill:var(--yel)} .fxlabel.bad{fill:#ff8a98} .fxlabel.warn{fill:var(--org)}
+.pkt.flood{stroke:var(--mag);fill:#ffd9ff;r:4;filter:drop-shadow(0 0 6px var(--mag))} .pkt.blk{stroke:var(--bad);fill:#ffb3bb}
+.trail.flood{stroke:var(--mag);stroke-width:4;filter:drop-shadow(0 0 5px var(--mag));animation-duration:.6s} .trail.blk{stroke:var(--bad);filter:drop-shadow(0 0 5px var(--bad))}
+.pkt.arp{stroke:var(--yel);fill:#fff6c2;r:4;filter:drop-shadow(0 0 6px var(--yel))} .trail.arp{stroke:var(--yel);stroke-width:4;filter:drop-shadow(0 0 5px var(--yel))}
+.burst.flood{stroke:var(--mag)} .spark.flood{fill:#ff7bf0} .bit.flood{fill:var(--mag)} .fxlabel.flood{fill:#ffb3ff}
+.trace-l2{margin:8px 0 2px;font:400 17px/1.3 var(--mono);color:var(--ph)} .trace-l2-h{font:italic 800 15px var(--px);letter-spacing:.08em;text-transform:uppercase;color:var(--mag)} .trace-l2 b{color:var(--cy);font-weight:400} .trace-l2 .tip{color:var(--muted);margin-top:3px}
 @keyframes label{0%{opacity:0;transform:scale(.4) skewX(-10deg)}9%{opacity:1;transform:scale(1.12) skewX(-10deg)}14%{transform:scale(1) skewX(-10deg)}85%{opacity:1;transform:scale(1) skewX(-10deg)}100%{opacity:0;transform:scale(1) skewX(-10deg)}}
 .clear{font:italic 800 62px var(--px);letter-spacing:.03em;fill:url(#gY);text-anchor:middle;paint-order:stroke;stroke:var(--line);stroke-width:9px;stroke-linejoin:round;transform-box:fill-box;transform-origin:center;filter:drop-shadow(0 6px 0 rgba(0,0,0,.65)) drop-shadow(0 0 22px rgba(255,210,63,.75));animation:clearin 2.8s cubic-bezier(.2,1.5,.3,1) forwards}
 @keyframes clearin{0%{opacity:0;transform:translateX(-160px) skewX(-22deg) scale(.8)}10%{opacity:1;transform:translateX(0) skewX(-10deg) scale(1.1)}16%{transform:translateX(0) skewX(-10deg) scale(1)}82%{opacity:1;transform:translateX(0) skewX(-10deg) scale(1)}100%{opacity:0;transform:translateX(140px) skewX(-22deg) scale(1)}}
@@ -594,45 +599,53 @@ function ifUp(net,d,i){
   const p=phys(d,i);if(p.shutdown||p.errdis||!p.link)return false;
   const q=net.devs[p.link.dev].ifs[p.link.ifn];return !q.shutdown&&!q.errdis;
 }
+// Frames follow the spanning tree: a port that STP has put in the blocking state sends nothing and drops what
+// arrives (stpBlocked). Every result carries its Layer 2 trail (each switch crossed, with the VLAN and the ports
+// in and out), and out.edges lists every link the flood reached, which the MAC table and the map's flooding use.
 function l2peers(net,d,i){
-  const out=[];if(i.name.startsWith('Loopback')||!ifUp(net,d,i))return out;
-  const seen=new Set();
-  function flood(sw,vlan,inPort,path){
+  const out=[];out.edges=[];if(i.name.startsWith('Loopback')||!ifUp(net,d,i))return out;
+  const seen=new Set(),blk={};
+  const blocking=(sw,vlan,p)=>{let b=blk[vlan];if(!b)b=blk[vlan]=stpBlocked(net,vlan);return b.has(sw.name+'|'+p.name);};
+  function flood(sw,vlan,inPort,path,trail){
     const k=sw.name+'|'+vlan;if(seen.has(k))return;seen.add(k);
     if(!sw.vlans[vlan])return;
-    const svi=sw.ifs['Vlan'+vlan];if(svi&&svi!==i&&!svi.shutdown&&(svi.ip!==null||svi.v6on))out.push({dev:sw,ifc:svi,path});
+    const svi=sw.ifs['Vlan'+vlan];if(svi&&svi!==i&&!svi.shutdown&&(svi.ip!==null||svi.v6on))out.push({dev:sw,ifc:svi,path,trail});
     for(const p of Object.values(sw.ifs)){
-      if(p===inPort||!p.link||p.name.startsWith('Vlan')||p.routed||!ifUp(net,sw,p))continue;
+      if(p===inPort||!p.link||p.name.startsWith('Vlan')||p.routed||!ifUp(net,sw,p)||blocking(sw,vlan,p))continue;
       let tag=null;
       if(p.mode==='trunk'){if(!allowed(p,vlan))continue;tag=vlan===p.native?null:vlan;}
       else if(p.accessVlan!==vlan){if(p.voiceVlan===vlan)tag=vlan;else continue;}
-      deliver(net.devs[p.link.dev],p.link.ifn,tag,path);
+      const last=trail[trail.length-1],t=last&&last.sw===sw.name?trail.slice(0,-1).concat([Object.assign({},last,{outp:p.name})]):trail;
+      deliver(net.devs[p.link.dev],p.link.ifn,tag,path,t,p.name);
     }
   }
-  function deliver(dev,ifn,tag,previous){
+  function deliver(dev,ifn,tag,previous,trail,fromPort){
     const path=previous.concat(dev.name);
     const port=dev.ifs[ifn];
+    const edge={from:previous[previous.length-1],fromPort,to:dev.name,toPort:ifn,vlan:null};out.edges.push(edge);
     // A routed switch port (no switchport) behaves like a router interface.
-    if(dev.type==='switch'&&port.routed){if(tag===null&&(port.ip!==null||port.v6on)&&port!==i)out.push({dev,ifc:port,path});return;}
+    if(dev.type==='switch'&&port.routed){if(tag===null&&(port.ip!==null||port.v6on)&&port!==i)out.push({dev,ifc:port,path,trail});return;}
     if(dev.type==='switch'){
       let vlan;
       if(port.mode==='trunk'){vlan=tag===null?port.native:tag;if(!allowed(port,vlan))return;}
       else if(tag!==null&&port.voiceVlan===tag)vlan=tag;
       else{if(tag!==null&&tag!==port.accessVlan)return;vlan=port.accessVlan;}
-      flood(dev,vlan,port,path);
+      edge.vlan=vlan;if(blocking(dev,vlan,port)){edge.blocked=true;return;}
+      flood(dev,vlan,port,path,trail.concat([{sw:dev.name,vlan,inp:port.name,outp:null}]));
     }else if(dev.phone){
       // An IP phone is a small two-port bridge: its own traffic uses the voice VLAN it learned over CDP (untagged
       // if it learned none); the PC port passes untagged frames straight through to the switch port.
       const up=dev.ifs.FastEthernet0,pcp=dev.ifs.FastEthernet1,vv=phoneVlan(net,dev);
-      if(port===pcp){if(tag===null&&up.link&&ifUp(net,dev,up))deliver(net.devs[up.link.dev],up.link.ifn,null,path);}
-      else if(tag===null){if(pcp.link&&ifUp(net,dev,pcp))deliver(net.devs[pcp.link.dev],pcp.link.ifn,null,path);if(vv==null&&(up.ip!==null||up.v6on)&&up!==i)out.push({dev,ifc:up,path});}
-      else if(tag===vv&&up.ip!==null&&up!==i)out.push({dev,ifc:up,path});
-    }else if(tag===null){if((port.ip!==null||port.v6on)&&port!==i)out.push({dev,ifc:port,path});
-      else for(const s of Object.values(dev.ifs))if(s.name.startsWith(ifn+'.')&&s.nativeTag&&!s.shutdown&&s!==i)out.push({dev,ifc:s,path});}
-    else for(const s of Object.values(dev.ifs))if(s.name.startsWith(ifn+'.')&&s.dot1q===tag&&!s.shutdown&&s!==i)out.push({dev,ifc:s,path});
+      if(port===pcp){if(tag===null&&up.link&&ifUp(net,dev,up))deliver(net.devs[up.link.dev],up.link.ifn,null,path,trail,up.name);}
+      else if(tag===null){if(pcp.link&&ifUp(net,dev,pcp))deliver(net.devs[pcp.link.dev],pcp.link.ifn,null,path,trail,pcp.name);if(vv==null&&(up.ip!==null||up.v6on)&&up!==i)out.push({dev,ifc:up,path,trail});}
+      else if(tag===vv&&up.ip!==null&&up!==i)out.push({dev,ifc:up,path,trail});
+    }else if(tag===null){if((port.ip!==null||port.v6on)&&port!==i)out.push({dev,ifc:port,path,trail});
+      else for(const s of Object.values(dev.ifs))if(s.name.startsWith(ifn+'.')&&s.nativeTag&&!s.shutdown&&s!==i)out.push({dev,ifc:s,path,trail});}
+    else for(const s of Object.values(dev.ifs))if(s.name.startsWith(ifn+'.')&&s.dot1q===tag&&!s.shutdown&&s!==i)out.push({dev,ifc:s,path,trail});
   }
-  if(d.type==='switch'&&!i.routed)flood(d,+i.name.slice(4),null,[d.name]);
-  else{const p=phys(d,i);const tag=d.phone?phoneVlan(net,d):p===i||i.nativeTag?null:i.dot1q;if(!d.phone&&p!==i&&tag==null&&!i.nativeTag)return out;deliver(net.devs[p.link.dev],p.link.ifn,tag,[d.name]);}
+  // A switch sending from its own SVI is a bridge too: it looks the destination up in its own table first.
+  if(d.type==='switch'&&!i.routed){const v=+i.name.slice(4);flood(d,v,null,[d.name],[{sw:d.name,vlan:v,inp:null,outp:null}]);}
+  else{const p=phys(d,i);const tag=d.phone?phoneVlan(net,d):p===i||i.nativeTag?null:i.dot1q;if(!d.phone&&p!==i&&tag==null&&!i.nativeTag)return out;deliver(net.devs[p.link.dev],p.link.ifn,tag,[d.name],[],p.name);}
   return out;
 }
 function connected(net,d){const r=[];for(const i of Object.values(d.ifs))if(i.ip!==null&&ifUp(net,d,i))r.push({code:'C',net:netOf(i.ip,i.len),len:i.len,ifc:i,nh:null,ad:0});return r;}
@@ -987,8 +1000,8 @@ const LABS=[
 IFT.push('Port-channel');
 parseIf=function(str){const m=/^([a-z-]+?)([\d\/.]+)$/i.exec(String(str).replace(/\s+/g,''));if(!m)return null;const t=IFT.find(t=>t.toLowerCase().startsWith(m[1].toLowerCase()));return t?t+m[2]:null;};
 function macOf(d){if(d.mac)return d.mac;let h=7;for(const c of d.name)h=(h*31+c.charCodeAt(0))%65536;const x=h.toString(16).padStart(4,'0');return '00e0.b0'+x.slice(0,2)+'.'+x.slice(2)+'10';}
-let LIVE=false,TRACE=null;
-const run0=run;run=function(env,line,mode){const was=LIVE;LIVE=true;try{run0(env,line,mode);}finally{LIVE=was;}};
+let LIVE=false,TRACE=null,L2LIVE=false,L2WARM=null;
+const run0=run;run=function(env,line,mode){const was=LIVE,wl=L2LIVE;LIVE=true;L2LIVE=true;try{run0(env,line,mode);}finally{LIVE=was;L2LIVE=wl;}};
 const SUBX='acl,dhcp';
 C(SUBX,'end',e=>{e.s.mode='priv';e.s.ctx=null;});
 C(SUBX,'exit',e=>{e.s.mode='config';e.s.ctx=null;});
@@ -1084,12 +1097,14 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
     if(pk.src==null)pk.src=h.ifc.ip;
     if(isL3(d)){if(inIf&&inIf.nat==='inside'&&h.ifc.nat==='outside'){const why=natOut(d,pk);if(why)return {ok:false,hops,blocked:d,reason:why};}
       if(t>0&&h.ifc.aclOut&&!aclPermit(d,h.ifc.aclOut,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+h.ifc.aclOut+' outbound on '+shortIf(h.ifc.name)};}
-    let hopIp=h.nh,peer=l2peers(net,d,h.ifc).find(p=>p.ifc.ip===h.nh||hsrpVip(net,p.dev,p.ifc)===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
+    const ps=l2peers(net,d,h.ifc);let hopIp=h.nh,peer=ps.find(p=>p.ifc.ip===h.nh||hsrpVip(net,p.dev,p.ifc)===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
     // An exit-interface-only static route ARPs for the destination itself; a router on the segment with a route to it answers (proxy ARP).
-    if(!peer&&h.proxy){peer=l2peers(net,d,h.ifc).find(p=>p.dev.type==='router'&&p.ifc.proxyArp!==false&&(x=>!!x&&x.ifc!==p.ifc)(nextHop(net,p.dev,h.nh)));if(peer)hopIp=peer.ifc.ip;}
+    if(!peer&&h.proxy){peer=ps.find(p=>p.dev.type==='router'&&p.ifc.proxyArp!==false&&(x=>!!x&&x.ifc!==p.ifc)(nextHop(net,p.dev,h.nh)));if(peer)hopIp=peer.ifc.ip;}
     if(!peer)return {ok:false,hops,reason:'Next hop '+n2ip(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links, VLANs and addressing'};
     // Dynamic ARP Inspection: both ends' ARP must pass every switch that inspects their VLAN.
     {const why=daiBlock(net,peer.path,d,h.ifc)||daiBlock(net,peer.path.slice().reverse(),peer.dev,peer.ifc);if(why)return {ok:false,hops,blocked:net.devs[why.sw],reason:why.text};}
+    // Switches along the way learn the sender's MAC and flood or forward the frame (switching realism block).
+    if(LIVE&&L2LIVE)(hops.l2=hops.l2||[]).push(l2frame(net,d,h.ifc,peer,hopIp,hops.path.length-1,ps.edges));
     hops.push(hopIp);hops.path.push(...peer.path.slice(1));d=peer.dev;inIf=peer.ifc;}
   return {ok:false,hops,reason:'Hop limit reached; check for a routing loop'};}
 function listens(d,port){if(d.services)return d.services.includes(port);if(d.type==='pc')return false;if(port===123)return !!(d.ntpMaster||(d.ntpServers||[]).length);const v=d.lines.vty,tr=(v.transport||'all').toLowerCase();
@@ -1102,7 +1117,7 @@ function reach(net,src,dst,proto,dport){proto=proto||'icmp';dport=dport||0;const
   // An echo request carries a query ID (1) instead of a source port.
   const f=fwd(net,src,{src:null,dst,proto,sport:proto==='icmp'?1:50000,dport});let ok=false,refused=false,r=null;
   if(f.ok){if(proto==='tcp'&&(!listens(f.dest,dport)||vtyDenied(f.dest,dport,f.pk.src)))refused=true;else if(f.dest===src)ok=true;
-    else{r=fwd(net,f.dest,{src:f.pk.dst,dst:f.pk.src,proto,sport:dport,dport:f.pk.sport});ok=r.ok&&r.dest===src;}}
+    else{L2WARM=f.hops.l2?f.hops.l2[f.hops.l2.length-1].srcIp:null;r=fwd(net,f.dest,{src:f.pk.dst,dst:f.pk.src,proto,sport:dport,dport:f.pk.sport});L2WARM=null;ok=r.ok&&r.dest===src;}}
   if(!LIVE)saved.forEach(([x,l,m])=>{x.table.length=l;if(x.dyn)x.dyn.length=m;});
   if(LIVE)TRACE={src,f,r,ok,refused};return {ok,refused,f};}
 canPing=function(net,src,dst){return reach(net,src,dst).ok;};
@@ -1221,21 +1236,36 @@ C('if','no cdp enable',e=>e.s.ctx.forEach(i=>{i.cdp=false;}));
 const stpOf=d=>d.stp||(d.stp={prio:{},mode:'pvst'});
 const stpPrio=(sw,v)=>((sw.stp&&sw.stp.prio[v])??32768)+v;
 const bid=(sw,v)=>String(stpPrio(sw,v)).padStart(6,'0')+macOf(sw);
+// Spanning tree per VLAN. Bundled EtherChannel members count as their port-channel (one STP port, the cost of the
+// combined bandwidth), as on a real switch. Switches that cannot hear each other each elect their own root.
 function stpCalc(net,v){const sws=Object.values(net.devs).filter(d=>d.type==='switch'&&d.vlans[v]);if(!sws.length)return null;
-  const root=sws.reduce((a,b)=>bid(a,v)<bid(b,v)?a:b);
   const carries=(sw,p)=>!!p.link&&!p.routed&&ifUp(net,sw,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v);
-  const cost=p=>p.name.startsWith('Gig')?4:19;
-  const dist=new Map([[root.name,0]]),todo=new Set(sws.map(s=>s.name));
-  while(todo.size){let u=null;for(const n of todo)if(dist.has(n)&&(u===null||dist.get(n)<dist.get(u)))u=n;if(u===null)break;todo.delete(u);const U=net.devs[u];
-    for(const p of Object.values(U.ifs)){if(!carries(U,p))continue;const nb=net.devs[p.link.dev];if(nb.type!=='switch'||!nb.vlans[v])continue;const c=dist.get(u)+cost(p);if(!dist.has(nb.name)||c<dist.get(nb.name))dist.set(nb.name,c);}}
-  const key=(sw)=>String(dist.get(sw.name)).padStart(6,'0')+bid(sw,v),info={};
-  for(const sw of sws){const ports={};let rp=null,best=null;const names=sortIfs(Object.keys(sw.ifs));
-    if(sw!==root&&dist.has(sw.name))for(const n of names){const p=sw.ifs[n];if(!carries(sw,p))continue;const nb=net.devs[p.link.dev];if(nb.type!=='switch'||!dist.has(nb.name))continue;
-      const k=String(dist.get(nb.name)+cost(p)).padStart(6,'0')+bid(nb,v);if(best===null||k<best){best=k;rp=p;}}
-    for(const n of names){const p=sw.ifs[n];if(!carries(sw,p))continue;const nb=net.devs[p.link.dev];let role='Desg';
-      if(p===rp)role='Root';else if(nb.type==='switch'&&dist.has(nb.name)&&dist.has(sw.name)&&key(sw)>key(nb))role='Altn';
-      ports[n]={role,cost:cost(p)};}
-    info[sw.name]={ports,rp,cost:dist.get(sw.name)};}
+  const cost=(p,n)=>p.name.startsWith('Gig')?(n>1?3:4):(n>1?12:19);
+  // The STP ports of a switch: each physical port that is not a bundled member, plus each port-channel with bundled members.
+  const stpPorts=sw=>{const r=[];for(const n of sortIfs(Object.keys(sw.ifs))){const p=sw.ifs[n];
+      if(n.startsWith('Port-channel')){const ms=members(sw,p).filter(m=>bundled(net,sw,m));if(ms.length&&carries(sw,ms[0]))r.push({p,name:n,nb:ms[0].link.dev,cost:cost(ms[0],ms.length)});continue;}
+      if(p.chan&&bundled(net,sw,p))continue;
+      if(carries(sw,p))r.push({p,name:n,nb:p.link.dev,cost:cost(p,1)});}
+    return r;};
+  const ports=new Map(sws.map(s=>[s.name,stpPorts(s)])),isSw=n=>{const x=net.devs[n];return x.type==='switch'&&!!x.vlans[v];};
+  // Connected groups of switches; each group elects the lowest bridge ID it can hear as its root.
+  const comp=new Map();
+  for(const s of sws){if(comp.has(s.name))continue;const grp=[s];comp.set(s.name,null);
+    for(let k=0;k<grp.length;k++)for(const x of ports.get(grp[k].name))if(isSw(x.nb)&&!comp.has(x.nb)){comp.set(x.nb,null);grp.push(net.devs[x.nb]);}
+    const r=grp.reduce((a,b)=>bid(a,v)<bid(b,v)?a:b);grp.forEach(g=>comp.set(g.name,r));}
+  const root=sws.reduce((a,b)=>bid(a,v)<bid(b,v)?a:b);
+  const dist=new Map();
+  for(const r of new Set(comp.values())){dist.set(r.name,0);const todo=new Set(sws.filter(s=>comp.get(s.name)===r).map(s=>s.name));
+    while(todo.size){let u=null;for(const n of todo)if(dist.has(n)&&(u===null||dist.get(n)<dist.get(u)))u=n;if(u===null)break;todo.delete(u);
+      for(const x of ports.get(u)){if(!isSw(x.nb))continue;const c=dist.get(u)+x.cost;if(!dist.has(x.nb)||c<dist.get(x.nb))dist.set(x.nb,c);}}}
+  const key=sw=>String(dist.get(sw.name)).padStart(6,'0')+bid(sw,v),info={};
+  for(const sw of sws){const mine={};let rp=null,best=null;const myRoot=comp.get(sw.name);
+    if(sw!==myRoot&&dist.has(sw.name))for(const x of ports.get(sw.name)){if(!isSw(x.nb)||!dist.has(x.nb))continue;
+      const k=String(dist.get(x.nb)+x.cost).padStart(6,'0')+bid(net.devs[x.nb],v);if(best===null||k<best){best=k;rp=x.p;}}
+    for(const x of ports.get(sw.name)){const nb=net.devs[x.nb];let role='Desg';
+      if(x.p===rp)role='Root';else if(isSw(x.nb)&&dist.has(nb.name)&&dist.has(sw.name)&&key(sw)>key(nb))role='Altn';
+      mine[x.name]={role,cost:x.cost};}
+    info[sw.name]={ports:mine,rp,cost:dist.get(sw.name),root:myRoot};}
   return {root,info};}
 C('config','spanning-tree vlan <w> priority <n>',e=>{const vl=parseVlanList(e.args[0]);if(!vl)return e.out(BAD);if(e.args[1]%4096||e.args[1]>61440)return e.out('% Bridge Priority must be in increments of 4096.','% Allowed values are: 0 4096 8192 12288 ... 61440');vl.forEach(v=>{stpOf(e.d).prio[v]=e.args[1];});},['switch']);
 // root primary is a macro: 24576, or 4096 below the current root if 24576 would not win. secondary is always 28672.
@@ -1245,9 +1275,9 @@ C('config','spanning-tree mode <w>',e=>{const m=['pvst','rapid-pvst'].find(x=>x.
 C('if','spanning-tree portfast',e=>{e.s.ctx.forEach(i=>{i.portfast=true;});e.out('%Warning: portfast should only be enabled on ports connected to a single host.');},['switch']);
 C('if','spanning-tree bpduguard enable',e=>e.s.ctx.forEach(i=>{i.bpduguard=true;}),['switch']);
 C(EX,'show spanning-tree <rest?>',e=>{const{net,d,out}=e,m=/(\d+)/.exec(e.args[0]||''),vl=m?[+m[1]]:Object.keys(d.vlans).map(Number);
-  for(const v of vl){if(!d.vlans[v]){if(m)out('Spanning tree instance(s) for vlan '+v+' does not exist.');continue;}const r=stpCalc(net,v),me=r.info[d.name];
-    out('VLAN'+String(v).padStart(4,'0'),'  Spanning tree enabled protocol '+(d.stp&&d.stp.mode==='rapid-pvst'?'rstp':'ieee'),'  Root ID    Priority    '+stpPrio(r.root,v),'             Address     '+macOf(r.root));
-    if(r.root===d)out('             This bridge is the root');else out('             Cost        '+me.cost,'             Port        '+(me.rp?shortIf(me.rp.name):'-'));
+  for(const v of vl){if(!d.vlans[v]){if(m)out('Spanning tree instance(s) for vlan '+v+' does not exist.');continue;}const r=stpCalc(net,v),me=r.info[d.name],rt=me.root;
+    out('VLAN'+String(v).padStart(4,'0'),'  Spanning tree enabled protocol '+(d.stp&&d.stp.mode==='rapid-pvst'?'rstp':'ieee'),'  Root ID    Priority    '+stpPrio(rt,v),'             Address     '+macOf(rt));
+    if(rt===d)out('             This bridge is the root');else out('             Cost        '+me.cost,'             Port        '+(me.rp?shortIf(me.rp.name):'-'));
     out('','  Bridge ID  Priority    '+stpPrio(d,v)+'  (priority '+(stpPrio(d,v)-v)+' sys-id-ext '+v+')','             Address     '+macOf(d),'','Interface           Role Sts Cost      Type','------------------- ---- --- --------- ----');
     for(const[n,p]of Object.entries(me.ports))out(pad(shortIf(n),20)+pad(p.role,5)+pad(p.role==='Altn'?'BLK':'FWD',4)+pad(p.cost,10)+(d.ifs[n].portfast?'P2p Edge':'P2p'));out('');}},['switch']);
 
@@ -3171,8 +3201,8 @@ Cn('pc','ping <rest>',e=>{const w=e.args[0].split(/\s+/),ip=w.find(isIp);if(!ip)
   const o=pingOpts(w.filter(x=>x!==ip).join(' '),true);if(o.bad){e.out('Bad option. Use: ping [-n count] [-l size] address');return;}winPing(e,ip2n(ip),o.count,o.size);});
 // ARP tables
 function arpRows(net,d){const c=arpPrune(net,d);return Object.keys(c).map(Number).sort((a,b)=>a-b).map(ip=>{const o=ipOwner(net,ip),i=o&&Object.values(o.ifs).find(x=>x.hsrp&&hsrpVip(net,o,x)===ip),g=i&&i.hsrp.find(g=>g.ip===ip);
-  return {ip,ifn:c[ip],mac:g?'0000.0c07.ac'+(+g.grp).toString(16).padStart(2,'0'):o?macOf(o):'Incomplete'};});}
-Cn(EX,'show ip arp',e=>{const d=e.d,rows=[];for(const i of Object.values(d.ifs))if(i.ip!=null&&ifUp(e.net,d,i))rows.push({ip:i.ip,age:'-',mac:macOf(d),ifn:i.name});
+  return {ip,ifn:c[ip],mac:g?vmac(i,g):o?macTx(net,o,Object.values(o.ifs).find(x=>x.ip===ip)||Object.values(o.ifs)[0]):'Incomplete'};});}
+Cn(EX,'show ip arp',e=>{const d=e.d,rows=[];for(const i of Object.values(d.ifs))if(i.ip!=null&&ifUp(e.net,d,i))rows.push({ip:i.ip,age:'-',mac:macTx(e.net,d,i),ifn:i.name});
   arpRows(e.net,d).forEach(r=>rows.push({...r,age:'0'}));rows.sort((a,b)=>a.ip-b.ip);
   e.out('Protocol  Address          Age (min)  Hardware Addr   Type   Interface',...rows.map(r=>'Internet  '+n2ip(r.ip).padEnd(17)+r.age.padStart(9)+'   '+r.mac.padEnd(16)+'ARPA   '+r.ifn));});
 Cn(EX,'show arp',e=>run(e,'show ip arp',e.s.mode));
@@ -3284,7 +3314,7 @@ const bwOf=i=>i.bw||(i.name.startsWith('Fast')?100000:i.name.startsWith('Loopbac
     else if(svi||lo)void 0;return T;};
   for(const l of L){const m=/^(\S+) is (up|down|administratively down), line protocol is/.exec(l);
     if(m){R.push(...tail(cur));cur=d.ifs[m[1]];R.push(l);if(cur){const lo=cur.name.startsWith('Loopback'),svi=cur.name.startsWith('Vlan');
-      R.push('  Hardware is '+(lo?'Loopback':svi?'EtherSVI, address is '+macOf(d)+' (bia '+macOf(d)+')':(cur.name.startsWith('Fast')?'Fast Ethernet':'iGbE')+', address is '+macOf(d)+' (bia '+macOf(d)+')'));
+      R.push('  Hardware is '+(lo?'Loopback':svi?'EtherSVI, address is '+macOf(d)+' (bia '+macOf(d)+')':(cur.name.startsWith('Fast')?'Fast Ethernet':'iGbE')+', address is '+macTx(null,d,cur)+' (bia '+macTx(null,d,cur)+')'));
       if(cur.desc&&!L.some(x=>x.trim()==='Description: '+cur.desc))R.push('  Description: '+cur.desc);}continue;}
     R.push(l);}
   R.push(...tail(cur));e.out(...R);};}
@@ -3364,6 +3394,125 @@ function guideFor(lab){const keep=TRACE,net=lab.build(),sess={};
   const out=lab.steps.map(task=>task.map(g=>{const d=net.devs[g.dev],s=sess[g.dev]||(sess[g.dev]={mode:d.type==='pc'?'pc':'user',ctx:null});
     return {dev:g.dev,lines:g.cmds.map(c=>{if(c[0]==='#')return {note:c.slice(1).trim()};const prompt=promptOf(d,s);execLine(net,d,s,c);return {prompt,cmd:c};})};}));
   TRACE=keep;return out;}
+// ---------- switching realism: the MAC address table, flooding, and frames that follow the spanning tree ----------
+// Each switch keeps d.mact: [{mac, vlan, ifn, kind: DYNAMIC|STATIC, t}]. Dynamic entries are learned from the source
+// address of every frame the console sends (pings, traceroutes, telnet, ssh, DHCP), on the port it arrived on, and
+// age out after d.macAging seconds (300) of silence, like a real switch. A frame whose destination is unknown in that
+// VLAN is flooded out of every other port in the VLAN (the map shows it); a known one goes out one port.
+// Learning happens only for commands typed in a console (L2LIVE, set by run()), never during grading or tests.
+const MACRE=/^[0-9a-f]{4}\.[0-9a-f]{4}\.[0-9a-f]{4}$/i;
+// The source MAC a device puts on a frame it sends from an interface: hosts have one address; router and switch
+// ports each have their own; a switch's SVIs and port-channels use the chassis address.
+function macTx(net,d,i){if(d.type==='pc')return macOf(d);const p=phys(d,i);return p.name.startsWith('Vlan')||p.name.startsWith('Port-channel')?macOf(d):macIf(d,p);}
+const macNow=()=>Date.now();
+function macLearn(sw,vlan,ifn,mac){if(!ifn||!sw.vlans[vlan]||mac===macOf(sw))return;const T=sw.mact||(sw.mact=[]);const e=T.find(x=>x.mac===mac&&x.vlan===vlan);
+  if(e){if(e.kind==='STATIC')return;e.ifn=ifn;e.t=macNow();return;}T.push({mac,vlan,ifn,kind:'DYNAMIC',t:macNow()});}
+// Dynamic entries leave when they age out, when their port goes down, or when their VLAN is deleted.
+function macPrune(net,sw){const T=sw.mact;if(!T)return [];const age=(sw.macAging??300)*1000,now=macNow();
+  sw.mact=T.filter(e=>{if(e.kind!=='DYNAMIC')return true;const p=sw.ifs[e.ifn];return !!p&&!!sw.vlans[e.vlan]&&ifUp(net,sw,p)&&(age===0||now-e.t<age);});return sw.mact;}
+// A switch's own address counts as known (it is the CPU entry for every SVI).
+function macLookup(net,sw,vlan,mac){if(mac===macOf(sw))return {mac,vlan,ifn:'CPU',kind:'STATIC'};return macPrune(net,sw).find(e=>e.mac===mac&&e.vlan===vlan)||null;}
+// Ports the spanning tree has blocked for a VLAN, as 'switch|port'. Members of a blocked port-channel are blocked with it.
+function stpBlocked(net,v){const s=new Set(),r=stpCalc(net,v);if(!r)return s;
+  for(const [n,me] of Object.entries(r.info))for(const [pn,x] of Object.entries(me.ports))if(x.role==='Altn'){s.add(n+'|'+pn);if(pn.startsWith('Port-channel'))for(const m of members(net.devs[n],net.devs[n].ifs[pn]))s.add(n+'|'+m.name);}
+  return s;}
+// One Layer 2 hop of a live frame: who sent it, who it was for, which switches learned what, and whether it was
+// flooded. edges holds every link a flood reached ([from, to, blocked]); the map animates them.
+function l2frame(net,d,ifc,peer,hopIp,at,edges){
+  const srcMac=macTx(net,d,ifc),vip=(peer.ifc.hsrp||[]).find(g=>g.ip===hopIp&&hsrpVip(net,peer.dev,peer.ifc)===hopIp)||null;
+  const dstMac=vip?vmac(peer.ifc,vip):macTx(net,peer.dev,peer.ifc);
+  const arp=arpPrune(net,d)[hopIp]==null&&hopIp!==L2WARM;L2WARM=null;
+  const ev={at,seg:peer.path,from:d.name,to:peer.dev.name,nh:hopIp,srcIp:ifc.ip,srcMac,dstMac,arp,flood:null,sw:[],edges:[]};
+  const trail=peer.trail||[];
+  const subtree=start=>{const r=[],q=[start],been=new Set([start]);while(q.length){const x=q.shift();for(const e of edges){if(e.from!==x)continue;r.push(e);if(!e.blocked&&!been.has(e.to)){been.add(e.to);q.push(e.to);}}}return r;};
+  const learnAll=start=>{const r=subtree(start);for(const e of r)if(!e.blocked&&e.vlan!=null&&net.devs[e.to].type==='switch')macLearn(net.devs[e.to],e.vlan,e.toPort,srcMac);return r.map(e=>[e.from,e.to,!!e.blocked]);};
+  if(arp){
+    // The ARP request is a broadcast: every switch in the VLAN learns the sender. The reply is a unicast frame back
+    // along one path, so only those switches learn the target.
+    ev.flood=d.name;ev.edges=learnAll(d.name);
+    for(const t of trail){const sw=net.devs[t.sw];macLearn(sw,t.vlan,t.outp,dstMac);ev.sw.push({sw:t.sw,vlan:t.vlan,out:t.outp,known:true});}
+  }else{
+    for(const t of trail){const sw=net.devs[t.sw];macLearn(sw,t.vlan,t.inp,srcMac);
+      if(vip)macLearn(sw,t.vlan,t.outp,dstMac);// HSRP hellos from the active router keep the virtual MAC learned
+      const hit=macLookup(net,sw,t.vlan,dstMac);
+      if(!hit&&!ev.flood){ev.flood=t.sw;ev.edges=learnAll(t.sw);}
+      ev.sw.push({sw:t.sw,vlan:t.vlan,out:hit?hit.ifn:null,known:!!hit});}
+  }
+  return ev;}
+// A DHCP exchange: the discover is a broadcast from the client; the offer comes back along one path from the server or relay.
+{const dr0=dhcpRenew;dhcpRenew=function(net,pc){const learn=LIVE&&L2LIVE,c=learn?dhcpCandidates(net,pc)[0]:null,o=dr0(net,pc);
+  if(o&&c&&c.p){const ps=l2peers(net,pc,nic(pc)),mine=macOf(pc),ans=c.p,ansMac=macTx(net,ans.dev,ans.ifc);
+    for(const e of ps.edges)if(!e.blocked&&e.vlan!=null&&net.devs[e.to].type==='switch')macLearn(net.devs[e.to],e.vlan,e.toPort,mine);
+    for(const t of ans.trail||[])macLearn(net.devs[t.sw],t.vlan,t.outp,ansMac);}
+  return o;};}
+
+// A real switch drops a learned entry the moment its port goes down or its VLAN is deleted; prune after every command.
+{const ex0=execLine;execLine=function(net,d,s,line){const out=ex0(net,d,s,line);for(const x of Object.values(net.devs))if(x.mact)macPrune(net,x);return out;};}
+// ----- show mac address-table and friends
+const CPU_MACS=['0100.0ccc.cccc','0100.0ccc.cccd'].concat(Array.from({length:17},(_,k)=>'0180.c200.00'+k.toString(16).padStart(2,'0')),['ffff.ffff.ffff']);
+const MAC_HDR=['          Mac Address Table','-------------------------------------------','','Vlan    Mac Address       Type        Ports','----    -----------       --------    -----'];
+const macLine=r=>String(r.vlan).padStart(4)+'    '+r.mac+'    '+pad(r.kind,12)+(r.ifn==='CPU'?'CPU':shortIf(r.ifn));
+// Every row the switch would list: the reserved CPU addresses, its own address per SVI, secure addresses, then the learned and configured ones.
+function macRows(net,sw,f){const rows=[];
+  if(f.kind!=='DYNAMIC'&&f.vlan==null&&!f.ifn&&!f.mac)CPU_MACS.forEach(m=>rows.push({vlan:'All',mac:m,kind:'STATIC',ifn:'CPU'}));
+  for(const n of sortIfs(Object.keys(sw.ifs))){const i=sw.ifs[n];if(n.startsWith('Vlan')&&i.ip!==null&&ifUp(net,sw,i))rows.push({vlan:+n.slice(4),mac:macOf(sw),kind:'STATIC',ifn:'CPU'});}
+  for(const p of Object.values(sw.ifs))if(p.ps&&p.ps.on&&ifUp(net,sw,p))for(const m of p.ps.macs||[])rows.push({vlan:p.accessVlan,mac:m.mac,kind:'STATIC',ifn:p.name});
+  for(const e of macPrune(net,sw))if(!rows.some(r=>r.mac===e.mac&&r.vlan===e.vlan))rows.push(e);
+  const num=v=>v==='All'?-1:v;
+  return rows.filter(r=>(f.kind==null||r.kind===f.kind)&&(f.vlan==null||r.vlan===f.vlan)&&(!f.ifn||r.ifn===f.ifn)&&(!f.mac||r.mac===f.mac)).sort((a,b)=>num(a.vlan)-num(b.vlan)||(a.mac<b.mac?-1:a.mac>b.mac?1:0));}
+// vlan N, interface X and address H.H.H, in any order. Returns null for anything else.
+function macFilter(rest){const f={},t=(rest||'').trim().split(/\s+/).filter(Boolean);
+  while(t.length){const w=t.shift().toLowerCase();
+    if(w&&'vlan'.startsWith(w)){const n=t.shift();if(!/^\d+$/.test(n||'')||+n<1||+n>4094)return null;f.vlan=+n;}
+    else if(w&&'interface'.startsWith(w)){let n=parseIf(t[0]||'');if(n)t.shift();else{n=parseIf((t[0]||'')+(t[1]||''));if(!n)return null;t.splice(0,2);}f.ifn=n;}
+    else if(w&&'address'.startsWith(w)){const m=(t.shift()||'').toLowerCase();if(!MACRE.test(m))return null;f.mac=m;}
+    else return null;}
+  return f;}
+function macShow(e,kind,rest){const f=macFilter(rest);if(!f)return e.out(BAD);f.kind=kind;const rows=macRows(e.net,e.d,f);
+  e.out(...MAC_HDR,...rows.map(macLine),'Total Mac Addresses for this criterion: '+rows.length);}
+Cn(EX,'show mac address-table',e=>macShow(e,null,''),['switch']);
+Cn(EX,'show mac address-table dynamic <rest?>',e=>macShow(e,'DYNAMIC',e.args[0]),['switch']);
+Cn(EX,'show mac address-table static <rest?>',e=>macShow(e,'STATIC',e.args[0]),['switch']);
+Cn(EX,'show mac address-table vlan <n>',e=>macShow(e,null,'vlan '+e.args[0]),['switch']);
+Cn(EX,'show mac address-table interface <rest>',e=>macShow(e,null,'interface '+e.args[0]),['switch']);
+Cn(EX,'show mac address-table address <w>',e=>macShow(e,null,'address '+e.args[0]),['switch']);
+Cn(EX,'show mac address-table aging-time',e=>e.out('Global Aging Time:  '+(e.d.macAging??300),'Vlan    Aging Time','----    ----------'),['switch']);
+Cn(EX,'show mac address-table count <rest?>',e=>{const f=macFilter(e.args[0]);if(!f||f.ifn||f.mac)return e.out(BAD);const rows=macRows(e.net,e.d,{vlan:f.vlan}).filter(r=>r.vlan!=='All');
+  const vls=[...new Set(rows.map(r=>r.vlan))].sort((a,b)=>a-b);if(f.vlan!=null&&!vls.length)vls.push(f.vlan);e.out('');
+  for(const v of vls){const dyn=rows.filter(r=>r.vlan===v&&r.kind==='DYNAMIC').length,st=rows.filter(r=>r.vlan===v&&r.kind==='STATIC').length;
+    e.out('Mac Entries for Vlan '+v+':','---------------------------','Dynamic Address Count  : '+dyn,'Static  Address Count  : '+st,'Total Mac Addresses    : '+(dyn+st),'');}
+  e.out('Total Mac Address Space Available: '+(8192-rows.length-CPU_MACS.length));},['switch']);
+Cn(EX,'show mac-address-table <rest?>',e=>run(e,'show mac address-table '+(e.args[0]||''),e.s.mode),['switch']);
+Cn('priv','clear mac address-table dynamic <rest?>',e=>{const f=macFilter(e.args[0]);if(!f)return e.out(BAD);
+  e.d.mact=(e.d.mact||[]).filter(x=>x.kind!=='DYNAMIC'||(f.vlan!=null&&x.vlan!==f.vlan)||(f.ifn&&x.ifn!==f.ifn)||(f.mac&&x.mac!==f.mac));},['switch']);
+Cn('priv','clear mac-address-table dynamic <rest?>',e=>run(e,'clear mac address-table dynamic '+(e.args[0]||''),e.s.mode),['switch']);
+Cn('config','mac address-table static <w> vlan <n> interface <rest>',e=>{const m=e.args[0].toLowerCase(),v=+e.args[1],n=parseIf(e.args[2]);
+  if(!MACRE.test(m)||!(v>=1&&v<=4094)||!n||!e.d.ifs[n]||/^(Vlan|Loopback)/.test(n))return e.out(BAD);
+  const T=e.d.mact||(e.d.mact=[]);const k=T.findIndex(x=>x.mac===m&&x.vlan===v);if(k>=0)T.splice(k,1);T.push({mac:m,vlan:v,ifn:n,kind:'STATIC',t:macNow()});},['switch']);
+Cn('config','no mac address-table static <w> vlan <n> <rest?>',e=>{const m=e.args[0].toLowerCase(),v=+e.args[1];e.d.mact=(e.d.mact||[]).filter(x=>!(x.kind==='STATIC'&&x.mac===m&&x.vlan===v));},['switch']);
+Cn('config','mac address-table aging-time <n>',e=>{const n=+e.args[0];if(!(n===0||(n>=10&&n<=1000000)))return e.out(BAD);e.d.macAging=n;},['switch']);
+Cn('config','no mac address-table aging-time <rest?>',e=>{delete e.d.macAging;},['switch']);
+{const ge0=globalExtra;globalExtra=function(d){const L=ge0(d);if(d.type!=='switch')return L;
+  if(d.macAging!=null&&d.macAging!==300)L.push('mac address-table aging-time '+d.macAging);
+  for(const e of d.mact||[])if(e.kind==='STATIC')L.push('mac address-table static '+e.mac+' vlan '+e.vlan+' interface '+e.ifn);return L;};}
+Object.assign(KWHELP,{'address-table':'MAC forwarding table','aging-time':'aging-time keyword',count:'count keyword',dynamic:'dynamic entry type','mac-address-table':'MAC forwarding table'});
+if(!KWHELP.mac)KWHELP.mac='MAC configuration subcommands';if(!KWHELP.static)KWHELP.static='static entry type';
+Object.assign(WHYC,{
+'show mac address-table':'The table a switch forwards by: which MAC address it has seen on which port, per VLAN. A frame to a known address goes out that one port; an unknown one is flooded out of every port in the VLAN. Entries are learned from the source address of frames and age out after 300 seconds.',
+'show mac address-table dynamic <rest?>':'Only the learned entries, without the switch\'s own CPU addresses. Add vlan, interface or address to narrow it down.',
+'show mac address-table static <rest?>':'Entries that never age out: the switch\'s own addresses, secure port addresses, and ones you configured by hand.',
+'show mac address-table vlan <n>':'The entries for one VLAN. A host missing here has not sent a frame lately, or sits in another VLAN.',
+'show mac address-table interface <rest>':'What the switch has learned behind one port. Several addresses on one port mean another switch, a phone or a hub is there.',
+'show mac address-table address <w>':'Finds which port and VLAN one MAC address was learned on: the quickest way to locate a host on a switch.',
+'show mac address-table aging-time':'How long an entry lives after the last frame from that address. The default is 300 seconds.',
+'show mac address-table count <rest?>':'How many addresses are known per VLAN, and how much table space is left.',
+'show mac-address-table <rest?>':'The older spelling of show mac address-table; both work on most IOS versions.',
+'clear mac address-table dynamic <rest?>':'Forgets every learned address (or those for one VLAN, port or address). The next frame to each host is flooded again until the switch relearns it.',
+'clear mac-address-table dynamic <rest?>':'The older spelling of clear mac address-table dynamic.',
+'mac address-table static <w> vlan <n> interface <rest>':'Pins an address to a port so it never ages out or moves. Used for devices that rarely talk, or to lock a server to its port.',
+'no mac address-table static <w> vlan <n> <rest?>':'Removes a pinned entry.',
+'mac address-table aging-time <n>':'Changes how long learned addresses live (0 keeps them forever). A short time means more flooding; a long time means stale entries after a host moves.',
+'no mac address-table aging-time <rest?>':'Back to the default of 300 seconds.'});
 //ENGINE-END
 // ---------- guide-only page: index.html?guide, opened as its own browser window for a second monitor ----------
 // It shows the step-by-step guide sent by the main window and stops here, so it never reads or writes saved work.
@@ -3785,7 +3934,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
   const KEY='lab4net-fun-v1';let F={ranks:{},ach:{},days:[],runs:{},cleared:{},sound:true};
   try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object')F=Object.assign(F,p);}catch(e){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(F));}catch(e){}};
-  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal(),sfx:{echo:()=>tone(1568,.03,'square',0,.018),drop:()=>tone(196,.09,'triangle',0,.04),unreach:()=>{tone(220,.05,'sawtooth',0,.03);tone(165,.07,'sawtooth',.05,.03);}}};
+  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal(),sfx:{echo:()=>tone(1568,.03,'square',0,.018),drop:()=>tone(196,.09,'triangle',0,.04),unreach:()=>{tone(220,.05,'sawtooth',0,.03);tone(165,.07,'sawtooth',.05,.03);},flood:()=>{tone(392,.05,'triangle',0,.016);tone(523,.05,'triangle',.05,.016);tone(659,.07,'triangle',.1,.016);}}};
   const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 
   // sound (generated, no audio files)
@@ -4163,6 +4312,46 @@ $('studyMap').onclick=studyMap;
 })();
 
 
+// ---------- switching realism: flooding on the map, the switching story in the trace panel ----------
+// A live frame carries its Layer 2 events (hops.l2 from the engine). An ARP broadcast or an unknown-address flood
+// fans out to every link it reached before the frame carries on; the trace panel says what each switch did.
+{
+  const sfx=n=>{const f=window.l4nFun&&window.l4nFun.sfx;if(f&&f[n])try{f[n]();}catch(e){}};
+  const floodFly=(edges,tok)=>Promise.all((edges||[]).map(([a,b,blocked])=>fly([a,b],blocked?'flood blk':'flood',tok)));
+  async function flyWay(res,cls,tok){const path=res.hops.path,evs=res.hops.l2;
+    if(!evs||!evs.length||REDUCED)return fly(path,cls,tok);
+    let pos=0;
+    for(const ev of evs){if(tok!==fxToken)return;
+      if(ev.at>pos)await fly(path.slice(pos,ev.at+1),cls,tok);
+      const seg=ev.seg;
+      if(ev.arp){burst(ev.from,'flood','ARP broadcast');sfx('flood');await floodFly(ev.edges,tok);if(tok!==fxToken)return;
+        await fly(seg.slice().reverse(),'arp',tok);if(tok!==fxToken)return;await fly(seg,cls,tok);}
+      else if(ev.flood){const k=Math.max(0,seg.indexOf(ev.flood));if(k>0)await fly(seg.slice(0,k+1),cls,tok);if(tok!==fxToken)return;
+        burst(ev.flood,'flood','Unknown MAC: flooded');sfx('flood');await floodFly(ev.edges,tok);if(tok!==fxToken)return;
+        if(k<seg.length-1)await fly(seg.slice(k),cls,tok);}
+      else await fly(seg,cls,tok);
+      pos=ev.at+seg.length-1;}
+    if(pos<path.length-1)await fly(path.slice(pos),cls,tok);}
+  playTrace=async function(T){const tok=++fxToken,g=fxLayer();if(!g)return;g.innerHTML='';
+    const fp=T.f.hops.path,end=fp[fp.length-1];await flyWay(T.f,'req',tok);if(tok!==fxToken)return;
+    if(!T.f.ok)return burst(end,'bad',T.f.blocked?'Blocked by ACL':'No path from here');
+    if(T.refused)return burst(end,'warn','Port closed');
+    if(!T.r)return burst(end,'good','');
+    const rp=T.r.hops.path,e2=rp[rp.length-1];await flyWay(T.r,'rep',tok);if(tok!==fxToken)return;
+    if(T.ok)burst(e2,'good','Reply received');else burst(e2,'bad',T.r.blocked?'Reply blocked by ACL':'Reply has no route back');};
+  const who=(net,name)=>{const d=net.devs[name];return d?esc(d.type==='pc'?name:d.hostname):esc(name);};
+  const rt0=renderTrace;renderTrace=function(){rt0();const T=cur.trace,el=$('trace');if(!T||!el)return;const net=cur.net,L=[];let flooded=null;
+    for(const [res,dir] of [[T.f,'Request'],[T.r,'Reply']]){if(!res||!res.hops.l2)continue;
+      for(const ev of res.hops.l2)for(const x of ev.sw){
+        const sw=who(net,x.sw),v=`VLAN ${x.vlan}`;let what;
+        if(ev.arp)what=`${who(net,ev.from)}'s ARP broadcast for ${esc(n2ip(ev.nh))} flooded every port · ${who(net,ev.to)}'s reply learned on ${esc(shortIf(x.out||'?'))}`;
+        else if(x.known)what=x.out==='CPU'?`for the switch itself (${esc(ev.dstMac)})`:`${esc(ev.dstMac)} known · out ${esc(shortIf(x.out))}`;
+        else{what=`${esc(ev.dstMac)} unknown · flooded out every port`;flooded=flooded||x.sw;}
+        L.push(`<div><b>${esc(dir)}</b> ${sw} · ${v} · ${what}</div>`);}}
+    if(!L.length)return;const tip=flooded?`<div class="tip">Run <code>show mac address-table</code> on ${who(net,flooded)}: it has learned the addresses now, so the next frame goes out one port.</div>`:'';
+    const div=document.createElement('div');div.className='trace-l2';div.innerHTML=`<div class="trace-l2-h">Switching</div>${L.join('')}${tip}`;
+    const ps=el.querySelectorAll('p');el.insertBefore(div,ps.length?ps[ps.length-1]:null);};
+}
 // ---------- lessons: the concept behind a lab, taught before the commands ----------
 // Lesson data: written per lab or topic, checked by the validator in the lesson tooling.
 const LESSONS={};

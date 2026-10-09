@@ -1,5 +1,35 @@
 # Lab4Net changes
 
+## Switching realism: MAC address tables, flooding on the map, and frames that follow the spanning tree
+
+**Switches learn, like real ones**
+- Every switch now keeps a MAC address table. It learns the source address of each frame you send from a console (ping, traceroute, telnet, ssh, a DHCP request) on the port the frame arrived on, per VLAN.
+- A frame to an address the switch has not learned is flooded out of every other port in that VLAN. A frame to a known address goes out one port. An ARP request is a broadcast, so it is flooded everywhere in the VLAN and every switch learns the sender; the ARP reply comes back along one path.
+- Learned entries age out after 300 seconds of silence from that address (real time), leave at once when their port goes down, and leave when their VLAN is deleted.
+- `show mac address-table` in the real 2960 layout, with the reserved CPU addresses, the switch's own address per SVI, secure port addresses as STATIC, then the learned entries, and "Total Mac Addresses for this criterion". Also `dynamic`, `static`, `vlan N`, `interface X`, `address H.H.H`, `count` and `aging-time`, in any combination, and the older spelling `show mac-address-table`.
+- `clear mac address-table dynamic` (all, or by vlan, interface or address), `mac address-table static H.H.H vlan N interface X`, `mac address-table aging-time N` (0, or 10 to 1000000) and their `no` forms. Static entries and a changed aging time appear in the running-config.
+- Router and switch ports each have their own MAC address now. `show interfaces`, `show ip arp`, `arp -a` and the MAC tables all agree, so you can trace an address from one device to the next.
+- The HSRP virtual MAC (0000.0c07.acXX) is what a switch learns for the gateway, on the active router's port, as on real gear.
+
+**The map shows the flood**
+- When a frame has to be flooded, the map fans it out along every link it reaches at once, with a label ("ARP broadcast" or "Unknown MAC: flooded"). A frame that reaches a spanning-tree blocked port is shown dying there. The ARP reply then comes back along one path before the ping itself goes.
+- The trace panel has a new Switching section: for each switch, which VLAN, whether it flooded or forwarded out one port, and which address it learned. Floods end with a reminder to run `show mac address-table`.
+- A soft three-note sound plays on a flood (when sound is on). Everything is still off under reduced motion.
+
+**Pings follow the spanning tree**
+- A blocked (Altn/BLK) port carries nothing, so the animated path now matches `show spanning-tree`. Making a different switch root really changes the path a ping takes.
+- EtherChannel bundles are one spanning-tree port: `show spanning-tree` lists `Po1` (cost 3 for two gigabit links, 12 for two FastEthernet) instead of the members.
+- A switch cut off from the others elects itself root instead of believing in one it cannot hear.
+
+**Not in this build**
+- Switches only learn from traffic you send. A real switch would also learn its neighbours' addresses from their CDP, STP and other background frames, so a freshly opened lab starts with empty tables.
+- Per-VLAN aging time, `mac address-table notification`, and IPv6 traffic do not touch the table.
+- There is no `no spanning-tree vlan`, so a broadcast storm cannot be shown yet.
+
+Tests: new `tests/switching.cjs` (runs in GitHub Actions) covers the spanning-tree path change, island roots, ARP and unicast learning, flooding of unknown addresses, every show/clear/static/aging form and its layout, per-port router MACs, the HSRP virtual MAC, EtherChannel as one STP port, DHCP learning and a switch SVI as the sender.
+
+Verification: labs.cjs (73 labs, 416 checks, 1439 guide commands), forwarding.cjs, curriculum.cjs, lessons.cjs, ping.cjs, console.cjs, switching.cjs, ui.cjs and guidewin.cjs all pass. In a real browser: the ARP broadcast fanned out over every link of the spanning-tree lab, the trace panel's Switching section read correctly, `show mac address-table` on SW1 listed the two PCs on the right ports, and after `clear mac address-table dynamic` the next ping showed "Unknown MAC: flooded" at SW1 while SW3 still knew the address.
+
 ## Console realism, and the guide in its own browser window
 
 **Errors that behave like IOS and Windows**

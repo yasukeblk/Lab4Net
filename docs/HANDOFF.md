@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of lab library phase 5 on `main` (4 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+State as of the switching realism build on `main` (9 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -13,6 +13,7 @@ It currently has:
 - 2 capstones that build a whole network from factory defaults (a branch office; a campus core with a Layer 3 switch). They open with the step-by-step guide off
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
 - Real-life ping and traceroute: output plays live, ARP loses the first echo through a cold router, routers send unreachables (`U.U.U`, `!H`, `!A`), Windows quirks are kept, Ctrl+C or Ctrl+Shift+6 stops a run
+- Switching realism: each switch learns a MAC address table from the frames the console sends, floods unknown destinations and ARP requests (the map shows the flood), ages entries out, and frames follow the spanning tree, so the animated path matches `show spanning-tree`. `show mac address-table` and friends, `clear mac address-table dynamic`, static entries and aging time
 - An IOS-style console that errors like IOS (`^` marker, % Incomplete, % Ambiguous, hostname lookup on a typo), with `| include/exclude/begin/section/count` and `?` descriptions; PCs answer like Windows
 - The step-by-step guide can open in its own browser window for a second monitor
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
@@ -95,7 +96,7 @@ Line numbers are approximate. Search for the markers rather than trusting them.
 In file order:
 
 1. Core: address helpers (`ip2n`, `n2ip`, `lenMask`, `netOf`), device constructors (`mkRouter`, `mkSwitch`, `mkPC`, `mkNet`, `link`, `setIp`, `addIf`), link state (`ifUp`), Layer 2 flooding with VLANs and trunks (`l2peers`), routing (`routes`, `nextHop`, OSPF), the command table, the parser, and labs 1 to 6.
-2. `// ---------- v2 engine`: ACLs, NAT, packet forwarding (`fwd`, `reach`), DHCP, port security, SSH, CDP, spanning tree (`stpCalc`), EtherChannel (`bundled`), `runningConfig` extras, per-command explanations (`WHYC`, `whyOf`), and the later labs.
+2. `// ---------- v2 engine`: ACLs, NAT, packet forwarding (`fwd`, `reach`), DHCP, port security, SSH, CDP, spanning tree (`stpCalc`: per VLAN, bundled EtherChannel members count as their port-channel with the combined-bandwidth cost, switches that cannot hear each other each elect their own root, `info[sw].root`), EtherChannel (`bundled`), `runningConfig` extras, per-command explanations (`WHYC`, `whyOf`), and the later labs.
 3. `// ---------- step-by-step instructions`: `STEPS` (keyed by lab title) and `guideFor`.
 4. `// ---------- CCNA objective map and troubleshooting incidents` (between `//CCNA-CURRICULUM-START` and `//CCNA-CURRICULUM-END`, just before `guideFor`): `CCNA_SCOPE`, `CCNA_DOMAINS`, `CCNA_OBJECTIVES`, `CCNA_LAB_MAP` (sets `l.ccna` and `l.kind='build'`), and `INCIDENTS`. Each incident spec names a `base` lab, a `fault` (commands applied after the base solution), a `repair` (becomes `solution`), its own `steps`, three `hints` and a `lesson`. Incidents are appended to `LABS` with `kind:'incident'`, `group:'Troubleshooting'`, `baseTitle`, and the base lab's `checks`, `pos` and `addr`. Their steps are written inline, not in `STEPS`.
 5. `//LIBRARY-START` to `//LIBRARY-END`, straight after the curriculum block: the lab library expansion. Helpers: `Cn(modes, pattern, fn, types, first)` registers a command after the "why" recorder has already run (so `s.last` still works) and can put it ahead of general patterns; `cfg(net, {dev:[commands]})` configures a fresh build through real IOS commands (it throws if any is rejected, so a typo in a build fails loudly); `addLab(lab, steps)` stores the guide in `STEPS`, sets `ccna` from `CCNA_LAB_MAP` and `kind:'build'`, and appends to `LABS`. New objective IDs, `CCNA_LAB_MAP` entries and `WHYC` entries are added at the top of the block or beside each lab. A lab may set `hidePorts:true` to hide port names on the map.
@@ -107,6 +108,8 @@ In file order:
 How `run()` decides now: output modifiers first (`pipeRun`). Then it takes the first matching pattern, skipping any pattern that treats a token as an abbreviation when another pattern has that token as an exact keyword (`shadowed`). If an abbreviation fits two keywords it prints `% Ambiguous command:  "<line>"` (`ambiguousAt`; aliases where one keyword is a prefix of another, like `run`/`running-config`, count as one). If nothing matches it calls `parseFail`: Windows messages in `pc` mode, `% Incomplete command.` when a pattern needed more, a hostname lookup for one unknown word in user/priv mode, otherwise a `^` line plus `BAD`. `env.raw` and `env.p0` (prompt length) are set on the first `run` of an `execLine`, so nested runs (`do`, pings by name, pipes) still place the caret correctly. Handlers that emit `BAD` get a caret under the last word via `withCaret`. Any test that compared output to `BAD` alone must now expect the caret line first.
 
 `debug ip icmp` puts messages on `d.conq` (from `pingDebug`, called by `pingRun` when `LIVE`). The interface moves them into that device's console tab with `drainConsoles`: after each command (other devices immediately, the typing device once its output has finished playing) and during replay.
+
+8. `// ---------- switching realism`, after console realism and just before `//ENGINE-END`: the MAC address table. Each switch has `d.mact` (`[{mac, vlan, ifn, kind: DYNAMIC|STATIC, t}]`) and `d.macAging` (seconds, default 300). `macTx(net, d, ifc)` is the source MAC a device uses on an interface (hosts one address, router and switch ports their own via `macIf`, SVIs and port-channels the chassis address); `macLearn`, `macPrune` (age, port down, VLAN gone; also run after every command by an `execLine` wrapper) and `macLookup` (the switch's own address is a CPU entry). `stpBlocked(net, vlan)` is the set of `switch|port` the spanning tree blocks; `l2peers` consults it, so a blocked port carries nothing. `l2frame()` is called from `fwd()` for every Layer 2 hop of a live console command (`LIVE && L2LIVE`; `L2LIVE` is set by the `run` wrapper, so grading, tests and `pq` never learn): it decides whether the sender had to ARP (a broadcast every switch in the VLAN learns from; `L2WARM` marks the reply's first hop as already resolved), otherwise learns the sender on each switch's ingress port and floods at the first switch that does not know the destination. Events go on `hops.l2` as `{at, seg, from, to, nh, srcMac, dstMac, arp, flood, sw:[{sw, vlan, out, known}], edges:[[from, to, blocked]]}`; `l2peers` results now carry `trail` (per switch: `sw, vlan, inp, outp`) and the array has `edges` (every link the flood reached). `dhcpRenew` is wrapped so a lease learns the client and the answering server or relay. The commands (`show mac address-table …`, `show mac-address-table`, `clear mac address-table dynamic …`, `mac address-table static|aging-time`) are registered here with `Cn`; `globalExtra` is wrapped for the running-config.
 
 The `// ---------- v3 engine` section, just before the "why" recorder, holds commands added for the library (`clear ip ospf process`, `show ip protocols`, `show ip ospf`) and an `execLine` wrapper that logs native VLAN mismatches. The library block adds a second `execLine` wrapper that logs OSPF adjacency changes. Other library changes were made in place: `type7`/`pwText` near the top (type 7 passwords), `isPassive` and the router-ID lock (`ospf.active`) beside `ospfNeighbors`/`routerId`, `vtyDenied` beside `reach` (access-class), `cdpPeers` with the CDP commands, and the `root primary` macro with the spanning-tree commands.
 
@@ -154,7 +157,8 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 6. Sandbox (devices, cabling, zoom and pan, notes, kits, challenges, files, undo). Undo keeps up to 80 snapshots of devices, links, notes, challenge and journal; `mark()` runs from `saveDef` and after each sandbox command.
 7. Backup (adds ranks, layout, sandbox and incident clues to Transfer progress)
 8. Capstone guide default
-9. Lessons. The data sits between `//LESSONS-DATA-START` and `//LESSONS-DATA-END` as `Object.assign(LESSONS,{...})` blocks. Lab lessons are keyed by build lab title; topic lessons have `topic:true` and `ccna` ids and no story. Fields: `name`, `mins`, `sections` ([heading, html]), `story` (lab lessons: steps with `path` of cabled device names, `cls` req/rep, `at`, `label`, `good`/`bad`, `t`, `x`), `terms`, `exam`, `mistakes`, `quiz` ([question, options, correct index, explanation]; the display order is a fixed shuffle per question). The block after the data wraps `renderBrief` (a lab lesson replaces the mission window, or a card is inserted after the CCNA tags; the Lessons view renders the list in the mission window and a topic lesson in the practice window), `openLab` (opens on the lesson until read), `renderLabs` (adds Lessons under Practice) and `studyMap` (adds topic lessons per domain). It also fills in `CCNA_OBJECTIVES` for every v1.1 objective. `window.lessonFor(lab)`, `window.openLesson(key)` and `window.lessonStats()` (used by XP and the Bookworm trophy) are exposed. New lessons follow `docs/LESSON-WRITING.md` and `tests/lessons.cjs`
+9. Switching realism: replaces `playTrace` (each Layer 2 event in turn: an ARP broadcast or unknown-MAC flood fans out along `ev.edges` with `floodFly`, the ARP reply flies back, then the frame continues; `flyWay` per direction) and wraps `renderTrace` with a Switching section (one line per switch per direction, plus a `show mac address-table` tip after a flood). The rewards `sfx` object gained `flood`
+10. Lessons. The data sits between `//LESSONS-DATA-START` and `//LESSONS-DATA-END` as `Object.assign(LESSONS,{...})` blocks. Lab lessons are keyed by build lab title; topic lessons have `topic:true` and `ccna` ids and no story. Fields: `name`, `mins`, `sections` ([heading, html]), `story` (lab lessons: steps with `path` of cabled device names, `cls` req/rep, `at`, `label`, `good`/`bad`, `t`, `x`), `terms`, `exam`, `mistakes`, `quiz` ([question, options, correct index, explanation]; the display order is a fixed shuffle per question). The block after the data wraps `renderBrief` (a lab lesson replaces the mission window, or a card is inserted after the CCNA tags; the Lessons view renders the list in the mission window and a topic lesson in the practice window), `openLab` (opens on the lesson until read), `renderLabs` (adds Lessons under Practice) and `studyMap` (adds topic lessons per domain). It also fills in `CCNA_OBJECTIVES` for every v1.1 objective. `window.lessonFor(lab)`, `window.openLesson(key)` and `window.lessonStats()` (used by XP and the Bookworm trophy) are exposed. New lessons follow `docs/LESSON-WRITING.md` and `tests/lessons.cjs`
 
 **The pattern to know:** these blocks do not edit the base functions. They wrap them by reassigning the name, for example `const ex0 = execute; execute = function(line){ ex0(line); ... }`. `renderAll`, `openLab`, `execute`, `celebrate`, `library`, `renderBrief`, `renderTerm`, `drawTopo`, `select`, `renderLabs` and `transfer` are all wrapped, some more than once. The outermost wrapper is the one defined last. Before changing behaviour, grep for every `name=function` to see the whole chain.
 
@@ -168,7 +172,7 @@ Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `la
 
 ## Verifying changes
 
-Run these before every commit. All five pass on `main`.
+Run these before every commit. All of them pass on `main`.
 
 ```
 node tests/labs.cjs
@@ -177,6 +181,7 @@ node tests/curriculum.cjs
 node tests/lessons.cjs
 node tests/ping.cjs
 node tests/console.cjs
+node tests/switching.cjs
 node tests/ui.cjs
 node tests/guidewin.cjs
 ```
@@ -191,6 +196,7 @@ On Yasuke's desktop there is no Node install. Claude Code runs the tests with De
 - `curriculum.cjs` checks objective mappings and that every incident starts with a real failing service and is fixed by its repair without breaking any original check. It runs in GitHub Actions.
 - An incident's `symptom` is either `[source, target, proto, port]` (a packet test with `reach`) or a function of the network for services that are not a single packet (CDP or LLDP discovery, NTP, IPv6, a preferred path). The curriculum test checks it fails after the build and works after the repair, and compares configuration before and after the probe, ignoring counters, logs and NAT translations.
 - `console.cjs` covers the parser errors (caret, incomplete, ambiguous, exact keywords, hostname lookup, Windows messages), output modifiers, `?` help and the everyday commands. It runs in GitHub Actions.
+- `switching.cjs` covers the spanning-tree path (blocking honoured, root change, island roots, EtherChannel as one port), MAC learning from ARP and unicast frames, flooding, every `show mac address-table` form and layout, clear/static/aging, per-port router MACs, the HSRP virtual MAC, DHCP learning and a switch SVI as sender. It runs in GitHub Actions.
 - `guidewin.cjs` (optional, Playwright, like `ui.cjs`) serves the page over http and checks the guide window: open, steps to the console, lab changes, reconnect after reload, fall back when closed, dock.
 - `ping.cjs` covers the ping and traceroute output rules (ARP first echo, unreachables, Windows quirks, extended options, abort summaries). It runs in GitHub Actions.
 - `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
@@ -217,7 +223,8 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - The simulator implements the commands the labs need, not all of IOS. Anything else returns "Invalid input".
 - No `--More--` paging. `?` descriptions cover the common keywords only; argument help is generic (A.B.C.D, WORD) rather than IOS's specific ranges. The ambiguity check only knows the keywords Lab4Net implements, so a few abbreviations that are ambiguous on real IOS (because of commands we lack) are accepted here.
 - No `reload`, interactive extended ping or `copy` filename prompt yet (needs the prompt mechanism planned with password prompts). Duplex and speed are saved and shown but a mismatch has no effect. `login block-for` cannot trigger until logins prompt. No DNS server, so no `nslookup`; names resolve only from `ip host`. Only `debug ip icmp` exists. `show version` uses fixed models (2911, 2960-24TT, 3560-24PS) whatever the port count.
-- Spanning tree is calculated and shown per VLAN, and labs check it, but the data path ignores blocking: a ping takes any VLAN-valid path.
+- Spanning tree: frames follow it, so a blocked port carries nothing and the animated path matches `show spanning-tree`. Every switch always runs PVST or Rapid PVST on every VLAN; there is no `no spanning-tree vlan`, so a loop without STP (a broadcast storm) cannot be shown. Costs are the IEEE short values (19, 4; a two-link bundle 12 or 3). Rapid PVST+ and PVST+ converge instantly and identically.
+- MAC address tables learn only from the traffic you send from a console (ping, traceroute, telnet, ssh, DHCP). A real switch would also learn its neighbours from their CDP, STP and other background frames, so a freshly opened lab has empty tables until you send something. IPv6 traffic does not learn. Aging uses the browser clock; after a reload the replayed journal relearns everything with fresh timestamps. No per-VLAN aging time, no `mac address-table notification`.
 - `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. Hello and dead timers must match, as on a real router; a network-type mismatch forms the adjacency but the link is left out of SPF, so routes through it disappear. Authentication is not modelled. Equal-cost paths are not load-shared; one is used.
 - Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
 - show access-lists lists standard entries in sequence order; real IOS may list host entries first.
@@ -236,7 +243,7 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 
 Carry this list forward and keep it in every summary.
 
-- Switching realism (agreed 8 Oct, next build): a MAC address table learned from traffic, with flooding shown on the map, `show mac address-table`, `clear mac address-table`, aging; and pings that follow spanning-tree blocking so the animated path matches `show spanning-tree`
+- Switching follow-ups: learning neighbours from CDP/STP background frames, per-VLAN aging time, IPv6 neighbour learning, and a broadcast storm when STP is switched off (needs `no spanning-tree vlan`)
 - Prompts: `enable` and console password prompts, `reload` (with "Save? [yes/no]" and losing unsaved changes), the interactive extended ping, `ping x source <interface>`
 - Exam sim mode (random lab or incident, countdown, no guide or "why"), with randomised faults for incidents
 - A fuller theory question bank (28 questions so far)
@@ -245,4 +252,4 @@ Carry this list forward and keep it in every summary.
 - Duplex and speed mismatch effects
 - Waiting on his decision: keep or drop "test it yourself" as a requirement for an S rank
 
-His most recent direction (8 Oct 2026) was to do the console realism fixes first, then the switching realism build, and to have the pop-out guide open as its own browser window for a second monitor (done in the "console realism" build).
+His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. The console realism fixes, the guide window and the switching realism build are done.
