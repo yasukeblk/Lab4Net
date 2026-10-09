@@ -41,6 +41,11 @@ if(src){net=solve(lab.title);const S=net.devs[src.name];const dst=(()=>{for(cons
     // traceroute
     r=cmd(net,S.name,'traceroute '+fmt6(dst));assert.equal(r.out[1],'Tracing the route to '+fmt6(dst));assert.ok(r.out.length>=3&&/^  1 /.test(r.out[2]),r.text);assert.ok(r.out.at(-1).includes(fmt6(dst)),r.text);
     r=cmd(net,S.name,'traceroute ipv6 '+fmt6(dst));assert.equal(r.out[1],'Tracing the route to '+fmt6(dst));}}
+// IPv6 traffic teaches the switches: a PC's ping leaves its MAC on the switch, and the first exchange floods a neighbor solicitation
+net=solve(lab.title);{const sw=Object.values(net.devs).find(d=>d.type==='switch'&&Object.values(d.ifs).some(i=>i.link&&i.link.dev===pc.name));
+  if(sw){cmd(net,pc.name,'ping '+fmt6(target,true));assert.ok((sw.mact||[]).some(e=>e.mac===macOf(net.devs[pc.name])),'switch learned the IPv6 sender');
+    const ev=TRACE&&TRACE.f.hops.l2&&TRACE.f.hops.l2[0];assert.ok(ev&&ev.nd===true&&ev.nhText,'a neighbor-solicitation event: '+JSON.stringify(ev&&{nd:ev.nd,arp:ev.arp,nh:ev.nhText}));
+    cmd(net,pc.name,'ping '+fmt6(target,true));assert.equal(TRACE.f.hops.l2[0].arp,false,'warm the second time');}}
 // no route: the PC gets timeouts or unreachables, never a reply; tracert prints its line
 net=solve(lab.title);for(const x of routers){const d=net.devs[x.name];d.statics6=[];}
 let t2=null;for(const x of routers)for(const i of Object.values(net.devs[x.name].ifs))for(const g of i.v6||[])if(!t2&&net6(g.a,64)!==net6(net.devs[pc.name].ifs.FastEthernet0.v6[0].a,64)&&!reach6(net,net.devs[pc.name],g.a).ok)t2=g.a;

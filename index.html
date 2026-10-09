@@ -620,11 +620,13 @@ function l2peers(net,d,i){
   const seen=new Set(),blk={};
   const blocking=(sw,vlan,p)=>{let b=blk[vlan];if(!b)b=blk[vlan]=stpBlocked(net,vlan);return b.has(sw.name+'|'+p.name);};
   function flood(sw,vlan,inPort,path,trail){
-    const k=sw.name+'|'+vlan;if(seen.has(k))return;seen.add(k);
     if(!sw.vlans[vlan])return;
+    // a broadcast arriving at a switch that already flooded it came round a loop: a storm
+    const k=sw.name+'|'+vlan;if(seen.has(k)){if(!out.storm)out.storm={vlan,sws:[...new Set(path.filter(n=>net.devs[n].type==='switch'))]};return;}seen.add(k);
     const svi=sw.ifs['Vlan'+vlan];if(svi&&svi!==i&&!svi.shutdown&&(svi.ip!==null||svi.v6on))out.push({dev:sw,ifc:svi,path,trail});
     for(const p of Object.values(sw.ifs)){
       if(p===inPort||!p.link||p.name.startsWith('Vlan')||p.routed||!ifUp(net,sw,p)||blocking(sw,vlan,p))continue;
+      if(p.chan&&bundled(net,sw,p)){const ms=members(sw,sw.ifs['Port-channel'+p.chan]).filter(m=>bundled(net,sw,m));if(ms[0]!==p||(inPort&&inPort.chan===p.chan))continue;}
       let tag=null;
       if(p.mode==='trunk'){if(!allowed(p,vlan))continue;tag=vlan===p.native?null:vlan;}
       else if(p.accessVlan!==vlan){if(p.voiceVlan===vlan)tag=vlan;else continue;}
@@ -1023,7 +1025,7 @@ const LABS=[
 IFT.push('Port-channel');
 parseIf=function(str){const m=/^([a-z-]+?)([\d\/.]+)$/i.exec(String(str).replace(/\s+/g,''));if(!m)return null;const t=IFT.find(t=>t.toLowerCase().startsWith(m[1].toLowerCase()));return t?t+m[2]:null;};
 function macOf(d){if(d.mac)return d.mac;let h=7;for(const c of d.name)h=(h*31+c.charCodeAt(0))%65536;const x=h.toString(16).padStart(4,'0');return '00e0.b0'+x.slice(0,2)+'.'+x.slice(2)+'10';}
-let LIVE=false,TRACE=null,L2LIVE=false,L2WARM=null;
+let LIVE=false,TRACE=null,L2LIVE=false,L2WARM=null,L2WARM6=null;
 const run0=run;run=function(env,line,mode){const was=LIVE,wl=L2LIVE;LIVE=true;L2LIVE=true;try{run0(env,line,mode);}finally{LIVE=was;L2LIVE=wl;}};
 const SUBX='acl,dhcp';
 C(SUBX,'end',e=>{e.s.mode='priv';e.s.ctx=null;});
@@ -1120,7 +1122,7 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
     if(pk.src==null)pk.src=h.ifc.ip;
     if(isL3(d)){if(inIf&&inIf.nat==='inside'&&h.ifc.nat==='outside'){const why=natOut(d,pk);if(why)return {ok:false,hops,blocked:d,reason:why};}
       if(t>0&&h.ifc.aclOut&&!aclPermit(d,h.ifc.aclOut,pk))return {ok:false,hops,blocked:d,reason:'Blocked by ACL '+h.ifc.aclOut+' outbound on '+shortIf(h.ifc.name)};}
-    const ps=l2peers(net,d,h.ifc);let hopIp=h.nh,peer=ps.find(p=>p.ifc.ip===h.nh||hsrpVip(net,p.dev,p.ifc)===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
+    const ps=l2peers(net,d,h.ifc);if(ps.storm){if(LIVE)stormLog(net,d,h.ifc,ps.storm);hops.storm=ps.storm;return {ok:false,hops,reason:'Broadcast storm in VLAN '+ps.storm.vlan+': '+ps.storm.sws.join(', ')+' form a loop with no spanning tree'};}let hopIp=h.nh,peer=ps.find(p=>p.ifc.ip===h.nh||hsrpVip(net,p.dev,p.ifc)===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
     // An exit-interface-only static route ARPs for the destination itself; a router on the segment with a route to it answers (proxy ARP).
     if(!peer&&h.proxy){peer=ps.find(p=>p.dev.type==='router'&&p.ifc.proxyArp!==false&&(x=>!!x&&x.ifc!==p.ifc)(nextHop(net,p.dev,h.nh)));if(peer)hopIp=peer.ifc.ip;}
     if(!peer)return {ok:false,hops,reason:'Next hop '+n2ip(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links, VLANs and addressing'};
@@ -1257,19 +1259,26 @@ C('if','no cdp enable',e=>e.s.ctx.forEach(i=>{i.cdp=false;}));
 
 // Spanning tree
 const stpOf=d=>d.stp||(d.stp={prio:{},mode:'pvst'});
+const stpOff=(d,v)=>!!(d.stp&&d.stp.off&&d.stp.off[v]);
 const stpPrio=(sw,v)=>((sw.stp&&sw.stp.prio[v])??32768)+v;
 const bid=(sw,v)=>String(stpPrio(sw,v)).padStart(6,'0')+macOf(sw);
 // Spanning tree per VLAN. Bundled EtherChannel members count as their port-channel (one STP port, the cost of the
 // combined bandwidth), as on a real switch. Switches that cannot hear each other each elect their own root.
-function stpCalc(net,v){const sws=Object.values(net.devs).filter(d=>d.type==='switch'&&d.vlans[v]);if(!sws.length)return null;
+function stpCalc(net,v){const sws=Object.values(net.devs).filter(d=>d.type==='switch'&&d.vlans[v]&&!stpOff(d,v));
+  if(!sws.length)return Object.values(net.devs).some(d=>d.type==='switch'&&d.vlans[v])?{root:null,info:{}}:null;
   const carries=(sw,p)=>!!p.link&&!p.routed&&ifUp(net,sw,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v);
   const cost=(p,n)=>p.name.startsWith('Gig')?(n>1?3:4):(n>1?12:19);
   // The STP ports of a switch: each physical port that is not a bundled member, plus each port-channel with bundled members.
   const stpPorts=sw=>{const r=[];for(const n of sortIfs(Object.keys(sw.ifs))){const p=sw.ifs[n];
       if(n.startsWith('Port-channel')){const ms=members(sw,p).filter(m=>bundled(net,sw,m));if(ms.length&&carries(sw,ms[0]))r.push({p,name:n,nb:ms[0].link.dev,cost:cost(ms[0],ms.length)});continue;}
       if(p.chan&&bundled(net,sw,p))continue;
-      if(carries(sw,p))r.push({p,name:n,nb:p.link.dev,cost:cost(p,1)});}
+      if(carries(sw,p))r.push({p,name:n,nb:through(sw,p),cost:cost(p,1)});}
     return r;};
+  // follow a chain of switches with STP off for this VLAN until an STP switch (possibly this one) or a dead end
+  function through(sw,p){const q=[[net.devs[p.link.dev],p.link.ifn]],been=new Set([sw.name]);
+    while(q.length){const [nb,inIfn]=q.shift();if(nb.type!=='switch'||!nb.vlans[v])continue;if(!stpOff(nb,v))return nb.name;if(been.has(nb.name))continue;been.add(nb.name);
+      for(const x of Object.values(nb.ifs)){if(x.name===inIfn||!x.link||x.routed||x.name.startsWith('Vlan')||!ifUp(net,nb,x)||!(x.mode==='trunk'?allowed(x,v):x.accessVlan===v||x.voiceVlan===v))continue;const y=net.devs[x.link.dev];if(y.type!=='switch'||!y.vlans[v])continue;if(!stpOff(y,v))return y.name;if(!been.has(y.name))q.push([y,x.link.ifn]);}}
+    return p.link.dev;}
   const ports=new Map(sws.map(s=>[s.name,stpPorts(s)])),isSw=n=>{const x=net.devs[n];return x.type==='switch'&&!!x.vlans[v];};
   // Connected groups of switches; each group elects the lowest bridge ID it can hear as its root.
   const comp=new Map();
@@ -1285,20 +1294,23 @@ function stpCalc(net,v){const sws=Object.values(net.devs).filter(d=>d.type==='sw
   for(const sw of sws){const mine={};let rp=null,best=null;const myRoot=comp.get(sw.name);
     if(sw!==myRoot&&dist.has(sw.name))for(const x of ports.get(sw.name)){if(!isSw(x.nb)||!dist.has(x.nb))continue;
       const k=String(dist.get(x.nb)+x.cost).padStart(6,'0')+bid(net.devs[x.nb],v);if(best===null||k<best){best=k;rp=x.p;}}
+    const selfLoop=ports.get(sw.name).filter(x=>x.nb===sw.name);
     for(const x of ports.get(sw.name)){const nb=net.devs[x.nb];let role='Desg';
-      if(x.p===rp)role='Root';else if(isSw(x.nb)&&dist.has(nb.name)&&dist.has(sw.name)&&key(sw)>key(nb))role='Altn';
+      if(x.p===rp)role='Root';else if(x.nb===sw.name){if(selfLoop.indexOf(x)>0)role='Altn';}else if(isSw(x.nb)&&dist.has(nb.name)&&dist.has(sw.name)&&key(sw)>key(nb))role='Altn';
       mine[x.name]={role,cost:x.cost};}
     info[sw.name]={ports:mine,rp,cost:dist.get(sw.name),root:myRoot};}
   return {root,info};}
 C('config','spanning-tree vlan <w> priority <n>',e=>{const vl=parseVlanList(e.args[0]);if(!vl)return e.out(BAD);if(e.args[1]%4096||e.args[1]>61440)return e.out('% Bridge Priority must be in increments of 4096.','% Allowed values are: 0 4096 8192 12288 ... 61440');vl.forEach(v=>{stpOf(e.d).prio[v]=e.args[1];});},['switch']);
 // root primary is a macro: 24576, or 4096 below the current root if 24576 would not win. secondary is always 28672.
 C('config','spanning-tree vlan <w> root <w>',e=>{const vl=parseVlanList(e.args[0]),w=e.args[1].toLowerCase(),prim='primary'.startsWith(w);if(!vl||(!prim&&!'secondary'.startsWith(w)))return e.out(BAD);
-  for(const v of vl){let p=prim?24576:28672;if(prim&&e.d.vlans[v]){const r=stpCalc(e.net,v);if(r&&r.root!==e.d&&String(24576+v).padStart(6,'0')+macOf(e.d)>bid(r.root,v))p=Math.max(0,stpPrio(r.root,v)-v-4096);}stpOf(e.d).prio[v]=p;}},['switch']);
+  for(const v of vl){let p=prim?24576:28672;if(prim&&e.d.vlans[v]){const r=stpCalc(e.net,v);if(r&&r.root&&r.root!==e.d&&String(24576+v).padStart(6,'0')+macOf(e.d)>bid(r.root,v))p=Math.max(0,stpPrio(r.root,v)-v-4096);}stpOf(e.d).prio[v]=p;}},['switch']);
+C('config','no spanning-tree vlan <w>',e=>{const vl=parseVlanList(e.args[0]);if(!vl)return e.out(BAD);const S=stpOf(e.d);S.off=S.off||{};vl.forEach(v=>{S.off[v]=true;});},['switch']);
+C('config','spanning-tree vlan <w>',e=>{const vl=parseVlanList(e.args[0]);if(!vl)return e.out(BAD);const S=stpOf(e.d);if(S.off)vl.forEach(v=>{delete S.off[v];});},['switch']);
 C('config','spanning-tree mode <w>',e=>{const m=['pvst','rapid-pvst'].find(x=>x.startsWith(e.args[0].toLowerCase()));if(!m)return e.out(BAD);stpOf(e.d).mode=m;},['switch']);
 C('if','spanning-tree portfast',e=>{e.s.ctx.forEach(i=>{i.portfast=true;});e.out('%Warning: portfast should only be enabled on ports connected to a single host.');},['switch']);
 C('if','spanning-tree bpduguard enable',e=>e.s.ctx.forEach(i=>{i.bpduguard=true;}),['switch']);
 C(EX,'show spanning-tree <rest?>',e=>{const{net,d,out}=e,m=/(\d+)/.exec(e.args[0]||''),vl=m?[+m[1]]:Object.keys(d.vlans).map(Number);
-  for(const v of vl){if(!d.vlans[v]){if(m)out('Spanning tree instance(s) for vlan '+v+' does not exist.');continue;}const r=stpCalc(net,v),me=r.info[d.name],rt=me.root;
+  for(const v of vl){if(!d.vlans[v]||stpOff(d,v)){if(m)out('Spanning tree instance(s) for vlan '+v+' does not exist.');continue;}const r=stpCalc(net,v),me=r.info[d.name],rt=me.root;
     out('VLAN'+String(v).padStart(4,'0'),'  Spanning tree enabled protocol '+(d.stp&&d.stp.mode==='rapid-pvst'?'rstp':'ieee'),'  Root ID    Priority    '+stpPrio(rt,v),'             Address     '+macOf(rt));
     if(rt===d)out('             This bridge is the root');else out('             Cost        '+me.cost,'             Port        '+(me.rp?shortIf(me.rp.name):'-'));
     out('','  Bridge ID  Priority    '+stpPrio(d,v)+'  (priority '+(stpPrio(d,v)-v)+' sys-id-ext '+v+')','             Address     '+macOf(d),'','Interface           Role Sts Cost      Type','------------------- ---- --- --------- ----');
@@ -1331,7 +1343,7 @@ function globalExtra(d){const L=[];
   if(d.tz)L.push('clock timezone '+d.tz.name+' '+d.tz.off);if(d.cdp===false)L.push('no cdp run');if(d.lldp&&d.type!=='pc')L.push('lldp run');
   (d.users||[]).forEach(u=>L.push('username '+u.name+(u.priv>1?' privilege '+u.priv:'')+(u.kind==='secret'?' secret 5 $1$mERr$9cTjUIEqNGurQiFU.ZeCi1':' password '+pwText(d,u.pw))));
   if(d.domain)L.push('ip domain-name '+d.domain);if(d.sshv)L.push('ip ssh version '+d.sshv);
-  if(d.stp){if(d.stp.mode!=='pvst')L.push('spanning-tree mode '+d.stp.mode);if(d.stp.bpduDefault)L.push('spanning-tree portfast bpduguard default');for(const v in d.stp.prio)L.push('spanning-tree vlan '+v+' priority '+d.stp.prio[v]);}
+  if(d.stp){if(d.stp.mode!=='pvst')L.push('spanning-tree mode '+d.stp.mode);for(const v in d.stp.off||{})if(d.stp.off[v])L.push('no spanning-tree vlan '+v);if(d.stp.bpduDefault)L.push('spanning-tree portfast bpduguard default');for(const v in d.stp.prio)L.push('spanning-tree vlan '+v+' priority '+d.stp.prio[v]);}
   if(d.dhcp){d.dhcp.excluded.forEach(([a,b])=>L.push('ip dhcp excluded-address '+n2ip(a)+(b!==a?' '+n2ip(b):'')));
     for(const[n,p]of Object.entries(d.dhcp.pools)){L.push('ip dhcp pool '+n);if(p.net!==null)L.push(' network '+n2ip(p.net)+' '+n2ip(lenMask(p.len)));if(p.gw!=null)L.push(' default-router '+n2ip(p.gw));if(p.dns!=null)L.push(' dns-server '+n2ip(p.dns));for(const[o,v] of Object.entries(p.opts||{}))L.push(' option '+o+' ip '+n2ip(v));}}
   if(d.nat){d.nat.statics.forEach(s=>L.push('ip nat inside source static '+n2ip(s.local)+' '+n2ip(s.global)));for(const[n,P] of Object.entries(d.nat.pools||{}))L.push('ip nat pool '+n+' '+n2ip(P.start)+' '+n2ip(P.end)+' netmask '+n2ip(lenMask(P.len)));d.nat.rules.forEach(r=>L.push('ip nat inside source list '+r.acl+(r.pool?' pool '+r.pool:' interface '+r.ifn)+(r.overload?' overload':'')));}
@@ -2471,10 +2483,12 @@ function fwd6(net,src,dst){let d=src,srcA=null;const hops=[];hops.path=[src.name
     if(t>0&&!v6router(d))return {ok:false,hops,reason:'IPv6 unicast routing is off on '+d.hostname};
     const h=nextHop6(net,d,dst);if(!h)return {ok:false,hops,reason:'No IPv6 route to '+fmt6(dst)+' on '+d.hostname};
     if(t===0){const g=(h.ifc.v6||[])[0]||Object.values(d.ifs).flatMap(i=>i.v6on?i.v6||[]:[])[0];srcA=g?g.a:linkLocal(d,h.ifc);}
-    const peer=l2peers(net,d,h.ifc).find(p=>has6(p.dev,p.ifc,h.nh));if(!peer)return {ok:false,hops,reason:'Next hop '+fmt6(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links and addressing'};
+    const ps=l2peers(net,d,h.ifc);if(ps.storm){if(LIVE)stormLog(net,d,h.ifc,ps.storm);hops.storm=ps.storm;return {ok:false,hops,reason:'Broadcast storm in VLAN '+ps.storm.vlan+': '+ps.storm.sws.join(', ')+' form a loop with no spanning tree'};}
+    const peer=ps.find(p=>has6(p.dev,p.ifc,h.nh));if(!peer)return {ok:false,hops,reason:'Next hop '+fmt6(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links and addressing'};
+    if(LIVE&&L2LIVE){const k=fmt6(h.nh),mine=(h.ifc.v6||[])[0];(hops.l2=hops.l2||[]).push(l2frame(net,d,h.ifc,peer,null,hops.path.length-1,ps.edges,{cold:!(nd6Prune(net,d)[k])&&k!==L2WARM6,nhText:k}));hops.l2[hops.l2.length-1].srcAddr=fmt6(mine?mine.a:linkLocal(d,h.ifc));L2WARM6=null;}
     hops.push(h.nh);hops.path.push(...peer.path.slice(1));d=peer.dev;}
   return {ok:false,hops,reason:'Hop limit reached; check for a routing loop'};}
-function reach6(net,src,dst){const f=fwd6(net,src,dst);let r=null,ok=false;if(f.ok){if(f.dest===src)ok=true;else{r=fwd6(net,f.dest,f.src);ok=r.ok&&r.dest===src;}}
+function reach6(net,src,dst){const f=fwd6(net,src,dst);let r=null,ok=false;if(f.ok){if(f.dest===src)ok=true;else{L2WARM6=f.hops.l2?f.hops.l2[f.hops.l2.length-1].srcAddr:null;r=fwd6(net,f.dest,f.src);L2WARM6=null;ok=r.ok&&r.dest===src;}}
   if(LIVE)TRACE={src,f,r,ok,refused:false};return {ok,f,r};}
 // "X/len" with an optional keyword: eui-64 builds the interface ID from the MAC; link-local sets the FE80:: address.
 function v6arg(t){const m=/^([0-9a-fA-F:]+)\/(\d{1,3})$/.exec(t);if(!m)return null;const a=parse6(m[1]),l=+m[2];return a===null||l>128?null:{a,len:l};}
@@ -3048,6 +3062,16 @@ addIncident({title:'Incident 35: the gateway nobody owns',base:'First-hop redund
  hints:['HSRP looks healthy, with an active and a standby router. Check whether the address it protects is the one the PCs actually use.','ipconfig on a PC shows gateway 192.168.1.1. show standby brief shows the virtual IP the group is answering for now.','The group\'s virtual IP was changed to 192.168.1.254. Set it back to 192.168.1.1 on both routers.'],
  lesson:'HSRP only protects the address it is given. If the virtual IP does not match the gateway the hosts use, HSRP can be perfectly healthy while every host is cut off.'});
 
+// ----- incident 36: a broadcast storm
+addIncident({title:'Incident 36: the network that ate itself',base:'Spanning tree: root bridge and edge ports',start:'SW1',
+ brief:'Minutes after someone "tidied up" the switch configs, every ping across the switches started failing and all three switches are logging the same host flapping between ports. Nothing was unplugged. Make the network usable again.',
+ symptom:['PC1','192.168.1.12'],
+ fault:{SW1:[...EN,'no spanning-tree vlan 1','end'],SW2:[...EN,'no spanning-tree vlan 1','end'],SW3:[...EN,'no spanning-tree vlan 1','end']},
+ repair:{SW1:[...EN,'spanning-tree vlan 1','end','show spanning-tree'],SW2:[...EN,'spanning-tree vlan 1','end'],SW3:[...EN,'spanning-tree vlan 1','end'],PC1:['ping 192.168.1.12']},
+ steps:['PC1: ping 192.168.1.12','SW1: enable | show logging | show spanning-tree vlan 1 | show running-config','SW1: configure terminal | spanning-tree vlan 1 | end ; SW2: enable | configure terminal | spanning-tree vlan 1 | end ; SW3: enable | configure terminal | spanning-tree vlan 1 | end','SW1: show spanning-tree ; PC1: ping 192.168.1.12'],
+ hints:['The links are up and nothing moved, yet a single ping fails and the switches complain that the same MAC address keeps appearing on two ports. Something that used to stop frames going round in circles is missing.','show spanning-tree vlan 1 says the instance does not exist, and the running-config has a line that turned it off. Three switches in a triangle with no spanning tree is a loop.','no spanning-tree vlan 1 was added on every switch. Put spanning-tree vlan 1 back on all three; the root and backup priorities are still configured.'],
+ lesson:'Redundant links need spanning tree. With it off, the first broadcast (an ARP request is enough) circles the loop for ever, every switch learns the sender on two ports in turn (%SW_MATM-4-MACFLAP_NOTIF), and the storm starves everything else. One blocked port is the price of a loop-free network.'});
+
 // ===== phase 5: capstones =====
 // A capstone is a build lab with capstone:true in the Capstone group. It keeps full step-by-step instructions, so
 // tests/labs.cjs proves it reaches a pass, but the guide switch starts off for capstones (see the capstone block in the interface).
@@ -3432,24 +3456,34 @@ const MACRE=/^[0-9a-f]{4}\.[0-9a-f]{4}\.[0-9a-f]{4}$/i;
 // ports each have their own; a switch's SVIs and port-channels use the chassis address.
 function macTx(net,d,i){if(d.type==='pc')return macOf(d);const p=phys(d,i);return p.name.startsWith('Vlan')||p.name.startsWith('Port-channel')?macOf(d):macIf(d,p);}
 const macNow=()=>Date.now();
+// Neighbours announce themselves all the time (CDP every 60 s, BPDUs every 2 s), so a switch always knows the MAC of the
+// switch or router port on the other end of a link: these rows are computed, never age, and come straight back after a clear.
+function macBackground(net,sw){const rows=[];if(sw.type!=='switch')return rows;for(const p of Object.values(sw.ifs)){if(!p.link||!physIf(p)||p.routed||!ifUp(net,sw,p))continue;const nb=net.devs[p.link.dev],np=nb.ifs[p.link.ifn];if(nb.type==='pc')continue;
+    const mac=macTx(net,nb,np),vls=new Set();if(cdpOn(sw,p)&&cdpOn(nb,np))vls.add(p.mode==='trunk'?p.native:p.accessVlan);
+    if(nb.type==='switch'&&!np.routed){for(const v of Object.keys(nb.vlans).map(Number))if(v<1002&&sw.vlans[v]&&!stpOff(nb,v)&&(p.mode==='trunk'?allowed(p,v)&&(np.mode==='trunk'?allowed(np,v):np.accessVlan===v):p.accessVlan===v&&(np.mode==='trunk'?np.native===v:np.accessVlan===v)))vls.add(v);}
+    for(const v of vls)if(sw.vlans[v])rows.push({mac,vlan:v,ifn:p.name,kind:'DYNAMIC',bg:true});}return rows;}
+const macAgeFor=(sw,v)=>(sw.macAgingV&&sw.macAgingV[v]!=null?sw.macAgingV[v]:sw.macAging??300);
 function macLearn(sw,vlan,ifn,mac){if(!ifn||!sw.vlans[vlan]||mac===macOf(sw))return;const T=sw.mact||(sw.mact=[]);const e=T.find(x=>x.mac===mac&&x.vlan===vlan);
   if(e){if(e.kind==='STATIC')return;e.ifn=ifn;e.t=macNow();return;}T.push({mac,vlan,ifn,kind:'DYNAMIC',t:macNow()});}
 // Dynamic entries leave when they age out, when their port goes down, or when their VLAN is deleted.
-function macPrune(net,sw){const T=sw.mact;if(!T)return [];const age=(sw.macAging??300)*1000,now=macNow();
-  sw.mact=T.filter(e=>{if(e.kind!=='DYNAMIC')return true;const p=sw.ifs[e.ifn];return !!p&&!!sw.vlans[e.vlan]&&ifUp(net,sw,p)&&(age===0||now-e.t<age);});return sw.mact;}
+function macPrune(net,sw){const T=sw.mact;if(!T)return [];const now=macNow();
+  sw.mact=T.filter(e=>{if(e.kind!=='DYNAMIC')return true;const p=sw.ifs[e.ifn],age=macAgeFor(sw,e.vlan)*1000;return !!p&&!!sw.vlans[e.vlan]&&ifUp(net,sw,p)&&(age===0||now-e.t<age);});return sw.mact;}
 // A switch's own address counts as known (it is the CPU entry for every SVI).
-function macLookup(net,sw,vlan,mac){if(mac===macOf(sw))return {mac,vlan,ifn:'CPU',kind:'STATIC'};return macPrune(net,sw).find(e=>e.mac===mac&&e.vlan===vlan)||null;}
+function macLookup(net,sw,vlan,mac){if(mac===macOf(sw))return {mac,vlan,ifn:'CPU',kind:'STATIC'};return macPrune(net,sw).find(e=>e.mac===mac&&e.vlan===vlan)||macBackground(net,sw).find(e=>e.mac===mac&&e.vlan===vlan)||null;}
+// A broadcast storm: every switch on the loop sees the same source address arriving on two ports, over and over.
+function stormLog(net,d,ifc,storm){const mac=macTx(net,d,ifc);for(const n of storm.sws){const sw=net.devs[n];const ports=Object.values(sw.ifs).filter(p=>p.link&&physIf(p)&&!p.routed&&ifUp(net,sw,p)&&storm.sws.includes(p.link.dev)&&(p.mode==='trunk'?allowed(p,storm.vlan):p.accessVlan===storm.vlan));
+    if(ports.length<2)continue;const msg='%SW_MATM-4-MACFLAP_NOTIF: Host '+mac+' in vlan '+storm.vlan+' is flapping between port '+shortIf(ports[0].name)+' and port '+shortIf(ports[1].name);logEvent(net,sw,msg);(sw.conq=sw.conq||[]).push((sw.tsLog?stamp(net,sw):'')+msg);}}
 // Ports the spanning tree has blocked for a VLAN, as 'switch|port'. Members of a blocked port-channel are blocked with it.
 function stpBlocked(net,v){const s=new Set(),r=stpCalc(net,v);if(!r)return s;
   for(const [n,me] of Object.entries(r.info))for(const [pn,x] of Object.entries(me.ports))if(x.role==='Altn'){s.add(n+'|'+pn);if(pn.startsWith('Port-channel'))for(const m of members(net.devs[n],net.devs[n].ifs[pn]))s.add(n+'|'+m.name);}
   return s;}
 // One Layer 2 hop of a live frame: who sent it, who it was for, which switches learned what, and whether it was
 // flooded. edges holds every link a flood reached ([from, to, blocked]); the map animates them.
-function l2frame(net,d,ifc,peer,hopIp,at,edges){
-  const srcMac=macTx(net,d,ifc),vip=(peer.ifc.hsrp||[]).find(g=>g.ip===hopIp&&hsrpVip(net,peer.dev,peer.ifc)===hopIp)||null;
+function l2frame(net,d,ifc,peer,hopIp,at,edges,nd){
+  const srcMac=macTx(net,d,ifc),vip=nd?null:(peer.ifc.hsrp||[]).find(g=>g.ip===hopIp&&hsrpVip(net,peer.dev,peer.ifc)===hopIp)||null;
   const dstMac=vip?vmac(peer.ifc,vip):macTx(net,peer.dev,peer.ifc);
-  const arp=arpPrune(net,d)[hopIp]==null&&hopIp!==L2WARM;L2WARM=null;
-  const ev={at,seg:peer.path,from:d.name,to:peer.dev.name,nh:hopIp,srcIp:ifc.ip,srcMac,dstMac,arp,flood:null,sw:[],edges:[]};
+  const arp=nd?nd.cold:(arpPrune(net,d)[hopIp]==null&&hopIp!==L2WARM);L2WARM=null;
+  const ev={at,seg:peer.path,from:d.name,to:peer.dev.name,nh:hopIp,nhText:nd?nd.nhText:null,nd:!!nd,srcIp:ifc.ip,srcMac,dstMac,arp,flood:null,sw:[],edges:[]};
   const trail=peer.trail||[];
   const subtree=start=>{const r=[],q=[start],been=new Set([start]);while(q.length){const x=q.shift();for(const e of edges){if(e.from!==x)continue;r.push(e);if(!e.blocked&&!been.has(e.to)){been.add(e.to);q.push(e.to);}}}return r;};
   const learnAll=start=>{const r=subtree(start);for(const e of r)if(!e.blocked&&e.vlan!=null&&net.devs[e.to].type==='switch')macLearn(net.devs[e.to],e.vlan,e.toPort,srcMac);return r.map(e=>[e.from,e.to,!!e.blocked]);};
@@ -3485,6 +3519,7 @@ function macRows(net,sw,f){const rows=[];
   for(const n of sortIfs(Object.keys(sw.ifs))){const i=sw.ifs[n];if(n.startsWith('Vlan')&&i.ip!==null&&ifUp(net,sw,i))rows.push({vlan:+n.slice(4),mac:macOf(sw),kind:'STATIC',ifn:'CPU'});}
   for(const p of Object.values(sw.ifs))if(p.ps&&p.ps.on&&ifUp(net,sw,p))for(const m of p.ps.macs||[])rows.push({vlan:p.accessVlan,mac:m.mac,kind:'STATIC',ifn:p.name});
   for(const e of macPrune(net,sw))if(!rows.some(r=>r.mac===e.mac&&r.vlan===e.vlan))rows.push(e);
+  for(const e of macBackground(net,sw))if(!rows.some(r=>r.mac===e.mac&&r.vlan===e.vlan))rows.push(e);
   const num=v=>v==='All'?-1:v;
   return rows.filter(r=>(f.kind==null||r.kind===f.kind)&&(f.vlan==null||r.vlan===f.vlan)&&(!f.ifn||r.ifn===f.ifn)&&(!f.mac||r.mac===f.mac)).sort((a,b)=>num(a.vlan)-num(b.vlan)||(a.mac<b.mac?-1:a.mac>b.mac?1:0));}
 // vlan N, interface X and address H.H.H, in any order. Returns null for anything else.
@@ -3503,7 +3538,8 @@ Cn(EX,'show mac address-table static <rest?>',e=>macShow(e,'STATIC',e.args[0]),[
 Cn(EX,'show mac address-table vlan <n>',e=>macShow(e,null,'vlan '+e.args[0]),['switch']);
 Cn(EX,'show mac address-table interface <rest>',e=>macShow(e,null,'interface '+e.args[0]),['switch']);
 Cn(EX,'show mac address-table address <w>',e=>macShow(e,null,'address '+e.args[0]),['switch']);
-Cn(EX,'show mac address-table aging-time',e=>e.out('Global Aging Time:  '+(e.d.macAging??300),'Vlan    Aging Time','----    ----------'),['switch']);
+Cn(EX,'show mac address-table aging-time',e=>e.out('Global Aging Time:  '+(e.d.macAging??300),'Vlan    Aging Time','----    ----------',...Object.entries(e.d.macAgingV||{}).sort((a,b)=>a[0]-b[0]).map(([v,n])=>String(v).padStart(4)+'    '+n)),['switch']);
+Cn(EX,'show mac address-table aging-time vlan <n>',e=>{const v=+e.args[0];e.out('Global Aging Time:  '+(e.d.macAging??300),'Vlan    Aging Time','----    ----------',...(e.d.macAgingV&&e.d.macAgingV[v]!=null?[String(v).padStart(4)+'    '+e.d.macAgingV[v]]:[]));},['switch']);
 Cn(EX,'show mac address-table count <rest?>',e=>{const f=macFilter(e.args[0]);if(!f||f.ifn||f.mac)return e.out(BAD);const rows=macRows(e.net,e.d,{vlan:f.vlan}).filter(r=>r.vlan!=='All');
   const vls=[...new Set(rows.map(r=>r.vlan))].sort((a,b)=>a-b);if(f.vlan!=null&&!vls.length)vls.push(f.vlan);e.out('');
   for(const v of vls){const dyn=rows.filter(r=>r.vlan===v&&r.kind==='DYNAMIC').length,st=rows.filter(r=>r.vlan===v&&r.kind==='STATIC').length;
@@ -3518,9 +3554,12 @@ Cn('config','mac address-table static <w> vlan <n> interface <rest>',e=>{const m
   const T=e.d.mact||(e.d.mact=[]);const k=T.findIndex(x=>x.mac===m&&x.vlan===v);if(k>=0)T.splice(k,1);T.push({mac:m,vlan:v,ifn:n,kind:'STATIC',t:macNow()});},['switch']);
 Cn('config','no mac address-table static <w> vlan <n> <rest?>',e=>{const m=e.args[0].toLowerCase(),v=+e.args[1];e.d.mact=(e.d.mact||[]).filter(x=>!(x.kind==='STATIC'&&x.mac===m&&x.vlan===v));},['switch']);
 Cn('config','mac address-table aging-time <n>',e=>{const n=+e.args[0];if(!(n===0||(n>=10&&n<=1000000)))return e.out(BAD);e.d.macAging=n;},['switch']);
+Cn('config','mac address-table aging-time <n> vlan <n>',e=>{const n=+e.args[0],v=+e.args[1];if(!(n===0||(n>=10&&n<=1000000))||!(v>=1&&v<=4094))return e.out(BAD);(e.d.macAgingV=e.d.macAgingV||{})[v]=n;},['switch']);
+Cn('config','no mac address-table aging-time <n> vlan <n>',e=>{if(e.d.macAgingV)delete e.d.macAgingV[+e.args[1]];},['switch']);
+Cn('config','no mac address-table aging-time vlan <n>',e=>{if(e.d.macAgingV)delete e.d.macAgingV[+e.args[0]];},['switch']);
 Cn('config','no mac address-table aging-time <rest?>',e=>{delete e.d.macAging;},['switch']);
 {const ge0=globalExtra;globalExtra=function(d){const L=ge0(d);if(d.type!=='switch')return L;
-  if(d.macAging!=null&&d.macAging!==300)L.push('mac address-table aging-time '+d.macAging);
+  if(d.macAging!=null&&d.macAging!==300)L.push('mac address-table aging-time '+d.macAging);for(const [v,n] of Object.entries(d.macAgingV||{}))L.push('mac address-table aging-time '+n+' vlan '+v);
   for(const e of d.mact||[])if(e.kind==='STATIC')L.push('mac address-table static '+e.mac+' vlan '+e.vlan+' interface '+e.ifn);return L;};}
 Object.assign(KWHELP,{'address-table':'MAC forwarding table','aging-time':'aging-time keyword',count:'count keyword',dynamic:'dynamic entry type','mac-address-table':'MAC forwarding table'});
 if(!KWHELP.mac)KWHELP.mac='MAC configuration subcommands';if(!KWHELP.static)KWHELP.static='static entry type';
@@ -3539,6 +3578,9 @@ Object.assign(WHYC,{
 'mac address-table static <w> vlan <n> interface <rest>':'Pins an address to a port so it never ages out or moves. Used for devices that rarely talk, or to lock a server to its port.',
 'no mac address-table static <w> vlan <n> <rest?>':'Removes a pinned entry.',
 'mac address-table aging-time <n>':'Changes how long learned addresses live (0 keeps them forever). A short time means more flooding; a long time means stale entries after a host moves.',
+'mac address-table aging-time <n> vlan <n>':'An aging time for one VLAN only, overriding the global value there.',
+'no spanning-tree vlan <w>':'Turns spanning tree off for a VLAN on this switch. With redundant links that is how you get a broadcast storm: one broadcast circles for ever and the MAC table flaps between ports.',
+'spanning-tree vlan <w>':'Turns spanning tree back on for a VLAN (it is on by default).',
 'no mac address-table aging-time <rest?>':'Back to the default of 300 seconds.'});
 // ---------- ping and traceroute with a source, and the interactive (extended) forms ----------
 // The source must be an address on one of this device's up interfaces, or such an interface's name.
@@ -3848,6 +3890,9 @@ Cn('priv','clear counters <rest?>',e=>{const w=(e.args[0]||'').trim();let n=null
     for(const i of Object.values(e.d.ifs)){if(n&&i.name!==n)continue;if(!physIf(i))continue;const c=cntOf(i);Object.assign(c,{in:0,inB:0,out:0,outB:0,crc:0,runts:0,late:0,cleared:st});}
     env.out((e.d.tsLog?stamp(env.net,e.d):'')+'%CLEAR-5-COUNTERS: Clear counter on '+(n?'interface '+n:'all interfaces')+' by console');});},['router','switch']);
 // an exam fault: both ends of a link forced to different speeds
+EXAM_FAULTS.push({id:'stp',gen(net,rnd){const c=[];for(const d of netDevs(net,['switch']))for(const v of Object.keys(d.vlans).map(Number)){if(v>=1002||stpOff(d,v))continue;const r=stpCalc(net,v);if(r&&r.info[d.name]&&Object.values(r.info[d.name].ports).some(x=>x.role==='Altn'))c.push(v);}
+  const v=rpick(rnd,[...new Set(c)]);if(v==null)return null;const sws=netDevs(net,['switch']).filter(d=>d.vlans[v]);const cmds={};for(const d of sws)cmds[d.name]=[...enterCfg(d),'no spanning-tree vlan '+v,'end'];
+  return {cmds,desc:'spanning tree was switched off for VLAN '+v+' on '+sws.map(d=>d.hostname).join(', ')+', so the redundant links became a loop and a broadcast storm'};}});
 EXAM_FAULTS.push({id:'speed',generic:true,gen(net,rnd){const c=[];for(const d of netDevs(net,['router','switch']))for(const i of physPorts(d)){const p=net.devs[i.link.dev];if(p.type==='pc'||i.shutdown)continue;const q=p.ifs[i.link.ifn];if(q.shutdown)continue;c.push([d,i,p,q]);}
   const x=rpick(rnd,c);if(!x)return null;const [d,i,p,q]=x;
   return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'speed 10','end'],[p.name]:[...enterCfg(p),'interface '+q.name,'speed 100','end']},desc:d.hostname+' '+shortIf(i.name)+' is forced to 10 Mb/s while '+p.hostname+' '+shortIf(q.name)+' is forced to 100, so the link never comes up'};}});
@@ -3868,6 +3913,7 @@ function nd6Walk(net,start,dst){let d=start,miss=0;for(let t=0;t<20;t++){if(owns
   d=peer.dev;}return miss;}
 function pingRun6(net,src,dst,count){const R=reach6(net,src,dst),f=R.f,r=R.r;
   const drops=nd6Walk(net,src,dst)+(f.ok&&f.dest!==src&&f.src!=null?nd6Walk(net,f.dest,f.src):0);
+  if(LIVE&&L2LIVE){trafficCount(net,f,count,114);if(r)trafficCount(net,r,count,114);}
   let mode='.',from=null;if(R.ok)mode='!';
   else if(!f.ok&&f.hops.length&&f.src!=null){const X=net.devs[f.hops.path[f.hops.path.length-1]];if(X&&X!==src&&/^No IPv6 route/.test(f.reason||'')&&pq(net,()=>fwd6(net,X,f.src)).ok){mode='U';from=f.hops[f.hops.length-1];}}
   const routers=Math.max(0,f.hops.length-1),out=[];
@@ -4821,7 +4867,7 @@ $('studyMap').onclick=studyMap;
     for(const ev of evs){if(tok!==fxToken)return;
       if(ev.at>pos)await fly(path.slice(pos,ev.at+1),cls,tok);
       const seg=ev.seg;
-      if(ev.arp){burst(ev.from,'flood','ARP broadcast');sfx('flood');await floodFly(ev.edges,tok);if(tok!==fxToken)return;
+      if(ev.arp){burst(ev.from,'flood',ev.nd?'Neighbor solicitation':'ARP broadcast');sfx('flood');await floodFly(ev.edges,tok);if(tok!==fxToken)return;
         await fly(seg.slice().reverse(),'arp',tok);if(tok!==fxToken)return;await fly(seg,cls,tok);}
       else if(ev.flood){const k=Math.max(0,seg.indexOf(ev.flood));if(k>0)await fly(seg.slice(0,k+1),cls,tok);if(tok!==fxToken)return;
         burst(ev.flood,'flood','Unknown MAC: flooded');sfx('flood');await floodFly(ev.edges,tok);if(tok!==fxToken)return;
@@ -4831,6 +4877,7 @@ $('studyMap').onclick=studyMap;
     if(pos<path.length-1)await fly(path.slice(pos),cls,tok);}
   playTrace=async function(T){const tok=++fxToken,g=fxLayer();if(!g)return;g.innerHTML='';
     const fp=T.f.hops.path,end=fp[fp.length-1];await flyWay(T.f,'req',tok);if(tok!==fxToken)return;
+    if(!T.f.ok&&T.f.hops.storm){const st=T.f.hops.storm,loop=st.sws.concat(st.sws[0]);for(let k=0;k<3&&tok===fxToken;k++){await fly(loop,'flood blk',tok);}if(tok!==fxToken)return;st.sws.forEach((n,k)=>setTimeout(()=>{if(tok===fxToken)burst(n,'bad',k===0?'Broadcast storm':'');},k*120));return;}
     if(!T.f.ok)return burst(end,'bad',T.f.blocked?'Blocked by ACL':'No path from here');
     if(T.refused)return burst(end,'warn','Port closed');
     if(!T.r)return burst(end,'good','');
@@ -4838,10 +4885,11 @@ $('studyMap').onclick=studyMap;
     if(T.ok)burst(e2,'good','Reply received');else burst(e2,'bad',T.r.blocked?'Reply blocked by ACL':'Reply has no route back');};
   const who=(net,name)=>{const d=net.devs[name];return d?esc(d.type==='pc'?name:d.hostname):esc(name);};
   const rt0=renderTrace;renderTrace=function(){rt0();const T=cur.trace,el=$('trace');if(!T||!el)return;const net=cur.net,L=[];let flooded=null;
+    if(T.f.hops.storm){const st=T.f.hops.storm;L.push(`<div><b>Storm</b> VLAN ${st.vlan} · ${st.sws.map(n=>who(net,n)).join(' → ')} → ${who(net,st.sws[0])} · no spanning tree, so the frame circles for ever. Every switch logs %SW_MATM-4-MACFLAP_NOTIF. Put spanning tree back (spanning-tree vlan ${st.vlan}) or break the loop.</div>`);}
     for(const [res,dir] of [[T.f,'Request'],[T.r,'Reply']]){if(!res||!res.hops.l2)continue;
       for(const ev of res.hops.l2)for(const x of ev.sw){
         const sw=who(net,x.sw),v=`VLAN ${x.vlan}`;let what;
-        if(ev.arp)what=`${who(net,ev.from)}'s ARP broadcast for ${esc(n2ip(ev.nh))} flooded every port · ${who(net,ev.to)}'s reply learned on ${esc(shortIf(x.out||'?'))}`;
+        if(ev.arp)what=`${who(net,ev.from)}'s ${ev.nd?'neighbor solicitation':'ARP broadcast'} for ${esc(ev.nhText||n2ip(ev.nh))} flooded every port · ${who(net,ev.to)}'s reply learned on ${esc(shortIf(x.out||'?'))}`;
         else if(x.known)what=x.out==='CPU'?`for the switch itself (${esc(ev.dstMac)})`:`${esc(ev.dstMac)} known · out ${esc(shortIf(x.out))}`;
         else{what=`${esc(ev.dstMac)} unknown · flooded out every port`;flooded=flooded||x.sw;}
         L.push(`<div><b>${esc(dir)}</b> ${sw} · ${v} · ${what}</div>`);}}
