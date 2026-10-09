@@ -1,5 +1,18 @@
 # Lab4Net changes
 
+## Duplex and speed mismatches that behave like the real thing
+
+- Every physical port now settles its speed and duplex against the far end by the IEEE rules. Two ends forced to different speeds keep the link down (down/down, with the LINK-3-UPDOWN logs). A forced speed on one end is simply sensed by an auto end. A forced duplex on one end leaves an autonegotiating far end at half duplex: the classic mismatch.
+- A duplex mismatch keeps the link up and light traffic still gets through, as in real life. CDP reports it on both devices with the real message (`%CDP-4-DUPLEX_MISMATCH: duplex mismatch discovered on GigabitEthernet0/1 (not half duplex), with R2 GigabitEthernet0/0 (half duplex).`), and the counters show it: late collisions on the half-duplex end, CRC errors and runts on the full-duplex end. Forcing half on one end with auto on the other is not a mismatch (the auto end falls back to half as well).
+- `show interfaces` now ends with the full counter block (packets and bytes in and out, runts, CRC, input errors, late collisions, and the rest), counted from the live pings, traceroutes, Telnet and SSH you send, and it shows the negotiated duplex and speed. `show interfaces status` shows a-full/a-100 when negotiated and full/100 when forced.
+- `clear counters` (all interfaces or one), with the real confirm prompt and `%CLEAR-5-COUNTERS` log.
+- A switch port forced to full duplex with a PC behind it is a mismatch too: PC NICs always autonegotiate.
+- The exam sim gained a fault: both ends of a link forced to different speeds, so the link never comes up.
+
+Tests: new `tests/duplex.cjs` (in GitHub Actions). `tests/console.cjs` now expects the CDP warning when `duplex full` is forced against an auto far end.
+
+Verification: all twelve suites pass. In a real browser: forcing `duplex full` on R1 printed the CDP warning, and after a ping `show interfaces g0/0` on R2 showed Half Duplex and 2 late collisions in the real layout.
+
 ## Theory check grows to 110 questions; sandbox challenges earn XP and trophies
 
 - The theory check now has 110 questions (82 new) across every exam domain: network fundamentals 16, security 17, automation 15, IP services 15, routing 13, switching 13, wireless 12, IPv6 9. New ones cover switching (MAC learning and flooding, native VLAN, STP roles and root election, BPDU guard, Rapid PVST+, LACP modes, EtherChannel, port security, CDP/LLDP), routing (longest match, administrative distance order, floating statics, default routes, OSPF DR election, router ID, neighbour requirements, cost, passive interfaces, HSRP, VRF), services (DORA, helper addresses, PAT, static NAT, NTP, syslog levels, SNMPv3, DSCP EF, TFTP, WRED), security (AAA, TACACS+ vs RADIUS, enable secret, DHCP snooping, DAI, wildcard masks, ACL placement, 802.1X roles, IPsec, social engineering, sticky MACs, password types), wireless (bands and channels, SSID, CAPWAP, AP modes, WPA2/WPA3, AP switch ports, WLC) and automation (REST codes, Ansible, planes, statelessness, northbound APIs, YAML, controllers).

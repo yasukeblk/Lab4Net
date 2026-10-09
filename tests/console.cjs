@@ -63,7 +63,9 @@ assert.equal(KWHELP.show,'Show running system information');
 // Everyday commands.
 assert.match(cmd(net,'R1','show version').text,/C2900 Software[\\s\\S]*R1 uptime is[\\s\\S]*3 Gigabit Ethernet interfaces[\\s\\S]*Configuration register is 0x2102$/);
 cmd(net,'R1','configure terminal');cmd(net,'R1','interface g0/1');
-['description TO-R2','bandwidth 10000','duplex full','speed 100'].forEach(c=>assert.deepEqual(cmd(net,'R1',c).out,[]));
+['description TO-R2','bandwidth 10000','speed 100'].forEach(c=>assert.deepEqual(cmd(net,'R1',c).out,[]));
+// forcing full duplex while R2 still autonegotiates is a duplex mismatch, which CDP reports (see tests/duplex.cjs)
+assert.deepEqual(cmd(net,'R1','duplex full').out,['%CDP-4-DUPLEX_MISMATCH: duplex mismatch discovered on GigabitEthernet0/1 (not half duplex), with R2 GigabitEthernet0/0 (half duplex).']);
 assert.match(cmd(net,'R1','speed 1000x').text,/% Invalid/);cmd(net,'R1','end');
 assert.match(cmd(net,'R1','show running-config interface g0/1').text,/interface GigabitEthernet0\\/1\\n description TO-R2\\n bandwidth 10000\\n ip address 10\\.0\\.12\\.1 255\\.255\\.255\\.252\\n duplex full\\n speed 100\\nend$/);
 r=cmd(net,'R1','show interfaces g0/1').text;assert.match(r,/Hardware is iGbE[\\s\\S]*Description: TO-R2[\\s\\S]*BW 10000 Kbit\\/sec[\\s\\S]*Full Duplex, 100Mbps/);

@@ -3144,6 +3144,7 @@ function pingRun(net,src,dst,count,srcOv){
   const R=reach(net,src,dst,'icmp',0,srcOv),T=TRACE&&TRACE.src===src?TRACE:null,f=R.f,r=T?T.r:null;
   const h0=ownsIp(net,src,dst)?null:nextHop(net,src,dst),srcIp=srcOv??(ownsIp(net,src,dst)?dst:h0?h0.ifc.ip:null);
   const drops=arpWalk(net,src,f)+(f.ok&&f.dest!==src?arpWalk(net,f.dest,r):0);
+  if(LIVE&&L2LIVE){trafficCount(net,f,count,114);if(r)trafficCount(net,r,count,114);}
   let mode='.',from=null,unreach=null;
   if(R.ok)mode='!';
   else if(!f.ok&&srcIp!=null&&f.hops.length){const xName=f.hops.path.at(-1),X=net.devs[xName],acl=/^Blocked by ACL/.test(f.reason||''),noRoute=/^No usable route/.test(f.reason||'');
@@ -3331,8 +3332,8 @@ const bwOf=i=>i.bw||(i.name.startsWith('Fast')?100000:i.name.startsWith('Loopbac
   const tail=i=>{if(!i)return [];const lo=i.name.startsWith('Loopback'),svi=i.name.startsWith('Vlan'),sub=i.name.includes('.'),up=ifUp(net,d,i);
     const T=['  MTU '+(lo?1514:1500)+' bytes, BW '+bwOf(i)+' Kbit/sec, DLY '+(lo?5000:i.name.startsWith('Fast')?100:10)+' usec,','     reliability 255/255, txload 1/255, rxload 1/255',
       '  Encapsulation '+(sub&&i.dot1q!=null?'802.1Q Virtual LAN, Vlan ID  '+i.dot1q+'.':'ARPA, loopback not set'),'  Keepalive set (10 sec)'];
-    if(physIf(i)){const sp=i.speed||(i.name.startsWith('Fast')?'100':'1000'),dx=i.duplex==='half'?'Half':'Full';
-      T.push(!up?'  Auto-duplex, Auto-speed, media type is '+(d.type==='router'?'RJ45':'10/100BaseTX'):d.type==='router'?'  '+dx+' Duplex, '+(sp==='1000'?'1Gbps':sp+'Mbps')+', media type is RJ45':'  '+dx+'-duplex, '+sp+'Mb/s, media type is 10/100BaseTX');}
+    if(physIf(i)){const st=linkSettle(net,d,i),sp=st.speed,dx=st.duplex==='half'?'Half':'Full';
+      T.push(!up?'  Auto-duplex, Auto-speed, media type is '+(d.type==='router'?'RJ45':'10/100BaseTX'):d.type==='router'?'  '+dx+' Duplex, '+(sp==='1000'?'1Gbps':sp+'Mbps')+', media type is RJ45':'  '+dx+'-duplex, '+sp+'Mb/s, media type is 10/100BaseTX');T.push(...cntLines(i));}
     else if(svi||lo)void 0;return T;};
   for(const l of L){const m=/^(\S+) is (up|down|administratively down), line protocol is/.exec(l);
     if(m){R.push(...tail(cur));cur=d.ifs[m[1]];R.push(l);if(cur){const lo=cur.name.startsWith('Loopback'),svi=cur.name.startsWith('Vlan');
@@ -3790,6 +3791,64 @@ function examLab(base,faults,title){const l=Object.assign({},base,{title,group:'
   lesson:faults.map(f=>f.desc).join('. ')+'.',
   build(){const net=solvedNet(base);for(const f of faults)applyCmds(net,f.cmds);return net;}});
   l.tasks=base.tasks.slice();return l;}
+// ---------- duplex and speed: autonegotiation, mismatches, interface counters ----------
+// Each physical port settles its speed and duplex against the far end (IEEE 802.3 rules): two forced, different
+// speeds keep the link down; a forced speed on one end is sensed by an auto end; a forced duplex on one end leaves an
+// autonegotiating end at half duplex, which is the classic mismatch. A mismatch keeps the link up and lets light
+// traffic through, logs %CDP-4-DUPLEX_MISMATCH on both ends when CDP sees it, and shows up in the counters: late
+// collisions on the half-duplex end, CRC errors and runts on the full-duplex end. PC NICs always autonegotiate.
+const defSpeed=i=>i.name.startsWith('Gigabit')?'1000':'100';
+function linkSettle(net,d,i){const p=i.link&&net.devs[i.link.dev],q=p&&p.ifs[i.link.ifn];
+  if(!physIf(i)||!q)return {speed:i.speed||defSpeed(i),duplex:i.duplex||'full',farDuplex:i.duplex||'full',speedOk:true,mismatch:false};
+  const my=i.speed||null,far=q.speed||null;let speed,speedOk=true;
+  if(my&&far){speed=my;speedOk=my===far;}else if(my)speed=my;else if(far)speed=far;else speed=String(Math.min(+defSpeed(i),+defSpeed(q)));
+  const duplex=i.duplex||(q.duplex?'half':'full'),farDuplex=q.duplex||(i.duplex?'half':'full');
+  return {speed,duplex,farDuplex,speedOk,mismatch:speedOk&&duplex!==farDuplex};}
+{const up0=ifUp;ifUp=function(net,d,i){const r=up0(net,d,i);if(!r||!physIf(i)||!i.link)return r;return linkSettle(net,d,i).speedOk;};}
+function duplexMismatches(net,d){if(d.type==='pc'||d.cdp===false)return [];const r=[];
+  for(const x of cdpPeers(net,d)){const s=linkSettle(net,d,x.i);if(!s.mismatch)continue;
+    r.push('%CDP-4-DUPLEX_MISMATCH: duplex mismatch discovered on '+x.i.name+' (not '+s.farDuplex+' duplex), with '+x.p.hostname+' '+x.pi.name+' ('+s.farDuplex+' duplex).');}
+  return r;}
+{const ex0=execLine;execLine=function(net,d,s,line){const devs=Object.values(net.devs).filter(x=>x.type!=='pc'),before=new Map(devs.map(x=>[x,new Set(duplexMismatches(net,x))]));
+  const out=ex0(net,d,s,line);
+  for(const x of devs){const b=before.get(x);for(const m of duplexMismatches(net,x))if(!b.has(m)){if(x===d)out.push(m);else logEvent(net,x,m);}}
+  return out;};}
+// Counters per physical port: packets and bytes in and out, and the errors a mismatch causes.
+const cntOf=i=>i.cnt||(i.cnt={in:0,inB:0,out:0,outB:0,crc:0,runts:0,late:0,resets:1,cleared:null});
+function portTraffic(net,dev,ifn,dir,n,bytes){const d=net.devs[dev],i=d&&d.ifs[ifn];if(!i||!physIf(i))return;const c=cntOf(i);
+  if(dir==='in'){c.in+=n;c.inB+=n*bytes;}else{c.out+=n;c.outB+=n*bytes;}
+  const s=linkSettle(net,d,i);if(s.mismatch){if(s.duplex==='half')c.late+=Math.ceil(n*0.3);else{c.crc+=Math.ceil(n*0.3);c.runts+=Math.ceil(n*0.1);}}}
+// Count one direction of a live result (its Layer 2 events) as n frames of the given size.
+function trafficCount(net,res,n,bytes){if(!res||!res.hops||!res.hops.l2||n<=0)return;bytes=bytes||114;
+  for(const ev of res.hops.l2){const path=ev.seg;
+    // the sender's own port, then every link the frame (or its flood) crossed
+    const sd=net.devs[ev.from];if(sd){const i=Object.values(sd.ifs).find(x=>x.link&&x.link.dev===path[1]);if(i)portTraffic(net,ev.from,i.name,'out',n,bytes);}
+    const seen=new Set();const links=ev.edges&&ev.edges.length?ev.edges.map(e=>[e[0],e[1]]):[];
+    for(let k=0;k<path.length-1;k++)links.push([path[k],path[k+1]]);
+    for(const [a,b] of links){const key=a+'>'+b;if(seen.has(key))continue;seen.add(key);const A=net.devs[a],B=net.devs[b];if(!A||!B)continue;
+      const ai=Object.values(A.ifs).find(x=>x.link&&x.link.dev===b),bi=ai&&B.ifs[ai.link.ifn];if(!ai||!bi)continue;
+      if(a!==ev.from)portTraffic(net,a,ai.name,'out',n,bytes);portTraffic(net,b,bi.name,'in',n,bytes);}}}
+const cntLines=i=>{const c=cntOf(i),errs=c.crc+c.runts;return ['  Last input '+(c.in?'00:00:0'+(1+c.in%8):'never')+', output '+(c.out?'00:00:0'+(1+c.out%8):'never')+', output hang never',
+  '  Last clearing of "show interface" counters '+(c.cleared||'never'),'  Input queue: 0/75/0/0 (size/max/drops/flushes); Total output drops: 0','  Queueing strategy: fifo','  Output queue: 0/40 (size/max)',
+  '  5 minute input rate 0 bits/sec, 0 packets/sec','  5 minute output rate 0 bits/sec, 0 packets/sec','     '+c.in+' packets input, '+c.inB+' bytes, 0 no buffer','     Received 0 broadcasts (0 IP multicasts)',
+  '     '+c.runts+' runts, 0 giants, 0 throttles','     '+errs+' input errors, '+c.crc+' CRC, 0 frame, 0 overrun, 0 ignored','     0 watchdog, 0 multicast, 0 pause input',
+  '     '+c.out+' packets output, '+c.outB+' bytes, 0 underruns','     0 output errors, 0 collisions, '+c.resets+' interface resets','     0 unknown protocol drops','     0 babbles, '+c.late+' late collision, 0 deferred',
+  '     0 lost carrier, 0 no carrier, 0 pause output','     0 output buffer failures, 0 output buffers swapped out'];};
+// show interfaces status: the duplex and speed columns show what was negotiated (a-full, a-100) or forced (full, 100)
+{const c=CMDS.find(c=>c.pat.join(' ')==='show interfaces status <rest?>'),f0=c.fn;c.fn=e=>{const buf=[],o=e.out;e.out=(...x)=>buf.push(...x);try{f0(e);}finally{e.out=o;}
+  const {d,net}=e;e.out(...buf.map(l=>{const m=/^(\S+) /.exec(l);const n=m&&Object.keys(d.ifs).find(k=>shortIf(k)===m[1]);const i=n&&d.ifs[n];if(!i||!physIf(i)||l.length<56)return l;
+    const up=ifUp(net,d,i),s=linkSettle(net,d,i),dx=i.duplex?i.duplex:up?'a-'+s.duplex:'auto',sp=i.speed?i.speed:up?'a-'+s.speed:'auto';
+    return l.slice(0,53)+pad(dx,8)+pad(sp,7)+l.slice(68);}));};}
+Cn('priv','clear counters <rest?>',e=>{const w=(e.args[0]||'').trim();let n=null;if(w){n=parseIf(w);if(!n||!e.d.ifs[n])return e.out(BAD);}
+  ask(e.s,'Clear "show interface" counters on '+(n?n:'all interfaces')+' [confirm]',(a,env)=>{if(/^n/i.test(a.trim()))return;const t=new Date(),st='00:00:'+String(t.getSeconds()).padStart(2,'0');
+    for(const i of Object.values(e.d.ifs)){if(n&&i.name!==n)continue;if(!physIf(i))continue;const c=cntOf(i);Object.assign(c,{in:0,inB:0,out:0,outB:0,crc:0,runts:0,late:0,cleared:st});}
+    env.out((e.d.tsLog?stamp(env.net,e.d):'')+'%CLEAR-5-COUNTERS: Clear counter on '+(n?'interface '+n:'all interfaces')+' by console');});},['router','switch']);
+// an exam fault: both ends of a link forced to different speeds
+EXAM_FAULTS.push({id:'speed',generic:true,gen(net,rnd){const c=[];for(const d of netDevs(net,['router','switch']))for(const i of physPorts(d)){const p=net.devs[i.link.dev];if(p.type==='pc'||i.shutdown)continue;const q=p.ifs[i.link.ifn];if(q.shutdown)continue;c.push([d,i,p,q]);}
+  const x=rpick(rnd,c);if(!x)return null;const [d,i,p,q]=x;
+  return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'speed 10','end'],[p.name]:[...enterCfg(p),'interface '+q.name,'speed 100','end']},desc:d.hostname+' '+shortIf(i.name)+' is forced to 10 Mb/s while '+p.hostname+' '+shortIf(q.name)+' is forced to 100, so the link never comes up'};}});
+Object.assign(KWHELP,{counters:'Clear counters on one or all interfaces'});
+Object.assign(WHYC,{'clear counters <rest?>':'Zeroes the interface counters so you can watch errors grow from now, instead of guessing whether old CRC or late-collision counts still matter.'});
 //ENGINE-END
 // ---------- guide-only page: index.html?guide, opened as its own browser window for a second monitor ----------
 // It shows the step-by-step guide sent by the main window and stops here, so it never reads or writes saved work.
