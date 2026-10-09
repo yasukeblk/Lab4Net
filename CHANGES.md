@@ -21,27 +21,6 @@ Tests: `tests/switching.cjs` gained the neighbour rows, per-VLAN aging, the stor
 
 Verification: all fourteen suites pass (74 labs, 421 checks, 1483 guide commands; 36 incidents). In a real browser: Incident 36 showed the storm title and Switching story, the frame lapping the triangle on the map, and the MAC flap message on SW1's console after one ping from PC1.
 
-## Switching follow-ups: broadcast storms, neighbours in the MAC table, per-VLAN aging, IPv6 learning
-
-**Broadcast storms**
-- `no spanning-tree vlan <list>` (and `spanning-tree vlan <list>` to turn it back on) now exist, and show in the running-config. `show spanning-tree vlan N` on such a switch says the instance does not exist.
-- A switch with spanning tree off is a transparent bridge for the others: the switches still running STP see each other through it and still block one port, so one careless switch does not break the network. The last STP switch on a loop even blocks one of its own ports when its BPDUs come back to it.
-- Switch it off on every switch of a loop and you get the real thing: the first broadcast circles for ever. Pings time out, the trace panel names the loop ("Broadcast storm in VLAN 1: SW1, SW2, SW3 form a loop with no spanning tree"), the map shows the frame lapping the loop, and every switch on it logs `%SW_MATM-4-MACFLAP_NOTIF: Host … in vlan 1 is flapping between port Gi0/1 and port Gi0/2` on its console, exactly the symptom you read about.
-- New **Incident 36: the network that ate itself** (spanning tree switched off on all three switches of the triangle). The exam sim's sabotage also knows this fault.
-
-**Neighbours in the MAC table**
-- A switch always knows the MAC of the switch or router port on the other end of a link, because CDP (every 60 s) and BPDUs (every 2 s) keep arriving: those rows now appear in `show mac address-table` as DYNAMIC on the uplink, in the native or access VLAN for CDP and in every carried VLAN for a neighbouring switch's BPDUs. They never age out and come straight back after `clear mac address-table dynamic`. A frame to a router's port is therefore never flooded.
-
-**Per-VLAN aging**
-- `mac address-table aging-time <seconds> vlan <n>`, its `no` form, and `show mac address-table aging-time [vlan N]` listing the per-VLAN values.
-
-**IPv6 teaches the switches too**
-- IPv6 pings and traceroutes now learn MAC addresses on the switches like IPv4 ones, and the map shows the first exchange as a "Neighbor solicitation" flood instead of an ARP broadcast. The Switching section says the same.
-
-Tests: `tests/switching.cjs` gained the neighbour rows, per-VLAN aging, the storm (reason, logs on every switch, transparent switch, self-loop block, repair, EtherChannel never a loop), the storm exam fault and the incident; `tests/ping6.cjs` checks IPv6 learning and the solicitation event. The curriculum test now ignores console message queues, which the storm probe fills.
-
-Verification: all fourteen suites pass (74 labs, 421 checks, 1483 guide commands; 36 incidents). In a real browser: Incident 36 showed the storm title and Switching story, the frame lapping the triangle on the map, and the MAC flap message on SW1's console after one ping from PC1.
-
 ## Boss fights
 
 - Exam sim → **Boss fight**: a finished lab with three hidden faults at once and 30 minutes on the clock. The boss has a health bar in the mission window: its HP is the number of checks still failing, so every Grade is a strike. When it drops, the bar shakes and the hit sounds; at zero it reads BOSS DOWN and the exam is cleared with the normal rank.
