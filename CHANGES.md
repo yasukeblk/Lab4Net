@@ -1,5 +1,16 @@
 # Lab4Net changes
 
+## Theory check grows to 110 questions; sandbox challenges earn XP and trophies
+
+- The theory check now has 110 questions (82 new) across every exam domain: network fundamentals 16, security 17, automation 15, IP services 15, routing 13, switching 13, wireless 12, IPv6 9. New ones cover switching (MAC learning and flooding, native VLAN, STP roles and root election, BPDU guard, Rapid PVST+, LACP modes, EtherChannel, port security, CDP/LLDP), routing (longest match, administrative distance order, floating statics, default routes, OSPF DR election, router ID, neighbour requirements, cost, passive interfaces, HSRP, VRF), services (DORA, helper addresses, PAT, static NAT, NTP, syslog levels, SNMPv3, DSCP EF, TFTP, WRED), security (AAA, TACACS+ vs RADIUS, enable secret, DHCP snooping, DAI, wildcard masks, ACL placement, 802.1X roles, IPsec, social engineering, sticky MACs, password types), wireless (bands and channels, SSID, CAPWAP, AP modes, WPA2/WPA3, AP switch ports, WLC) and automation (REST codes, Ansible, planes, statelessness, northbound APIs, YAML, controllers).
+- Your earlier answers are kept: new questions were added after the existing ones.
+- The right answer no longer sits in the first slot of the bank: the new questions are spread across all four, on top of the on-screen rotation.
+- Completing a sandbox challenge now counts: 60 XP each, the Builder trophy for the first, Architect for all four. Challenges you completed before this change are not known to the new counter; complete one again to register it.
+
+Tests: new `tests/quiz.cjs` (in GitHub Actions) checks every question has four distinct options, a valid answer, an explanation and a known domain, that no question is duplicated, that each domain has at least four, and that answer slots are not lopsided.
+
+Verification: all eleven suites pass. In a real browser: the theory check showed question 110 of 110 with its options and explanation, and finishing a sandbox challenge unlocked Builder.
+
 ## Exam sim: a random lab, a clock, and no help
 
 **Where to find it**: Lab library → "Exam sim →", or "Exam sim" at the bottom of the lab menu.

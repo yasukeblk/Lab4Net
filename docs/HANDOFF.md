@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of the exam sim build on `main` (9 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+State as of the theory-bank and sandbox-rewards build on `main` (9 Oct 2026). Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -22,10 +22,10 @@ It currently has:
 - Step-by-step instructions per task (switchable, and can pop out into its own window), plus a "why" for every task and every command
 - 54 lessons that teach the concept before the commands: one per build lab (opens on the first visit, with a step-through animation on the lab's map) and 18 topic lessons for exam objectives with no lab, in a Lessons view and on the Study map. Each has key terms, exam notes, common mistakes and a quick check
 - Exam sim: a random build lab, a random incident, or a sabotage (a finished lab with one or two seeded hidden faults), timed, with no guide, why, walkthrough, clues or command guide; a daily challenge seeded by the date; results, trophies and XP
-- A subnetting drill and a 28-question theory check
+- A subnetting drill and a 110-question theory check (`QUIZ`, in the interface: `[domain, question, [4 options], answer index, explanation]`; append new questions at the end so saved answers keep their indices)
 - Stage ranks (S to D) scored on results, not speed or command count; XP and levels, combos, trophies, generated sound effects
 - Movable, resizable, snapping windows with a saved layout. Dropped windows swap, split or fill the space, and shared edges resize like dividers
-- A sandbox: place devices (including a Layer 3 switch), choose ports when cabling, zoom and pan, notes, starter kits, save and load files, undo, and four goal-checked challenges
+- A sandbox (challenges earn XP and the Builder/Architect trophies through `window.l4nSbxDone`): place devices (including a Layer 3 switch), choose ports when cabling, zoom and pan, notes, starter kits, save and load files, undo, and four goal-checked challenges
 
 ## Where everything is
 
@@ -165,7 +165,8 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 8. Capstone guide default
 9. Switching realism: replaces `playTrace` (each Layer 2 event in turn: an ARP broadcast or unknown-MAC flood fans out along `ev.edges` with `floodFly`, the ARP reply flies back, then the frame continues; `flyWay` per direction) and wraps `renderTrace` with a Switching section (one line per switch per direction, plus a `show mac address-table` tip after a flood). The rewards `sfx` object gained `flood`
 10. Lessons.
-11. Exam sim (last, outermost): storage key `lab4net-exam-v1` (`current`, `history`); `makeExam(mode, minutes, seed)`, `labIndex(ex)` (keeps one `Exam · <base>` lab at the end of `LABS`, with `examSeed` and `examMode`), `start`, `tick` (1 s interval; `timeUp` grades, records, locks `#tin` and shows a card in `#resultCard`), `record`. Wraps `stepsHtml` (empty in an exam), `labTag` (mode tag), `openLab` (forces `guideOn` off after the inner chain, closes a popped-out guide, restores on leaving), `renderBrief` (exam bar at the top of `#brief`, `body[data-exam]` for the CSS that hides help, exam-aware `#bGrade`), `celebrate` (records a clear, trophies `exam`/`saboteur`/`daily3` via `window.l4nFun.unlock`), `library` (Exam sim button), `renderLabs` (Exam sim option, the exam lab's own option, a meter that counts real labs only) and `execute` (no why line). `window.examStats()` feeds XP (80 per clear). A running exam is resumed on load. The data sits between `//LESSONS-DATA-START` and `//LESSONS-DATA-END` as `Object.assign(LESSONS,{...})` blocks. Lab lessons are keyed by build lab title; topic lessons have `topic:true` and `ccna` ids and no story. Fields: `name`, `mins`, `sections` ([heading, html]), `story` (lab lessons: steps with `path` of cabled device names, `cls` req/rep, `at`, `label`, `good`/`bad`, `t`, `x`), `terms`, `exam`, `mistakes`, `quiz` ([question, options, correct index, explanation]; the display order is a fixed shuffle per question). The block after the data wraps `renderBrief` (a lab lesson replaces the mission window, or a card is inserted after the CCNA tags; the Lessons view renders the list in the mission window and a topic lesson in the practice window), `openLab` (opens on the lesson until read), `renderLabs` (adds Lessons under Practice) and `studyMap` (adds topic lessons per domain). It also fills in `CCNA_OBJECTIVES` for every v1.1 objective. `window.lessonFor(lab)`, `window.openLesson(key)` and `window.lessonStats()` (used by XP and the Bookworm trophy) are exposed. New lessons follow `docs/LESSON-WRITING.md` and `tests/lessons.cjs`
+11. Exam sim: storage key `lab4net-exam-v1` (`current`, `history`); `makeExam(mode, minutes, seed)`, `labIndex(ex)` (keeps one `Exam · <base>` lab at the end of `LABS`, with `examSeed` and `examMode`), `start`, `tick` (1 s interval; `timeUp` grades, records, locks `#tin` and shows a card in `#resultCard`), `record`. Wraps `stepsHtml` (empty in an exam), `labTag` (mode tag), `openLab` (forces `guideOn` off after the inner chain, closes a popped-out guide, restores on leaving), `renderBrief` (exam bar at the top of `#brief`, `body[data-exam]` for the CSS that hides help, exam-aware `#bGrade`), `celebrate` (records a clear, trophies `exam`/`saboteur`/`daily3` via `window.l4nFun.unlock`), `library` (Exam sim button), `renderLabs` (Exam sim option, the exam lab's own option, a meter that counts real labs only) and `execute` (no why line). `window.examStats()` feeds XP (80 per clear). A running exam is resumed on load.
+12. Sandbox challenge count (last): storage key `lab4net-sbx-done-v1`; `window.sandboxStats()` feeds XP (60 per challenge) and `window.l4nSbxDone(i, total)` (called from the sandbox's completion code) unlocks `builder`/`architect`. The data sits between `//LESSONS-DATA-START` and `//LESSONS-DATA-END` as `Object.assign(LESSONS,{...})` blocks. Lab lessons are keyed by build lab title; topic lessons have `topic:true` and `ccna` ids and no story. Fields: `name`, `mins`, `sections` ([heading, html]), `story` (lab lessons: steps with `path` of cabled device names, `cls` req/rep, `at`, `label`, `good`/`bad`, `t`, `x`), `terms`, `exam`, `mistakes`, `quiz` ([question, options, correct index, explanation]; the display order is a fixed shuffle per question). The block after the data wraps `renderBrief` (a lab lesson replaces the mission window, or a card is inserted after the CCNA tags; the Lessons view renders the list in the mission window and a topic lesson in the practice window), `openLab` (opens on the lesson until read), `renderLabs` (adds Lessons under Practice) and `studyMap` (adds topic lessons per domain). It also fills in `CCNA_OBJECTIVES` for every v1.1 objective. `window.lessonFor(lab)`, `window.openLesson(key)` and `window.lessonStats()` (used by XP and the Bookworm trophy) are exposed. New lessons follow `docs/LESSON-WRITING.md` and `tests/lessons.cjs`
 
 **The pattern to know:** these blocks do not edit the base functions. They wrap them by reassigning the name, for example `const ex0 = execute; execute = function(line){ ex0(line); ... }`. `renderAll`, `openLab`, `execute`, `celebrate`, `library`, `renderBrief`, `renderTerm`, `drawTopo`, `select`, `renderLabs` and `transfer` are all wrapped, some more than once. The outermost wrapper is the one defined last. Before changing behaviour, grep for every `name=function` to see the whole chain.
 
@@ -191,6 +192,7 @@ node tests/console.cjs
 node tests/switching.cjs
 node tests/prompts.cjs
 node tests/exam.cjs
+node tests/quiz.cjs
 node tests/ui.cjs
 node tests/guidewin.cjs
 ```
@@ -208,6 +210,7 @@ On Yasuke's desktop there is no Node install. Claude Code runs the tests with De
 - `switching.cjs` covers the spanning-tree path (blocking honoured, root change, island roots, EtherChannel as one port), MAC learning from ARP and unicast frames, flooding, every `show mac address-table` form and layout, clear/static/aging, per-port router MACs, the HSRP virtual MAC, DHCP learning and a switch SVI as sender. It runs in GitHub Actions.
 - `prompts.cjs` covers enable and line passwords, console logout and login (password, local, locked), Telnet and SSH sessions from IOS and from PCs, three-strike closes, syslog kept off the VTY, `login block-for`, the filename prompt, `write`, `<cr>`, and `reload` (Save?, confirm, restore, volatile state cleared, setup dialog). It runs in GitHub Actions.
 - `exam.cjs` covers the sabotage generators: every build lab's solution passes, each generator breaks a check on some lab with accepted commands, most lab/seed pairs yield a fault, seeds reproduce, and the exam lab object is right. It runs in GitHub Actions.
+- `quiz.cjs` reads `QUIZ` out of the page and checks structure, domains, uniqueness, a minimum of 100 questions and the spread of answer slots. It runs in GitHub Actions.
 - `guidewin.cjs` (optional, Playwright, like `ui.cjs`) serves the page over http and checks the guide window: open, steps to the console, lab changes, reconnect after reload, fall back when closed, dock.
 - `ping.cjs` covers the ping and traceroute output rules (ARP first echo, unreachables, Windows quirks, extended options, abort summaries). It runs in GitHub Actions.
 - `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
@@ -243,7 +246,7 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - Ping and traceroute use ICMP for every probe (real IOS traceroute uses UDP), so an extended ACL that permits only some ICMP or UDP can disagree slightly with real gear. Unreachables are sent only for no-route and ACL drops; a failed next-hop ARP on a router gives timeouts. Extended ping has `repeat` and `size` but not `source`, and there is no interactive extended ping. IPv6 pings do not play live and have no ARP/ND first-echo loss. Playback runs at 40% of real time (`PACE_SCALE`), at Yasuke's request.
 - No wireless. IPv6 has static routing only: no OSPFv3, no DHCPv6, no IPv6 ACLs. Only the Layer 3 switch model (a 3560) routes; 2960s reject ip routing and static routes.
 - HSRP has no object tracking and fails over at once rather than after the 10-second hold time. The DHCP snooping rate limit is stored and shown but not enforced. DAI has no ARP ACLs or extra validation options.
-- Sandbox challenges do not award XP or trophies. Incidents are fixed scenarios, not randomised faults. Sandbox device models are fixed (3 or 5 port routers, 10 or 26 port switches).
+- Incidents are fixed scenarios; randomised faults live in the exam sim's sabotage mode. Sandbox device models are fixed (3 or 5 port routers, 10 or 26 port switches).
 - Exam sim: sabotage faults are drawn from a fixed set of generators (see `EXAM_FAULTS`); a few lab/seed pairs yield none and fall back to another lab. Faults that only matter at the next DHCP lease (exclusions, pool changes) are not used because existing leases rightly survive them. The exam lab's pass and rank are stored under its `Exam · <lab>` title; exam history keeps the last 40. The clock runs on the wall clock, so leaving the tab does not pause it.
 - Ranks, XP and trophies live in the browser. Transfer progress carries them, but a different browser starts fresh until an import.
 
@@ -256,10 +259,8 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 Carry this list forward and keep it in every summary.
 
 - Switching follow-ups: learning neighbours from CDP/STP background frames, per-VLAN aging time, IPv6 neighbour learning, and a broadcast storm when STP is switched off (needs `no spanning-tree vlan`)
-- A fuller theory question bank (28 questions so far)
-- XP and trophies for sandbox challenges
 - Live, real-life output for IPv6 pings and traceroutes
 - Duplex and speed mismatch effects
 - Waiting on his decision: keep or drop "test it yourself" as a requirement for an S rank
 
-His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. The console realism fixes, the guide window, the switching realism build and the prompts build (passwords, Telnet/SSH sessions, reload) ping/traceroute with a source (plus the interactive dialogs) and the exam sim (with seeded sabotage faults and a daily challenge) are done.
+His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. The console realism fixes, the guide window, the switching realism build and the prompts build (passwords, Telnet/SSH sessions, reload) ping/traceroute with a source (plus the interactive dialogs) the exam sim (with seeded sabotage faults and a daily challenge), the 110-question theory bank and sandbox rewards are done.
