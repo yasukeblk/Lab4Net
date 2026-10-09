@@ -572,7 +572,7 @@ ul.plain li{margin-bottom:8px}
 </main>
 <dialog id="dialog" aria-labelledby="dialogTitle"><div class="dialog-heading"><h2 id="dialogTitle"></h2><button class="small-btn" id="closeDialog" aria-label="Close dialog">Close ×</button></div><div id="dialogBody"></div></dialog>
 <div id="ctx" role="menu" hidden></div><div id="toasts" aria-live="polite"></div><div id="tip" hidden></div>
-<section id="resultCard" aria-label="Stage results" hidden><div class="panel-title"><b>Stage clear</b><button class="small-btn" id="resultClose">Close ×</button></div><div id="resultBody"></div></section>
+<section id="resultCard" aria-label="Stage results" hidden><div class="panel-title"><b id="resultTitle">Stage clear</b><button class="small-btn" id="resultClose">Close ×</button></div><div id="resultBody"></div></section>
 <div id="notice" role="status" onclick="this.textContent=''" title="Click to dismiss"></div>
 <script>
 //ENGINE-START
@@ -4114,8 +4114,9 @@ let cur=null,progress={},drafts={},lastLab=0,fxToken=0,quizIndex=0,quizAnswer=nu
 try{const p=JSON.parse(localStorage.getItem('ccna-bench-v2')||'{}');if(p&&typeof p==='object')progress=p;}catch(e){}
 try{const p=JSON.parse(localStorage.getItem('lab4net-workspace-v1')||'{}');if(p&&typeof p.drafts==='object')drafts=p.drafts;lastLab=Number.isInteger(p.lastLab)?p.lastLab:0;}catch(e){}
 function persist(){try{localStorage.setItem('ccna-bench-v2',JSON.stringify(progress));localStorage.setItem('lab4net-workspace-v1',JSON.stringify({drafts,lastLab}));$('saveStatus').textContent='Saved on this browser';}catch(e){$('saveStatus').textContent='Storage unavailable · Export to keep work';}}
-function saveWork(){if(cur?.view==='lab'){drafts[cur.lab.title]={journal:cur.journal,tasks:Array.from({length:cur.lab.tasks.length},(_,i)=>!!cur.tasks[i])};lastLab=cur.idx;}persist();}
-function notify(text){$('notice').textContent=text;}
+function saveWork(){if(cur?.view==='lab'){drafts[cur.lab.title]={journal:cur.journal,tasks:Array.from({length:cur.lab.tasks.length},(_,i)=>!!cur.tasks[i])};if(!cur.lab.exam)lastLab=cur.idx;}persist();}
+// A notice clears itself after a few seconds (click to dismiss sooner), so it never sits over the Grade button.
+function notify(text){const n=$('notice');n.textContent=text;clearTimeout(notify.t);if(text)notify.t=setTimeout(()=>{if(n.textContent===text)n.textContent='';},5000);}
 function sessions(net){const sess={};for(const [n,d] of Object.entries(net.devs))sess[n]={mode:d.type==='pc'?'pc':'user',ctx:null,lines:[d.type==='pc'?'Host console · ipconfig, ping, tracert, telnet, ssh':d.hostname+' console ready',''],hist:[],hi:0,fresh:0};return sess;}
 function push(s,lines){s.lines.push(...lines);if(s.lines.length>600)s.lines.splice(0,s.lines.length-600);}
 // A simulator bug must never leave the page half-updated or throw saved work away: the console shows an error line
@@ -4589,7 +4590,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
   const KEY='lab4net-fun-v1';let F={ranks:{},ach:{},days:[],runs:{},cleared:{},sound:true};
   try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object')F=Object.assign(F,p);}catch(e){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(F));}catch(e){}};
-  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal(),unlock:id=>unlock(id),sfx:{clear:()=>SFX.clear(),start:()=>[523,659,784].forEach((f,i)=>tone(f,.12,'square',i*.1,.05)),tick:()=>tone(1200,.03,'square',0,.03),timeup:()=>{tone(392,.25,'sawtooth',0,.06);tone(262,.4,'sawtooth',.2,.06);},echo:()=>tone(1568,.03,'square',0,.018),drop:()=>tone(196,.09,'triangle',0,.04),unreach:()=>{tone(220,.05,'sawtooth',0,.03);tone(165,.07,'sawtooth',.05,.03);},flood:()=>{tone(392,.05,'triangle',0,.016);tone(523,.05,'triangle',.05,.016);tone(659,.07,'triangle',.1,.016);}}};
+  window.l4nFun={run:()=>run(),save:()=>save(),check:()=>checkGlobal(),unlock:id=>unlock(id),forget:t=>{delete F.ranks[t];delete F.cleared[t];delete F.runs[t];save();},sfx:{clear:()=>SFX.clear(),start:()=>[523,659,784].forEach((f,i)=>tone(f,.12,'square',i*.1,.05)),tick:()=>tone(1200,.03,'square',0,.03),timeup:()=>{tone(392,.25,'sawtooth',0,.06);tone(262,.4,'sawtooth',.2,.06);},echo:()=>tone(1568,.03,'square',0,.018),drop:()=>tone(196,.09,'triangle',0,.04),unreach:()=>{tone(220,.05,'sawtooth',0,.03);tone(165,.07,'sawtooth',.05,.03);},flood:()=>{tone(392,.05,'triangle',0,.016);tone(523,.05,'triangle',.05,.016);tone(659,.07,'triangle',.1,.016);}}};
   const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 
   // sound (generated, no audio files)
@@ -4605,7 +4606,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
   // XP and levels (derived from what has been earned, so nothing is counted twice)
   const TITLES=[[0,'Cable Runner'],[150,'Packet Pusher'],[400,'Switch Hand'],[800,'Route Finder'],[1300,'Subnet Slicer'],[1900,'ACL Enforcer'],[2600,'Core Engineer'],[3400,'CCNA Ready']];
   const BONUS={S:100,A:60,B:30,C:10,D:0},ORDER='DCBAS';
-  function xp(){let x=0;for(const l of LABS)if(progress[l.title])x+=100+(BONUS[F.ranks[l.title]]||0);const d=progress.drill;if(d)x+=Math.min(100,d.r)*5;
+  function xp(){let x=0;for(const l of LABS)if(!l.exam&&progress[l.title])x+=100+(BONUS[F.ranks[l.title]]||0);const d=progress.drill;if(d)x+=Math.min(100,d.r)*5;
     x+=Object.values(progress.quiz||{}).filter(v=>v===true).length*20;
     if(window.lessonStats){const ls=lessonStats();x+=ls.read*30+ls.correct*10;}if(window.examStats)x+=examStats().cleared*80;if(window.sandboxStats)x+=sandboxStats().done*60;if(window.campaignStats)x+=campaignStats().cleared*150;return x+Object.keys(F.ach).length*50;}
   function level(x){let i=0;while(i+1<TITLES.length&&x>=TITLES[i+1][0])i++;const lo=TITLES[i][0],hi=i+1<TITLES.length?TITLES[i+1][0]:lo;return {n:i+1,title:TITLES[i][1],pct:hi>lo?(x-lo)/(hi-lo)*100:100,next:hi>lo?hi-x:0};}
@@ -4624,11 +4625,11 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
     ['theory','Theory Check','Answer every theory question correctly.'],['half','Halfway There','Pass half of the labs.'],['all','Full Clear','Pass every lab.'],['streak3','Three-Day Streak','Study three days in a row.'],
     ['detective','Detective','Solve a troubleshooting incident with no clues, guide or walkthrough.'],['faults','Fault Finder','Solve every troubleshooting incident.'],['scholar','Bookworm','Read every lesson.'],
     ['exam','Exam Ready','Clear an exam sim before the clock runs out.'],['saboteur','Fault Hunter','Clear a sabotage exam: hidden faults, no help.'],['daily3','Daily Grind','Clear three daily challenges.'],
-    ['builder','Builder','Complete a sandbox challenge.'],['architect','Architect','Complete every sandbox challenge.'],['boss','Boss Slayer','Win a boss fight: three hidden faults, one clock.'],['chapter','Stage Clear','Clear your first campaign stage.'],['campaign','Harbor Street Legend','Clear every campaign stage.']];
+    ['builder','Builder','Complete a sandbox challenge.'],['architect','Architect','Complete every sandbox challenge.'],['boss','Boss Slayer','Win a boss fight: two or three hidden faults, one clock.'],['chapter','Stage Clear','Clear your first campaign stage.'],['campaign','Harbor Street Legend','Clear every campaign stage.']];
   function toast(kicker,title,sub,icon){const t=document.createElement('div');t.className='toast';t.innerHTML=`<i>${icon||'★'}</i><small>${kicker}</small><b>${title}</b><span>${sub}</span>`;$('toasts').appendChild(t);setTimeout(()=>t.remove(),4800);}
   const fresh=[];
   function unlock(id){if(F.ach[id])return;F.ach[id]=Date.now();save();const a=ACH.find(a=>a[0]===id);fresh.push(a[1]);toast('Trophy unlocked',a[1],a[2]);SFX.ach();renderHud();}
-  function checkGlobal(){const passed=LABS.filter(l=>progress[l.title]).length;if(passed>=Math.ceil(LABS.length/2))unlock('half');if(passed===LABS.length)unlock('all');{const inc=LABS.filter(l=>l.kind==='incident');if(inc.length&&inc.every(l=>progress[l.title]))unlock('faults');}
+  function checkGlobal(){const real=LABS.filter(l=>!l.exam),passed=real.filter(l=>progress[l.title]).length;if(passed>=Math.ceil(real.length/2))unlock('half');if(passed===real.length)unlock('all');{const inc=LABS.filter(l=>l.kind==='incident');if(inc.length&&inc.every(l=>progress[l.title]))unlock('faults');}
     if(progress.drill&&progress.drill.r>=30)unlock('subnet');if(typeof QUIZ!=='undefined'&&QUIZ.every((q,i)=>(progress.quiz||{})[i]===true))unlock('theory');if(streak()>=3)unlock('streak3');if(window.lessonStats){const ls=lessonStats();if(ls.total&&ls.read===ls.total)unlock('scholar');}renderHud();}
   $('trophies').onclick=()=>{const x=xp(),lv=level(x);
     dialog('Trophy case',`<div class="result"><div class="stamp rS" style="font-size:96px;animation:none">${lv.n}</div><div><div class="eyebrow">Level ${lv.n}</div><h2 style="margin:0 0 6px">${lv.title}</h2><p>${x} XP${lv.next?' · '+lv.next+' XP to the next level':' · top level reached'}${streak()>1?' · '+streak()+'-day streak':''}</p></div></div>
@@ -4678,7 +4679,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
           <p class="xpgain">${gain>0?'+'+gain+' XP':'No new XP · beat your best rank to earn more'}${prev&&prev!==F.ranks[t]?` · best rank ${prev} → ${F.ranks[t]}`:prev?` · best rank ${F.ranks[t]}`:''}</p>
           ${got.length?`<p>Trophies unlocked: <b>${got.join(', ')}</b></p>`:''}
           <div class="actions"><button class="btn primary" id="rNext">Next lab</button><button class="btn" id="rRetry">Retry for a better rank</button></div>`;
-        $('resultCard').hidden=false;$('rNext').onclick=()=>{closeResult();const n=$('nextLab');if(n)n.click();};$('rRetry').onclick=()=>{closeResult();openLab(snap.idx,true);};},1500);
+        $('resultTitle').textContent='Stage clear';$('resultCard').hidden=false;$('rNext').onclick=()=>{closeResult();const n=$('nextLab');if(n)n.click();};$('rRetry').onclick=()=>{closeResult();openLab(snap.idx,true);};},1500);
     }else{save();checkGlobal();}
     renderRunHud();};
   $('resultClose').onclick=closeResult;
@@ -4717,12 +4718,12 @@ function clueHtml(l){if(l.kind!=='incident')return '';const n=clueLevel(l.title)
 function bindClues(){if(!cur||!cur.lab||cur.lab.kind!=='incident')return;const t=cur.lab.title,go=n=>{setClueLevel(t,n);renderBrief();};
   if($('clueNext'))$('clueNext').onclick=()=>go(Math.min(3,clueLevel(t)+1));if($('clueHide'))$('clueHide').onclick=()=>go(0);}
 function studyMap(){
-  const passed=LABS.filter(l=>progress[l.title]).length,builds=LABS.filter(l=>l.kind==='build'&&!l.capstone),incs=LABS.filter(l=>l.kind==='incident'),caps=LABS.filter(l=>l.capstone);
+  const passed=LABS.filter(l=>!l.exam&&progress[l.title]).length,builds=LABS.filter(l=>l.kind==='build'&&!l.capstone),incs=LABS.filter(l=>l.kind==='incident'),caps=LABS.filter(l=>l.capstone);
   const rec=LABS.find(l=>!progress[l.title]&&(l.kind==='build'||progress[l.baseTitle]));
   const btn=l=>`<button class="small-btn${progress[l.title]?' passed':''}" data-study-lab="${LABS.indexOf(l)}">${progress[l.title]?'✓ ':''}${l.kind==='incident'?'⚠ ':''}${esc(l.kind==='incident'?l.title.slice(0,11):l.title)}</button>`;
-  dialog('CCNA study map',`<p>Your practice mapped to the <b>CCNA 200-301 v${CCNA_SCOPE.version}</b> exam domains. ${passed}/${LABS.length} missions passed: ${builds.filter(l=>progress[l.title]).length}/${builds.length} build labs, ${incs.filter(l=>progress[l.title]).length}/${incs.length} troubleshooting incidents${caps.length?` and ${caps.filter(l=>progress[l.title]).length}/${caps.length} capstones`:''}.</p>
+  dialog('CCNA study map',`<p>Your practice mapped to the <b>CCNA 200-301 v${CCNA_SCOPE.version}</b> exam domains. ${passed}/${LABS.filter(l=>!l.exam).length} missions passed: ${builds.filter(l=>progress[l.title]).length}/${builds.length} build labs, ${incs.filter(l=>progress[l.title]).length}/${incs.length} troubleshooting incidents${caps.length?` and ${caps.filter(l=>progress[l.title]).length}/${caps.length} capstones`:''}.</p>
     ${rec?`<div class="study-next"><span class="eyebrow">Next up</span><button class="btn primary" data-study-lab="${LABS.indexOf(rec)}">${esc(rec.title)} →</button><p>${rec.kind==='incident'?'You have passed the lab it is based on. Now find and fix a fault in that same network.':'Build the skill first, then try the incident that breaks it.'}</p></div>`:'<p>Every mission passed. Replay the incidents with the guide off and no clues for a Detective run.</p>'}
-    <div class="study-domains">${CCNA_DOMAINS.map(([id,name,weight])=>{const m=LABS.filter(l=>l.ccna.some(c=>c.startsWith(id+'.'))),done=m.filter(l=>progress[l.title]).length;
+    <div class="study-domains">${CCNA_DOMAINS.map(([id,name,weight])=>{const m=LABS.filter(l=>!l.exam&&l.ccna.some(c=>c.startsWith(id+'.'))),done=m.filter(l=>progress[l.title]).length;
       return `<section class="study-domain"><div class="sd-head"><b>${id}. ${esc(name)}</b><span>${weight}% of the exam</span></div>${m.length?`<div class="study-meter" aria-label="${done} of ${m.length} passed"><span style="width:${done/m.length*100}%"></span></div><p>${done}/${m.length} missions passed</p><div class="study-links">${m.map(btn).join('')}</div>`:`<p>No hands-on lab yet. The topic lessons below and the theory check cover this domain.</p><button class="small-btn" id="studyTheory">Theory check →</button>`}</section>`;}).join('')}</div>
     <p class="study-note">A mission covers part of an objective, not all of it, so this is a practice map rather than an exam-readiness score. Not simulated: wireless and automation (topic lessons and the theory check cover both), and IPv6 routing protocols. Capstones open with the step-by-step guide off; switch it on in a capstone if you need it. Domain weights are from Cisco's 200-301 v1.1 exam topics.</p>`);
   $('dialogBody').querySelectorAll('[data-study-lab]').forEach(b=>b.onclick=()=>{$('dialog').close();openLab(+b.dataset.studyLab);});
@@ -6378,10 +6379,15 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   const buildLabs=()=>LABS.filter(l=>l.kind==='build'&&!l.capstone&&!l.exam),incidents=()=>LABS.filter(l=>l.kind==='incident');
   window.examStats=()=>({cleared:X.history.filter(h=>h.cleared).length,daily:X.history.filter(h=>h.mode==='daily'&&h.cleared).length});
   const MODES={sabotage:'A finished lab with hidden faults',lab:'Build it from the checklist',incident:'A broken network to repair',daily:'Daily challenge · two hidden faults',boss:'Boss fight · three hidden faults'};
+  // The exam bar names the real number of faults (a campaign boss can only find two on some stages).
+  const WORDS=['no','one','two','three','four'];
+  const modeText=(m,n)=>!n||m==='lab'||m==='incident'?(MODES[m]||''):m==='boss'?'Boss fight · '+WORDS[n]+' hidden faults':m==='daily'?'Daily challenge · '+WORDS[n]+' hidden faults':'A finished lab with '+WORDS[n]+' hidden fault'+(n>1?'s':'');
   function makeExam(mode,minutes,seed,pool){const rnd=seedRng(seed);let base=null,faults=null;const inPool=l=>!pool||pool.includes(l.title);
     if(mode==='incident')base=rpick(rnd,incidents().filter(inPool));
     else if(mode==='lab')base=rpick(rnd,buildLabs().filter(inPool));
-    else for(const b of shuffled(rnd,buildLabs().filter(inPool))){const want=mode==='boss'?3:mode==='daily'?2:(rnd()<.3?2:1);const f=examFault(b,seed+'|'+b.title,want);if(f&&(mode!=='boss'||f.length>=2)){base=b;faults=f;break;}}
+    else if(mode==='boss'){const order=shuffled(rnd,buildLabs().filter(inPool));
+      for(const need of [3,2]){for(const b of order){const f=examFault(b,seed+'|'+b.title,3);if(f&&f.length>=need){base=b;faults=f;break;}}if(base)break;}}
+    else for(const b of shuffled(rnd,buildLabs().filter(inPool))){const want=mode==='daily'?2:(rnd()<.3?2:1);const f=examFault(b,seed+'|'+b.title,want);if(f){base=b;faults=f;break;}}
     if(!base)return null;return {mode,seed,base:base.title,faults,minutes,deadline:null,started:null,state:'new',date:today()};}
   // The exam lab object, kept at the end of LABS while the exam exists.
   function labIndex(ex){const title='Exam · '+ex.base;let i=LABS.findIndex(l=>l.exam);
@@ -6390,23 +6396,38 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const l=ex.faults?examLab(base,ex.faults,title):Object.assign({},base,{title,group:'Exam',kind:'exam',exam:true,baseTitle:base.title,why:[],steps:[]});
     l.examSeed=ex.seed;l.examMode=ex.mode;LABS.push(l);return LABS.length-1;}
   const running=()=>X.current&&X.current.state==='running'&&cur&&cur.view==='lab'&&cur.lab&&cur.lab.exam&&cur.lab.examSeed===X.current.seed;
-  function start(ex){const i=labIndex(ex);if(i<0)return notify('Could not build that exam.');ex.started=Date.now();ex.deadline=ex.started+ex.minutes*60000;ex.state='running';X.current=ex;save();
-    openLab(i,true);sfx('start');notify('Exam started. '+ex.minutes+' minutes on the clock. No guide, no why, no walkthrough.');tick();}
-  function record(ex,cleared,passed,total){const r=window.l4nFun&&window.l4nFun.run&&window.l4nFun.run();
+  // An exam counts as running from start until it is cleared, times out or is given up, whether or not its lab is open.
+  const active=()=>!!(X.current&&X.current.state==='running');
+  const failing=()=>cur.lab.checks.filter(([,f])=>{try{return !f(cur.net);}catch(e){return true;}}).length;
+  // Exam labs are temporary: their titles never stay in lab progress, saved work or ranks once the exam is over.
+  function purge(keep){for(const store of [progress,drafts])for(const t of Object.keys(store))if(t.startsWith('Exam · ')&&t!==keep)delete store[t];
+    persist();}
+  function start(ex){if(active()&&X.current.seed!==ex.seed){notify('An exam is already running. Resume it from Exam sim, or give it up first.');return;}
+    purge(null);if(window.l4nFun&&window.l4nFun.forget)window.l4nFun.forget('Exam · '+ex.base);
+    const i=labIndex(ex);if(i<0)return notify('Could not build that exam.');ex.started=Date.now();ex.deadline=ex.started+ex.minutes*60000;ex.state='running';X.current=ex;save();
+    openLab(i,true);ex.hp0=ex.hp=failing();save();renderBrief();sfx('start');notify('Exam started. '+ex.minutes+' minutes on the clock. No guide, no why, no walkthrough.');tick();}
+  function record(ex,cleared,passed,total){const r=cur&&cur.lab&&cur.lab.exam&&cur.lab.examSeed===ex.seed&&window.l4nFun&&window.l4nFun.run&&window.l4nFun.run();
     X.history.push({date:today(),base:ex.base,mode:ex.mode,tag:ex.tag||null,cleared,passed,total,rank:cleared&&r?r.rank||null:null,secs:Math.round((Date.now()-ex.started)/1000),minutes:ex.minutes});X.history=X.history.slice(-40);save();}
   function gradeNow(){const l=cur.lab;cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});const all=cur.graded.every(g=>g[1]);
-    if(all){progress[l.title]=true;persist();celebrate();}renderLabs();renderBrief();return all;}
+    const ex=X.current;if(ex&&ex.seed===l.examSeed){ex.hp=cur.graded.filter(g=>!g[1]).length;save();}
+    if(all)celebrate();renderLabs();renderBrief();return all;}
   // The network is graded as it stands when the clock runs out. Grade while the exam still counts as running, so an
   // all-passing network is recorded as a clear by the celebrate wrapper (which ends the exam); only a failing one is a time-up.
   function timeUp(){const ex=X.current;if(!ex)return;sfx('timeup');const all=gradeNow();
     if(all&&ex.state==='running'){ex.state='done';save();record(ex,true,cur.graded.length,cur.graded.length);}
     if(!all){ex.state='timeup';save();const ok=cur.graded.filter(g=>g[1]).length;record(ex,false,ok,cur.graded.length);$('tin').disabled=true;
       $('resultBody').innerHTML=`<div class="result"><div class="stamp rD">×</div><div class="rrows"><div style="--i:0"><span>Time's up</span><b>${ok}/${cur.graded.length} checks passed</b></div><div style="--i:1"><span>What was wrong</span><b>${esc(l4nExamCause())}</b></div></div></div><p>The network was graded as it stood when the clock ran out. Review it as long as you like; nothing more counts for this exam.</p><div class="actions"><button class="btn primary" id="exReview">Review the network</button><button class="btn" id="exAgain">New exam</button></div>`;
-      $('resultCard').hidden=false;$('exReview').onclick=()=>{$('resultCard').hidden=true;$('tin').disabled=false;$('tin').focus();};$('exAgain').onclick=()=>{$('resultCard').hidden=true;$('tin').disabled=false;examDialog();};}
+      $('resultTitle').textContent="Time's up";$('resultCard').hidden=false;$('exReview').onclick=()=>{$('resultCard').hidden=true;$('tin').disabled=false;$('tin').focus();};$('exAgain').onclick=()=>{$('resultCard').hidden=true;$('tin').disabled=false;examDialog();};}
     renderBrief();}
   window.l4nExamCause=()=>{const l=cur&&cur.lab;if(!l||!l.exam)return '';return l.lesson||'';};
+  function settleAway(){const ex=X.current;if(!ex||ex.state!=='running'||Date.now()<ex.deadline||running())return false;
+    const title='Exam · '+ex.base;let i=-1;try{i=labIndex(ex);}catch(e){i=-1;}let ok=0,total=0;
+    if(i>=0){const l=LABS[i];let st=null;try{st=replay(l,drafts[title]||null);}catch(e){st=null;}
+      const g=l.checks.map(([,f])=>{try{return !!(st&&f(st.net));}catch(e){return false;}});ok=g.filter(Boolean).length;total=g.length;}
+    const all=total>0&&ok===total;ex.state=all?'done':'timeup';record(ex,all,ok,total);delete drafts[title];persist();
+    notify('Your exam on '+ex.base+' ended while you were away: '+(all?'every check passed, so it counts as a clear.':ok+'/'+total+' checks passed.'));return true;}
   let lastTickSec=null;
-  function tick(){if(!running())return;const ex=X.current,left=Math.max(0,Math.ceil((ex.deadline-Date.now())/1000)),c=$('examClock');
+  function tick(){if(!running()){settleAway();return;}const ex=X.current,left=Math.max(0,Math.ceil((ex.deadline-Date.now())/1000)),c=$('examClock');
     if(c){c.textContent=mmss(left);c.classList.toggle('late',left<=60);}
     if(left<=10&&left>0&&left!==lastTickSec)sfx('tick');lastTickSec=left;
     if(left<=0)timeUp();}
@@ -6416,18 +6437,22 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   const TAGS={sabotage:'HIDDEN FAULTS',daily:'DAILY CHALLENGE',lab:'BUILD',incident:'INCIDENT',boss:'BOSS FIGHT'};
   const lt0=labTag;labTag=function(idx){return LABS[idx]&&LABS[idx].exam?(TAGS[LABS[idx].examMode]||'EXAM'):lt0(idx);};
   // The guide is hidden during an exam, so it must not count as help: switch it off while an exam lab is open, as the capstone block does.
-  let savedGuide=null;const ol0=openLab;openLab=function(idx,isFresh){const l=LABS[idx];if(!(l&&l.exam)&&savedGuide!==null){guideOn=savedGuide;savedGuide=null;}ol0(idx,isFresh);
+  const lockMsg=()=>{notify('An exam is running. Finish it, or give it up with Quit on the exam bar.');if(cur)renderLabs();};
+  const mine=l=>!!(l&&l.exam&&X.current&&l.examSeed===X.current.seed);
+  let savedGuide=null;const ol0=openLab;openLab=function(idx,isFresh){const l=LABS[idx];if(active()&&!mine(l))return lockMsg();if(!(l&&l.exam)&&savedGuide!==null){guideOn=savedGuide;savedGuide=null;}ol0(idx,isFresh);
     if(l&&l.exam){if(savedGuide===null)savedGuide=guideOn;guideOn=false;if(guidePop&&typeof setGuidePop==='function')setGuidePop(false);}};
-  const os0=window.openSandbox;if(os0)window.openSandbox=function(){if(savedGuide!==null){guideOn=savedGuide;savedGuide=null;}os0();};
+  const os0=window.openSandbox;if(os0)window.openSandbox=function(){if(active())return lockMsg();if(savedGuide!==null){guideOn=savedGuide;savedGuide=null;}os0();};
+  const op0=openPractice;openPractice=function(v){if(active())return lockMsg();op0(v);};
+  if(window.openLesson){const oL=window.openLesson;window.openLesson=function(k){if(active())return lockMsg();oL(k);};}
   const rb0=renderBrief;renderBrief=function(){rb0();const l=cur&&cur.view==='lab'&&cur.lab;if(!l||!l.exam){delete document.body.dataset.exam;return;}
     document.body.dataset.exam='1';const ex=X.current&&X.current.seed===l.examSeed?X.current:null;
     const state=ex?ex.state:'done',left=ex&&ex.state==='running'?Math.max(0,Math.ceil((ex.deadline-Date.now())/1000)):0;
     const status=state==='running'?`<span class="exam-clock${left<=60?' late':''}" id="examClock">${mmss(left)}</span>`:state==='timeup'?'<span class="exam-clock late">Time\'s up</span>':'<span class="exam-clock">Done</span>';
-    let boss='';if(l.examMode==='boss'){const total=l.checks.length;const hp=cur.graded?cur.graded.filter(g=>!g[1]).length:total;const pct=Math.round(hp/total*100);
+    let boss='';if(l.examMode==='boss'){const total=Math.max(1,ex&&typeof ex.hp0==='number'?ex.hp0:l.checks.length);const hp=cur.graded?cur.graded.filter(g=>!g[1]).length:ex&&typeof ex.hp==='number'?ex.hp:total;const pct=Math.min(100,Math.round(hp/total*100));
       boss=`<div class="boss"><b>BOSS</b><div class="boss-hp" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${hp}"><i style="width:${pct}%"></i></div><span>${hp?hp+' / '+total+' HP · grade to strike':'BOSS DOWN'}</span></div>`;}
-    const bar=`<div class="exam-bar${l.examMode==='boss'?' boss-mode':''}"><b>${l.examMode==='boss'?'BOSS':'EXAM'}</b>${status}<span class="exam-note">${esc(MODES[l.examMode]||'')} · ${ex?ex.minutes+' min':''} · no guide, no why, no walkthrough</span>${state==='running'?'<button class="small-btn" id="examQuit" type="button">Quit</button>':'<button class="small-btn" id="examNew" type="button">New exam</button>'}</div>`;
+    const bar=`<div class="exam-bar${l.examMode==='boss'?' boss-mode':''}"><b>${l.examMode==='boss'?'BOSS':'EXAM'}</b>${status}<span class="exam-note">${esc(modeText(l.examMode,ex&&ex.faults?ex.faults.length:0))} · ${ex?ex.minutes+' min':''} · no guide, no why, no walkthrough</span>${state==='running'?'<button class="small-btn" id="examQuit" type="button">Quit</button>':'<button class="small-btn" id="examNew" type="button">New exam</button>'}</div>`;
     $('brief').insertAdjacentHTML('afterbegin',bar+boss);
-    if($('examQuit'))$('examQuit').onclick=()=>{const ex=X.current;if(ex&&ex.state==='running'){ex.state='quit';const g=l.checks.map(([,f])=>{try{return !!f(cur.net);}catch(e){return false;}});record(ex,false,g.filter(Boolean).length,g.length);}X.current=null;save();notify('Exam ended.');renderBrief();};
+    if($('examQuit'))$('examQuit').onclick=()=>{giveUp();renderLabs();};
     if($('examNew'))$('examNew').onclick=examDialog;
     // grading in an exam records the result; a clear stops the clock
     $('bGrade').onclick=()=>{const before=cur.graded?cur.graded.filter(g=>!g[1]).length:l.checks.length,all=gradeNow();
@@ -6438,7 +6463,14 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     unlock('exam');if(ex.faults){const noHelp=run&&!run.help&&!run.walk;if(noHelp)unlock('saboteur');}if(ex.mode==='boss')unlock('boss');if(window.examStats().daily>=3)unlock('daily3');};
   // Leaving the exam lab for another one leaves the clock running until it ends; opening it again shows it.
   // The exam setup card
-  function examDialog(){const seedDaily='daily-'+today(),done=X.history.find(h=>h.mode==='daily'&&h.date===today());
+  function giveUp(){const ex=X.current;if(!ex||ex.state!=='running')return;ex.state='quit';const i=labIndex(ex),l=LABS[i];let ok=0,total=l?l.checks.length:0;
+    if(l){const net=mine(cur&&cur.lab)?cur.net:(()=>{try{return replay(l,drafts[l.title]||null).net;}catch(e){return null;}})();ok=l.checks.filter(([,f])=>{try{return !!(net&&f(net));}catch(e){return false;}}).length;}
+    record(ex,false,ok,total);X.current=null;save();notify('Exam given up: '+ok+'/'+total+' checks passed. It counts as not cleared.');if(cur&&cur.view==='lab')renderBrief();}
+  function examDialog(){if(active()){const ex=X.current,left=Math.max(0,Math.ceil((ex.deadline-Date.now())/1000));
+      dialog('Exam sim',`<p>An exam is running: <b>${esc(ex.base)}</b> · ${esc(MODES[ex.mode]||ex.mode)} · <b>${mmss(left)}</b> left. Finish it before starting another; you can give it up, but it counts as not cleared.</p><div class="actions"><button class="btn primary" id="exResume">Resume the exam →</button><button class="btn" id="exGiveUp">Give it up</button></div>`);
+      $('exResume').onclick=()=>{$('dialog').close();if(!running()){const i=labIndex(ex);if(i>=0)openLab(i,false);}};
+      $('exGiveUp').onclick=()=>{$('dialog').close();giveUp();};return;}
+    const seedDaily='daily-'+today(),done=X.history.find(h=>h.mode==='daily'&&h.date===today());
     let daily=null;try{daily=makeExam('daily',20,seedDaily);}catch(e){daily=null;}
     const hist=X.history.slice(-8).reverse().map(h=>`<tr><td>${h.date}</td><td>${esc(h.base)}</td><td>${esc(MODES[h.mode]||h.mode)}</td><td class="${h.cleared?'good':'bad'}">${h.cleared?'Cleared · rank '+(h.rank||'—'):'Not cleared · '+h.passed+'/'+h.total}</td></tr>`).join('');
     dialog('Exam sim',`<p>A random lab, a clock, and no help: no guide, no "why", no walkthrough, no clues. The network is graded as it stands when time runs out. Ranks are scored on results, as always.</p>
@@ -6451,7 +6483,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     $('exStart').onclick=()=>{const mode=($('dialogBody').querySelector('input[name=exMode]:checked')||{}).value||'sabotage',min=+(($('dialogBody').querySelector('input[name=exMin]:checked')||{}).value||20);
       let ex=null;try{ex=makeExam(mode,mode==='boss'?30:min,mode+'-'+Date.now()+'-'+Math.floor(Math.random()*1e6));}catch(e){ex=null;}if(!ex)return notify('Could not build an exam of that kind.');$('dialog').close();start(ex);};}
   window.examDialog=examDialog;
-  window.l4nExam={start:(mode,minutes,seed,pool,tag)=>{let ex=null;try{ex=makeExam(mode,minutes,seed,pool);}catch(e){ex=null;}if(!ex)return false;ex.tag=tag||null;start(ex);return true;},history:()=>X.history.slice()};
+  window.l4nExam={start:(mode,minutes,seed,pool,tag)=>{if(active()){examDialog();return false;}let ex=null;try{ex=makeExam(mode,minutes,seed,pool);}catch(e){ex=null;}if(!ex)return false;ex.tag=tag||null;start(ex);return true;},history:()=>X.history.slice(),active:()=>active(),current:()=>X.current?Object.assign({},X.current):null};
   // entry points: the lab library's practice buttons and the lab menu
   const lib0=library;library=function(){lib0();const pb=$('dialogBody').querySelector('.practice-buttons');if(pb&&!$('examBtn')){pb.insertAdjacentHTML('beforeend','<button class="btn" id="examBtn">Exam sim →</button>');$('examBtn').onclick=()=>{$('dialog').close();examDialog();};}};
   $('library').onclick=library;
@@ -6464,7 +6496,8 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   // the why line after a command stays quiet during an exam
   const ex0=execute;execute=function(line){ex0(line);if(cur&&cur.lab&&cur.lab.exam){$('hint').textContent=HINT;$('hint').className='';}};
   // resume a running exam after a reload
-  try{if(X.current&&X.current.state==='running'){const i=labIndex(X.current);if(i>=0)openLab(i,false);}}catch(e){console.error('Could not resume the exam:',e);X.current=null;save();}
+  try{settleAway();purge(active()?'Exam · '+X.current.base:null);if(active()){const i=labIndex(X.current);if(i>=0)openLab(i,false);}}catch(e){console.error('Could not resume the exam:',e);X.current=null;save();}
+  if(window.l4nFun&&window.l4nFun.forget&&!active())for(const l of X.history)window.l4nFun.forget('Exam · '+l.base);
   if(cur&&cur.view==='lab')renderAll();
 })();
 // ---------- sandbox challenges count: XP and trophies for completed challenges ----------
@@ -6528,7 +6561,7 @@ const CAMPAIGN=[
       <div class="stage-map">${st.map((s,i)=>`<button class="stage${s.clear?' clear':s.unlocked?' open':' locked'}${i===k?' current':''}" data-stage="${i}"${s.unlocked?'':' disabled'}><span class="stage-no">Stage ${i+1}</span><b>${esc(s.ch.title)}</b><div class="progressbar"><span style="width:${Math.min(100,s.done/s.need*100)}%"></span></div><small>${s.clear?'CLEAR':s.unlocked?s.done+' / '+s.need+' missions'+(s.ch.boss?(s.boss?' · boss down':' · boss waiting'):''):'LOCKED'}</small></button>`).join('')}</div>`;
     $('brief').querySelectorAll('[data-stage]').forEach(b=>b.onclick=()=>{C.stage=CAMPAIGN[+b.dataset.stage].id;save();renderCampaign();});
     const s=st[k],ch=s.ch,next=s.ms.find(l=>!progress[l.title]);
-    const bossHtml=!ch.boss?'':`<h3>Boss</h3><p>${ch.boss.mode==='incident'?`<b>${esc(ch.boss.title.replace(/^Incident \d+: /,'').replace(/^./,c=>c.toUpperCase()))}</b> · a troubleshooting incident; clues, guide and walkthrough are allowed but cost rank.`:ch.boss.mode==='boss'?'<b>Boss fight</b> · three hidden faults on a finished lab, 30 minutes, no help.':`<b>Sabotage</b> · one of this stage's labs, finished and then broken; ${ch.boss.minutes} minutes, no help.`}</p>
+    const bossHtml=!ch.boss?'':`<h3>Boss</h3><p>${ch.boss.mode==='incident'?`<b>${esc(ch.boss.title.replace(/^Incident \d+: /,'').replace(/^./,c=>c.toUpperCase()))}</b> · a troubleshooting incident; clues, guide and walkthrough are allowed but cost rank.`:ch.boss.mode==='boss'?'<b>Boss fight</b> · two or three hidden faults on a finished lab (three when the labs of the stage allow it), 30 minutes, no help.':`<b>Sabotage</b> · one of this stage's labs, finished and then broken; ${ch.boss.minutes} minutes, no help.`}</p>
       ${s.boss?'<p class="good"><b>Boss down.</b></p>':s.missionsDone?`<button class="btn primary" id="cFight">${ch.boss.mode==='incident'?'Open the incident →':'Fight the boss →'}</button>`:'<p class="study-note">Finish the missions first.</p>'}`;
     $('practice').innerHTML=`<div class="eyebrow">Stage ${k+1} <span>${esc(ch.group)}</span></div><h2>${esc(ch.title)}</h2><p>${esc(ch.story)}</p>
       ${s.clear?`<div class="lesson-tip"><b>Stage clear.</b><br>${esc(ch.outro)}</div>`:''}

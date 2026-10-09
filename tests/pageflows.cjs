@@ -78,6 +78,107 @@ const fs = require('node:fs');
     assert.equal(h.cleared, true, 'time-up with every check passing is a clear: ' + JSON.stringify(h));
     done.push('time-up clear');
 
+    // A fresh browser context per exam scenario, so a faked clock or stored exam never leaks into the next one.
+    const scenario = async (offsetMs) => {
+      const c = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+      if (offsetMs) await c.addInitScript(off => { const r = Date.now.bind(Date); Date.now = () => r() + off; }, offsetMs);
+      const p = await c.newPage(); p.on('pageerror', e => errors.push(e.message));
+      await p.goto(base); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('l4n-boot', '1'); }); await p.reload(); await p.waitForTimeout(400);
+      return { c, p };
+    };
+    const xpOf = p => p.evaluate(() => +(document.querySelector('#hud .xpbar').title.match(/(\d+) XP/) || [0, 0])[1]);
+
+    // REVIEW-FIXES 8: one exam at a time. While it runs, starting another is refused (the dialog offers Resume or Give up)
+    // and nothing else opens: other labs (including the exam's own base lab), practice views, lessons, the sandbox.
+    {
+      const { c, p } = await scenario(0);
+      await p.evaluate(() => openLab(LABS.findIndex(l => l.title === 'Static routing')));
+      assert.ok(await p.evaluate(() => window.l4nExam.start('daily', 20, 'pf-daily-1')));
+      const cur0 = await p.evaluate(() => window.l4nExam.current());
+      assert.equal(await p.evaluate(() => window.l4nExam.start('daily', 20, 'pf-daily-2')), false, 'a second start is refused');
+      assert.equal(await p.evaluate(() => window.l4nExam.current().seed), cur0.seed, 'the running exam keeps its clock');
+      assert.equal(await p.locator('#exResume').count(), 1, 'the dialog offers Resume'); assert.equal(await p.locator('#exStart').count(), 0);
+      await p.locator('#closeDialog').click();
+      const stays = async (fn, what) => { await p.evaluate(fn); assert.equal(await p.evaluate(() => !!(cur.view === 'lab' && cur.lab.exam)), true, what + ' is blocked'); };
+      await stays(() => openLab(LABS.findIndex(l => l.title === window.l4nExam.current().base)), 'the base lab');
+      await stays(() => openLab(0), 'another lab');
+      await stays(() => openPractice('quiz'), 'the theory check');
+      await stays(() => openLesson('TCP and UDP'), 'a lesson');
+      await stays(() => window.openSandbox(), 'the sandbox');
+      assert.match(await p.locator('#notice').textContent(), /An exam is running/);
+      // REVIEW-FIXES 14: the notice clears itself
+      await p.waitForFunction(() => document.getElementById('notice').textContent === '', null, { timeout: 7000 });
+      // REVIEW-FIXES 9: give it up from the bar: recorded as not cleared, and the lock lifts
+      await p.locator('#examQuit').click();
+      const h = await p.evaluate(() => window.l4nExam.history().at(-1));
+      assert.deepEqual([h.mode, h.cleared], ['daily', false]); assert.equal(await p.evaluate(() => window.l4nExam.active()), false);
+      await p.evaluate(() => openPractice('quiz')); assert.equal(await p.evaluate(() => cur.view), 'quiz');
+      await c.close(); done.push('one exam at a time, nothing else opens, give up is recorded, notices clear');
+    }
+
+    // REVIEW-FIXES 9, 10, 11: an exam whose time ran out while the page was closed is graded from its saved work on the next
+    // load, without dragging you back into it; exam titles leave lab progress, saved work and ranks; XP holds across reloads;
+    // the page reopens the last real lab.
+    {
+      const { c, p } = await scenario(0);
+      await p.evaluate(() => openLab(LABS.findIndex(l => l.title === 'VLANs and access ports')));
+      assert.ok(await p.evaluate(() => window.l4nExam.start('lab', 10, 'pf-lab-2', ['Static routing'])));
+      await p.evaluate(() => { for (const [d, cs] of Object.entries(cur.lab.solution)) { select(d); cs.forEach(execute); } saveWork(); });
+      await c.addInitScript(() => { const r = Date.now.bind(Date); Date.now = () => r() + 3600e3; });
+      await p.reload(); await p.waitForTimeout(500);
+      const h = await p.evaluate(() => window.l4nExam.history().at(-1));
+      assert.equal(h.cleared, true, 'the saved network passed every check, so the time-up counts as a clear');
+      assert.equal(await p.evaluate(() => cur.lab.title), 'VLANs and access ports', 'the last real lab opens, not the exam');
+      assert.match(await p.locator('#notice').textContent(), /ended while you were away/);
+      const leftovers = await p.evaluate(() => [Object.keys(progress), Object.keys(drafts), Object.keys(JSON.parse(localStorage.getItem('lab4net-fun-v1')).ranks || {})].flat().filter(t => t.startsWith('Exam · ')));
+      assert.deepEqual(leftovers, [], 'no exam titles left behind');
+      const x1 = await xpOf(p); await p.reload(); await p.waitForTimeout(500); assert.equal(await xpOf(p), x1, 'XP holds across a reload');
+      await c.close(); done.push('exam settled after the page was closed, no exam titles left, XP stable, last real lab');
+    }
+
+    // REVIEW-FIXES 10 (live clear): XP from an exam clear does not drop after a reload.
+    {
+      const { c, p } = await scenario(0);
+      assert.ok(await p.evaluate(() => window.l4nExam.start('lab', 10, 'pf-lab-3', ['Static routing'])));
+      await p.evaluate(() => { for (const [d, cs] of Object.entries(cur.lab.solution)) { select(d); cs.forEach(execute); } });
+      await p.locator('#bGrade').click(); await p.waitForTimeout(300);
+      assert.equal(await p.evaluate(() => window.l4nExam.history().at(-1).cleared), true);
+      const x1 = await xpOf(p); await p.reload(); await p.waitForTimeout(500);
+      assert.equal(await xpOf(p), x1, 'XP after a reload equals XP before it');
+      assert.ok(!(await p.evaluate(() => Object.keys(progress).some(t => t.startsWith('Exam · ')))));
+      await c.close(); done.push('exam XP stable');
+    }
+
+    // REVIEW-FIXES 12, 15: a boss has three faults; its health bar starts at the real number of failing checks and keeps its
+    // last graded value across a reload.
+    {
+      const { c, p } = await scenario(0);
+      assert.ok(await p.evaluate(() => window.l4nExam.start('boss', 30, 'pf-boss-1')));
+      const ex = await p.evaluate(() => window.l4nExam.current());
+      assert.equal(ex.faults.length, 3, 'three faults'); assert.ok(ex.hp0 > 0 && ex.hp0 === ex.hp);
+      assert.equal(await p.locator('.boss span').textContent(), ex.hp0 + ' / ' + ex.hp0 + ' HP · grade to strike');
+      assert.match(await p.locator('.exam-note').textContent(), /three hidden faults/);
+      // repair what the base lab's own solution repairs, then grade
+      await p.evaluate(() => { const b = LABS.find(l => l.title === cur.lab.baseTitle); for (const [d, cs] of Object.entries(b.solution)) { select(d); cs.forEach(execute); } });
+      await p.locator('#bGrade').click(); await p.waitForTimeout(200);
+      const hp = await p.evaluate(() => window.l4nExam.current() ? window.l4nExam.current().hp : 0);
+      if (hp > 0) {
+        await p.reload(); await p.waitForTimeout(500);
+        assert.equal(await p.locator('.boss span').textContent(), hp + ' / ' + ex.hp0 + ' HP · grade to strike', 'health survives a reload');
+      }
+      await c.close(); done.push('boss: three faults, real starting health, health kept on reload');
+    }
+
+    // REVIEW-FIXES 13: the time's-up card is titled Time's up, not Stage clear.
+    {
+      const { c, p } = await scenario(0);
+      assert.ok(await p.evaluate(() => window.l4nExam.start('sabotage', 10, 'pf-sab-1')));
+      await p.evaluate(() => { const r = Date.now.bind(Date); Date.now = () => r() + 3600e3; });
+      await p.waitForFunction(() => !document.getElementById('resultCard').hidden, null, { timeout: 5000 });
+      assert.equal(await p.locator('#resultTitle').textContent(), "Time's up");
+      await c.close(); done.push("time's-up card title");
+    }
+
     assert.deepEqual(errors, []);
     console.log('PASS page flows: ' + done.join(', ') + '; no page errors.');
   } finally { await browser.close(); server.close(); }

@@ -55,20 +55,28 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
 
 **Exams and campaign**
 8. **Exams can be cheated, and runs go unrecorded.**
+   - **Done (milestone 2).** One exam at a time: a second start (daily or any other) is refused and the Exam dialog offers Resume or Give up. While an exam or boss runs, nothing else opens (other labs, its own base lab, practice views, lessons, the sandbox); the notice says why. Giving up is recorded as not cleared. Test: `pageflows.cjs`.
    - The daily challenge can be restarted with a fresh 20-minute clock by reopening Exam sim and clicking start again; the abandoned run is never recorded. The same goes for any exam replaced by a new start. An exam already in progress should resume, not restart.
    - The exam title names the base lab, so you can switch to it, read its Walkthrough or lesson, and come back.
    - **Fix:** while an exam or boss is running, block opening other labs (or count it as help and record it), and block Walkthrough/lesson access.
 9. **Leaving a running exam strands it.**
+   - **Done (milestone 2).** You can no longer leave it, and the Exam dialog has Resume. An exam whose time ran out while its lab was not open (the page closed) is graded from its saved work and recorded on the next load or tick, with a notice, instead of dragging you back into a Time's-up card. Test: `pageflows.cjs`.
    - Once you open another lab there's no way back. The menu has no entry and the Exam dialog has no "Resume".
    - `timeUp` only fires while the exam lab is open.
    - The next reload drags you back into it with a Time's-up fail.
    - Add Resume, and record time-up even when the exam isn't the open lab.
-10. **XP goes up, then down after a reload.** `xp()` (~4584) loops over `LABS`, which includes the temporary exam lab, so its XP disappears after a reload. Exam titles also stay forever in `ccna-bench-v2`, the drafts and the ranks. Keep exam XP in the exam store and keep exam titles out of normal lab progress.
-11. **Reloading after an exam opens the wrong lab.** `lastLab` is saved as the exam's index (77), which doesn't exist after a reload, so it opens a capstone instead. Save the last real lab.
-12. **Boss health refills on reload** (2/6 → 6/6). Save the last graded state, or re-grade silently on load.
-13. **The time's-up failure card is titled "STAGE CLEAR"** (fixed header text, ~575). Give it a proper failure title.
-14. **The "Exam started…" notice covers the Grade lab button** at 1440×1000 and never goes away by itself. Auto-dismiss it after a few seconds, or move it.
-15. **Boss fights sometimes have only two faults** (8 of 40 seeds; `makeExam` accepts `f.length>=2`). Either always build three, or make the UI and trophy text say "two or three". The health bar should also start at the real number of failing checks.
+10. **XP goes up, then down after a reload.**
+   - **Done (milestone 2).** Exam labs never write lab progress; their XP comes only from the exam store (`examStats`). `xp()`, the Halfway/Full Clear trophies and the Study map skip exam labs. Old `Exam · …` titles are cleared from progress, saved work and ranks (`l4nFun.forget`) when the exam is over. Test: `pageflows.cjs` (XP equal before and after a reload, no exam titles left). `xp()` (~4584) loops over `LABS`, which includes the temporary exam lab, so its XP disappears after a reload. Exam titles also stay forever in `ccna-bench-v2`, the drafts and the ranks. Keep exam XP in the exam store and keep exam titles out of normal lab progress.
+11. **Reloading after an exam opens the wrong lab.**
+   - **Done (milestone 2).** `saveWork` keeps `lastLab` on the last real lab. Test: `pageflows.cjs`. `lastLab` is saved as the exam's index (77), which doesn't exist after a reload, so it opens a capstone instead. Save the last real lab.
+12. **Boss health refills on reload**
+   - **Done (milestone 2).** The last graded health is saved on the exam (`hp`) and shown after a reload. Test: `pageflows.cjs`. (2/6 → 6/6). Save the last graded state, or re-grade silently on load.
+13. **The time's-up failure card is titled "STAGE CLEAR"**
+   - **Done (milestone 2).** The card title is set per result: "Time's up" for a time-up, "Stage clear" for a clear. Test: `pageflows.cjs`. (fixed header text, ~575). Give it a proper failure title.
+14. **The "Exam started…" notice covers the Grade lab button**
+   - **Done (milestone 2).** Every notice clears itself after five seconds (click still dismisses it at once). Test: `pageflows.cjs`. at 1440×1000 and never goes away by itself. Auto-dismiss it after a few seconds, or move it.
+15. **Boss fights sometimes have only two faults**
+   - **Done (milestone 2).** A boss now looks for three faults across its whole pool first and settles for two only when no lab can give three (40 of 40 free-choice seeds give three; a campaign boss limited to the IPv6 labs can give two). The exam bar names the real count, the trophy and campaign texts say "two or three", and the health bar starts at the real number of failing checks (`hp0`). Test: `pageflows.cjs`. (8 of 40 seeds; `makeExam` accepts `f.length>=2`). Either always build three, or make the UI and trophy text say "two or three". The health bar should also start at the real number of failing checks.
 
 **Sessions and logins**
 16. **`reload` over Telnet/SSH skips "Save? [yes/no]" and "[confirm]"** and throws away unsaved changes (~3835). Real IOS asks on VTY lines too.

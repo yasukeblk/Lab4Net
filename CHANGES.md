@@ -1,5 +1,21 @@
 # Lab4Net changes
 
+## Review fixes, part 2: exams and the campaign
+
+Items 8 to 15 of `docs/REVIEW-FIXES.md`.
+
+- **One exam at a time, and no peeking.** While an exam or boss fight is running you cannot open anything else: other labs (including the lab the exam is based on, with its walkthrough and lesson), the practice views, lessons or the sandbox. The status line tells you why. Opening Exam sim while one is running offers **Resume** or **Give up**; giving up counts as not cleared. Starting the daily challenge again no longer gives a fresh clock.
+- **An exam that ran out while you were away is settled properly.** If the page was closed when time ran out, the next load grades the network you left and records the result (a clear if everything passed), with a short notice, instead of dropping you back into a Time's-up card.
+- **Exam XP stays put.** XP from exams comes only from the exam history, so it no longer drops after a reload, and exam labs no longer leave entries in your lab progress, saved work or ranks.
+- **Reloading after an exam reopens your last real lab**, not a capstone.
+- **Boss fights**: three hidden faults whenever the labs allow it (a campaign boss limited to the IPv6 labs may have two, and the bar says so); the health bar starts at the number of checks actually failing and keeps its value after a reload.
+- **The time's-up card says "Time's up"**, not "Stage clear".
+- **Status-line notices clear themselves** after five seconds, so the "Exam started" notice no longer sits over the Grade button.
+
+Tests: `pageflows.cjs` now covers one exam at a time, the navigation lock, giving up, notices clearing, an exam settled after the page was closed, no exam titles left behind, XP equal before and after a reload, the last real lab, a three-fault boss with its real starting health kept across a reload, and the time's-up title.
+
+Verification: all seventeen suites pass. Checked in Edge at 1440x1000: the boss bar (3 / 3 HP, "three hidden faults") and the Resume / Give up dialog.
+
 ## Review fixes, part 1: the seven "must fix" items
 
 From `docs/REVIEW-FIXES.md` (a review of the 9 October builds). Each fix has a regression test that fails without it.
