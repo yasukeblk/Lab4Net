@@ -15,3 +15,4 @@ jobs:
       - run: node tests/curriculum.cjs
       - run: node tests/lessons.cjs
       - run: node tests/ping.cjs
+      - run: node tests/console.cjs

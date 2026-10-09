@@ -27,7 +27,7 @@ assert.match(bang(cmd(net,'R1','ping 192.168.3.10')),/^\\.!!!!$/,'only R1 needs 
 r=cmd(net,'R1','ping 192.168.3.10 repeat 100 size 1500');
 assert.match(r.text,/Sending 100, 1500-byte ICMP Echos/);
 assert.equal(r.out.filter(l=>/^!+$/.test(l)).map(l=>l.length).join(','),'70,30','IOS wraps at 70 characters');
-assert.equal(cmd(net,'R1','ping 192.168.3.10 repeat x').text,BAD);
+assert.match(cmd(net,'R1','ping 192.168.3.10 repeat x').text,/^ +\\^\\n% Invalid input detected at '\\^' marker\\.$/);
 // The reply path still decides the outcome; the same TRACE drives the map animation.
 LIVE=true;cmd(net,'PC1','ping 192.168.3.10');LIVE=false;
 r=cmd(net,'PC1','ping 192.168.3.10');

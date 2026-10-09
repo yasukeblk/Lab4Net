@@ -1,5 +1,48 @@
 # Lab4Net changes
 
+## Console realism, and the guide in its own browser window
+
+**Errors that behave like IOS and Windows**
+- Invalid input now shows the `^` under the word IOS could not accept, with the "% Invalid input detected at '^' marker." line underneath. A value a command rejects (for example `duplex sideways`) gets the `^` under that value.
+- Unfinished commands say "% Incomplete command." (for example `ip add 1.1.1.1` with no mask).
+- Ambiguous abbreviations are refused, as on a real router: `sh i` now says `% Ambiguous command:  "sh i"` instead of quietly running `show interfaces`. `sh ip int br` and `sh run` still work.
+- A word that exactly matches a keyword is never treated as an abbreviation of a longer one, so `ip` no longer slips into an `ipv6` command.
+- Typing a single unknown word at the `>` or `#` prompt does what real IOS does: it tries to look it up as a hostname ("Translating "hellp"...domain server (255.255.255.255)"), pauses, then says "% Unknown command or computer name". With `no ip domain-lookup` it answers at once. This is why that command is in every lab's basic setup.
+- PCs answer like Windows: "'foo' is not recognized as an internal or external command", "Error: unrecognized or incomplete command line.", and the ping or tracert usage text when you leave out the target.
+- All of these count as rejected commands for ranks, including output that is still playing when the command finishes.
+
+**Output filters and help**
+- `show ... | include`, `| exclude`, `| begin`, `| section` and `| count`, with regular expressions, as on IOS (`show run | section interface`, `show ip int br | exclude down`).
+- `?` now gives a short description next to each keyword, and lists `|` after a complete show command.
+
+**Everyday commands that were missing**
+- `show version` (model, IOS version, uptime, interfaces, configuration register 0x2102 or 0xF).
+- `show vlan id <n>`, `show running-config interface <name>`, `show interfaces description`.
+- `show interfaces` now prints the hardware/MAC, description, MTU and bandwidth, encapsulation and duplex/speed lines.
+- `duplex`, `speed` and `bandwidth` on interfaces: saved, shown in the running-config and `show interfaces`. `bandwidth` changes the OSPF cost, as on IOS.
+- `terminal length 0` and `terminal monitor`.
+- `ip host <name> <address>` and `ip name-server`, `show hosts`, and `ping`, `traceroute` and `telnet` by name. Unknown names try DNS first unless lookups are off.
+- `security passwords min-length`, which rejects short new passwords with the real IOS message; `enable algorithm-type scrypt secret` (type 9) and `sha256` (type 8); `login block-for ... attempts ... within ...` with `show login`.
+- `debug ip icmp`, `undebug all`, `no debug all` and `show debugging`. Debug messages appear in that router's own console tab (for example, ping a router from a PC, then switch to the router's tab), and they survive a reload.
+- On PCs: `hostname`, `netstat`, `tracert -d` and `help`.
+
+**Step-by-step guide in its own browser window**
+- The pop-out guide has a new "New window ↗" button. It opens the guide as a separate browser window you can drag to a second monitor.
+- Clicking a command in that window puts it in the main window's console, on the right device. Changing lab updates it. Reloading the main window reconnects to it. Closing it brings back the guide inside the page. "Dock to Lab4Net" in that window closes it and docks the guide.
+- The guide window never starts the app itself, so it cannot change or overwrite your saved work.
+- If the browser blocks pop-ups, a message says so.
+
+**Not in this build**
+- `show mac address-table` is saved for the switching realism build, where switches will learn MAC addresses from traffic.
+- Prompts are saved for a later build with password prompts: `reload`, the interactive extended ping, and `copy run start` asking for a filename.
+- Speed and duplex mismatches are not simulated yet; the settings are saved and shown only.
+- `login block-for` is shown but cannot trigger until logins prompt for passwords.
+- `nslookup` is not added, because there is no DNS server in the simulator.
+
+Tests: new `tests/console.cjs` covers all of the above and runs in GitHub Actions. New `tests/guidewin.cjs` (optional, needs Playwright, like `ui.cjs`) opens the guide window over http and checks steps, lab changes, reconnecting, closing and docking. `tests/ping.cjs` now expects the `^` line.
+
+Verification: labs.cjs (73 labs, 416 checks, 1439 guide commands; none of them rejected under the stricter parser), forwarding.cjs, curriculum.cjs, lessons.cjs, ping.cjs, console.cjs, ui.cjs and guidewin.cjs all pass. In headless Chromium: `?` help, the caret, the hostname-lookup pause, a typo counted as rejected, and debug messages in R1's tab after a PC ping (still there after reload) were driven and screenshotted. The guide window was tested over http, as on the container, and over file://.
+
 ## Ranks scored on results, not on how many commands you run
 
 - Checking your work no longer costs anything. Extra `show`, `ping` or other commands, and the time they take, are never counted against your rank. Time and command count still appear on the results card, marked "not scored".

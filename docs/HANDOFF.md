@@ -13,6 +13,8 @@ It currently has:
 - 2 capstones that build a whole network from factory defaults (a branch office; a campus core with a Layer 3 switch). They open with the step-by-step guide off
 - CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
 - Real-life ping and traceroute: output plays live, ARP loses the first echo through a cold router, routers send unreachables (`U.U.U`, `!H`, `!A`), Windows quirks are kept, Ctrl+C or Ctrl+Shift+6 stops a run
+- An IOS-style console that errors like IOS (`^` marker, % Incomplete, % Ambiguous, hostname lookup on a typo), with `| include/exclude/begin/section/count` and `?` descriptions; PCs answer like Windows
+- The step-by-step guide can open in its own browser window for a second monitor
 - A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
 - A network map that animates each ping, telnet or ssh along the path the packet really takes, and labels where and why it fails
 - Step-by-step instructions per task (switchable, and can pop out into its own window), plus a "why" for every task and every command
@@ -100,6 +102,12 @@ In file order:
 
 6. `// ---------- real-life ping and traceroute`, just before the step-prompt recorder at the end of the engine: `pingRun` (per-echo result from `reach`, plus ARP drops), `iosPing`, `winPing`, `traceRun`, `iosTrace`, `winTrace`, `pingOpts`, ARP helpers (`arpWalk`, `arpPrune`, `arpLearn`, `arpRows`) and `pq` (runs `fwd` quietly without touching NAT tables or counters). Each device's ARP cache is `d.arpc` ({ip: interface name}); entries drop when their interface goes down or leaves the subnet. The four original `ping`/`traceroute`/`tracert` handlers now just call these. Handlers put timing on `s.pace = {t, abort}`: one `t` entry per output line (a delay in ms, `{d, pkt}`, `{chars:[ms…], pkt}` or `{parts:[[ms, text]…]}`), and `abort(n)` returns the summary lines after n echoes. Engine callers ignore `s.pace`.
 
+7. `// ---------- console realism`, after the ping block: the parser helpers used by `run()` (`patsFor`, `depthOf`, `shadowed`, `ambiguousAt`, `badIndex`, `caretAt`, `withCaret`, `parseFail`, `hostLookup`, `resolveHost`, `pipeRun`), `KWHELP` (the `?` descriptions), and the everyday commands (`show version`, `show vlan id`, `show running-config interface`, `show interfaces description`, duplex/speed/bandwidth, `ip host`, `ip name-server`, `security passwords min-length`, `enable algorithm-type`, `login block-for`, `debug ip icmp`, PC `hostname`/`netstat`/`help`). It wraps `ospfCost` (bandwidth), the `show interfaces` handler (hardware/MTU/duplex lines), the password handlers (min-length) and `runningConfig`.
+
+How `run()` decides now: output modifiers first (`pipeRun`). Then it takes the first matching pattern, skipping any pattern that treats a token as an abbreviation when another pattern has that token as an exact keyword (`shadowed`). If an abbreviation fits two keywords it prints `% Ambiguous command:  "<line>"` (`ambiguousAt`; aliases where one keyword is a prefix of another, like `run`/`running-config`, count as one). If nothing matches it calls `parseFail`: Windows messages in `pc` mode, `% Incomplete command.` when a pattern needed more, a hostname lookup for one unknown word in user/priv mode, otherwise a `^` line plus `BAD`. `env.raw` and `env.p0` (prompt length) are set on the first `run` of an `execLine`, so nested runs (`do`, pings by name, pipes) still place the caret correctly. Handlers that emit `BAD` get a caret under the last word via `withCaret`. Any test that compared output to `BAD` alone must now expect the caret line first.
+
+`debug ip icmp` puts messages on `d.conq` (from `pingDebug`, called by `pingRun` when `LIVE`). The interface moves them into that device's console tab with `drainConsoles`: after each command (other devices immediately, the typing device once its output has finished playing) and during replay.
+
 The `// ---------- v3 engine` section, just before the "why" recorder, holds commands added for the library (`clear ip ospf process`, `show ip protocols`, `show ip ospf`) and an `execLine` wrapper that logs native VLAN mismatches. The library block adds a second `execLine` wrapper that logs OSPF adjacency changes. Other library changes were made in place: `type7`/`pwText` near the top (type 7 passwords), `isPassive` and the router-ID lock (`ospf.active`) beside `ospfNeighbors`/`routerId`, `vtyDenied` beside `reach` (access-class), `cdpPeers` with the CDP commands, and the `root primary` macro with the spanning-tree commands.
 
 Phase 2 changed the core in place too:
@@ -152,6 +160,10 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 
 The base `execute` plays any output that comes with `s.pace` through `streamStart` / `streamTick` / `streamStop` (`// ---------- live console output`, just before `renderTrace`). Only one output plays at a time (`STREAM`). `execute` calls `streamStop(false)` first, which finishes the current output instantly, so every wrapper still sees complete output. Ctrl+C (with no text selected in the input) or Ctrl+Shift+6 calls `streamStop(true)`. `renderTerm` hides the prompt while that session is playing. Reduced motion skips playback. `PACE_SCALE` (0.4) scales every engine delay, so playback runs at 40% of real time; Yasuke asked for it quicker than real (8 Oct). Sounds come from `window.l4nFun.sfx` (`echo`, `drop`, `unreach`) in the rewards block.
 
+`execute` stores each command's full output on `s.lastOut`; the rewards wrapper reads that rather than the console lines, because paced output may still be playing.
+
+The guide window: `index.html?guide` stops right after `//ENGINE-END` (the guide-only block throws a marked object, suppressed in its own `error` handler) after showing only `#guideWin`, so it never runs the app or touches storage. It talks to the main window on the `lab4net-guide` BroadcastChannel and, as a fallback, by `postMessage` with its opener. Messages: `hello` (sent on load and every 3 s; a main window that hears nothing for 9 s treats it as gone), `bye`, `dock`, `step {dev, cmd}` from the guide window; `show {html, title, keep}`, `ping`, `close` from the main window. On the main side, `extAlive` hides the in-page `#guideWin` and the inline steps; `renderGuideWin` sends the guide HTML whenever it changes; `openGuideWindow` is the "New window ↗" button; `setGuidePop(false)` closes the guide window.
+
 Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `lab4net-layout-v3`, `lab4net-fun-v1`, `lab4net-sandbox-v1`, `lab4net-guide`, `lab4net-guide-pop`, `lab4net-last`, `lab4net-incident-hints` (clues revealed per incident), `lab4net-capstone-guide` (guide switched on per capstone), `lab4net-lessons-v1` (lessons read and quick-check answers), `lab4net-pending` (extras from an imported backup, applied on the next load), and `l4n-boot` in session storage.
 
 ## Verifying changes
@@ -164,7 +176,9 @@ node tests/forwarding.cjs
 node tests/curriculum.cjs
 node tests/lessons.cjs
 node tests/ping.cjs
+node tests/console.cjs
 node tests/ui.cjs
+node tests/guidewin.cjs
 ```
 
 Current result: 73 labs (36 build, 35 incidents, 2 capstones), 416 checks, 1439 guide commands; 54 lessons (36 lab, 18 topic).
@@ -176,6 +190,8 @@ On Yasuke's desktop there is no Node install. Claude Code runs the tests with De
 - `lessons.cjs` checks every lesson (structure, markup, quiz answers, story steps on cabled devices) and that every build lab has one. It also takes draft files as arguments. It runs in GitHub Actions.
 - `curriculum.cjs` checks objective mappings and that every incident starts with a real failing service and is fixed by its repair without breaking any original check. It runs in GitHub Actions.
 - An incident's `symptom` is either `[source, target, proto, port]` (a packet test with `reach`) or a function of the network for services that are not a single packet (CDP or LLDP discovery, NTP, IPv6, a preferred path). The curriculum test checks it fails after the build and works after the repair, and compares configuration before and after the probe, ignoring counters, logs and NAT translations.
+- `console.cjs` covers the parser errors (caret, incomplete, ambiguous, exact keywords, hostname lookup, Windows messages), output modifiers, `?` help and the everyday commands. It runs in GitHub Actions.
+- `guidewin.cjs` (optional, Playwright, like `ui.cjs`) serves the page over http and checks the guide window: open, steps to the console, lab changes, reconnect after reload, fall back when closed, dock.
 - `ping.cjs` covers the ping and traceroute output rules (ARP first echo, unreachables, Windows quirks, extended options, abort summaries). It runs in GitHub Actions.
 - `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
 - `ui.cjs` also checks the capstone guide default: off on opening a capstone, remembered per capstone once switched on.
@@ -199,7 +215,8 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 ## Known limits
 
 - The simulator implements the commands the labs need, not all of IOS. Anything else returns "Invalid input".
-- `?` help lists options without descriptions, there is no `^` error marker, ambiguous abbreviations silently take the first match, and there is no `--More--` paging or `| include`.
+- No `--More--` paging. `?` descriptions cover the common keywords only; argument help is generic (A.B.C.D, WORD) rather than IOS's specific ranges. The ambiguity check only knows the keywords Lab4Net implements, so a few abbreviations that are ambiguous on real IOS (because of commands we lack) are accepted here.
+- No `reload`, interactive extended ping or `copy` filename prompt yet (needs the prompt mechanism planned with password prompts). Duplex and speed are saved and shown but a mismatch has no effect. `login block-for` cannot trigger until logins prompt. No DNS server, so no `nslookup`; names resolve only from `ip host`. Only `debug ip icmp` exists. `show version` uses fixed models (2911, 2960-24TT, 3560-24PS) whatever the port count.
 - Spanning tree is calculated and shown per VLAN, and labs check it, but the data path ignores blocking: a ping takes any VLAN-valid path.
 - `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. Hello and dead timers must match, as on a real router; a network-type mismatch forms the adjacency but the link is left out of SPF, so routes through it disappear. Authentication is not modelled. Equal-cost paths are not load-shared; one is used.
 - Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
@@ -219,14 +236,13 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 
 Carry this list forward and keep it in every summary.
 
-- `enable` and console password prompts
+- Switching realism (agreed 8 Oct, next build): a MAC address table learned from traffic, with flooding shown on the map, `show mac address-table`, `clear mac address-table`, aging; and pings that follow spanning-tree blocking so the animated path matches `show spanning-tree`
+- Prompts: `enable` and console password prompts, `reload` (with "Save? [yes/no]" and losing unsaved changes), the interactive extended ping, `ping x source <interface>`
+- Exam sim mode (random lab or incident, countdown, no guide or "why"), with randomised faults for incidents
 - A fuller theory question bank (28 questions so far)
 - XP and trophies for sandbox challenges
-- Closer-to-real `?` help: descriptions, the `^` marker, "% Ambiguous command", `| include` and `| begin` (offered, not yet confirmed)
-- Whether the pop-out guide should also open in a separate browser window for a second monitor (waiting on his decision)
-- Randomised faults for incidents (every incident is still a fixed scenario)
-- Make the data path follow spanning-tree blocking, so a ping's animated path matches `show spanning-tree`
-- `ping <ip> source <interface>` and the interactive extended ping (typing `ping` alone)
-- Live playback and real-life output for IPv6 pings and traceroutes
+- Live, real-life output for IPv6 pings and traceroutes
+- Duplex and speed mismatch effects
+- Waiting on his decision: keep or drop "test it yourself" as a requirement for an S rank
 
-His most recent direction (8 Oct 2026) was to make pings work "more like real life" because he likes the feedback of real commands (done in the "real-life pings" build). Before that: "continue to build" on the sandbox and make the app "more rewarding and fun".
+His most recent direction (8 Oct 2026) was to do the console realism fixes first, then the switching realism build, and to have the pop-out guide open as its own browser window for a second monitor (done in the "console realism" build).
