@@ -1,5 +1,12 @@
 # Lab4Net changes
 
+## Campaign button in the top menu
+
+- Campaign (the story mode) now has its own gold button at the start of the top menu: **Campaign · Lab library · Study map · How to use · Trophies**. Before, it was only reachable from the bottom of the lab dropdown or the bottom of the Lab library. The button stays underlined while you're on the stage select.
+- With a fifth item, the menu stays on one line from 1024px wide upward: labels never break, spacing tightens below 1420px, and the XP and progress bars hide below 1180px (the level, title and "passed" count stay). On a phone the menu wraps onto a second row instead of being cut off.
+
+Verification: all Node tests, ui.cjs and guidewin.cjs pass. Header checked in headless Chromium at 1024, 1100, 1280, 1366 and 1920 wide (one 46px line, nothing overlapping) and at 360, 390 and 700 on a phone (every button visible). The button opens the campaign and highlights only there.
+
 ## Smaller trace box under the network map
 
 - The box under the map that reports the last ping, telnet or ssh is now one line: the result (for example "✓ Reply received" or "! Blocked by ACL 10 outbound on Gi0/1") and the path, with **Details** and **Replay** buttons.

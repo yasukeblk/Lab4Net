@@ -59,6 +59,13 @@ h1 .w{fill:var(--yel)} h1 .l{fill:var(--mag);animation:blink 1.6s steps(1) infin
 .header-actions .small-btn:hover,.header-actions .small-btn:focus-visible{transform:none;color:var(--yel);filter:none}
 .header-actions .small-btn:hover::after,.header-actions .small-btn:focus-visible::after{transform:scaleX(1) skewX(-20deg)}
 .header-actions .small-btn:active{transform:none}
+/* one line per menu label; tighter spacing on laptop widths so a fifth item fits */
+.header-actions .small-btn{white-space:nowrap}
+@media (min-width:861px) and (max-width:1420px){.header-actions .small-btn{padding:0 8px;font-size:16px}.header-actions .small-btn::after{left:6px;right:6px}#labs{flex-basis:220px}#hud .xpbar{width:80px}.progressbar{width:80px}#meter{margin-left:10px}}
+@media (min-width:861px) and (max-width:1180px){#hud .xpbar,.progressbar{display:none}}
+@media (max-width:860px){.header-actions{flex-wrap:wrap;width:100%;row-gap:2px}.header-actions .small-btn{padding:6px 8px;font-size:15px;height:auto}.header-actions .small-btn::after{bottom:2px;left:6px;right:6px}}
+#campaignTop{color:var(--yel);text-shadow:0 0 12px rgba(255,210,63,.45)}
+#campaignTop[aria-current="page"]::after{transform:scaleX(1) skewX(-20deg)}
 #labs{flex:0 1 320px;min-width:0;margin-left:8px}
 #meter{margin-left:auto;display:flex;align-items:center;gap:12px;white-space:nowrap;font:italic 800 17px var(--px);letter-spacing:.03em;text-transform:uppercase}
 .progressbar{width:190px;height:16px;border:3px solid var(--line);border-radius:4px;background:#0c0920;transform:skewX(-18deg);box-shadow:0 0 0 1px rgba(255,255,255,.18),0 4px 10px rgba(0,0,0,.5);overflow:hidden}
@@ -560,7 +567,7 @@ ul.plain li{margin-bottom:8px}
 <div id="boot" aria-hidden="true"><pre></pre></div>
 <header>
   <h1><svg viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path class="w" d="M7 5h2v3H7zM3 8h10v1H3zM3 9h1v2H3zM12 9h1v2h-1z"/><path class="w" d="M6 2h4v3H6zM2 11h3v3H2zM11 11h3v3h-3z"/><path class="l" d="M7 3h2v1H7z"/></svg>Lab4Net</h1>
-  <div class="header-actions"><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="studyMap">Study map</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="trophies">Trophies</button></div>
+  <div class="header-actions"><button class="small-btn" id="campaignTop" title="Story mode: the labs as eight stages with bosses">Campaign</button><button class="small-btn" id="library">Lab library</button><button class="small-btn" id="studyMap">Study map</button><button class="small-btn" id="help">How to use</button><button class="small-btn" id="trophies">Trophies</button></div>
   <select id="labs" aria-label="Choose a lab"></select>
   <div id="hud" aria-label="Level and experience"></div>
   <div id="meter"></div>
@@ -6685,6 +6692,8 @@ const CAMPAIGN=[
   $('library').onclick=library;
   const cel0=celebrate;celebrate=function(){cel0();setTimeout(()=>checkCampaign(false),1600);};
   window.openCampaign=()=>openPractice('campaign');
+  $('campaignTop').onclick=()=>openPractice('campaign');
+  {const ra=renderAll;renderAll=function(){ra();const b=$('campaignTop');if(b){if(cur&&cur.view==='campaign')b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}};}
   checkCampaign(true);
 })();
 </script>
