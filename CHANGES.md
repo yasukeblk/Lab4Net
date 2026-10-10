@@ -1,5 +1,32 @@
 # Lab4Net changes
 
+## Review fixes, part 6: the rest of the polish (switching, OSPF, IPv6, quiz)
+
+This finishes `docs/REVIEW-FIXES.md`. Two small things the review listed as owed (`show ip ospf database`, suspending a Telnet session) are on the Still owed list.
+
+**Switching**
+- `show interfaces counters` and `show interfaces counters errors`: the standard views for chasing a duplex problem (FCS errors and runts on the full-duplex end, late collisions on the half-duplex end).
+- `clear counters fa0/1` asks about "this interface"; "Last clearing" shows the time since the clear.
+- The CDP duplex-mismatch warning repeats every minute while the mismatch lasts.
+- `show interfaces status` right-aligns Duplex and Speed like IOS, and a switch's gigabit port reports 10/100/1000BaseTX.
+- An ARP nobody answers (pinging an unused address) still floods the VLAN; every switch learns the sender, and the trace says nobody answered.
+- A broadcast storm names only the switches on the loop, and the map animates the loop's real links.
+
+**OSPF show commands**
+- Areas set with `ip ospf 1 area 0` on an interface count in `show ip ospf` and `show ip protocols`, areas are listed in number order, and `show ip protocols` says "It is an area border router" and lists the interfaces configured explicitly.
+
+**IPv6**
+- The first IPv6 echo is no longer lost: IOS queues a packet while it resolves a neighbour (unlike ARP), so even a cold `ping` shows `!!!!!`.
+- `show ipv6 neighbors` shows each entry's age in minutes, REACH for 30 seconds after it was confirmed and STALE after that, and the FE80 link-local neighbours.
+
+**Theory quiz**
+- Nine near-duplicate questions were rewritten to test something new: the TCP handshake, the BSSID, Terraform, NTP stratum 16, `logging trap warnings`, the PUT verb, unique local addresses, the management plane and NETCONF. Old answers to those nine are cleared once, so the Theory Check trophy counts them fresh.
+- The `ip name-server` question explains that the hang after a typo comes from `ip domain-lookup` being on with no reachable name server.
+
+Tests: new checks in `switching.cjs`, `duplex.cjs`, `ospfarea.cjs`, `ping6.cjs` (now expects the queued first echo), `quiz.cjs` and `pageflows.cjs`.
+
+Verification: all seventeen suites pass.
+
 ## Review fixes, part 5: polish for exams, Telnet and the extended ping
 
 From the Polish list of `docs/REVIEW-FIXES.md`.

@@ -39,6 +39,12 @@ assert.equal(ospfIsAbr(net,net.devs.R2),false);assert.equal(ospfNeighbors(net,ne
   ios(n,'R3',['configure terminal','interface g0/2','ip address 10.0.99.2 255.255.255.252','no shutdown','interface g0/0','ip ospf cost 100','router ospf 1','network 10.0.99.0 0.0.0.3 area 1','end']);
   const r=routes(n,n.devs.R2).find(x=>x.net===ip2n('192.168.4.0'));assert.deepEqual([r.code,r.metric,r.ifc.name],['O IA',102,'GigabitEthernet0/1']);
   assert.equal(code(n,'R1','192.168.4.0',24),'O IA 4','a non-ABR uses the summary it hears in its own area');}
+// REVIEW-FIXES polish (OSPF show): areas come from network statements and interface commands, in number order, and
+// show ip protocols says when the router is an ABR
+{const n=solve('Multi-area OSPF'),R2=n.devs.R2;const pr=cmd(n,'R2','show ip protocols').split(String.fromCharCode(10));const k=pr.findIndex(l=>l.includes('Router ID 2.2.2.2'));assert.equal(pr[k+1],'  It is an area border router');assert.ok(pr[k+2].includes('Number of areas in this router is 2'));
+  ios(n,'R2',['configure terminal','router ospf 1','no network 10.0.23.0 0.0.0.3 area 0','interface g0/1','ip ospf 1 area 0','end']);
+  const t=cmd(n,'R2','show ip ospf');assert.match(t,/Number of areas in this router is 2/);assert.ok(t.indexOf('Area BACKBONE(0)')<t.indexOf('Area 1'),'areas in number order: '+t);
+  const pr2=cmd(n,'R2','show ip protocols').split(String.fromCharCode(10));const j=pr2.indexOf('  Routing on Interfaces Configured Explicitly (Area 0):');assert.ok(j>0&&pr2[j+1]==='    GigabitEthernet0/1',pr2.join('|'));}
 // REVIEW-FIXES 26: an area mismatch logs %OSPF-4-ERRRCV on both ends (the console of the router you typed on, the log of the
 // other), then at most once a minute.
 {const n=solve('Multi-area OSPF'),s={mode:'priv'},R2=n.devs.R2,R3=n.devs.R3;execLine(n,R2,s,'configure terminal');execLine(n,R2,s,'router ospf 1');execLine(n,R2,s,'no network 10.0.23.0 0.0.0.3 area 0');

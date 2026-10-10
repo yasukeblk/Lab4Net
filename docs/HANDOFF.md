@@ -1,6 +1,6 @@
 # Lab4Net handoff
 
-State as of the multi-area OSPF and wireless build on `main` (9 Oct 2026). Eleven builds landed on 9 Oct: multi-area OSPF plus the wireless-wiring lab, the campaign, the follow-ups (storms, neighbours in the MAC table, per-VLAN aging, IPv6 learning), switching realism, prompts, ping source, exam sim, theory bank and sandbox rewards, duplex/speed, live IPv6 pings, boss fights. Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+State as of the review fixes on `main` (9 Oct 2026): every item in `docs/REVIEW-FIXES.md` is done or listed under Still owed. Eleven builds landed on 9 Oct: multi-area OSPF plus the wireless-wiring lab, the campaign, the follow-ups (storms, neighbours in the MAC table, per-VLAN aging, IPv6 learning), switching realism, prompts, ping source, exam sim, theory bank and sandbox rewards, duplex/speed, live IPv6 pings, boss fights. Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
 
 ## What this is
 
@@ -265,6 +265,7 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
 - show access-lists lists standard entries in sequence order; real IOS may list host entries first.
 - Ping and traceroute use ICMP for every probe (real IOS traceroute uses UDP), so an extended ACL that permits only some ICMP or UDP can disagree slightly with real gear. Unreachables are sent only for no-route and ACL drops; a failed next-hop ARP on a router gives timeouts. Extended ping has `repeat` and `size` but not `source`, and there is no interactive extended ping. Playback runs at 40% of real time (`PACE_SCALE`), at Yasuke's request.
+- IPv6 neighbours age REACH (30 s) then STALE, with no DELAY or PROBE states; the first echo is queued, not lost.
 - No wireless. IPv6 has static routing only: no OSPFv3, no DHCPv6, no IPv6 ACLs. Only the Layer 3 switch model (a 3560) routes; 2960s reject ip routing and static routes.
 - HSRP has no object tracking and fails over at once rather than after the 10-second hold time. The DHCP snooping rate limit is stored and shown but not enforced. DAI has no ARP ACLs or extra validation options.
 - Incidents are fixed scenarios; randomised faults live in the exam sim's sabotage mode. Sandbox device models are fixed (3 or 5 port routers, 10 or 26 port switches).
@@ -279,8 +280,8 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 
 Carry this list forward and keep it in every summary.
 
-- The rest of the Polish list in `docs/REVIEW-FIXES.md` (switching, OSPF show commands, IPv6, quiz duplicates), in progress on 9 Oct.
+- `show ip ospf database` (from the review's Polish list; not built yet).
 - Suspending a Telnet/SSH session: Ctrl+Shift+6 then x, `show sessions`, `resume`, `disconnect` (from the review's Polish list).
-- Nothing. Yasuke decided on 9 Oct 2026 to keep "test it yourself" (at least one show, ping, traceroute, telnet, ssh, ipconfig or arp during the run) as a requirement for an S rank. Do not remove it.
+Standing decision (not owed): Yasuke decided on 9 Oct 2026 to keep "test it yourself" (at least one show, ping, traceroute, telnet, ssh, ipconfig or arp during the run) as a requirement for an S rank. Do not remove it.
 
-His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. Done on 9 Oct: the console realism fixes, the guide window, switching realism, prompts (passwords, Telnet/SSH sessions, reload), ping/traceroute with a source and the interactive dialogs, the exam sim (seeded sabotage faults, daily challenge, boss fights), the 110-question theory bank, sandbox rewards, duplex/speed mismatch effects, live IPv6 pings, boss fights, the switching follow-ups (storms, neighbour rows, per-VLAN aging, IPv6 learning) the campaign, multi-area OSPF and the wireless-wiring lab. Nothing is owed; ideas for later: more IPv6 (an OSPFv3 engine would be the big one), a second campaign once the first is cleared.
+His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. Done on 9 Oct: the console realism fixes, the guide window, switching realism, prompts (passwords, Telnet/SSH sessions, reload), ping/traceroute with a source and the interactive dialogs, the exam sim (seeded sabotage faults, daily challenge, boss fights), the 110-question theory bank, sandbox rewards, duplex/speed mismatch effects, live IPv6 pings, boss fights, the switching follow-ups (storms, neighbour rows, per-VLAN aging, IPv6 learning) the campaign, multi-area OSPF and the wireless-wiring lab, then every item of the review in `docs/REVIEW-FIXES.md`. Owed: the two items above; ideas for later: more IPv6 (an OSPFv3 engine would be the big one), a second campaign once the first is cleared.

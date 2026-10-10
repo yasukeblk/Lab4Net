@@ -137,24 +137,24 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
   - `copy run start` ignores a typed destination filename **Done (milestone 5).** Another name saves a copy in NVRAM ("… bytes copied") and leaves the startup-config alone. Test: `prompts.cjs`.
   - extended ping: answering "Sweep range of sizes" with `y` skips the min/max/interval questions, and the DF-bit and timeout answers are ignored **Done (milestone 5).** The sweep asks min, max and interval and pings every size; DF set on a packet over the 1500-byte MTU answers `M` (could not fragment); the timeout sets how long each `.` takes. Test: `prompts.cjs`.
 - **Switching:**
-  - `show interfaces counters` and `show interfaces counters errors` are missing; they're the standard duplex-troubleshooting views
-  - `clear counters fa0/1` should ask "Clear "show interface" counters on this interface [confirm]"
-  - "Last clearing" shows the clock time instead of time elapsed
-  - the CDP mismatch warning should repeat every 60 s
-  - `show interfaces status` should right-align Duplex and Speed
-  - Gig ports say "media type is 10/100BaseTX"
-  - an ARP that gets no reply should still flood the VLAN and teach switches the sender's MAC
-  - the storm description names switches that aren't in the loop, and the map animates a link that doesn't exist
+  - `show interfaces counters` and `show interfaces counters errors` are missing; they're the standard duplex-troubleshooting views **Done (milestone 6).** Test: `duplex.cjs`.
+  - `clear counters fa0/1` should ask "Clear "show interface" counters on this interface [confirm]" **Done (milestone 6).** Test: `duplex.cjs`.
+  - "Last clearing" shows the clock time instead of time elapsed **Done (milestone 6).** hh:mm:ss since the clear, on the engine clock. Test: `duplex.cjs`.
+  - the CDP mismatch warning should repeat every 60 s **Done (milestone 6).** Test: `duplex.cjs` (on a router-to-router link; a PC NIC sends no CDP).
+  - `show interfaces status` should right-align Duplex and Speed **Done (milestone 6).** Test: `switching.cjs`.
+  - Gig ports say "media type is 10/100BaseTX" **Done (milestone 6).** A switch Gig port is 10/100/1000BaseTX (routers stay RJ45). Test: `switching.cjs`.
+  - an ARP that gets no reply should still flood the VLAN and teach switches the sender's MAC **Done (milestone 6).** The trace shows the flood and "nobody answered". Test: `switching.cjs`.
+  - the storm description names switches that aren't in the loop, and the map animates a link that doesn't exist **Done (milestone 6).** The storm is the loop itself, from where the two paths of the broadcast split, in cabled order. Test: `switching.cjs`.
 - **OSPF show commands:**
-  - `show ip ospf` / `show ip protocols` count areas from `network` statements only, missing `ip ospf 1 area 0`
-  - areas should be listed in number order
-  - `show ip protocols` should say "It is an area border router"
-  - `show ip ospf database` is missing (Still owed)
-- **IPv6:** neighbours are always REACH with age 0 (no STALE/DELAY/PROBE, no FE80 entries). IOS usually holds the first IPv6 echo while it resolves the neighbour, so `!!!!!` is often seen first time. Check before changing; if unsure, leave it and note it.
+  - `show ip ospf` / `show ip protocols` count areas from `network` statements only, missing `ip ospf 1 area 0` **Done (milestone 6).** Interface areas count too, and `show ip protocols` lists them under "Routing on Interfaces Configured Explicitly". Test: `ospfarea.cjs`.
+  - areas should be listed in number order **Done (milestone 6).** Test: `ospfarea.cjs`.
+  - `show ip protocols` should say "It is an area border router" **Done (milestone 6).** Test: `ospfarea.cjs`.
+  - `show ip ospf database` is missing (Still owed) **Done (milestone 6).** Not built; on the Still owed list in HANDOFF.md.
+- **IPv6:** neighbours are always REACH with age 0 (no STALE/DELAY/PROBE, no FE80 entries). IOS usually holds the first IPv6 echo while it resolves the neighbour, so `!!!!!` is often seen first time.  **Done (milestone 6).** Checked: IOS queues packets awaiting neighbour resolution (the `ipv6 nd resolution data limit` command sets that queue), so the first IPv6 echo is no longer lost. Entries keep the time they were confirmed: Age in minutes, REACH for 30 seconds (the reachable time), then STALE; each end also learns the other's FE80 link-local address. DELAY and PROBE are not modelled. Test: `ping6.cjs`.Check before changing; if unsure, leave it and note it.
 - **Exam faults:** the `gw` fault uses the gateway +1 without checking that address is free. **Done (milestone 5).** It now picks a free address in the switch's subnet. Test: `exam.cjs`.
 - **Quiz:**
-  - near-duplicate question pairs to merge or vary: 13/29, 4/90, 17/98, 7/69, 8/70, 16/97, 11/104, 3/99, 2/18/101
-  - #75's explanation should say the hang comes from `ip domain-lookup` being on (the default) with no reachable name server
+  - near-duplicate question pairs to merge or vary: 13/29, 4/90, 17/98, 7/69, 8/70, 16/97, 11/104, 3/99, 2/18/101 **Done (milestone 6).** The later question of each pair was rewritten to test something else (TCP handshake, BSSID, Terraform, NTP stratum 16, logging trap warnings, PUT, unique local addresses, the management plane, NETCONF as a southbound protocol); indices kept, and old saved answers to those nine are cleared once on load. Test: `quiz.cjs` (each pair has different answers), `pageflows.cjs` (the one-time clear).
+  - #75's explanation should say the hang comes from `ip domain-lookup` being on (the default) with no reachable name server **Done (milestone 6).** Test: `quiz.cjs`.
 - **Speed:** the Exam sim dialog builds the daily challenge (~240 ms) every time it opens; cache it per day. **Done (milestone 5).** Built once per day.
 
 ---

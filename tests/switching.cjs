@@ -244,6 +244,17 @@ assert.ok(LABS.some(l=>l.title.startsWith('Incident 36')),'incident 36 exists');
   ios(n,'SW1',['configure terminal','interface g0/2','speed 100','end']);assert.equal(stpCalc(n,1).info.SW1.ports['GigabitEthernet0/2'].cost,19);
   const r=solve('Static routing'),R1=r.devs.R1,i=R1.ifs['GigabitEthernet0/1'];ios(r,'R1',['configure terminal','interface g0/1','speed 10','end']);
   assert.equal(ospfCost(R1,i),10,'OSPF cost follows the bandwidth of a forced speed');assert.match(cmd(r,'R1','show interfaces g0/1').text,/BW 10000 Kbit/);}
+// REVIEW-FIXES polish (switching): an unanswered ARP still floods and teaches the switches the sender; a storm names only
+// the switches on the loop, in cabled order; status columns right-aligned; gigabit media type.
+{const n=solve('VLANs and access ports'),SWx=n.devs.SW1;delete SWx.mact;cmd(n,'PC1','ping 192.168.10.99');
+  const ev=(TRACE.f.hops.l2||[]).find(e=>e.lost);assert.ok(ev&&ev.arp&&ev.flood==='PC1','the ARP broadcast is recorded');assert.deepEqual(tab(SWx),[macOf(n.devs.PC1)+' 10 Fa0/1'],'SW1 learned the sender');
+  const st=cmd(n,'SW1','show interfaces status').text;assert.ok(st.includes('a-full  a-100 10/100BaseTX'),st);
+  assert.ok(st.includes('  auto   auto 10/100BaseTX'),'right-aligned like IOS: '+st);
+  assert.ok(cmd(n,'SW1','show interfaces g0/1').text.includes('media type is 10/100/1000BaseTX'));assert.ok(cmd(n,'SW1','show interfaces f0/5').text.includes('media type is 10/100BaseTX'));}
+{const n=build('Spanning tree: root bridge and edge ports');for(const sw of ['SW1','SW2','SW3'])ios(n,sw,['configure terminal','no spanning-tree vlan 1','end']);
+  const T=mkSwitch('SW4');n.devs.SW4=T;link(n,'SW4','g0/1','SW1','f0/3');const p9=mkPC('PC9','192.168.1.50',24);n.devs.PC9=p9;link(n,'PC9','f0','SW4','f0/1');
+  const s=reach(n,p9,ip2n('192.168.1.12')).f.hops.storm;assert.deepEqual([...s.sws].sort(),['SW1','SW2','SW3'],'SW4 is not on the loop');
+  const cabled=(a,b)=>n.links.some(l=>(l.a===a&&l.b===b)||(l.a===b&&l.b===a));const loop=s.sws.concat(s.sws[0]);for(let k=1;k<loop.length;k++)assert.ok(cabled(loop[k-1],loop[k]),loop.join('>'));}
 // REVIEW-FIXES 1: spanning tree off on a dead-end switch (a chain of STP-off switches leading nowhere) used to crash
 // stpCalc, which broke pings, show spanning-tree and the map. The STP switch now sees an edge port there.
 {const n=solve('802.1Q trunking');ios(n,'SW2',['configure terminal','no spanning-tree vlan 10','end']);

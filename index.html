@@ -629,12 +629,13 @@ function ifUp(net,d,i){
 // in and out), and out.edges lists every link the flood reached, which the MAC table and the map's flooding use.
 function l2peers(net,d,i){
   const out=[];out.edges=[];if(i.name.startsWith('Loopback')||!ifUp(net,d,i))return out;
-  const seen=new Set(),blk={};
+  const seen=new Set(),seenPath={},blk={};
+  const loopOf=(a,b)=>{let L=0;while(L<a.length&&L<b.length&&a[L]===b[L])L++;const cyc=a.slice(Math.max(0,L-1)).concat(b.slice(L,-1).reverse());return [...new Set(cyc.filter(n=>net.devs[n].type==='switch'))];};
   const blocking=(sw,vlan,p)=>{let b=blk[vlan];if(!b)b=blk[vlan]=stpBlocked(net,vlan);return b.has(sw.name+'|'+p.name);};
   function flood(sw,vlan,inPort,path,trail){
     if(!sw.vlans[vlan])return;
     // a broadcast arriving at a switch that already flooded it came round a loop: a storm
-    const k=sw.name+'|'+vlan;if(seen.has(k)){if(!out.storm)out.storm={vlan,sws:[...new Set(path.filter(n=>net.devs[n].type==='switch'))]};return;}seen.add(k);
+    const k=sw.name+'|'+vlan;if(seen.has(k)){if(!out.storm)out.storm={vlan,sws:loopOf(seenPath[k],path)};return;}seen.add(k);seenPath[k]=path;
     const svi=sw.ifs['Vlan'+vlan];if(svi&&svi!==i&&!svi.shutdown&&(svi.ip!==null||svi.v6on))out.push({dev:sw,ifc:svi,path,trail});
     for(const p of Object.values(sw.ifs)){
       if(p===inPort||!p.link||p.name.startsWith('Vlan')||p.routed||!ifUp(net,sw,p)||blocking(sw,vlan,p))continue;
@@ -1158,7 +1159,8 @@ function fwd(net,src,pk0){let d=src,inIf=null;const hops=[],pk=Object.assign({},
     const ps=l2peers(net,d,h.ifc);if(ps.storm){if(LIVE)stormLog(net,d,h.ifc,ps.storm);hops.storm=ps.storm;return {ok:false,hops,reason:'Broadcast storm in VLAN '+ps.storm.vlan+': '+ps.storm.sws.join(', ')+' form a loop with no spanning tree'};}let hopIp=h.nh,peer=ps.find(p=>p.ifc.ip===h.nh||hsrpVip(net,p.dev,p.ifc)===h.nh||(p.ifc.nat==='outside'&&p.dev.nat&&p.dev.nat.statics.some(s=>s.global===h.nh)));
     // An exit-interface-only static route ARPs for the destination itself; a router on the segment with a route to it answers (proxy ARP).
     if(!peer&&h.proxy){peer=ps.find(p=>p.dev.type==='router'&&p.ifc.proxyArp!==false&&(x=>!!x&&x.ifc!==p.ifc)(nextHop(net,p.dev,h.nh)));if(peer)hopIp=peer.ifc.ip;}
-    if(!peer)return {ok:false,hops,reason:'Next hop '+n2ip(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links, VLANs and addressing'};
+    if(!peer){if(LIVE&&L2LIVE&&arpPrune(net,d)[h.nh]==null)(hops.l2=hops.l2||[]).push(l2arpLost(net,d,h.ifc,h.nh,ps.edges,hops.path.length-1));
+      return {ok:false,hops,reason:'Next hop '+n2ip(h.nh)+' unreachable on '+shortIf(h.ifc.name)+'; check links, VLANs and addressing'};}
     // Dynamic ARP Inspection: both ends' ARP must pass every switch that inspects their VLAN.
     {const why=daiBlock(net,peer.path,d,h.ifc)||daiBlock(net,peer.path.slice().reverse(),peer.dev,peer.ifc);if(why)return {ok:false,hops,blocked:net.devs[why.sw],reason:why.text};}
     // Switches along the way learn the sender's MAC and flood or forward the frame (switching realism block).
@@ -1408,12 +1410,15 @@ C('priv','clear ip ospf process',e=>{const o=e.d.ospf;if(!o)return;const before=
   before.forEach(n=>e.out('%OSPF-5-ADJCHG: Process '+o.pid+', Nbr '+n2ip(routerId(n.dev))+' on '+n.ifc.name+' from FULL to DOWN, Neighbor Down: Interface down or detached'));
   ospfNeighbors(e.net,e.d).forEach(n=>e.out('%OSPF-5-ADJCHG: Process '+o.pid+', Nbr '+n2ip(routerId(n.dev))+' on '+n.ifc.name+' from LOADING to FULL, Loading Done'));},['router']);
 const passiveList=d=>sortIfs(Object.keys(d.ifs)).filter(n=>isPassive(d,n));
-C(EX,'show ip protocols',e=>{const{net,d,out}=e,o=d.ospf;if(!o)return;const areas=[...new Set(o.networks.map(n=>n.area))];
-  out('*** IP Routing is NSF aware ***','','Routing Protocol is "ospf '+o.pid+'"','  Outgoing update filter list for all interfaces is not set','  Incoming update filter list for all interfaces is not set','  Router ID '+n2ip(routerId(d)),
+// the areas a router is configured in: network statements and interface commands (ip ospf 1 area 0), in number order
+const ospfCfgAreas=d=>{const o=d.ospf;if(!o)return [];return [...new Set([...o.networks.map(n=>n.area),...Object.values(d.ifs).filter(i=>i.ospfArea!=null).map(i=>i.ospfArea)])].sort((a,b)=>a-b);};
+C(EX,'show ip protocols',e=>{const{net,d,out}=e,o=d.ospf;if(!o)return;const areas=ospfCfgAreas(d);
+  out('*** IP Routing is NSF aware ***','','Routing Protocol is "ospf '+o.pid+'"','  Outgoing update filter list for all interfaces is not set','  Incoming update filter list for all interfaces is not set','  Router ID '+n2ip(routerId(d)),...(ospfIsAbr(net,d)?['  It is an area border router']:[]),
     '  Number of areas in this router is '+areas.length+'. '+areas.length+' normal 0 stub 0 nssa','  Maximum path: 4','  Routing for Networks:',...o.networks.map(n=>'    '+n2ip(n.net)+' '+n2ip(n.wild)+' area '+n.area));
+  for(const a of areas){const ifs=sortIfs(Object.keys(d.ifs)).filter(n=>d.ifs[n].ospfArea===a);if(ifs.length)out('  Routing on Interfaces Configured Explicitly (Area '+a+'):',...ifs.map(n=>'    '+n));}
   const pl=passiveList(d);if(pl.length)out('  Passive Interface(s):',...pl.map(n=>'    '+n));
   out('  Routing Information Sources:','    Gateway         Distance      Last Update',...[...new Set(ospfNeighbors(net,d).map(n=>routerId(n.dev)))].map(r=>'    '+pad(n2ip(r),16)+pad('110',14)+'00:01:12'),'  Distance: (default is 110)');},['router']);
-C(EX,'show ip ospf',e=>{const{net,d,out}=e,o=d.ospf;if(!o)return out('%OSPF: Router process not running');const areas=[...new Set(o.networks.map(n=>n.area))];
+C(EX,'show ip ospf',e=>{const{net,d,out}=e,o=d.ospf;if(!o)return out('%OSPF: Router process not running');const areas=ospfCfgAreas(d);
   out(' Routing Process "ospf '+o.pid+'" with ID '+n2ip(routerId(d)),' Supports only single TOS(TOS0) routes',...(ospfIsAbr(net,d)?[' It is an area border router']:[]),' Reference bandwidth unit is 100 mbps',' Number of areas in this router is '+areas.length+'. '+areas.length+' normal 0 stub 0 nssa');
   areas.forEach(a=>out('    Area '+(a===0?'BACKBONE(0)':a),'        Number of interfaces in this area is '+ospfIfs(net,d).filter(x=>x.area===a).length));},['router']);
 
@@ -2802,7 +2807,7 @@ Cn(EX,'show interfaces status <rest?>',e=>{const{net,d,out}=e,err=/^err/i.test((
   out(err?'Port      Name               Status       Reason               Err-disabled Vlans':'Port      Name               Status       Vlan       Duplex  Speed Type');
   for(const n of sortIfs(Object.keys(d.ifs))){const i=d.ifs[n];if(/^(Vlan|Loop)/.test(n)||(err&&!i.errdis))continue;const up=ifUp(net,d,i),fe=n.startsWith('Fast');
     const st=i.errdis?'err-disabled':i.shutdown?'disabled':up?'connected':'notconnect';
-    out(err?pad(shortIf(n),10)+pad((i.desc||'').slice(0,18),19)+pad(st,13)+i.errdis:pad(shortIf(n),10)+pad((i.desc||'').slice(0,18),19)+pad(st,13)+pad(i.routed?'routed':i.mode==='trunk'?'trunk':i.accessVlan,11)+pad(up?'a-full':'auto',8)+pad(up?(fe?'a-100':'a-1000'):'auto',7)+(n.startsWith('Port')?'':fe?'10/100BaseTX':'10/100/1000BaseTX'));}},['switch'],true);
+    out(err?pad(shortIf(n),10)+pad((i.desc||'').slice(0,18),19)+pad(st,13)+i.errdis:pad(shortIf(n),10)+pad((i.desc||'').slice(0,18),19)+pad(st,13)+pad(i.routed?'routed':i.mode==='trunk'?'trunk':i.accessVlan,11)+(up?'a-full':'auto').padStart(6)+' '+(up?(fe?'a-100':'a-1000'):'auto').padStart(6)+' '+(n.startsWith('Port')?'':fe?'10/100BaseTX':'10/100/1000BaseTX'));}},['switch'],true);
 Object.assign(WHYC,{
 'show interfaces status <rest?>':'One line per switch port: description, status (connected, notconnect, disabled, err-disabled), VLAN, duplex and speed. Add err-disabled to list only those ports and why.',
 'ip ospf hello-interval <n>':'How often this interface sends OSPF hellos. Neighbors must use the same hello and dead intervals or they never become adjacent.',
@@ -3483,7 +3488,8 @@ const bwOf=i=>i.bw||(i.speed?+i.speed*1000:0)||(i.name.startsWith('Fast')?100000
     const T=['  MTU '+(lo?1514:1500)+' bytes, BW '+bwOf(i)+' Kbit/sec, DLY '+(lo?5000:i.name.startsWith('Fast')?100:10)+' usec,','     reliability 255/255, txload 1/255, rxload 1/255',
       '  Encapsulation '+(sub&&i.dot1q!=null?'802.1Q Virtual LAN, Vlan ID  '+i.dot1q+'.':'ARPA, loopback not set'),'  Keepalive set (10 sec)'];
     if(physIf(i)){const st=linkSettle(net,d,i),sp=st.speed,dx=st.duplex==='half'?'Half':'Full';
-      T.push(!up?'  Auto-duplex, Auto-speed, media type is '+(d.type==='router'?'RJ45':'10/100BaseTX'):d.type==='router'?'  '+dx+' Duplex, '+(sp==='1000'?'1Gbps':sp+'Mbps')+', media type is RJ45':'  '+dx+'-duplex, '+sp+'Mb/s, media type is 10/100BaseTX');T.push(...cntLines(i));}
+      const media=d.type==='router'?'RJ45':i.name.startsWith('Gig')?'10/100/1000BaseTX':'10/100BaseTX';
+      T.push(!up?'  Auto-duplex, Auto-speed, media type is '+media:d.type==='router'?'  '+dx+' Duplex, '+(sp==='1000'?'1Gbps':sp+'Mbps')+', media type is RJ45':'  '+dx+'-duplex, '+sp+'Mb/s, media type is '+media);T.push(...cntLines(i));}
     else if(svi||lo)void 0;return T;};
   for(const l of L){const m=/^(\S+) is (up|down|administratively down), line protocol is/.exec(l);
     if(m){R.push(...tail(cur));cur=d.ifs[m[1]];R.push(l);if(cur){const lo=cur.name.startsWith('Loopback'),svi=cur.name.startsWith('Vlan');
@@ -3624,6 +3630,11 @@ function l2frame(net,d,ifc,peer,hopIp,at,edges,nd){
       ev.sw.push({sw:t.sw,vlan:t.vlan,out:hit?hit.ifn:null,known:!!hit});}
   }
   return ev;}
+// An ARP request that nobody answers: the broadcast still floods the VLAN and every switch it reaches learns the sender.
+function l2arpLost(net,d,ifc,hopIp,edges,at){const srcMac=macTx(net,d,ifc),ev={at,seg:[d.name],from:d.name,to:null,nh:hopIp,srcIp:ifc.ip,srcMac,dstMac:'ffff.ffff.ffff',arp:true,lost:true,flood:d.name,sw:[],edges:[]};
+  const r=[],q=[d.name],been=new Set([d.name]);while(q.length){const x=q.shift();for(const e of edges){if(e.from!==x)continue;r.push(e);if(!e.blocked&&!been.has(e.to)){been.add(e.to);q.push(e.to);}}}
+  for(const e of r)if(!e.blocked&&e.vlan!=null&&net.devs[e.to].type==='switch'){macLearn(net.devs[e.to],e.vlan,e.toPort,srcMac);ev.sw.push({sw:e.to,vlan:e.vlan,out:null,inp:e.toPort,known:false,lost:true});}
+  ev.edges=r.map(e=>[e.from,e.to,!!e.blocked]);return ev;}
 // A DHCP exchange: the discover is a broadcast from the client; the offer comes back along one path from the server or relay.
 {const dr0=dhcpRenew;dhcpRenew=function(net,pc){const learn=LIVE&&L2LIVE,c=learn?dhcpCandidates(net,pc)[0]:null,o=dr0(net,pc);
   if(o&&c&&c.p){const ps=l2peers(net,pc,nic(pc)),mine=macOf(pc),ans=c.p,ansMac=macTx(net,ans.dev,ans.ifc);
@@ -4017,7 +4028,8 @@ function duplexMismatches(net,d){if(d.type==='pc'||d.cdp===false)return [];const
   return r;}
 {const ex0=execLine;execLine=function(net,d,s,line){const devs=Object.values(net.devs).filter(x=>x.type!=='pc'),before=new Map(devs.map(x=>[x,new Set(duplexMismatches(net,x))]));
   const out=ex0(net,d,s,line);
-  for(const x of devs){const b=before.get(x);for(const m of duplexMismatches(net,x))if(!b.has(m)){if(x===d)out.push(m);else logEvent(net,x,m);}}
+  const L=net.dupLog||(net.dupLog={}),now=simNow();
+  for(const x of devs){const b=before.get(x);for(const m of duplexMismatches(net,x)){const k=x.name+'|'+m;if(b.has(m)&&L[k]!=null&&now-L[k]<60000)continue;if(b.has(m)&&L[k]==null){L[k]=now;continue;}L[k]=now;if(x===d)out.push(m);else logEvent(net,x,m);}}
   return out;};}
 // Counters per physical port: packets and bytes in and out, and the errors a mismatch causes.
 const cntOf=i=>i.cnt||(i.cnt={in:0,inB:0,out:0,outB:0,crc:0,runts:0,late:0,resets:1,cleared:null});
@@ -4035,8 +4047,9 @@ function trafficCount(net,res,n,bytes){if(!res||!res.hops||!res.hops.l2||n<=0)re
     for(const [a,b] of links){const key=a+'>'+b;if(seen.has(key))continue;seen.add(key);const A=net.devs[a],B=net.devs[b];if(!A||!B)continue;
       const ai=Object.values(A.ifs).find(x=>x.link&&x.link.dev===b),bi=ai&&B.ifs[ai.link.ifn];if(!ai||!bi)continue;
       if(a!==ev.from)portTraffic(net,a,ai.name,'out',n,bytes);portTraffic(net,b,bi.name,'in',n,bytes);}}}
+const cntHms=s=>[Math.floor(s/3600),Math.floor(s/60)%60,s%60].map(x=>String(x).padStart(2,'0')).join(':');
 const cntLines=i=>{const c=cntOf(i),errs=c.crc+c.runts;return ['  Last input '+(c.in?'00:00:0'+(1+c.in%8):'never')+', output '+(c.out?'00:00:0'+(1+c.out%8):'never')+', output hang never',
-  '  Last clearing of "show interface" counters '+(c.cleared||'never'),'  Input queue: 0/75/0/0 (size/max/drops/flushes); Total output drops: 0','  Queueing strategy: fifo','  Output queue: 0/40 (size/max)',
+  '  Last clearing of "show interface" counters '+(c.cleared==null?'never':typeof c.cleared==='number'?cntHms(Math.max(0,Math.floor((simNow()-c.cleared)/1000))):c.cleared),'  Input queue: 0/75/0/0 (size/max/drops/flushes); Total output drops: 0','  Queueing strategy: fifo','  Output queue: 0/40 (size/max)',
   '  5 minute input rate 0 bits/sec, 0 packets/sec','  5 minute output rate 0 bits/sec, 0 packets/sec','     '+c.in+' packets input, '+c.inB+' bytes, 0 no buffer','     Received 0 broadcasts (0 IP multicasts)',
   '     '+c.runts+' runts, 0 giants, 0 throttles','     '+errs+' input errors, '+c.crc+' CRC, 0 frame, 0 overrun, 0 ignored','     0 watchdog, 0 multicast, 0 pause input',
   '     '+c.out+' packets output, '+c.outB+' bytes, 0 underruns','     0 output errors, 0 collisions, '+c.resets+' interface resets','     0 unknown protocol drops','     0 babbles, '+c.late+' late collision, 0 deferred',
@@ -4045,11 +4058,20 @@ const cntLines=i=>{const c=cntOf(i),errs=c.crc+c.runts;return ['  Last input '+(
 {const c=CMDS.find(c=>c.pat.join(' ')==='show interfaces status <rest?>'),f0=c.fn;c.fn=e=>{const buf=[],o=e.out;e.out=(...x)=>buf.push(...x);try{f0(e);}finally{e.out=o;}
   const {d,net}=e;e.out(...buf.map(l=>{const m=/^(\S+) /.exec(l);const n=m&&Object.keys(d.ifs).find(k=>shortIf(k)===m[1]);const i=n&&d.ifs[n];if(!i||!physIf(i)||l.length<56)return l;
     const up=ifUp(net,d,i),s=linkSettle(net,d,i),dx=i.duplex?i.duplex:up?'a-'+s.duplex:'auto',sp=i.speed?i.speed:up?'a-'+s.speed:'auto';
-    return l.slice(0,53)+pad(dx,8)+pad(sp,7)+l.slice(68);}));};}
+    return l.slice(0,53)+dx.padStart(6)+' '+sp.padStart(6)+' '+l.slice(67);}));};}
 Cn('priv','clear counters <rest?>',e=>{const w=(e.args[0]||'').trim();let n=null;if(w){n=parseIf(w);if(!n||!e.d.ifs[n])return e.out(BAD);}
-  ask(e.s,'Clear "show interface" counters on '+(n?n:'all interfaces')+' [confirm]',(a,env)=>{if(/^n/i.test(a.trim()))return;const t=new Date(),st='00:00:'+String(t.getSeconds()).padStart(2,'0');
+  ask(e.s,'Clear "show interface" counters on '+(n?'this interface':'all interfaces')+' [confirm]',(a,env)=>{if(/^n/i.test(a.trim()))return;const st=simNow();
     for(const i of Object.values(e.d.ifs)){if(n&&i.name!==n)continue;if(!physIf(i))continue;const c=cntOf(i);Object.assign(c,{in:0,inB:0,out:0,outB:0,crc:0,runts:0,late:0,cleared:st});}
     env.out((e.d.tsLog?stamp(env.net,e.d):'')+'%CLEAR-5-COUNTERS: Clear counter on '+(n?'interface '+n:'all interfaces')+' by console');});},['router','switch']);
+function ctrRows(d,cols,vals){const ports=sortIfs(Object.keys(d.ifs)).filter(n=>physIf(d.ifs[n])),W=cols.map(c=>Math.max(c[1],c[0].length));
+  return [pad('Port',cols[0][2]||8)+cols.map((c,k)=>c[0].padStart(W[k])).join(' '),...ports.map(n=>{const c=cntOf(d.ifs[n]);return pad(shortIf(n),cols[0][2]||8)+vals(c).map((v,k)=>String(v).padStart(W[k])).join(' ');})];}
+Cn(EX,'show interfaces counters <rest?>',e=>{const a=(e.args[0]||'').trim().toLowerCase(),d=e.d;
+  if(a&&!'errors'.startsWith(a))return e.out(BAD);
+  if(a){e.out('',...ctrRows(d,[['Align-Err',13,8],['FCS-Err',11],['Xmit-Err',11],['Rcv-Err',11],['UnderSize',10],['OutDiscards',12]],c=>[0,c.crc,0,c.crc+c.runts,0,0]),'',
+    ...ctrRows(d,[['Single-Col',12,8],['Multi-Col',10],['Late-Col',10],['Excess-Col',11],['Carri-Sen',10],['Runts',10],['Giants',10]],c=>[0,0,c.late,0,0,c.runts,0]));return;}
+  e.out('',...ctrRows(d,[['InOctets',16,8],['InUcastPkts',14],['InMcastPkts',14],['InBcastPkts',14]],c=>[c.inB,c.in,0,0]),'',
+    ...ctrRows(d,[['OutOctets',16,8],['OutUcastPkts',14],['OutMcastPkts',14],['OutBcastPkts',14]],c=>[c.outB,c.out,0,0]));},['switch'],true);
+Object.assign(WHYC,{'show interfaces counters <rest?>':'Packets and bytes per switch port, or with errors, the error counters per port: FCS errors and runts on the receiving end, late collisions on the half-duplex end of a duplex mismatch.'});
 // an exam fault: both ends of a link forced to different speeds
 EXAM_FAULTS.push({id:'stp',gen(net,rnd){const c=[];for(const d of netDevs(net,['switch']))for(const v of Object.keys(d.vlans).map(Number)){if(v>=1002||stpOff(d,v))continue;const r=stpCalc(net,v);if(r&&r.info[d.name]&&Object.values(r.info[d.name].ports).some(x=>x.role==='Altn'))c.push(v);}
   const v=rpick(rnd,[...new Set(c)]);if(v==null)return null;const sws=netDevs(net,['switch']).filter(d=>d.vlans[v]);const cmds={};for(const d of sws)cmds[d.name]=[...enterCfg(d),'no spanning-tree vlan '+v,'end'];
@@ -4065,12 +4087,14 @@ Object.assign(WHYC,{'clear counters <rest?>':'Zeroes the interface counters so y
 // queues it. A router with no route answers with an ICMPv6 unreachable (U) when it can reach the source.
 // Output carries s.pace, so it plays live in the console like the IPv4 commands.
 function nd6Prune(net,d){const c=d.ndc;if(!c)return {};for(const k in c){const i=d.ifs[c[k].ifn];if(!i||!i.v6on||!ifUp(net,d,i))delete c[k];}return c;}
-function nd6Learn(net,d,addr,ifc,mac){(d.ndc=d.ndc||{})[fmt6(addr)]={ifn:ifc.name,mac,addr};}
+function nd6Learn(net,d,addr,ifc,mac){(d.ndc=d.ndc||{})[fmt6(addr)]={ifn:ifc.name,mac,addr,t:simNow()};}
 // Walk one direction, resolving each hop's next hop: a device whose cache did not hold it drops that echo.
 function nd6Walk(net,start,dst){let d=start,miss=0;for(let t=0;t<20;t++){if(owns6(net,d,dst))break;if(t>0&&!v6router(d))break;const h=nextHop6(net,d,dst);if(!h)break;
   const peer=l2peers(net,d,h.ifc).find(p=>has6(p.dev,p.ifc,h.nh));if(!peer)break;const c=nd6Prune(net,d),k=fmt6(h.nh);if(!c[k]&&d.type!=='pc')miss++;
   nd6Learn(net,d,h.nh,h.ifc,macTx(net,peer.dev,peer.ifc));
   const mine=(h.ifc.v6||[])[0];nd6Learn(net,peer.dev,mine?mine.a:linkLocal(d,h.ifc),peer.ifc,macTx(net,d,h.ifc));
+  // neighbour discovery runs from link-local addresses, so each end also learns the other's FE80 address
+  if(mine)nd6Learn(net,peer.dev,linkLocal(d,h.ifc),peer.ifc,macTx(net,d,h.ifc));if(peer.ifc.v6&&peer.ifc.v6.length&&fmt6(h.nh)!==fmt6(linkLocal(peer.dev,peer.ifc)))nd6Learn(net,d,linkLocal(peer.dev,peer.ifc),h.ifc,macTx(net,peer.dev,peer.ifc));
   d=peer.dev;}return miss;}
 function pingRun6(net,src,dst,count){const R=reach6(net,src,dst),f=R.f,r=R.r;
   const drops=nd6Walk(net,src,dst)+(f.ok&&f.dest!==src&&f.src!=null?nd6Walk(net,f.dest,f.src):0);
@@ -4078,7 +4102,8 @@ function pingRun6(net,src,dst,count){const R=reach6(net,src,dst),f=R.f,r=R.r;
   let mode='.',from=null;if(R.ok)mode='!';
   else if(!f.ok&&f.hops.length&&f.src!=null){const X=net.devs[f.hops.path[f.hops.path.length-1]];if(X&&X!==src&&/^No IPv6 route/.test(f.reason||'')&&pq(net,()=>fwd6(net,X,f.src)).ok){mode='U';from=f.hops[f.hops.length-1];}}
   const routers=Math.max(0,f.hops.length-1),out=[];
-  for(let k=0;k<count;k++){if(mode==='!'&&k<drops){out.push({c:'.'});continue;}
+  // (IOS and Windows queue the echo while the neighbour resolves, so unlike IPv4's ARP the first echo is not lost)
+  for(let k=0;k<count;k++){
     if(mode==='!'){const x=pingRng(src);out.push({c:'!',rtt:routers+(x<.55?0:x<.88?1:2)});}
     else if(mode==='U')out.push({c:src.type==='pc'||k%2===0?'U':'.',from});else out.push({c:'.'});}
   return {R,f,r,res:out};}
@@ -4127,7 +4152,8 @@ Cn(EX,'traceroute ipv6 <ip6>',e=>iosTrace6(e,e.args[0]),['router','switch'],true
 Cn(EX,'ping <ip6> <rest>',e=>{const o=pingOpts(e.args[1],false);if(o.bad||o.source)return e.out(BAD);iosPing6(e,e.args[0],o.count,o.size);},['router','switch'],true);
 Cn('pc','ping <ip6> <rest>',e=>{const o=pingOpts(e.args[1],true);if(o.bad){e.out('Bad option. Use: ping [-n count] [-l size] address');return;}winPing6(e,e.args[0],o.count,o.size);},null,true);
 Cn(EX,'show ipv6 neighbors',e=>{const c=nd6Prune(e.net,e.d),rows=Object.values(c).sort((x,y)=>x.ifn<y.ifn?-1:1);
-  e.out('IPv6 Address                              Age Link-layer Addr State Interface',...rows.map(x=>pad(fmt6(x.addr),42)+'  0 '+pad(x.mac,16)+pad('REACH',6)+shortIf(x.ifn)));},['router','switch']);
+  const now=simNow(),age=x=>Math.max(0,Math.floor((now-(x.t||now))/60000)),state=x=>now-(x.t||now)<30000?'REACH':'STALE';
+  e.out('IPv6 Address                              Age Link-layer Addr State Interface',...rows.map(x=>pad(fmt6(x.addr),42)+String(age(x)).padStart(3)+' '+pad(x.mac,16)+pad(state(x),6)+shortIf(x.ifn)));},['router','switch']);
 Cn('priv','clear ipv6 neighbors',e=>{e.d.ndc={};},['router','switch']);
 Object.assign(KWHELP,{neighbors:'Show IPv6 neighbor cache entries'});
 Object.assign(WHYC,{'show ipv6 neighbors':'The IPv6 equivalent of show ip arp: which link-layer (MAC) address each neighbour resolved to, learned through Neighbor Discovery. An entry missing for the next hop explains a lost first echo.',
@@ -4167,6 +4193,8 @@ const HINT='? commands · Tab complete · ↑↓ history · Ctrl+Z end · Ctrl+L
 const MODE={user:'User EXEC',priv:'Privileged EXEC',config:'Global configuration',if:'Interface configuration',vlan:'VLAN configuration',line:'Line configuration',ospf:'OSPF configuration',acl:'ACL configuration',dhcp:'DHCP pool configuration',pc:'Host console'};
 let cur=null,progress={},drafts={},lastLab=0,fxToken=0,quizIndex=0,quizAnswer=null;
 try{const p=JSON.parse(localStorage.getItem('ccna-bench-v2')||'{}');if(p&&typeof p==='object')progress=p;}catch(e){}
+// Theory questions 29, 69, 70, 90, 97, 98, 99, 101 and 104 were rewritten (review, 9 Oct): old answers to them no longer apply.
+try{if(progress.quiz&&(progress.quizRev||1)<2){for(const k of [29,69,70,90,97,98,99,101,104])delete progress.quiz[k];progress.quizRev=2;localStorage.setItem('ccna-bench-v2',JSON.stringify(progress));}}catch(e){}
 try{const p=JSON.parse(localStorage.getItem('lab4net-workspace-v1')||'{}');if(p&&typeof p.drafts==='object')drafts=p.drafts;lastLab=Number.isInteger(p.lastLab)?p.lastLab:0;}catch(e){}
 function persist(){try{localStorage.setItem('ccna-bench-v2',JSON.stringify(progress));localStorage.setItem('lab4net-workspace-v1',JSON.stringify({drafts,lastLab}));$('saveStatus').textContent='Saved on this browser';}catch(e){$('saveStatus').textContent='Storage unavailable · Export to keep work';}}
 function saveWork(){if(cur?.view==='lab'){drafts[cur.lab.title]={journal:cur.journal,tasks:Array.from({length:cur.lab.tasks.length},(_,i)=>!!cur.tasks[i])};if(!cur.lab.exam)lastLab=cur.idx;}persist();}
@@ -4307,7 +4335,7 @@ const QUIZ=[
   ['Network fundamentals','Which of these is a private IPv4 range?',['172.16.0.0/12','172.32.0.0/12','192.169.0.0/16','11.0.0.0/8'],0,'The RFC 1918 private ranges are 10.0.0.0/8, 172.16.0.0/12 (172.16 to 172.31) and 192.168.0.0/16. They are not routed on the internet, which is why NAT exists.'],
   ['IPv6','What is a solicited-node multicast address used for?',['Neighbor discovery, in place of ARP broadcasts','Router advertisements only','Reaching every host on the internet','Relaying DHCPv6'],0,'Each unicast address joins FF02::1:FF plus its last 24 bits. A neighbor solicitation goes only to that group, so only the host with the matching address bothers to process it.'],
   ["Network fundamentals", "Which OSI layer does a switch use to make its forwarding decision?", ["Layer 3, by destination IP address", "Layer 2, by destination MAC address", "Layer 4, by destination port", "Layer 1, by the port the frame arrived on"], 1, "A switch reads the destination MAC address of each frame and looks it up in its MAC address table. Routers decide at Layer 3, by IP address."],
-  ["Network fundamentals", "Which protocol provides reliable, ordered delivery with acknowledgements and retransmission?", ["UDP", "ICMP", "TCP", "ARP"], 2, "TCP numbers segments, acknowledges them and retransmits what is lost. UDP is connectionless and leaves reliability to the application, which is why voice and DNS use it."],
+  ["Network fundamentals", "Which messages open a TCP connection, in order?", ["SYN, ACK, FIN", "HELLO, OFFER, ACK", "SYN, SYN-ACK, ACK", "ACK, SYN, RST"], 2, "The client sends SYN, the server answers SYN-ACK and the client confirms with ACK; only then does data flow. FIN closes a connection and RST aborts one."],
   ["Network fundamentals", "A host needs the MAC address of 192.168.1.1, which is on its own subnet. What does it send?", ["A DHCP discover", "An ICMP echo request to 192.168.1.1", "A DNS query for 192.168.1.1", "An ARP request, broadcast to FFFF.FFFF.FFFF"], 3, "ARP maps an IPv4 address to a MAC address on the local segment. The request is a broadcast; only the owner of the address replies, by unicast."],
   ["Network fundamentals", "Which cable is used between a PC and a switch, and what is the maximum length for copper Ethernet?", ["Crossover, 100 m", "Straight-through, 100 m", "Straight-through, 1000 m", "Rollover, 100 m"], 1, "Unlike devices (PC to switch) use a straight-through cable; the TIA/EIA limit for copper twisted pair is 100 m including patch leads. Most modern ports also auto-MDIX, so either cable works."],
   ["Network fundamentals", "What is the broadcast address of 10.1.4.0/22?", ["10.1.3.255", "10.1.4.255", "10.1.7.255", "10.1.5.255"], 2, "A /22 covers four /24 blocks: 10.1.4.0 to 10.1.7.255. The last address, 10.1.7.255, is the broadcast."],
@@ -4347,13 +4375,13 @@ const QUIZ=[
   ["IP services", "A DHCP server sits in another subnet. What lets clients reach it?", ["A static route on the client", "ip dhcp excluded-address", "A trunk to the server", "ip helper-address on the clients' router interface"], 3, "Broadcasts do not cross routers. ip helper-address makes the router relay the DHCP broadcast as a unicast to the server, with the relay interface's address as giaddr so the server picks the right pool."],
   ["IP services", "What does PAT (NAT overload) use to tell inside hosts apart behind one public address?", ["Different MAC addresses", "Different source port numbers", "Different TTLs", "Different VLAN tags"], 1, "Port Address Translation rewrites the source port as well as the address, so thousands of inside hosts can share one global address."],
   ["IP services", "Which NAT type maps one inside local address permanently to one inside global address?", ["Dynamic NAT", "PAT", "Static NAT", "Policy NAT"], 2, "Static NAT is a fixed one-to-one mapping, used for servers that must be reachable from outside. Dynamic NAT takes addresses from a pool; PAT shares one."],
-  ["IP services", "Why should NTP be configured on network devices?", ["It is required for OSPF", "It speeds up DNS", "It encrypts syslog", "It keeps clocks in sync so logs and certificates line up"], 3, "Accurate time makes log timestamps comparable across devices and keeps time-based features (certificates, scheduling, DHCP leases) honest. NTP uses UDP 123."],
-  ["IP services", "Which syslog severity level is the most severe?", ["5 notifications", "0 emergencies", "7 debugging", "3 errors"], 1, "Levels run from 0 emergencies to 7 debugging. logging trap 4 sends warnings and anything more severe (0 to 4)."],
+  ["IP services", "Which NTP stratum means a device is not synchronised?", ["16", "0", "1", "2"], 0, "Stratum is the distance from a reference clock: a server attached to one is stratum 1 and each hop adds 1. Stratum 16 means unsynchronised. NTP uses UDP 123."],
+  ["IP services", "Which severities does logging trap warnings send to the syslog server?", ["Only 4", "4 to 7", "0 to 3", "0 to 4"], 3, "Warnings is level 4, and a level includes everything more severe, so 0 (emergencies) to 4 (warnings) are sent. Lower numbers are more severe."],
   ["IP services", "SNMP: which version adds authentication and encryption?", ["SNMPv1", "SNMPv2c", "SNMPv3", "SNMPv4"], 2, "v1 and v2c use plain-text community strings. v3 adds users, authentication (HMAC) and privacy (encryption)."],
   ["IP services", "What does a QoS marking of DSCP EF (46) usually identify?", ["Scavenger traffic", "Routing protocol updates", "Bulk file transfers", "Voice traffic needing low delay and jitter"], 3, "Expedited Forwarding is the standard marking for voice. Video and signalling use AF classes; best effort is 0."],
   ["IP services", "Which transfer protocol moves an IOS image with no authentication and over UDP?", ["SCP", "TFTP", "HTTP", "FTP"], 1, "TFTP uses UDP 69, no logins and no directory listing, which is why it is used for images and configs on a trusted LAN. FTP uses TCP 21 (control) and 20 (data)."],
   ["IP services", "Which QoS tool drops packets selectively before a queue fills, to avoid TCP global synchronisation?", ["Policing", "Shaping", "WRED", "Marking"], 2, "Weighted Random Early Detection discards some packets early as the queue grows. Policing drops or re-marks above a rate; shaping buffers to smooth traffic."],
-  ["IP services", "Which command on a router makes it answer DNS-style name lookups for its own ping and telnet commands using a server?", ["ip domain-lookup only", "ip host", "ip dns-server", "ip name-server"], 3, "ip name-server points the router at a DNS server; ip domain-lookup (on by default) allows lookups; ip host adds a static name. Without any of these, a mistyped command tries DNS and hangs."],
+  ["IP services", "Which command on a router makes it answer DNS-style name lookups for its own ping and telnet commands using a server?", ["ip domain-lookup only", "ip host", "ip dns-server", "ip name-server"], 3, "ip name-server points the router at a DNS server and ip host adds a static name. ip domain-lookup is on by default, so with no reachable name server a mistyped command is taken for a host name and the router hangs while it tries to resolve it; no ip domain-lookup stops that."],
   ["Security", "What is the difference between authentication and authorization?", ["There is none", "Authentication proves who you are; authorization decides what you may do", "Authorization proves who you are; authentication decides what you may do", "Authentication is for devices, authorization for users"], 1, "AAA: authentication (identity), authorization (permitted actions) and accounting (what was done). RADIUS and TACACS+ carry them to a central server."],
   ["Security", "Which AAA protocol encrypts the whole packet and separates authentication from authorization?", ["LDAP", "RADIUS", "TACACS+", "Kerberos"], 2, "TACACS+ uses TCP 49, encrypts the full body and lets you authorise individual commands. RADIUS (UDP 1812/1813) encrypts only the password and combines authentication and authorization."],
   ["Security", "Why is enable secret preferred over enable password?", ["It allows longer passwords", "It works over Telnet", "It is shorter", "It is stored as a hash instead of clear text or reversible type 7"], 3, "enable secret stores an MD5 (type 5) or better hash; enable password is clear text, or type 7, which is trivially reversed. When both exist, the secret is used."],
@@ -4368,21 +4396,21 @@ const QUIZ=[
   ["Security", "What does switchport port-security mac-address sticky do?", ["Allows only the first MAC for one minute", "Enables DAI", "Blocks all MAC addresses", "Learns the connected MAC dynamically and writes it into the running configuration"], 3, "Sticky learning turns dynamically learned addresses into configuration lines, so after a save they survive a reload. Dynamic secure addresses alone are lost on reload."],
   ["Security", "Which password type in a running-config is a strong hash?", ["Type 5", "Type 9 (scrypt)", "Type 0", "Type 7"], 1, "Type 0 is clear text, type 7 reversible, type 5 MD5 (acceptable but dated). Type 8 (PBKDF2-SHA256) and type 9 (scrypt) are the current strong options."],
   ["Wireless", "Which 802.11 band offers more non-overlapping channels and less interference?", ["60 GHz only", "2.4 GHz", "5 GHz", "900 MHz"], 2, "2.4 GHz has only three non-overlapping channels (1, 6, 11) and shares spectrum with microwaves and Bluetooth. 5 GHz offers many more channels; 6 GHz (Wi-Fi 6E) adds more again."],
-  ["Wireless", "What is an SSID?", ["The encryption key", "The channel number", "The AP's MAC address", "The network name a WLAN advertises"], 3, "The Service Set Identifier is the human-readable WLAN name. A BSSID is the MAC address of an AP's radio for that WLAN."],
+  ["Wireless", "What is a BSSID?", ["The network name a WLAN advertises", "The MAC address of the AP radio serving that WLAN", "The WLAN encryption key", "The channel the WLAN uses"], 1, "The BSSID is the MAC address of the access point radio that serves a basic service set, so one SSID broadcast by several APs has several BSSIDs. The SSID is the human-readable name."],
   ["Wireless", "In a lightweight (controller-based) deployment, which protocol joins an AP to the WLC?", ["CDP", "CAPWAP", "LLDP", "RADIUS"], 1, "CAPWAP tunnels control (UDP 5246) and data (UDP 5247) between the AP and the wireless LAN controller, which holds the configuration and makes the roaming decisions."],
   ["Wireless", "Which AP mode serves clients while the controller manages it?", ["Sniffer", "Rogue detector", "Local", "Monitor"], 2, "Local mode is the normal client-serving mode on a lightweight AP. Monitor, sniffer and rogue-detector modes do not serve clients."],
   ["Wireless", "Which WLAN security option uses a pre-shared key with AES encryption?", ["WPA2-Enterprise", "Open", "WEP", "WPA2-Personal"], 3, "WPA2-Personal (PSK) uses a shared passphrase and AES-CCMP. WPA2-Enterprise authenticates each user through 802.1X and a RADIUS server. WEP is broken."],
   ["Wireless", "What does WPA3 add over WPA2-Personal?", ["Open networks only", "SAE (Simultaneous Authentication of Equals) instead of the PSK four-way handshake, resisting offline dictionary attacks", "TKIP encryption", "A shorter passphrase"], 1, "WPA3-Personal replaces the PSK exchange with SAE, so a captured handshake cannot be brute-forced offline. It also adds forward secrecy and protected management frames."],
   ["Wireless", "Which switch port configuration suits a lightweight AP in local mode?", ["A port in the native VLAN only, shut down", "A trunk carrying every client VLAN", "An access port in the management VLAN", "A routed port"], 2, "The AP sends client traffic to the controller inside the CAPWAP tunnel, so its switch port only needs the management VLAN. An autonomous AP, by contrast, needs a trunk."],
   ["Wireless", "Which Wi-Fi component is defined by the WLC rather than the AP in a centralised design?", ["The client's MAC address", "The PoE budget", "The radio's antenna", "The WLAN's SSID, security and VLAN mapping"], 3, "The controller holds the WLAN definitions and pushes them to every AP, so a change is made once. RF settings can also be managed centrally (RRM)."],
-  ["Automation", "Which HTTP response code means a REST request succeeded?", ["404", "200", "500", "401"], 1, "2xx is success (200 OK, 201 Created). 4xx is a client error (401 unauthorised, 404 not found), 5xx a server error."],
-  ["Automation", "Which configuration-management tool is agentless and pushes changes over SSH using playbooks in YAML?", ["Puppet", "Chef", "Ansible", "SNMP"], 2, "Ansible needs no agent on the device and uses YAML playbooks. Puppet (manifests) and Chef (recipes, Ruby) traditionally use an agent and a pull model."],
-  ["Automation", "In a controller-based network, what does the data plane do?", ["Manages the controller GUI", "Stores the configuration", "Decides routes", "Forwards packets"], 3, "The data plane forwards frames and packets. The control plane makes forwarding decisions (routing, STP); the management plane configures and monitors. SDN centralises the control plane."],
+  ["Automation", "Which HTTP verb does a REST client use to replace an existing resource?", ["GET", "POST", "DELETE", "PUT"], 3, "CRUD maps to HTTP: Create is POST, Read is GET, Update is PUT (replace) or PATCH (change some fields), Delete is DELETE."],
+  ["Automation", "Which tool is declarative, describes infrastructure in HCL files and keeps a state file?", ["Ansible", "Puppet", "Terraform", "SNMP"], 2, "Terraform describes the end state in HCL; terraform plan shows what would change and terraform apply makes it so, tracked in a state file. Ansible pushes YAML playbooks over SSH."],
+  ["Automation", "Which plane does an administrator use when connecting with SSH or SNMP to configure and monitor a device?", ["Data plane", "Control plane", "Management plane", "Forwarding plane"], 2, "The management plane is how people and tools reach a device: SSH, SNMP, syslog, APIs. The control plane builds the tables (OSPF, STP) and the data plane forwards traffic using them."],
   ["Automation", "Which REST property means that each request carries everything needed and the server keeps no session?", ["Cacheable", "Stateless", "Layered", "Idempotent"], 1, "REST APIs are stateless: authentication and context go in every request (headers, tokens). Idempotent means repeating a request has the same effect as doing it once (GET, PUT, DELETE)."],
-  ["Automation", "What is Cisco DNA Center's northbound REST API used for?", ["Replacing SNMP traps", "Connecting switches to the controller", "Letting applications and scripts automate and query the network through the controller", "Pushing IOS images over TFTP"], 2, "Northbound APIs face applications; southbound protocols (NETCONF, RESTCONF, SSH, SNMP) face the devices."],
+  ["Automation", "Which of these is a southbound protocol a controller can use to configure network devices?", ["NETCONF", "A web dashboard", "A ticketing system REST call", "SMTP"], 0, "NETCONF (and RESTCONF, OpenFlow) program devices from the controller, so they are southbound. Dashboards and ticketing systems are applications using the northbound side."],
   ["Automation", "Which data format uses indentation and dashes for lists and is common in Ansible?", ["CSV", "JSON", "XML", "YAML"], 3, "YAML is whitespace-sensitive and easy to read. JSON uses braces and brackets; XML uses tags. All three carry the same kinds of data."],
   ["Automation", "Compared with a traditional network, what does an SD-Access or SD-WAN controller mainly change?", ["Cables are no longer needed", "Policy and configuration are defined centrally and pushed to devices, instead of box by box", "Routing protocols are removed", "Switches no longer learn MAC addresses"], 1, "Controller-based networking separates intent (defined once, centrally) from device-level configuration, and gives a single place to monitor and automate."],
-  ["IPv6", "Which IPv6 address type is automatically present on every IPv6-enabled interface and starts with FE80::/10?", ["Global unicast", "Unique local", "Link-local", "Multicast"], 2, "A link-local address is required and used for neighbour discovery, routing protocol hellos and the default gateway. It is never routed off the link."],
+  ["IPv6", "Which IPv6 address type is the equivalent of an RFC 1918 private address?", ["Link-local", "Unique local", "Global unicast", "Anycast"], 1, "Unique local addresses (FC00::/7, in practice FD00::/8) are used inside an organisation and are not routed on the internet, much like 10.0.0.0/8. Link-local addresses never leave their own link."],
   ["IPv6", "Which IPv6 mechanism replaces ARP?", ["IGMP", "Stateless DHCP", "DHCPv6", "Neighbor Discovery (NS/NA messages over ICMPv6)"], 3, "Neighbor Solicitation and Neighbor Advertisement messages map an IPv6 address to a MAC, using solicited-node multicast rather than broadcast."],
   ["IPv6", "What does SLAAC let a host do?", ["Register in DNS", "Build its own global address from the router's advertised prefix plus an interface identifier", "Obtain an address from a DHCPv6 server", "Route between links"], 1, "Router Advertisements carry the /64 prefix; the host appends an EUI-64 or random interface ID. DHCPv6 can still supply DNS servers (stateless) or the full address (stateful)."],
   ["IPv6", "Which is the correctly compressed form of 2001:0db8:0000:0000:0000:ff00:0042:8329?", ["2001:db8::ff00::8329", "2001:0db8::ff:42:8329", "2001:db8::ff00:42:8329", "2001:db8:0:0::ff00:42:8329"], 2, "Leading zeros in each group are dropped and the longest run of all-zero groups is replaced by :: once. Only one :: may appear."],
@@ -5059,7 +5087,8 @@ $('studyMap').onclick=studyMap;
     for(const [res,dir] of [[T.f,'Request'],[T.r,'Reply']]){if(!res||!res.hops.l2)continue;
       for(const ev of res.hops.l2)for(const x of ev.sw){
         const sw=who(net,x.sw),v=`VLAN ${x.vlan}`;let what;
-        if(ev.arp)what=`${who(net,ev.from)}'s ${ev.nd?'neighbor solicitation':'ARP broadcast'} for ${esc(ev.nhText||n2ip(ev.nh))} flooded every port · ${who(net,ev.to)}'s reply learned on ${esc(shortIf(x.out||'?'))}`;
+        if(ev.arp&&ev.lost)what=`${who(net,ev.from)}'s ARP broadcast for ${esc(n2ip(ev.nh))} flooded every port · nobody answered · learned ${who(net,ev.from)} on ${esc(shortIf(x.inp||'?'))}`;
+        else if(ev.arp)what=`${who(net,ev.from)}'s ${ev.nd?'neighbor solicitation':'ARP broadcast'} for ${esc(ev.nhText||n2ip(ev.nh))} flooded every port · ${who(net,ev.to)}'s reply learned on ${esc(shortIf(x.out||'?'))}`;
         else if(x.known)what=x.out==='CPU'?`for the switch itself (${esc(ev.dstMac)})`:`${esc(ev.dstMac)} known · out ${esc(shortIf(x.out))}`;
         else{what=`${esc(ev.dstMac)} unknown · flooded out every port`;flooded=flooded||x.sw;}
         L.push(`<div><b>${esc(dir)}</b> ${sw} · ${v} · ${what}</div>`);}}

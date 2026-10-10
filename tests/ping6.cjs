@@ -1,5 +1,5 @@
-// IPv6 pings and traceroutes play live like IPv4: the neighbour cache loses the first echo on a cold IOS device,
-// Windows queues it and prints no TTL, routers without a route answer U, and show ipv6 neighbors lists what was learned.
+// IPv6 pings and traceroutes play live like IPv4. Unlike ARP, neighbour discovery queues the first echo while it resolves
+// (IOS: ipv6 nd resolution data limit), so even a cold ping is !!!!!; Windows prints no TTL, routers without a route answer U, and show ipv6 neighbors lists what was learned.
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
@@ -26,16 +26,18 @@ assert.equal(r.out[1],'Pinging '+fmt6(target,true)+' with 32 bytes of data:');
 assert.equal(r.out.filter(l=>/^Reply from /.test(l)).length,4,r.text);assert.ok(!/TTL=/.test(r.text),'no TTL for IPv6 replies');
 assert.ok(r.text.includes('Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)'));assert.ok(r.pace&&r.pace.t.some(x=>x&&x.pkt),'plays live');
 assert.ok(pc.ndc&&Object.keys(pc.ndc).length,'the host learned its gateway');
-// IOS: the first echo through a cold router is lost, the next ping is clean; show ipv6 neighbors shows the learned MAC
+// IOS: the first echo is queued while the neighbour resolves, so a cold ping is clean too; show ipv6 neighbors shows
+// the learned MAC, REACH while fresh and STALE after the 30-second reachable time, link-local entries included
 const src=routers.find(x=>x!==tdev&&Object.values(x.ifs).some(i=>(i.v6||[]).length));
 if(src){net=solve(lab.title);const S=net.devs[src.name];const dst=(()=>{for(const i of Object.values(net.devs[tdev.name].ifs))for(const g of i.v6||[])if(reach6(net,S,g.a).ok)return g.a;return null;})();
   if(dst){r=cmd(net,S.name,'ping '+fmt6(dst));assert.equal(r.out[1],'Sending 5, 100-byte ICMP Echos to '+fmt6(dst)+', timeout is 2 seconds:');
-    const b=bang(r);assert.ok(/^\\.{0,3}!{2,5}$/.test(b),'cold neighbour cache: '+b);assert.match(r.text,/Success rate is \\d+ percent/);assert.ok(r.pace);
+    const b=bang(r);assert.equal(b,'!!!!!','cold neighbour cache: the echo waits for neighbour discovery');assert.match(r.text,/Success rate is \\d+ percent/);assert.ok(r.pace);
     const b2=bang(cmd(net,S.name,'ping '+fmt6(dst)));assert.equal(b2,'!!!!!','warm cache');
     const nb=cmd(net,S.name,'show ipv6 neighbors');assert.ok(nb.out[0].startsWith('IPv6 Address'),nb.text);assert.ok(nb.out.length>=2,'at least one neighbour');
-    assert.ok(nb.out.slice(1).every(l=>/REACH (Gi|Fa)/.test(l)),nb.text);
+    assert.ok(nb.out.slice(1).every(l=>/  0 \\S+ +REACH (Gi|Fa)/.test(l)),nb.text);assert.ok(nb.out.some(l=>/^FE80::/.test(l)),'link-local neighbours are listed: '+nb.text);
+    try{SIM_NOW=Date.now()+125000;const st=cmd(net,S.name,'show ipv6 neighbors');assert.ok(st.out.slice(1).every(l=>/  2 \\S+ +STALE /.test(l)),'aged entries are STALE, age in minutes: '+st.text);}finally{SIM_NOW=null;}
     cmd(net,S.name,'clear ipv6 neighbors');assert.equal(cmd(net,S.name,'show ipv6 neighbors').out.length,1);
-    assert.equal(bang(cmd(net,S.name,'ping '+fmt6(dst))).startsWith('.'),true,'cold again after clearing');
+    assert.equal(bang(cmd(net,S.name,'ping '+fmt6(dst))),'!!!!!','still clean after clearing: the echo is queued, not lost');
     // repeat and size options
     r=cmd(net,S.name,'ping '+fmt6(dst)+' repeat 3 size 1500');assert.equal(r.out[1],'Sending 3, 1500-byte ICMP Echos to '+fmt6(dst)+', timeout is 2 seconds:');assert.equal(bang(r).length,3);
     // traceroute

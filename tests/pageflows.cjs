@@ -190,6 +190,19 @@ const fs = require('node:fs');
       await c.close(); done.push('exam UI polish');
     }
 
+    // REVIEW-FIXES polish (quiz): answers saved for the rewritten theory questions are cleared once; others are kept.
+    {
+      const { c, p } = await scenario(0);
+      await p.evaluate(() => { localStorage.setItem('ccna-bench-v2', JSON.stringify({ quiz: { 13: true, 29: true, 90: false, 104: true } })); });
+      await p.reload(); await p.waitForTimeout(400);
+      const q = await p.evaluate(() => JSON.parse(localStorage.getItem('ccna-bench-v2')));
+      assert.deepEqual([q.quiz[13], q.quiz[29], q.quiz[90], q.quiz[104], q.quizRev], [true, undefined, undefined, undefined, 2]);
+      await p.evaluate(() => { const x = JSON.parse(localStorage.getItem('ccna-bench-v2')); x.quiz[29] = true; localStorage.setItem('ccna-bench-v2', JSON.stringify(x)); });
+      await p.reload(); await p.waitForTimeout(300);
+      assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('ccna-bench-v2')).quiz[29]), true, 'cleared only once');
+      await c.close(); done.push('rewritten quiz answers cleared once');
+    }
+
     // REVIEW-FIXES 13: the time's-up card is titled Time's up, not Stage clear.
     {
       const { c, p } = await scenario(0);

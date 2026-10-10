@@ -21,6 +21,10 @@ QUIZ.forEach((q,k)=>{
   const key=text.toLowerCase().replace(/\W+/g,' ').trim();assert.ok(!seen.has(key),'question '+k+': duplicate question');seen.add(key);
 });
 assert.ok(QUIZ.length>=100,'the bank should hold at least 100 questions, has '+QUIZ.length);
+// REVIEW-FIXES polish (quiz): the near-duplicate pairs now test different things, and #75 explains the hang
+{const pairs=[[13,29],[4,90],[17,98],[7,69],[8,70],[16,97],[11,104],[3,99],[18,101]],ans=q=>q[2][q[3]];
+  for(const [a,b] of pairs)assert.notEqual(ans(QUIZ[a]),ans(QUIZ[b]),'questions '+a+' and '+b+' still test the same answer: '+QUIZ[a][1]+' / '+QUIZ[b][1]);
+  assert.match(QUIZ[75][4],/ip domain-lookup is on by default, so with no reachable name server/);}
 // REVIEW-FIXES 27: the PortFast protection question asks for one feature, BPDU guard, and never offers BPDU filter as protection.
 {const q=QUIZ.find(x=>/PortFast access port/.test(x[1]));assert.ok(q,'the PortFast question exists');
   assert.equal(q[2][q[3]],'BPDU guard');assert.ok(!q[2].some(o=>/BPDU guard and BPDU filter/.test(o)));assert.match(q[4],/BPDU filter does the opposite/);}

@@ -52,6 +52,20 @@ go(net,R1,s1,'configure terminal');go(net,R1,s1,'interface g0/1');go(net,R1,s1,'
 go(net,R1,s1,'configure terminal');go(net,R1,s1,'interface g0/1');go(net,R1,s1,'duplex half');go(net,R1,s1,'end');
 st=linkSettle(net,R2,r2);assert.deepEqual([st.duplex,st.farDuplex,st.mismatch],['half','half',false]);
 go(net,R1,s1,'configure terminal');go(net,R1,s1,'interface g0/1');go(net,R1,s1,'no duplex');go(net,R1,s1,'end');
+// REVIEW-FIXES polish: show interfaces counters errors shows the same errors per port (FCS and runts on the receiving
+// full-duplex end, late collisions on the half-duplex end)
+{const sw=solve('VLANs and access ports'),S1=sw.devs.SW1,x={mode:'priv'};execLine(sw,S1,x,'configure terminal');execLine(sw,S1,x,'interface f0/1');execLine(sw,S1,x,'speed 100');execLine(sw,S1,x,'duplex full');execLine(sw,S1,x,'end');
+  execLine(sw,sw.devs.PC1,{mode:'pc'},'ping 192.168.10.12');const ce=execLine(sw,S1,x,'show interfaces counters errors');
+  const f1=ce.find(l=>l.startsWith('Fa0/1 ')),c=S1.ifs['FastEthernet0/1'].cnt;assert.ok(f1&&f1.trim().split(/ +/)[2]===String(c.crc),f1+' / '+JSON.stringify(c));
+  assert.ok(ce.some(l=>/^Port +Single-Col +Multi-Col +Late-Col/.test(l)));assert.ok(execLine(sw,S1,x,'show interfaces counters').some(l=>/^Port +InOctets +InUcastPkts/.test(l)));
+  // the CDP duplex warning repeats every minute while the mismatch lasts, not on every command (CDP runs between the
+  // routers; a PC NIC sends no CDP, so the switch above cannot log one)
+  {const rn=solve('Static routing'),RR=rn.devs.R1,y={mode:'priv'};const first=['configure terminal','interface g0/1','speed 100','duplex full','end'].flatMap(l=>execLine(rn,RR,y,l));
+    assert.ok(first.some(l=>/DUPLEX_MISMATCH/.test(l)),'logged when it starts');assert.ok(!execLine(rn,RR,y,'show clock').some(l=>/DUPLEX_MISMATCH/.test(l)),'not on every command');
+    try{SIM_NOW=Date.now()+61000;assert.ok(execLine(rn,RR,y,'show clock').some(l=>/DUPLEX_MISMATCH/.test(l)),'repeated after a minute');}finally{SIM_NOW=null;}}
+  // clear counters on one interface asks about this interface; Last clearing counts the time since
+  execLine(sw,S1,x,'clear counters f0/1');assert.equal(promptOf(S1,x),'Clear "show interface" counters on this interface [confirm]');execLine(sw,S1,x,'');
+  try{SIM_NOW=Date.now()+65000;assert.ok(/counters 00:01:0[45]/.test(execLine(sw,S1,x,'show interfaces f0/1').find(l=>l.includes('Last clearing'))),'Last clearing shows the time since');}finally{SIM_NOW=null;}}
 // clear counters asks, then zeroes and logs
 r=go(net,R1,s1,'clear counters');assert.equal(promptOf(R1,s1),'Clear "show interface" counters on all interfaces [confirm]');
 r=go(net,R1,s1,'');assert.ok(r.text.includes('%CLEAR-5-COUNTERS: Clear counter on all interfaces by console'));assert.equal(r1.cnt.in,0);assert.equal(r1.cnt.crc,0);
