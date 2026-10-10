@@ -1,5 +1,14 @@
 # Lab4Net changes
 
+## The pop-out guide can no longer hide behind other windows
+
+- The bug: with the guide popped out, its window could end up behind the map or console. The checklist showed no steps, so the step-by-step switch looked broken.
+- Now, whenever the guide is popped out and switched on, the checklist says "The steps are in the pop-out guide window, not here" with a **Bring it to the front** button. With the guide in its own browser window, the button says **Show that window** and focuses it.
+- Switching step-by-step on while the guide is popped out brings the pop-out to the front and flashes its border (the flash is off under reduced motion). It also comes to the front every time it appears, for example after opening another lab.
+- Checked all 77 labs in a browser: every task shows its guide steps, every walkthrough has content, clicking a step fills the console, and campaign, drill, quiz and sandbox open without errors.
+
+Tests: `tests/guidewin.cjs` now buries the pop-out under the other windows and checks the note, the button and the switch bring it back. All Node tests, ui.cjs and guidewin.cjs pass.
+
 ## Campaign button in the top menu
 
 - Campaign (the story mode) now has its own gold button at the start of the top menu: **Campaign · Lab library · Study map · How to use · Trophies**. Before, it was only reachable from the bottom of the lab dropdown or the bottom of the Lab library. The button stays underlined while you're on the stage select.

@@ -22,6 +22,15 @@ const fs = require('node:fs');
     await page.evaluate(() => openLab(LABS.findIndex(l => l.title === 'Static routing'), true));
     await page.locator('#guidePopBtn').click();
     assert.equal(await page.locator('#guideWin').isVisible(), true, 'in-page pop-out first');
+    // a pop-out buried under other windows is pointed to from the checklist and comes to the front on request
+    for (const sel of ['#mapPanel .panel-title', '#console', '#checkWin .panel-title']) await page.locator(sel).first().click({ position: { x: 5, y: 5 } });
+    const onTop = () => page.evaluate(() => { const g = document.getElementById('guideWin').getBoundingClientRect(); const el = document.elementFromPoint(g.left + g.width / 2, g.top + g.height / 2); return !!(el && el.closest('#guideWin')); });
+    assert.equal(await page.locator('.pop-note').count(), 1, 'checklist says where the steps are');
+    await page.locator('#guideShow').click(); await page.waitForTimeout(200);
+    assert.equal(await onTop(), true, 'Bring it to the front');
+    await page.locator('#console').click({ position: { x: 5, y: 5 } });
+    await page.locator('label.gswitch').first().click(); await page.locator('label.gswitch').first().click(); await page.waitForTimeout(200);
+    assert.equal(await onTop(), true, 'switching the guide on raises the pop-out');
     const [pop] = await Promise.all([ctx.waitForEvent('page'), page.locator('#guideExt').click()]);
     pop.on('pageerror', e => errors.push('guide: ' + e.message));
     await pop.waitForFunction(() => document.querySelector('#guideBody .step'), null, { timeout: 8000 });
@@ -50,6 +59,6 @@ const fs = require('node:fs');
     await pop2.locator('#guideClose').click(); await page.waitForTimeout(600);
     assert.equal(await page.evaluate(() => guidePop), false, 'docked');
     assert.deepEqual(errors, []);
-    console.log('PASS guide window: opens, shows the lab, sends steps to the console, follows lab changes, reconnects after reload, falls back when closed, docks.');
+    console.log('PASS guide window: buried pop-out is pointed to and raised, opens, shows the lab, sends steps to the console, follows lab changes, reconnects after reload, falls back when closed, docks.');
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

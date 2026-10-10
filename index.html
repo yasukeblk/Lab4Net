@@ -349,6 +349,10 @@ dialog::backdrop{background:rgba(8,6,20,.72);backdrop-filter:blur(5px)}
 
 /* movable windows + pop-out guide */
 #guideWin .gw-btns{display:flex;gap:8px}
+.pop-note{flex-basis:100%;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;padding:7px 10px;border-left:4px solid var(--go);background:rgba(92,240,138,.1);border-radius:0 8px 8px 0;font-size:14px;color:#d9ffe6}
+.pop-note .small-btn{font-size:13px;padding:3px 10px}
+#guideWin.flash{animation:guideFlash .9s ease-out 2}
+@keyframes guideFlash{0%{box-shadow:var(--lift),0 0 0 4px var(--go),0 0 50px rgba(92,240,138,.8)}100%{box-shadow:var(--lift),0 0 30px rgba(92,240,138,.2)}}
 html.guide-only body>*:not(#guideWin){display:none!important}
 html.guide-only,html.guide-only body{height:100%;overflow:hidden}
 html.guide-only #guideWin{display:flex!important;position:fixed!important;inset:0!important;width:auto!important;height:auto!important;max-width:none!important;max-height:none!important;transform:none!important;border-radius:0;margin:0}
@@ -4187,7 +4191,7 @@ if(/(?:^|&)guide(?:[=&]|$)/.test(location.search.slice(1))){(function(){
   let ch=null;try{ch=new BroadcastChannel('lab4net-guide');}catch(e){}
   const send=m=>{try{if(ch)ch.postMessage(m);}catch(e){}try{if(window.opener&&!window.opener.closed)window.opener.postMessage({l4nGuide:m},'*');}catch(e){}};
   const on=m=>{if(!m)return;if(m.t==='show'){const sc=body.scrollTop;body.innerHTML=m.html;body.scrollTop=m.keep?sc:0;document.title=m.title?m.title+' · guide':'Lab4Net guide';}
-    else if(m.t==='ping')send({t:'hello'});else if(m.t==='close')window.close();};
+    else if(m.t==='ping')send({t:'hello'});else if(m.t==='close')window.close();else if(m.t==='flash'){w.classList.remove('flash');void w.offsetWidth;w.classList.add('flash');}};
   if(ch)ch.onmessage=e=>on(e.data);
   window.addEventListener('message',e=>{if(e.data&&e.data.l4nGuide&&e.source===window.opener)on(e.data.l4nGuide);});
   body.addEventListener('click',e=>{const b=e.target.closest('.step');if(!b)return;send({t:'step',dev:b.dataset.dev,cmd:b.dataset.cmd});b.classList.add('sent');setTimeout(()=>b.classList.remove('sent'),700);});
@@ -4245,12 +4249,12 @@ function renderLabs(){let h='';for(const g of GROUPS)h+=`<optgroup label="${g}">
   $('workspaceTitle').textContent=cur.view==='lab'?cur.lab.title:cur.view==='drill'?'Subnetting drill':'Theory check';}
 function renderBrief(){if(cur.view==='drill')return renderDrill();if(cur.view==='quiz')return renderQuiz();const l=cur.lab,done=cur.tasks.filter(Boolean).length;
   const inc=l.kind==='incident';
-  let h=`<div class="eyebrow">${l.group} <span>${labTag(cur.idx)}</span></div><h2>${inc?l.title.slice(13).replace(/^./,c=>c.toUpperCase()):l.title}</h2>${ccnaTags(l)}<p>${l.brief}</p><div class="lesson-tip${inc?' inc':''}"><b>${inc?'Reproduce → inspect → repair → verify':'Configure → verify → explain'}</b><br>${inc?'This network was working until something changed. Find the evidence, make the smallest repair and keep everything else working.':'Use the tasks as a guide. Grade checks the actual network, independently of your checklist.'}</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><div class="guide-row"><label class="gswitch"><input type="checkbox" id="guideToggle"${guideOn?' checked':''}><span aria-hidden="true"></span>Step-by-step instructions</label><button class="small-btn" id="guidePopBtn" type="button">${guidePop?'Dock guide':'Pop out guide'}</button></div>${clueHtml(l)}<h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details>${stepsHtml(k)}</div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
+  let h=`<div class="eyebrow">${l.group} <span>${labTag(cur.idx)}</span></div><h2>${inc?l.title.slice(13).replace(/^./,c=>c.toUpperCase()):l.title}</h2>${ccnaTags(l)}<p>${l.brief}</p><div class="lesson-tip${inc?' inc':''}"><b>${inc?'Reproduce → inspect → repair → verify':'Configure → verify → explain'}</b><br>${inc?'This network was working until something changed. Find the evidence, make the smallest repair and keep everything else working.':'Use the tasks as a guide. Grade checks the actual network, independently of your checklist.'}</div><details class="addressing" open><summary>Address plan</summary><div class="table-wrap"><table><thead><tr><th>Device</th><th>Interface</th><th>Address</th></tr></thead><tbody>${l.addr.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><div class="guide-row"><label class="gswitch"><input type="checkbox" id="guideToggle"${guideOn?' checked':''}><span aria-hidden="true"></span>Step-by-step instructions</label><button class="small-btn" id="guidePopBtn" type="button">${guidePop?'Dock guide':'Pop out guide'}</button>${guideOn&&guidePop&&(DESK.matches||extAlive)?`<div class="pop-note" role="status"><span>${extAlive?'The steps are in the guide window on your other screen.':'The steps are in the pop-out guide window, not here.'}</span><button class="small-btn" id="guideShow" type="button">${extAlive?'Show that window':'Bring it to the front'}</button></div>`:''}</div>${clueHtml(l)}<h3>Mission checklist <span>${done}/${l.tasks.length}</span></h3><ol class="tasks">${l.tasks.map((t,k)=>`<li class="${cur.tasks[k]?'checked':''}"><label class="task-check"><input type="checkbox" data-task="${k}"${cur.tasks[k]?' checked':''} aria-label="Mark task ${k+1} done"><span>${String(k+1).padStart(2,'0')}</span></label><div>${t}<details><summary>Why this step</summary>${l.why[k]}</details>${stepsHtml(k)}</div></li>`).join('')}</ol><div class="actions"><button class="btn primary" id="bGrade">Grade lab</button><button class="btn" id="bSol" aria-expanded="${cur.showSol}">${cur.showSol?'Hide walkthrough':'Walkthrough'}</button><button class="btn" id="bReset">Start over</button></div><div id="grade" role="status">`;
   if(cur.graded){const ok=cur.graded.filter(g=>g[1]).length,all=ok===cur.graded.length;h+=`<strong class="${all?'done':''}">${all?'✓ Lab complete':`${ok} / ${cur.graded.length} checks passed`}</strong><p>${all?(l.lesson?'<b>Root cause.</b> '+esc(l.lesson):'You built a working network. Try explaining why it works before moving on.'):'Use the failed checks below to narrow your next change. Your work is saved.'}</p><ul>${cur.graded.map((g,k)=>`<li class="${g[1]?'ok':'no'}" style="--i:${k}">${g[0]}</li>`).join('')}</ul>${all?'<button class="btn primary" id="nextLab">Next unpassed lab →</button>':''}`;}
   h+='</div><div id="solution">';
   if(cur.showSol)h+=`<div class="lesson-tip">Read one device at a time, predict what each command changes, then type it yourself. This is one working approach.</div>`+Object.entries(l.solution).map(([d,c])=>`<h3>${d}</h3>`+c.map(x=>`<div class="sol"><code>${x===CR?'⏎ Enter':esc(x)}</code>${whyOf(x)?`<span>${whyOf(x)}</span>`:''}</div>`).join('')).join('');
   {const cut=h.indexOf('<div class="guide-row">'),cb=$('checkBody'),sc=cb.scrollTop;$('brief').innerHTML=h.slice(0,cut);cb.innerHTML=h.slice(cut)+'</div>';cb.scrollTop=sc;}
-  $('guideToggle').onchange=e=>{guideOn=e.target.checked;try{localStorage.setItem('lab4net-guide',guideOn?'1':'0');}catch(x){}const sc=$('brief').scrollTop;renderBrief();$('brief').scrollTop=sc;};$('guidePopBtn').onclick=()=>setGuidePop(!guidePop);
+  $('guideToggle').onchange=e=>{guideOn=e.target.checked;try{localStorage.setItem('lab4net-guide',guideOn?'1':'0');}catch(x){}const sc=$('brief').scrollTop;renderBrief();$('brief').scrollTop=sc;if(guideOn&&guidePop)guideFront(true);};$('guidePopBtn').onclick=()=>setGuidePop(!guidePop);if($('guideShow'))$('guideShow').onclick=()=>guideFront(true);
   $('checkBody').querySelectorAll('[data-task]').forEach(x=>x.onchange=()=>{cur.tasks[+x.dataset.task]=x.checked;saveWork();const scroll=$('brief').scrollTop;renderBrief();$('brief').scrollTop=scroll;});
   $('bGrade').onclick=()=>{cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});if(cur.graded.every(g=>g[1])){progress[l.title]=true;persist();celebrate();}renderLabs();renderBrief();$('grade').scrollIntoView({block:'nearest',behavior:REDUCED?'auto':'smooth'});};
   $('bSol').onclick=()=>{cur.showSol=!cur.showSol;renderBrief();};bindClues();
@@ -4553,6 +4557,11 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
 
 // ---------- movable, resizable, snapping windows (desktop) ----------
 (function(){
+  // The pop-out guide is raised above the other windows whenever it appears, and on request (flash shows where it is).
+  let gWasShown=false;
+  window.guideFront=function(flash){if(extAlive&&extWin&&!extWin.closed){try{extWin.focus();}catch(e){}extSend({t:'flash'});return;}
+    const g=$('guideWin');if(g.hidden)return;const top=Math.max(0,...IDS.map($).map(el=>+el.style.zIndex||0));g.style.zIndex=Math.max(z,top)+1;z=+g.style.zIndex;
+    if(flash){g.classList.remove('flash');void g.offsetWidth;g.classList.add('flash');g.scrollIntoView({block:'nearest'});}};
   const main=document.querySelector('main'),IDS=['brief','checkWin','mapPanel','console','practice','guideWin'],KEY='lab4net-layout-v3',PAD=18,GAP=22,SNAP=12,EDGE=7,MINW=260,MINH=150;
   const CUR={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize',move:'move'};
   let L={},z=5,act=null;try{L=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}
@@ -4571,6 +4580,7 @@ function setGuidePop(on){if(on&&!DESK.matches&&!extAlive){dialog('Step-by-step g
       save();}
     main.classList.add('free');
     for(const el of vis){el.classList.add('fw');setVars(el,S[el.id]);if(el.id==='guideWin'&&!el.style.zIndex)el.style.zIndex=++z;}
+    {const g=$('guideWin'),shown=!g.hidden;if(shown&&!gWasShown)guideFront(false);gWasShown=shown;}
   };
   function hit(e){if(!main.classList.contains('free'))return null;
     const vis=wins().sort((a,b)=>(+b.style.zIndex||0)-(+a.style.zIndex||0)),x=e.clientX,y=e.clientY;
