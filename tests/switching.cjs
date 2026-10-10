@@ -76,20 +76,23 @@ assert.equal(out.out[3],'Vlan    Mac Address       Type        Ports');
 assert.ok(out.out.includes(' All    0100.0ccc.cccc    STATIC      CPU'));
 assert.ok(out.out.includes(' All    ffff.ffff.ffff    STATIC      CPU'));
 assert.ok(out.out.includes('   1    '+pc1+'    DYNAMIC     Fa0/1'),out.text);
-assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 24','20 CPU rows, 2 learned PCs, 2 neighbour switches heard over CDP and BPDUs');
+// REVIEW-FIXES 21: SW1 Gi0/1 (to SW2) is the blocked Altn port, so SW2 is not learned there; SW3 is heard on Gi0/2.
+assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 23','20 CPU rows, 2 learned PCs, 1 neighbour switch heard over CDP and BPDUs on a forwarding port');
+{const S2=net.devs.SW2,S3=net.devs.SW3,m2=macTx(net,S2,S2.ifs[parseIf('g0/1')]),m3=macTx(net,S3,S3.ifs[parseIf('g0/1')]);
+  assert.equal(role(net,'SW1',1,'g0/1'),'Altn');assert.ok(!out.text.includes(m2),'nothing is learned on a blocked port');assert.ok(out.out.includes('   1    '+m3+'    DYNAMIC     Gi0/2'),out.text);}
 out=cmd(net,'SW1','show mac address-table dynamic');
-assert.equal(out.out.length,5+4+1);assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 4');
+assert.equal(out.out.length,5+3+1);assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 3');
 assert.ok(!out.text.includes('CPU'));
 out=cmd(net,'SW1','show mac address-table address '+pc2);assert.ok(out.out.includes('   1    '+pc2+'    DYNAMIC     Gi0/2'));assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 1');
 out=cmd(net,'SW1','show mac address-table interface fa0/1');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 1');assert.ok(out.text.includes(pc1));
 out=cmd(net,'SW1','show mac address-table interface fastethernet 0/1');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 1');
-out=cmd(net,'SW1','show mac address-table vlan 1');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 4');
-out=cmd(net,'SW1','show mac address-table dynamic vlan 1');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 4');
+out=cmd(net,'SW1','show mac address-table vlan 1');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 3');
+out=cmd(net,'SW1','show mac address-table dynamic vlan 1');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 3');
 out=cmd(net,'SW1','show mac address-table vlan 99');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 0');
-out=cmd(net,'SW1','show mac-address-table dynamic');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 4','old spelling works');
-out=cmd(net,'SW1','sh mac add dyn');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 4','abbreviations work');
+out=cmd(net,'SW1','show mac-address-table dynamic');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 3','old spelling works');
+out=cmd(net,'SW1','sh mac add dyn');assert.equal(out.out.at(-1),'Total Mac Addresses for this criterion: 3','abbreviations work');
 out=cmd(net,'SW1','show mac address-table aging-time');assert.deepEqual(out.out,['Global Aging Time:  300','Vlan    Aging Time','----    ----------']);
-out=cmd(net,'SW1','show mac address-table count');assert.ok(out.text.includes('Mac Entries for Vlan 1:')&&out.text.includes('Dynamic Address Count  : 4'),out.text);
+out=cmd(net,'SW1','show mac address-table count');assert.ok(out.text.includes('Mac Entries for Vlan 1:')&&out.text.includes('Dynamic Address Count  : 3'),out.text);
 out=cmd(net,'SW1','show mac address-table bogus');assert.ok(out.out.includes(BAD));
 out=cmd(net,'SW1','show mac address-table vlan 5000');assert.ok(out.out.includes(BAD));
 assert.ok(cmd(net,'SW1','clear mac address-table','priv').text.includes('% Incomplete command.'));
@@ -114,7 +117,7 @@ run=cmd(net,'SW1','show running-config').text;assert.ok(!run.includes('mac addre
 // Entries age out after the aging time with no traffic, and leave at once when their port goes down.
 cmd(net,'PC1','ping 192.168.1.12');assert.equal(tab(net.devs.SW1).length,2);
 net.devs.SW1.macAging=10;for(const e of net.devs.SW1.mact)e.t-=11000;
-assert.equal(cmd(net,'SW1','show mac address-table dynamic').out.at(-1),'Total Mac Addresses for this criterion: 2','only the two neighbour switches remain');
+assert.equal(cmd(net,'SW1','show mac address-table dynamic').out.at(-1),'Total Mac Addresses for this criterion: 1','only the neighbour on the forwarding port (SW3) remains; SW2 is behind the blocked port');
 delete net.devs.SW1.macAging;cmd(net,'PC1','ping 192.168.1.12');assert.equal(tab(net.devs.SW1).length,2);
 ios(net,'SW1',['configure terminal','interface f0/1','shutdown','end']);
 assert.deepEqual(tab(net.devs.SW1),[pc2+' 1 Gi0/2']);
@@ -175,8 +178,9 @@ assert.deepEqual(Array.from(reach(net,net.devs.PC2,ip2n('192.168.20.14')).f.hops
 // ----- Neighbours are known before any traffic: CDP and BPDUs carry their port MACs
 net=build('Spanning tree: root bridge and edge ports');
 const bg=macBackground(net,net.devs.SW1);
-assert.deepEqual(bg.map(r=>shortIf(r.ifn)+'='+r.mac+'@'+r.vlan).sort(),['Gi0/1='+macTx(net,net.devs.SW2,net.devs.SW2.ifs['GigabitEthernet0/1'])+'@1','Gi0/2='+macTx(net,net.devs.SW3,net.devs.SW3.ifs['GigabitEthernet0/1'])+'@1'].sort());
-assert.ok(cmd(net,'SW1','show mac address-table dynamic').out.some(l=>/DYNAMIC +Gi0\\/1$/.test(l)),'a neighbour row shows as DYNAMIC on its port');
+// (SW1 Gi0/1 is the blocked Altn port, so SW2 is not learned through it: REVIEW-FIXES 21)
+assert.deepEqual(bg.map(r=>shortIf(r.ifn)+'='+r.mac+'@'+r.vlan).sort(),['Gi0/2='+macTx(net,net.devs.SW3,net.devs.SW3.ifs['GigabitEthernet0/1'])+'@1']);
+assert.ok(cmd(net,'SW1','show mac address-table dynamic').out.some(l=>/DYNAMIC +Gi0\\/2$/.test(l)),'a neighbour row shows as DYNAMIC on its (forwarding) port');
 assert.equal(macLookup(net,net.devs.SW1,1,bg[0].mac).ifn,bg[0].ifn,'known to the forwarding decision');
 // a router behind a trunk is known in the native VLAN; a frame to it is not flooded
 net=solve('Router-on-a-stick');{const sw=net.devs.SW1,up=Object.values(sw.ifs).find(i=>i.link&&i.link.dev==='R1');assert.ok(macBackground(net,sw).some(r=>r.ifn===up.name&&r.vlan===up.native),'router port MAC in the native VLAN');}
@@ -219,6 +223,27 @@ net=solve('EtherChannel with LACP');assert.equal(reach(net,net.devs.PC1,ip2n('19
 {const lab=LABS.find(l=>l.title==='Spanning tree: root bridge and edge ports'),g=EXAM_FAULTS.find(x=>x.id==='stp'),f=g.gen(solvedNet(lab),seedRng('s'));assert.ok(f&&Object.keys(f.cmds).length===3,'all three switches');
   const n=solvedNet(lab);applyCmds(n,f.cmds);assert.ok(failingChecks(lab,n)>0);}
 assert.ok(LABS.some(l=>l.title.startsWith('Incident 36')),'incident 36 exists');
+// REVIEW-FIXES 22: a topology change flushes the dynamic entries in that VLAN, and a lookup pointing back out of the
+// ingress port counts as unknown, so the trace never says a switch sent a frame out of the port it came in on.
+{const n=build('Spanning tree: root bridge and edge ports');cmd(n,'PC1','ping 192.168.1.12');cmd(n,'PC2','ping 192.168.1.11');
+  assert.ok(tab(n.devs.SW3).length>0&&tab(n.devs.SW2).length>0,'tables learned');
+  ios(n,'SW1',['configure terminal','interface g0/2','shutdown','end']);
+  assert.deepEqual(['SW1','SW2','SW3'].map(x=>tab(n.devs[x]).filter(e=>!e.includes(' Fa0')).length),[0,0,0],'switch-to-switch entries flushed by the topology change');
+  cmd(n,'PC2','ping 192.168.1.11');const ev=TRACE.f.hops.l2[0],seg=ev.seg;
+  for(const x of ev.sw){if(!x.out)continue;const k=seg.indexOf(x.sw),prev=seg[k-1],inp=Object.values(n.devs[x.sw].ifs).find(i=>i.link&&i.link.dev===prev);
+    assert.ok(!inp||inp.name!==x.out,x.sw+' never forwards out of the port the frame came in on ('+x.out+')');}
+  assert.equal(TRACE.ok,true);
+  // a host port going down is not a topology change: the other entries stay
+  const n2=build('Spanning tree: root bridge and edge ports');cmd(n2,'PC1','ping 192.168.1.12');const before=tab(n2.devs.SW3);
+  ios(n2,'SW1',['configure terminal','interface f0/1','shutdown','end']);assert.deepEqual(tab(n2.devs.SW3),before);}
+// REVIEW-FIXES 23: a forced speed changes the spanning-tree cost (both ends) and the bandwidth (show interfaces, OSPF cost).
+{const n=build('Spanning tree: root bridge and edge ports');assert.equal(stpCalc(n,1).info.SW1.ports['GigabitEthernet0/2'].cost,4);
+  ios(n,'SW1',['configure terminal','interface g0/2','speed 10','end']);
+  assert.equal(stpCalc(n,1).info.SW1.ports['GigabitEthernet0/2'].cost,100,'10 Mb/s costs 100');assert.equal(stpCalc(n,1).info.SW3.ports['GigabitEthernet0/1'].cost,100,'the auto end senses 10 Mb/s too');
+  assert.match(cmd(n,'SW1','show interfaces g0/2').text,/BW 10000 Kbit/);
+  ios(n,'SW1',['configure terminal','interface g0/2','speed 100','end']);assert.equal(stpCalc(n,1).info.SW1.ports['GigabitEthernet0/2'].cost,19);
+  const r=solve('Static routing'),R1=r.devs.R1,i=R1.ifs['GigabitEthernet0/1'];ios(r,'R1',['configure terminal','interface g0/1','speed 10','end']);
+  assert.equal(ospfCost(R1,i),10,'OSPF cost follows the bandwidth of a forced speed');assert.match(cmd(r,'R1','show interfaces g0/1').text,/BW 10000 Kbit/);}
 // REVIEW-FIXES 1: spanning tree off on a dead-end switch (a chain of STP-off switches leading nowhere) used to crash
 // stpCalc, which broke pings, show spanning-tree and the map. The STP switch now sees an edge port there.
 {const n=solve('802.1Q trunking');ios(n,'SW2',['configure terminal','no spanning-tree vlan 10','end']);

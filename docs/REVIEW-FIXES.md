@@ -94,19 +94,26 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
    - **Done (milestone 3).** Fixed with item 2 in milestone 1: `replay` checks whether each line answered a masked prompt and keeps it out of history, as live typing does. Test: `pageflows.cjs` (after the reload of the block-for journal, the history holds no password answers). Live typing keeps masked answers out of history (~4146), but replay (~4108) pushes every journal line. Mark password answers in the journal and keep them out of history on replay.
 
 **Switching**
-21. **Blocked ports still learn MAC addresses** (`macBackground`, ~3551). In the spanning-tree lab, SW1 lists SW2's MAC as DYNAMIC on Gi0/1, which is Altn BLK. Skip blocked ports, and only learn BPDU senders when the far port is forwarding.
-22. **MAC entries go stale after a topology change.** Ping both ways, shut SW1 Gi0/2, then ping PC2 → PC1. The trace says SW2 forwarded out the same port the frame came in on. On a spanning-tree topology change, flush dynamic entries (or age them in 15 s), and treat a lookup that points back at the ingress port as unknown.
-23. **Forced speed doesn't change STP cost or BW.** After `speed 10` the STP cost should be 100 (19 at 100 Mb/s) and `show interfaces` should show BW 10000 Kbit (~1292).
-24. **Error counters count the wrong direction** (~3956). After a 4-echo ping the full-duplex end showed "4 packets input, 6 input errors, 4 CRC". CRC and runts count only on received frames; late collisions only on sent frames.
+21. **Blocked ports still learn MAC addresses**
+   - **Done (milestone 4).** `macBackground` skips a port spanning tree blocks in that VLAN, and learns a neighbour switch from its BPDUs only when the far port is forwarding. `switching.cjs` had locked in the bug (SW2 learned on SW1's blocked Gi0/1); its counts were corrected and an explicit check added. (`macBackground`, ~3551). In the spanning-tree lab, SW1 lists SW2's MAC as DYNAMIC on Gi0/1, which is Altn BLK. Skip blocked ports, and only learn BPDU senders when the far port is forwarding.
+22. **MAC entries go stale after a topology change.**
+   - **Done (milestone 4).** A change in the spanning tree between switches (`stpSig`, edge ports excluded) flushes the dynamic entries in that VLAN on every switch after the command (`stpFlush`); a host port going down does not. In `l2frame` a lookup that points back out of the ingress port counts as unknown. Test: `switching.cjs` (the review's repro: no switch forwards out of its ingress port, entries flushed, a host port does not flush). Ping both ways, shut SW1 Gi0/2, then ping PC2 → PC1. The trace says SW2 forwarded out the same port the frame came in on. On a spanning-tree topology change, flush dynamic entries (or age them in 15 s), and treat a lookup that points back at the ingress port as unknown.
+23. **Forced speed doesn't change STP cost or BW.**
+   - **Done (milestone 4).** STP port cost follows the speed the link runs at (100 at 10 Mb/s, 19 at 100, 4 at 1000; 56/12/3 for a two-link bundle), and `bwOf`/`ospfCost` use a forced speed as the bandwidth (`speed 10`: BW 10000 Kbit, OSPF cost 10). Test: `switching.cjs`. After `speed 10` the STP cost should be 100 (19 at 100 Mb/s) and `show interfaces` should show BW 10000 Kbit (~1292).
+24. **Error counters count the wrong direction**
+   - **Done (milestone 4).** CRC errors and runts count only on frames the full-duplex end receives, late collisions only on frames the half-duplex end sends, and each builds up at its own rate (so 4 echoes give 2 CRC and 1 runt, not 4 and 4). Test: `duplex.cjs`. (~3956). After a 4-echo ping the full-duplex end showed "4 packets input, 6 input errors, 4 CRC". CRC and runts count only on received frames; late collisions only on sent frames.
 
 **OSPF**
-25. **An ABR uses inter-area routes from non-backbone areas.** In real OSPF (RFC 2328 §16.2) an ABR uses only the area-0 copies of other areas' routes.
+25. **An ABR uses inter-area routes from non-backbone areas.**
+   - **Done (milestone 4).** An ABR now examines only summaries heard in area 0 (RFC 2328 §16.2), so it also advertises the cost it really uses. Test: `ospfarea.cjs` (the review's two-ABR scenario: `O IA` 102 through area 0, not 3 through area 1; a router inside area 1 still uses the cheaper summary). In real OSPF (RFC 2328 §16.2) an ABR uses only the area-0 copies of other areas' routes.
     - Repro: two ABRs share areas 0 and 1, and the area-0 link between them costs 100. The sim installs `O IA … [110/3]` through area 1. Real IOS gives `[110/101]` through area 0.
     - When an ABR advertises a route into another area, it should use the cost it actually uses itself.
-26. **No log message for an area mismatch** (this is Incident 37's main clue). Real IOS repeatedly logs `%OSPF-4-ERRRCV: Received invalid packet: mismatched area ID from backbone area must be virtual-link but not found from <ip>, <interface>` (or `mismatched area ID` for non-backbone areas). Log it, rate-limited, the same way other syslog messages are.
+26. **No log message for an area mismatch**
+   - **Done (milestone 4).** `%OSPF-4-ERRRCV: Received invalid packet: mismatched area ID …` is logged on both ends: the backbone-virtual-link form where an area-0 hello reaches a non-backbone interface, the plain form otherwise; on the console of the router you typed on, in the log of the other; then at most once a minute (engine clock). Test: `ospfarea.cjs`. (this is Incident 37's main clue). Real IOS repeatedly logs `%OSPF-4-ERRRCV: Received invalid packet: mismatched area ID from backbone area must be virtual-link but not found from <ip>, <interface>` (or `mismatched area ID` for non-backbone areas). Log it, rate-limited, the same way other syslog messages are.
 
 **Quiz**
-27. **Quiz #45 (~4246) is misleading.** It marks "BPDU guard and BPDU filter" as the protection when someone plugs a switch into a PortFast port. BPDU filter set on an interface makes the port ignore BPDUs, which can cause a loop. Reword to ask for a single feature (BPDU guard), or pair BPDU guard with root guard.
+27. **Quiz #45 (~4246) is misleading.**
+   - **Done (milestone 4).** Reworded to ask for one feature: "Which feature err-disables a PortFast access port as soon as a switch is plugged into it?" (BPDU guard); the explanation says why BPDU filter is the wrong answer. Test: `quiz.cjs`. It marks "BPDU guard and BPDU filter" as the protection when someone plugs a switch into a PortFast port. BPDU filter set on an interface makes the port ignore BPDUs, which can cause a loop. Reword to ask for a single feature (BPDU guard), or pair BPDU guard with root guard.
 
 ---
 

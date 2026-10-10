@@ -37,6 +37,10 @@ r=go(net,net.devs.PC1,{mode:'pc'},'ping 192.168.3.10');assert.match(r.text,/Repl
 const c1=r1.cnt,c2=r2.cnt;assert.ok(c1&&c2,'counters exist on both ends');
 assert.ok(c1.crc>0&&c1.runts>0&&c1.late===0,'full end sees CRC and runts: '+JSON.stringify(c1));assert.ok(c2.late>0&&c2.crc===0,'half end sees late collisions: '+JSON.stringify(c2));
 assert.ok(c1.in>0&&c1.out>0&&c2.in>0&&c2.out>0);
+// REVIEW-FIXES 24: errors count on the right frames and at a realistic rate: CRC and runts only on received frames at the
+// full-duplex end (never more errors than frames in), late collisions only on sent frames at the half-duplex end.
+assert.ok(c1.crc+c1.runts<=c1.in&&c1.crc<c1.in,'input errors cannot exceed packets input: '+JSON.stringify(c1));assert.ok(c2.late<=c2.out&&c2.late<c2.out,'late collisions only on sent frames: '+JSON.stringify(c2));
+assert.ok(c1.late===0&&c2.crc===0&&c2.runts===0);
 let sh=go(net,R1,s1,'show interfaces g0/1').text;assert.match(sh,new RegExp(c1.in+' packets input'));assert.match(sh,new RegExp(c1.crc+' CRC'));assert.match(sh,/0 late collision/);
 sh=go(net,R2,s2,'show interfaces g0/0').text;assert.match(sh,new RegExp(c2.late+' late collision'));
 // matching the far end removes the mismatch; no new warning

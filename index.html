@@ -711,8 +711,12 @@ function ospfRoutes(net,d){if(!d.ospf)return [];
     memo.set(key,best);return best;};
   const own=new Set(connected(net,d).map(c=>c.net+'/'+c.len)),best=new Map();
   const add=(k,r)=>{if(own.has(k))return;const b=best.get(k);if(b){if(b.code==='O'&&r.code==='O IA')return;if(b.code===r.code&&b.metric<=r.metric)return;}best.set(k,r);};
+  const isAbr=ospfIsAbr(net,d);
   for(const A of ospfAreasOf(net,d)){
     for(const [k,r] of intra(d,A))if(r.first)add(k,{key:k,code:'O',net:r.net,len:r.len,ifc:r.first.ifc,nh:r.first.nh,ad:110,metric:r.metric,from:r.from});
+    // An ABR examines only summaries heard in area 0 (RFC 2328 section 16.2); a router inside one area uses them all.
+    // Every ABR therefore advertises the cost it really uses itself.
+    if(isAbr&&A!==0)continue;
     for(const [name,info] of spf(d,A)){const B=net.devs[name];if(B===d||!info.first||!ospfIsAbr(net,B))continue;
       const sums=new Map(),offer=(k,r,m)=>{if(!sums.has(k)||sums.get(k).metric>m)sums.set(k,{net:r.net,len:r.len,metric:m});};
       for(const X of ospfAreasOf(net,B)){if(X===A)continue;for(const [k,r] of intra(B,X))offer(k,r,r.metric);}
@@ -1294,12 +1298,15 @@ const bid=(sw,v)=>String(stpPrio(sw,v)).padStart(6,'0')+macOf(sw);
 function stpCalc(net,v){const sws=Object.values(net.devs).filter(d=>d.type==='switch'&&d.vlans[v]&&!stpOff(d,v));
   if(!sws.length)return Object.values(net.devs).some(d=>d.type==='switch'&&d.vlans[v])?{root:null,info:{}}:null;
   const carries=(sw,p)=>!!p.link&&!p.routed&&ifUp(net,sw,p)&&(p.mode==='trunk'?allowed(p,v):p.accessVlan===v||p.voiceVlan===v);
-  const cost=(p,n)=>p.name.startsWith('Gig')?(n>1?3:4):(n>1?12:19);
+  // IEEE short path costs by the speed the link actually runs at (a forced speed counts): 10 Mb/s 100, 100 Mb/s 19,
+  // 1000 Mb/s 4; a two-link bundle 12 (100) or 3 (1000).
+  // (labs built while the page loads compute STP before the duplex block exists, so fall back to the port type then)
+  const cost=(sw,p,n)=>{let sp=p.name.startsWith('Gig')?1000:100;try{if(p.link)sp=+linkSettle(net,sw,p).speed;}catch(e){}return sp>=1000?(n>1?3:4):sp>=100?(n>1?12:19):(n>1?56:100);};
   // The STP ports of a switch: each physical port that is not a bundled member, plus each port-channel with bundled members.
   const stpPorts=sw=>{const r=[];for(const n of sortIfs(Object.keys(sw.ifs))){const p=sw.ifs[n];
-      if(n.startsWith('Port-channel')){const ms=members(sw,p).filter(m=>bundled(net,sw,m));if(ms.length&&carries(sw,ms[0]))r.push({p,name:n,nb:ms[0].link.dev,cost:cost(ms[0],ms.length)});continue;}
+      if(n.startsWith('Port-channel')){const ms=members(sw,p).filter(m=>bundled(net,sw,m));if(ms.length&&carries(sw,ms[0]))r.push({p,name:n,nb:ms[0].link.dev,cost:cost(sw,ms[0],ms.length)});continue;}
       if(p.chan&&bundled(net,sw,p))continue;
-      if(carries(sw,p))r.push({p,name:n,nb:through(sw,p),cost:cost(p,1)});}
+      if(carries(sw,p))r.push({p,name:n,nb:through(sw,p),cost:cost(sw,p,1)});}
     return r;};
   // follow a chain of switches with STP off for this VLAN until an STP switch (possibly this one) or a dead end
   function through(sw,p){const q=[[net.devs[p.link.dev],p.link.ifn]],been=new Set([sw.name]);
@@ -1847,6 +1854,19 @@ addLab({title:'Locking down device access',group:'Security',
   if(/^\s*cl/i.test(line))return out;
   for(const k of before.keys())if(!after.has(k))out.push('%OSPF-5-ADJCHG: Process '+pid+', Nbr '+k+' from FULL to DOWN, Neighbor Down: Interface down or detached');
   for(const k of after.keys())if(!before.has(k))out.push('%OSPF-5-ADJCHG: Process '+pid+', Nbr '+k+' from LOADING to FULL, Loading Done');
+  return out;};}
+// A hello arriving with the wrong area ID is dropped and logged, the main clue to an area mismatch. A router whose
+// interface is not in area 0 but hears an area-0 hello logs the virtual-link form; otherwise the plain form. Each
+// mismatch is logged when it appears and then at most once a minute (on the engine clock), like a rate-limited syslog.
+function ospfAreaMismatches(net,d){const res=[];if(!d.ospf||d.ospf.resetting)return res;
+  for(const o of ospfIfs(net,d)){if(isPassive(d,o.ifc.name))continue;
+    for(const p of l2peers(net,d,o.ifc)){const pd=p.dev;if(!isL3(pd)||!pd.ospf||pd.ospf.resetting)continue;const po=ospfIfs(net,pd).find(x=>x.ifc===p.ifc);
+      if(!po||po.area===o.area||isPassive(pd,p.ifc.name))continue;if(p.ifc.len!==o.ifc.len||netOf(p.ifc.ip,p.ifc.len)!==netOf(o.ifc.ip,o.ifc.len))continue;
+      res.push({key:d.name+'|'+o.ifc.name+'|'+p.ifc.ip,msg:'%OSPF-4-ERRRCV: Received invalid packet: mismatched area ID'+(po.area===0&&o.area!==0?' from backbone area must be virtual-link but not found':'')+' from '+n2ip(p.ifc.ip)+', '+o.ifc.name});}}
+  return res;}
+{const ex0=execLine;execLine=function(net,d,s,line){const out=ex0(net,d,s,line),L=net.ospfErr||(net.ospfErr={}),now=simNow();
+  for(const x of Object.values(net.devs)){if(x.type!=='router'&&!(x.type==='switch'&&isL3(x)))continue;
+    for(const m of ospfAreaMismatches(net,x)){if(L[m.key]!=null&&now-L[m.key]<60000)continue;L[m.key]=now;if(x===d&&!s.vty)out.push(m.msg);else logEvent(net,x,m.msg);}}
   return out;};}
 CCNA_LAB_MAP['OSPF router IDs and passive interfaces']=['3.4'];
 Object.assign(WHYC,{
@@ -3449,8 +3469,8 @@ Cn('if','bandwidth <n>',e=>{const v=e.args[0];if(v<1||v>10000000)return e.out(BA
 Cn('if','no duplex',e=>{e.s.ctx.forEach(i=>{i.duplex=null;});},['router','switch']);
 Cn('if','no speed',e=>{e.s.ctx.forEach(i=>{i.speed=null;});},['router','switch']);
 Cn('if','no bandwidth <rest?>',e=>{e.s.ctx.forEach(i=>{i.bw=null;});},['router','switch']);
-{const oc0=ospfCost;ospfCost=function(d,i){if(i.ospfCost!=null||!i.bw)return oc0(d,i);const ref=((d.ospf&&d.ospf.refBw)||100)*1000;return Math.max(1,Math.floor(ref/i.bw));};}
-const bwOf=i=>i.bw||(i.name.startsWith('Fast')?100000:i.name.startsWith('Loopback')?8000000:i.name.startsWith('Serial')?1544:1000000);
+{const oc0=ospfCost;ospfCost=function(d,i){const bw=i.bw||(i.speed?+i.speed*1000:0);if(i.ospfCost!=null||!bw)return oc0(d,i);const ref=((d.ospf&&d.ospf.refBw)||100)*1000;return Math.max(1,Math.floor(ref/bw));};}
+const bwOf=i=>i.bw||(i.speed?+i.speed*1000:0)||(i.name.startsWith('Fast')?100000:i.name.startsWith('Loopback')?8000000:i.name.startsWith('Serial')?1544:1000000);
 // show interfaces: add the hardware, MTU/bandwidth and duplex/speed lines real IOS prints
 {const c=CMDS.find(c=>c.pat.join(' ')==='show interfaces <rest?>'),f0=c.fn;c.fn=e=>{const buf=[],o=e.out;e.out=(...x)=>buf.push(...x);try{f0(e);}finally{e.out=o;}
   const {d,net}=e,L=buf.join('\n').split('\n'),R=[];let cur=null;
@@ -3555,10 +3575,12 @@ function macTx(net,d,i){if(d.type==='pc')return macOf(d);const p=phys(d,i);retur
 const macNow=()=>simNow();
 // Neighbours announce themselves all the time (CDP every 60 s, BPDUs every 2 s), so a switch always knows the MAC of the
 // switch or router port on the other end of a link: these rows are computed, never age, and come straight back after a clear.
-function macBackground(net,sw){const rows=[];if(sw.type!=='switch')return rows;for(const p of Object.values(sw.ifs)){if(!p.link||!physIf(p)||p.routed||!ifUp(net,sw,p))continue;const nb=net.devs[p.link.dev],np=nb.ifs[p.link.ifn];if(nb.type==='pc')continue;
+function macBackground(net,sw){const rows=[];if(sw.type!=='switch')return rows;const blk=new Map(),blocked=v=>{if(!blk.has(v))blk.set(v,stpBlocked(net,v));return blk.get(v);};
+  for(const p of Object.values(sw.ifs)){if(!p.link||!physIf(p)||p.routed||!ifUp(net,sw,p))continue;const nb=net.devs[p.link.dev],np=nb.ifs[p.link.ifn];if(nb.type==='pc')continue;
     const mac=macTx(net,nb,np),vls=new Set();if(cdpOn(sw,p)&&cdpOn(nb,np))vls.add(p.mode==='trunk'?p.native:p.accessVlan);
-    if(nb.type==='switch'&&!np.routed){for(const v of Object.keys(nb.vlans).map(Number))if(v<1002&&sw.vlans[v]&&!stpOff(nb,v)&&(p.mode==='trunk'?allowed(p,v)&&(np.mode==='trunk'?allowed(np,v):np.accessVlan===v):p.accessVlan===v&&(np.mode==='trunk'?np.native===v:np.accessVlan===v)))vls.add(v);}
-    for(const v of vls)if(sw.vlans[v])rows.push({mac,vlan:v,ifn:p.name,kind:'DYNAMIC',bg:true});}return rows;}
+    if(nb.type==='switch'&&!np.routed){for(const v of Object.keys(nb.vlans).map(Number))if(v<1002&&sw.vlans[v]&&!stpOff(nb,v)&&!blocked(v).has(nb.name+'|'+np.name)&&(p.mode==='trunk'?allowed(p,v)&&(np.mode==='trunk'?allowed(np,v):np.accessVlan===v):p.accessVlan===v&&(np.mode==='trunk'?np.native===v:np.accessVlan===v)))vls.add(v);}
+    // a port spanning tree blocks (discarding) learns no addresses in that VLAN
+    for(const v of vls)if(sw.vlans[v]&&!blocked(v).has(sw.name+'|'+p.name))rows.push({mac,vlan:v,ifn:p.name,kind:'DYNAMIC',bg:true});}return rows;}
 const macAgeFor=(sw,v)=>(sw.macAgingV&&sw.macAgingV[v]!=null?sw.macAgingV[v]:sw.macAging??300);
 function macLearn(sw,vlan,ifn,mac){if(!ifn||!sw.vlans[vlan]||mac===macOf(sw))return;const T=sw.mact||(sw.mact=[]);const e=T.find(x=>x.mac===mac&&x.vlan===vlan);
   if(e){if(e.kind==='STATIC')return;e.ifn=ifn;e.t=macNow();return;}T.push({mac,vlan,ifn,kind:'DYNAMIC',t:macNow()});}
@@ -3592,7 +3614,7 @@ function l2frame(net,d,ifc,peer,hopIp,at,edges,nd){
   }else{
     for(const t of trail){const sw=net.devs[t.sw];macLearn(sw,t.vlan,t.inp,srcMac);
       if(vip)macLearn(sw,t.vlan,t.outp,dstMac);// HSRP hellos from the active router keep the virtual MAC learned
-      const hit=macLookup(net,sw,t.vlan,dstMac);
+      let hit=macLookup(net,sw,t.vlan,dstMac);if(hit&&hit.ifn===t.inp)hit=null;
       if(!hit&&!ev.flood){ev.flood=t.sw;ev.edges=learnAll(t.sw);}
       ev.sw.push({sw:t.sw,vlan:t.vlan,out:hit?hit.ifn:null,known:!!hit});}
   }
@@ -3605,7 +3627,13 @@ function l2frame(net,d,ifc,peer,hopIp,at,edges,nd){
   return o;};}
 
 // A real switch drops a learned entry the moment its port goes down or its VLAN is deleted; prune after every command.
-{const ex0=execLine;execLine=function(net,d,s,line){const out=ex0(net,d,s,line);for(const x of Object.values(net.devs))if(x.mact)macPrune(net,x);return out;};}
+// The tree as spanning tree sees it between switches. Edge ports (to hosts) are left out: a host port going up or down is
+// not a topology change in Rapid PVST+, so it must not flush anyone's table.
+function stpSig(net,v){const r=stpCalc(net,v);if(!r)return '';const inter=(n,p)=>{const i=net.devs[n].ifs[p];if(!i)return false;if(p.startsWith('Port-channel'))return true;const nb=i.link&&net.devs[i.link.dev];return !!nb&&nb.type==='switch';};
+  return (r.root?r.root.name:'-')+'#'+Object.keys(r.info).sort().map(n=>n+':'+Object.entries(r.info[n].ports).filter(([p])=>inter(n,p)).map(([p,x])=>p+'='+x.role).sort().join(',')).join(';');}
+function stpFlush(net){const vls=new Set();for(const x of Object.values(net.devs))for(const e of x.mact||[])if(e.kind==='DYNAMIC')vls.add(e.vlan);
+  const S=net.stpSig||(net.stpSig={});for(const v of vls){const sig=stpSig(net,v);if(S[v]!==undefined&&S[v]!==sig)for(const x of Object.values(net.devs))if(x.mact)x.mact=x.mact.filter(e=>e.kind!=='DYNAMIC'||e.vlan!==v);S[v]=sig;}}
+{const ex0=execLine;execLine=function(net,d,s,line){const out=ex0(net,d,s,line);for(const x of Object.values(net.devs))if(x.mact)macPrune(net,x);stpFlush(net);return out;};}
 // ----- show mac address-table and friends
 const CPU_MACS=['0100.0ccc.cccc','0100.0ccc.cccd'].concat(Array.from({length:17},(_,k)=>'0180.c200.00'+k.toString(16).padStart(2,'0')),['ffff.ffff.ffff']);
 const MAC_HDR=['          Mac Address Table','-------------------------------------------','','Vlan    Mac Address       Type        Ports','----    -----------       --------    -----'];
@@ -3980,7 +4008,8 @@ function duplexMismatches(net,d){if(d.type==='pc'||d.cdp===false)return [];const
 const cntOf=i=>i.cnt||(i.cnt={in:0,inB:0,out:0,outB:0,crc:0,runts:0,late:0,resets:1,cleared:null});
 function portTraffic(net,dev,ifn,dir,n,bytes){const d=net.devs[dev],i=d&&d.ifs[ifn];if(!i||!physIf(i))return;const c=cntOf(i);
   if(dir==='in'){c.in+=n;c.inB+=n*bytes;}else{c.out+=n;c.outB+=n*bytes;}
-  const s=linkSettle(net,d,i);if(s.mismatch){if(s.duplex==='half')c.late+=Math.ceil(n*0.3);else{c.crc+=Math.ceil(n*0.3);c.runts+=Math.ceil(n*0.1);}}}
+  const s=linkSettle(net,d,i);if(!s.mismatch)return;const f=c.f||(c.f={crc:0,runts:0,late:0}),up=(k,r)=>{f[k]+=n*r;c[k]=Math.max(c[k],Math.ceil(f[k]-1e-9));};
+  if(s.duplex==='half'&&dir==='out')up('late',0.3);else if(s.duplex==='full'&&dir==='in'){up('crc',0.3);up('runts',0.1);}}
 // Count one direction of a live result (its Layer 2 events) as n frames of the given size.
 function trafficCount(net,res,n,bytes){if(!res||!res.hops||!res.hops.l2||n<=0)return;bytes=bytes||114;
   for(const ev of res.hops.l2){const path=ev.seg;
@@ -4279,7 +4308,7 @@ const QUIZ=[
   ["Switching", "In 802.1Q, how is the native VLAN carried across a trunk?", ["With a double tag", "It is never carried", "With a tag of VLAN 1", "Untagged"], 3, "Frames of the native VLAN cross the trunk without a tag. Both ends must agree on the native VLAN, or untagged frames land in the wrong VLAN (a native VLAN mismatch)."],
   ["Switching", "Which STP port role is placed in the blocking (discarding) state to break a loop?", ["Designated port", "Alternate port", "Edge port", "Root port"], 1, "Every non-root switch has one root port, every segment one designated port, and any remaining port that would form a loop becomes alternate (RSTP) or blocked (STP)."],
   ["Switching", "How is the STP root bridge chosen?", ["Highest IOS version", "Highest MAC address", "Lowest bridge ID (priority, then MAC address)", "Most ports"], 2, "The bridge ID is the priority (default 32768 plus the VLAN number) followed by the MAC. Lowest wins, so equal priorities leave the oldest switch as root unless you set a priority."],
-  ["Switching", "Which two features protect a PortFast access port from a switch being plugged in?", ["BPDU guard and err-disable recovery", "VTP and DTP", "Root guard and loop guard", "BPDU guard and BPDU filter"], 3, "BPDU guard err-disables the port if any BPDU arrives; BPDU filter stops BPDUs being sent or processed. BPDU guard is the usual choice because it fails safe and loudly."],
+  ["Switching", "Which feature err-disables a PortFast access port as soon as a switch is plugged into it?", ["BPDU filter", "Root guard", "BPDU guard", "Loop guard"], 2, "BPDU guard err-disables the port the moment any BPDU arrives, so a switch on a PortFast access port cannot create a loop. BPDU filter does the opposite: set on an interface it ignores BPDUs, which can let a loop form. Root guard only blocks a port that hears a better root, and loop guard protects root and alternate ports when BPDUs stop arriving."],
   ["Switching", "What does Rapid PVST+ improve over classic STP?", ["It removes the need for a root bridge", "Convergence takes about a second instead of 30 to 50 seconds", "It allows loops", "It carries one instance for all VLANs"], 1, "RSTP uses proposal and agreement handshakes and recognises edge and point-to-point links, so it converges far faster. PVST+ still runs one instance per VLAN."],
   ["Switching", "A LACP EtherChannel forms when one side is active and the other is…", ["auto", "desirable", "active or passive", "on"], 2, "LACP modes are active and passive. At least one end must be active; two passive ends never negotiate. PAgP uses desirable and auto, and on means no protocol at all."],
   ["Switching", "Which command shows whether a port is an access port or a trunk, and which VLAN it uses?", ["show mac address-table", "show spanning-tree", "show vlan brief", "show interfaces switchport"], 3, "show interfaces switchport lists administrative and operational mode, access VLAN, native VLAN and allowed VLANs for each port."],

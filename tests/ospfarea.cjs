@@ -31,6 +31,23 @@ t=cmd(net,'R2','show ip ospf');assert.match(t,/Number of areas in this router is
 // the backbone rule: move R2's backbone link into area 1 -> no ABR, adjacency gone, area 1 isolated
 ios(net,'R2',['configure terminal','router ospf 1','no network 10.0.23.0 0.0.0.3 area 0','network 10.0.23.0 0.0.0.3 area 1','end']);
 assert.equal(ospfIsAbr(net,net.devs.R2),false);assert.equal(ospfNeighbors(net,net.devs.R2).length,1);assert.equal(code(net,'R1','192.168.4.0',24),null);assert.equal(reach(net,net.devs.PC1,ip2n('192.168.4.10')).ok,false);
+// REVIEW-FIXES 25: an ABR uses only the backbone's copies of other areas' routes (RFC 2328 16.2). R2 and R3 share area 0
+// (a link made to cost 100) and area 1 (a new cheap link); R2 reaches area 2 through the backbone at 100+1+1, as IOS does,
+// not through the area-1 shortcut, and R1 (inside area 1) still uses every summary it hears.
+{const n=solve('Multi-area OSPF');link(n,'R2','g0/2','R3','g0/2');
+  ios(n,'R2',['configure terminal','interface g0/2','ip address 10.0.99.1 255.255.255.252','no shutdown','interface g0/1','ip ospf cost 100','router ospf 1','network 10.0.99.0 0.0.0.3 area 1','end']);
+  ios(n,'R3',['configure terminal','interface g0/2','ip address 10.0.99.2 255.255.255.252','no shutdown','interface g0/0','ip ospf cost 100','router ospf 1','network 10.0.99.0 0.0.0.3 area 1','end']);
+  const r=routes(n,n.devs.R2).find(x=>x.net===ip2n('192.168.4.0'));assert.deepEqual([r.code,r.metric,r.ifc.name],['O IA',102,'GigabitEthernet0/1']);
+  assert.equal(code(n,'R1','192.168.4.0',24),'O IA 4','a non-ABR uses the summary it hears in its own area');}
+// REVIEW-FIXES 26: an area mismatch logs %OSPF-4-ERRRCV on both ends (the console of the router you typed on, the log of the
+// other), then at most once a minute.
+{const n=solve('Multi-area OSPF'),s={mode:'priv'},R2=n.devs.R2,R3=n.devs.R3;execLine(n,R2,s,'configure terminal');execLine(n,R2,s,'router ospf 1');execLine(n,R2,s,'no network 10.0.23.0 0.0.0.3 area 0');
+  const out=execLine(n,R2,s,'network 10.0.23.0 0.0.0.3 area 1');
+  assert.ok(out.includes('%OSPF-4-ERRRCV: Received invalid packet: mismatched area ID from backbone area must be virtual-link but not found from 10.0.23.2, GigabitEthernet0/1'),out.join('|'));
+  assert.ok((R3.logBuf||[]).some(l=>l.endsWith('%OSPF-4-ERRRCV: Received invalid packet: mismatched area ID from 10.0.23.1, GigabitEthernet0/0')),'R3 logs the non-backbone form');
+  assert.ok(!execLine(n,R2,s,'end').some(l=>/ERRRCV/.test(l)),'not repeated on the next command');
+  try{SIM_NOW=Date.now()+61000;assert.ok(execLine(n,R2,{mode:'priv'},'show clock').some(l=>/ERRRCV/.test(l)),'repeated after a minute');}finally{SIM_NOW=null;}
+  const fixed=solve('Multi-area OSPF');assert.ok(!execLine(fixed,fixed.devs.R2,{mode:'priv'},'show ip ospf neighbor').some(l=>/ERRRCV/.test(l)),'no message when areas match');}
 // an area attached to a non-backbone area only: R3 in areas 1 and 2 (no area 0) is not an ABR, so areas 1 and 2 stay apart
 net=solve('Multi-area OSPF');
 ios(net,'R2',['configure terminal','router ospf 1','no network 10.0.23.0 0.0.0.3 area 0','network 10.0.23.0 0.0.0.3 area 1','end']);

@@ -1,5 +1,26 @@
 # Lab4Net changes
 
+## Review fixes, part 4: switching, OSPF and the quiz
+
+Items 21 to 27 of `docs/REVIEW-FIXES.md`.
+
+**Switching**
+- **Blocked ports learn nothing.** A port spanning tree blocks no longer shows a neighbour switch's address in `show mac address-table`, and a neighbour is learned from its BPDUs only when its own port is forwarding.
+- **Tables are flushed when the tree changes.** When the spanning tree between switches changes (a link goes down, a new root), the dynamic MAC entries in that VLAN are flushed on every switch, as Rapid PVST+ does; a PC's port going down does not flush anything. A switch also never "forwards" a frame back out of the port it came in on in the trace.
+- **A forced speed changes cost and bandwidth.** `speed 10` makes the spanning-tree cost 100 (19 at 100 Mb/s, 4 at 1000) on both ends, and `show interfaces` shows BW 10000 Kbit; OSPF uses that bandwidth for its cost too.
+- **Duplex-mismatch errors count the right way.** CRC errors and runts count only on frames the full-duplex end receives, and late collisions only on frames the half-duplex end sends, at a realistic rate rather than one per frame.
+
+**OSPF**
+- **An ABR only uses the backbone for other areas' routes** (RFC 2328 16.2). With two ABRs sharing areas 0 and 1, the ABR now reaches a third area through area 0 at the real cost, not through a cheaper area-1 shortcut, and advertises the cost it really uses.
+- **An area mismatch is logged**: `%OSPF-4-ERRRCV: Received invalid packet: mismatched area ID …` on both routers (the backbone form, "must be virtual-link but not found", on the side whose interface is not in area 0), repeated at most once a minute. It is the main clue for Incident 37.
+
+**Quiz**
+- The PortFast question now asks for one feature (BPDU guard) and explains why BPDU filter is not protection.
+
+Tests: new checks in `switching.cjs` (blocked port, flush and ingress port, speed and cost), `duplex.cjs` (error direction and rate), `ospfarea.cjs` (ABR backbone rule, area-mismatch log) and `quiz.cjs`. Three older switching assertions had locked in item 21's bug and were corrected.
+
+Verification: all seventeen suites pass; a live ping still takes about 1 to 2 ms on the biggest switched labs.
+
 ## Review fixes, part 3: sessions and logins
 
 Items 16 to 20 of `docs/REVIEW-FIXES.md`.

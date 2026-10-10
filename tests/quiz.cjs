@@ -21,6 +21,9 @@ QUIZ.forEach((q,k)=>{
   const key=text.toLowerCase().replace(/\W+/g,' ').trim();assert.ok(!seen.has(key),'question '+k+': duplicate question');seen.add(key);
 });
 assert.ok(QUIZ.length>=100,'the bank should hold at least 100 questions, has '+QUIZ.length);
+// REVIEW-FIXES 27: the PortFast protection question asks for one feature, BPDU guard, and never offers BPDU filter as protection.
+{const q=QUIZ.find(x=>/PortFast access port/.test(x[1]));assert.ok(q,'the PortFast question exists');
+  assert.equal(q[2][q[3]],'BPDU guard');assert.ok(!q[2].some(o=>/BPDU guard and BPDU filter/.test(o)));assert.match(q[4],/BPDU filter does the opposite/);}
 // REVIEW-FIXES 7: the FastEthernet OSPF cost is 1 (100 Mbps / 100 Mbps), not 10, and the explanation says so.
 {const q=QUIZ.find(x=>/default OSPF cost of a FastEthernet interface/.test(x[1]));assert.ok(q,'the FastEthernet cost question exists');
   assert.equal(q[2][q[3]],'1','FastEthernet OSPF cost answer');assert.ok(q[4].includes('100/100 = 1.'),q[4]);assert.ok(!q[4].includes('100/100 = 10'),q[4]);}
