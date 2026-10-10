@@ -188,7 +188,7 @@ td:last-child{font:400 18px/1.15 var(--mono);color:var(--ph)}
 .legend{font:400 13px var(--ui);color:#fff;text-transform:none;letter-spacing:0;font-style:normal;text-shadow:0 1px 0 rgba(0,0,0,.4)}
 .legend .good{color:#8dffb4} .legend .bad{color:#ffc0c7}
 #topo{position:relative;background:radial-gradient(ellipse 80% 60% at 50% 115%,rgba(255,61,129,.30),transparent 70%),radial-gradient(ellipse 60% 50% at 50% -10%,rgba(46,230,255,.18),transparent 70%),linear-gradient(90deg,rgba(162,59,255,.10) 1px,transparent 1px) 0 0/28px 28px,linear-gradient(rgba(162,59,255,.10) 1px,transparent 1px) 0 0/28px 28px,linear-gradient(#150f33,#0c0920);box-shadow:inset 0 0 60px rgba(0,0,0,.7)}
-#topo svg{display:block;width:100%;height:auto;max-height:31vh}
+#topo svg{display:block;width:100%;height:auto;max-height:calc(31vh + 76px)}/* +76px: the room the trace box gave back when it became one line */
 .wire{stroke-linecap:round}
 .wire.base{stroke:var(--go);stroke-width:3;filter:drop-shadow(0 0 4px rgba(92,240,138,.9))}
 .wire.flow{stroke:#fff;stroke-width:3;stroke-dasharray:2 22;animation:flow .9s linear infinite}
@@ -266,8 +266,18 @@ body[data-exam] .guide-row,body[data-exam] .tasks details,body[data-exam] #bSol,
 .clear{font:italic 800 62px var(--px);letter-spacing:.03em;fill:url(#gY);text-anchor:middle;paint-order:stroke;stroke:var(--line);stroke-width:9px;stroke-linejoin:round;transform-box:fill-box;transform-origin:center;filter:drop-shadow(0 6px 0 rgba(0,0,0,.65)) drop-shadow(0 0 22px rgba(255,210,63,.75));animation:clearin 2.8s cubic-bezier(.2,1.5,.3,1) forwards}
 @keyframes clearin{0%{opacity:0;transform:translateX(-160px) skewX(-22deg) scale(.8)}10%{opacity:1;transform:translateX(0) skewX(-10deg) scale(1.1)}16%{transform:translateX(0) skewX(-10deg) scale(1)}82%{opacity:1;transform:translateX(0) skewX(-10deg) scale(1)}100%{opacity:0;transform:translateX(140px) skewX(-22deg) scale(1)}}
 #trace{border-top:3px solid var(--line);background:rgba(7,6,15,.55);padding:10px 14px;font-size:14px}
-#trace{min-height:112px}
-#trace:empty::before{content:"Ping, telnet or ssh between devices and the path is traced here.";color:var(--muted)}
+#trace{flex:none;padding:6px 14px}
+#trace:empty::before{content:"Ping, telnet or ssh between devices and the path is traced here.";color:var(--muted);font-size:13px}
+/* one summary line; the details open on demand and scroll instead of squeezing the map */
+#trace .trace-title{margin:0;font-size:17px;flex-wrap:wrap;row-gap:4px;min-height:30px}
+#trace .trace-title .tt-res{flex:0 1 auto;min-width:0}
+#trace .tt-btns{order:3;margin-left:auto}
+#trace .trace-sum{flex:1 1 200px;order:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 18px/1 var(--mono);color:var(--ph);text-transform:none;letter-spacing:0;font-style:normal}
+#trace .trace-sum .bad{color:var(--bad)}
+#trace .tt-btns{flex:none;display:flex;gap:8px}
+#trace .small-btn{font-size:13px;padding:3px 9px}
+#trace .trace-more{max-height:min(32vh,210px);overflow:auto;margin-top:6px;padding-right:4px}
+#trace .trace-more[hidden]{display:none}
 #trace p:last-child:not(:first-of-type){display:none}
 .trace-title{display:flex;justify-content:space-between;align-items:center;gap:10px;font:italic 800 19px var(--px);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
 .trace-path{font:400 19px/1.2 var(--mono);color:var(--ph)}
@@ -4279,7 +4289,11 @@ function streamStop(abort){const S=STREAM;if(!S)return;if(S.timer)clearTimeout(S
   if(abort)push(S.s,S.abort(S.pkts));else while(S.pos<S.units.length)streamUnit(S,S.units[S.pos++]);if(cur&&cur.net&&cur.sess)drainConsoles(cur.net,cur.sess,null);
   if(cur&&cur.sess&&cur.sess[cur.sel]===S.s)renderTerm();}
 function renderTrace(){const T=cur.trace;if(!T)return;const last=p=>p.hops.path.at(-1);const result=T.ok?'Reply received':T.refused?'Destination port closed':!T.f.ok?T.f.reason:T.r?'Reply failed: '+(T.r.reason||'did not return to source'):'No reply';
-  $('trace').innerHTML=`<div class="trace-title ${T.ok?'good':'bad'}">${T.ok?'✓':'!'} ${esc(result)}<button class="small-btn" id="replayTrace">Replay</button></div><div class="trace-path"><b>Request</b> ${T.f.hops.path.map(esc).join(' → ')}${!T.f.ok?` <span class="bad">· stopped at ${esc(last(T.f))}</span>`:''}</div>${T.r?`<div class="trace-path"><b>Reply</b> ${T.r.hops.path.map(esc).join(' → ')}</div>`:''}<p>${T.ok?'Both directions succeeded. A request reaching the destination alone is not enough.':T.refused?'The network path works, but the destination is not listening on that port.':T.f.blocked||T.r?.blocked?'Read the ACL in order. The first matching rule wins; unmatched traffic is denied.':'Verify interface state and addressing first, then the next hop and the return route.'}</p><p>Last connectivity test · Run the command again after changing configuration.</p>`;$('replayTrace').onclick=()=>playTrace(cur.trace);}
+  const open=traceOpen(),sum=T.f.hops.path.map(esc).join(' → ')+(!T.f.ok?` <span class="bad">· stopped at ${esc(last(T.f))}</span>`:'');
+  $('trace').innerHTML=`<div class="trace-title ${T.ok?'good':'bad'}"><span class="tt-res">${T.ok?'✓':'!'} ${esc(result)}</span><span class="trace-sum" title="${esc(T.f.hops.path.join(' → '))}">${sum}</span><span class="tt-btns"><button class="small-btn" id="traceMore" aria-expanded="${open}" aria-controls="traceMoreBody">${open?'Hide details':'Details'}</button><button class="small-btn" id="replayTrace">Replay</button></span></div><div class="trace-more" id="traceMoreBody"${open?'':' hidden'}><div class="trace-path"><b>Request</b> ${T.f.hops.path.map(esc).join(' → ')}${!T.f.ok?` <span class="bad">· stopped at ${esc(last(T.f))}</span>`:''}</div>${T.r?`<div class="trace-path"><b>Reply</b> ${T.r.hops.path.map(esc).join(' → ')}</div>`:''}<p>${T.ok?'Both directions succeeded. A request reaching the destination alone is not enough.':T.refused?'The network path works, but the destination is not listening on that port.':T.f.blocked||T.r?.blocked?'Read the ACL in order. The first matching rule wins; unmatched traffic is denied.':'Verify interface state and addressing first, then the next hop and the return route.'}</p><p>Last connectivity test · Run the command again after changing configuration.</p></div>`;$('replayTrace').onclick=()=>playTrace(cur.trace);
+  $('traceMore').onclick=()=>{const o=!traceOpen();try{localStorage.setItem('lab4net-trace-open',o?'1':'0');}catch(e){}window.l4nTraceOpen=o;const b=$('traceMoreBody'),btn=$('traceMore');b.hidden=!o;btn.textContent=o?'Hide details':'Details';btn.setAttribute('aria-expanded',String(o));};}
+// The details stay open or closed as last chosen (per browser); closed by default so the map keeps its room.
+function traceOpen(){if(typeof window.l4nTraceOpen!=='boolean'){let v=false;try{v=localStorage.getItem('lab4net-trace-open')==='1';}catch(e){}window.l4nTraceOpen=v;}return window.l4nTraceOpen;}
 function dialog(title,body){$('dialogTitle').textContent=title;$('dialogBody').innerHTML=body;if(!$('dialog').open)$('dialog').showModal();}
 function library(){dialog('Choose your next mission',`<p>Build the fundamentals, then move through switching, routing, services and security. Troubleshooting incidents hand you a broken network to fix. Reopen any lab to resume your work.</p><input id="labSearch" class="search" placeholder="Find a lab, topic or CCNA objective (e.g. 3.4)…" aria-label="Search labs"><div id="labCards"></div><div class="practice-buttons"><button class="btn" data-practice="drill">Subnetting drill →</button><button class="btn" data-practice="quiz">Theory check →</button></div>`);
   const cards=()=>{const q=$('labSearch').value.toLowerCase();$('labCards').innerHTML=GROUPS.map(g=>{const matches=LABS.map((l,i)=>({l,i})).filter(({l})=>l.group===g&&(l.title+' '+l.brief+' '+g+' '+(l.ccna||[]).map(id=>id+' '+CCNA_OBJECTIVES[id]).join(' ')).toLowerCase().includes(q));return matches.length?`<h3>${g}</h3><div class="lab-grid">${matches.map(({l,i})=>`<button class="lab-card" data-lab="${i}"><span class="eyebrow">${String(i+1).padStart(2,'0')} <span>${progress[l.title]?'✓ PASSED':drafts[l.title]?.journal.length?'RESUME':'READY'}</span></span><b>${l.title}</b><span>${l.brief}</span><small>${l.ccna?.length?'CCNA '+l.ccna.join(' · ')+' · ':''}${l.tasks.length} tasks · ${Object.keys(l.build().devs).length} devices</small></button>`).join('')}</div>`:'';}).join('')||'<p>No labs match. Try “routing” or “security”.</p>';
@@ -5023,7 +5037,7 @@ $('studyMap').onclick=studyMap;
 
 // ---------- backup: include ranks, trophies, layout and the sandbox in Transfer progress ----------
 (function(){
-  const EXTRA=['lab4net-fun-v1','lab4net-sandbox-v1','lab4net-layout-v3','lab4net-guide','lab4net-guide-pop','lab4net-last','lab4net-incident-hints','lab4net-capstone-guide','lab4net-lessons-v1','lab4net-exam-v1','lab4net-campaign-v1','lab4net-sbx-done-v1'];
+  const EXTRA=['lab4net-fun-v1','lab4net-sandbox-v1','lab4net-layout-v3','lab4net-guide','lab4net-guide-pop','lab4net-trace-open','lab4net-last','lab4net-incident-hints','lab4net-capstone-guide','lab4net-lessons-v1','lab4net-exam-v1','lab4net-campaign-v1','lab4net-sbx-done-v1'];
   const tr0=transfer;transfer=function(){tr0();
     $('export').onclick=()=>{saveWork();const extras={};for(const k of EXTRA){try{const v=localStorage.getItem(k);if(v!=null)extras[k]=v;}catch(e){}}
       const sj=drafts.Sandbox&&Array.isArray(drafts.Sandbox.journal)?drafts.Sandbox.journal:[];
@@ -5094,7 +5108,7 @@ $('studyMap').onclick=studyMap;
         L.push(`<div><b>${esc(dir)}</b> ${sw} · ${v} · ${what}</div>`);}}
     if(!L.length)return;const tip=flooded?`<div class="tip">Run <code>show mac address-table</code> on ${who(net,flooded)}: it has learned the addresses now, so the next frame goes out one port.</div>`:'';
     const div=document.createElement('div');div.className='trace-l2';div.innerHTML=`<div class="trace-l2-h">Switching</div>${L.join('')}${tip}`;
-    const ps=el.querySelectorAll('p');el.insertBefore(div,ps.length?ps[ps.length-1]:null);};
+    const box=el.querySelector('.trace-more')||el,ps=box.querySelectorAll('p');box.insertBefore(div,ps.length?ps[ps.length-1]:null);};
 }
 // ---------- lessons: the concept behind a lab, taught before the commands ----------
 // Lesson data: written per lab or topic, checked by the validator in the lesson tooling.

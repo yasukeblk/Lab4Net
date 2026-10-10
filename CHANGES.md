@@ -1,5 +1,14 @@
 # Lab4Net changes
 
+## Smaller trace box under the network map
+
+- The box under the map that reports the last ping, telnet or ssh is now one line: the result (for example "✓ Reply received" or "! Blocked by ACL 10 outbound on Gi0/1") and the path, with **Details** and **Replay** buttons.
+- **Details** opens the rest as before: request and reply paths, the explanation, and the switching notes. It's capped at about a third of the screen height and scrolls, so it can't swallow the map. Whether it's open or closed is remembered in this browser, and Transfer progress carries it.
+- The map keeps the space. On a 1366×768 laptop after a ping, the map picture was 109px tall and the box 241px. Now the map is 305px and the box 45px. Every window keeps its default size; the room went to the map, not the console.
+- When there's no room for one line (a narrow map window, or a phone), the path wraps onto a second line and the buttons stay visible.
+
+Verification: all Node tests, ui.cjs and guidewin.cjs pass. Checked in headless Chromium at 1366×768, 1440×900, 1440×1000 and 390×844: a successful ping, an ACL failure, Details open and closed, and the setting kept across a reload. Screenshots checked by eye; no page errors.
+
 ## Review fixes, part 6: the rest of the polish (switching, OSPF, IPv6, quiz)
 
 This finishes `docs/REVIEW-FIXES.md`. Two small things the review listed as owed (`show ip ospf database`, suspending a Telnet session) are on the Still owed list.
