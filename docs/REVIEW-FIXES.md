@@ -120,22 +120,22 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
 ## Polish (LOW)
 
 - **Phone:**
-  - the exam/boss bar squeezes its text into a one-word column about 330px tall; let it wrap under the clock
-  - starting a campaign boss on a phone leaves the page scrolled down, with the clock off screen
+  - the exam/boss bar squeezes its text into a one-word column about 330px tall; let it wrap under the clock **Done (milestone 5).** Test: `pageflows.cjs` (the note stays under 80px tall at 390px wide).
+  - starting a campaign boss on a phone leaves the page scrolled down, with the clock off screen **Done (milestone 5).** Starting any exam scrolls back to the top. Test: `pageflows.cjs`.
 - **Exam UI:**
-  - after Quit the bar reads "· · no guide…" (minutes missing)
-  - Quit has no confirmation
-  - the Exam dialog's Clock option stays on 20 when Boss is picked
-  - root-cause text can start a sentence in lower case
+  - after Quit the bar reads "· · no guide…" (minutes missing) **Done (milestone 5).** Test: `pageflows.cjs`.
+  - Quit has no confirmation **Done (milestone 5).** "Give up this exam?" with Give it up / Keep going. Test: `pageflows.cjs`.
+  - the Exam dialog's Clock option stays on 20 when Boss is picked **Done (milestone 5).** Boss sets 30 and locks the other clock choices. Test: `pageflows.cjs`.
+  - root-cause text can start a sentence in lower case **Done (milestone 5).** Test: `exam.cjs`.
 - **Telnet and SSH:**
-  - IOS prints `Trying x ... Open` on one line, then blank lines before "User Access Verification"
-  - `show users` inside a VTY session should put `*` on your own VTY line
-  - three failed `enable password` attempts should say `% Bad passwords` (with `enable secret` set, `% Bad secrets` is correct)
-  - Windows telnet to a VTY with `login` and no password should show "Password required, but none set" then "Connection to host lost.", not "Connect failed"
-  - suspending a session (Ctrl+Shift+6 then x, `show sessions`, `resume`, `disconnect`) doesn't exist yet; add it to Still owed
+  - IOS prints `Trying x ... Open` on one line, then blank lines before "User Access Verification" **Done (milestone 5).** Test: `prompts.cjs`.
+  - `show users` inside a VTY session should put `*` on your own VTY line **Done (milestone 5).** Test: `prompts.cjs`.
+  - three failed `enable password` attempts should say `% Bad passwords` (with `enable secret` set, `% Bad secrets` is correct) **Done (milestone 5).** Test: `prompts.cjs`.
+  - Windows telnet to a VTY with `login` and no password should show "Password required, but none set" then "Connection to host lost.", not "Connect failed" **Done (milestone 3, with item 18).**
+  - suspending a session (Ctrl+Shift+6 then x, `show sessions`, `resume`, `disconnect`) doesn't exist yet; add it to Still owed **Done (milestone 5).** Added to Still owed in HANDOFF.md.
 - **Copy and extended ping:**
-  - `copy run start` ignores a typed destination filename
-  - extended ping: answering "Sweep range of sizes" with `y` skips the min/max/interval questions, and the DF-bit and timeout answers are ignored
+  - `copy run start` ignores a typed destination filename **Done (milestone 5).** Another name saves a copy in NVRAM ("… bytes copied") and leaves the startup-config alone. Test: `prompts.cjs`.
+  - extended ping: answering "Sweep range of sizes" with `y` skips the min/max/interval questions, and the DF-bit and timeout answers are ignored **Done (milestone 5).** The sweep asks min, max and interval and pings every size; DF set on a packet over the 1500-byte MTU answers `M` (could not fragment); the timeout sets how long each `.` takes. Test: `prompts.cjs`.
 - **Switching:**
   - `show interfaces counters` and `show interfaces counters errors` are missing; they're the standard duplex-troubleshooting views
   - `clear counters fa0/1` should ask "Clear "show interface" counters on this interface [confirm]"
@@ -151,11 +151,11 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
   - `show ip protocols` should say "It is an area border router"
   - `show ip ospf database` is missing (Still owed)
 - **IPv6:** neighbours are always REACH with age 0 (no STALE/DELAY/PROBE, no FE80 entries). IOS usually holds the first IPv6 echo while it resolves the neighbour, so `!!!!!` is often seen first time. Check before changing; if unsure, leave it and note it.
-- **Exam faults:** the `gw` fault uses the gateway +1 without checking that address is free.
+- **Exam faults:** the `gw` fault uses the gateway +1 without checking that address is free. **Done (milestone 5).** It now picks a free address in the switch's subnet. Test: `exam.cjs`.
 - **Quiz:**
   - near-duplicate question pairs to merge or vary: 13/29, 4/90, 17/98, 7/69, 8/70, 16/97, 11/104, 3/99, 2/18/101
   - #75's explanation should say the hang comes from `ip domain-lookup` being on (the default) with no reachable name server
-- **Speed:** the Exam sim dialog builds the daily challenge (~240 ms) every time it opens; cache it per day.
+- **Speed:** the Exam sim dialog builds the daily challenge (~240 ms) every time it opens; cache it per day. **Done (milestone 5).** Built once per day.
 
 ---
 

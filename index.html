@@ -246,7 +246,9 @@ td:last-child{font:400 18px/1.15 var(--mono);color:var(--ph)}
 .exam-bar b{font:italic 800 20px var(--px);color:var(--mag);letter-spacing:.1em;text-shadow:0 0 10px rgba(255,61,214,.7)}
 .exam-clock{font:400 27px/1 var(--mono);color:var(--yel);text-shadow:0 0 10px rgba(255,210,63,.7);min-width:72px}
 .exam-clock.late{color:#ff8a98;animation:blink 1s steps(1) infinite}
-.exam-note{color:var(--muted);font-size:14px;flex:1}
+.exam-note{color:var(--muted);font-size:14px;flex:1 1 220px;min-width:0}
+.exam-bar{flex-wrap:wrap}
+@media (max-width:640px){.exam-note{flex-basis:100%;order:3}.boss{flex-wrap:wrap}.boss span{white-space:normal}}
 .exam-bar.boss-mode{background:linear-gradient(90deg,#3a0a12,#1a0a24);box-shadow:0 0 22px rgba(255,61,106,.45)} .exam-bar.boss-mode b{color:#ff6b7c;text-shadow:0 0 10px rgba(255,61,106,.8)}
 .boss{display:flex;align-items:center;gap:12px;margin:-4px 0 12px;padding:8px 12px;border:3px solid var(--line);background:#120812} .boss b{font:italic 800 18px var(--px);color:#ff6b7c;letter-spacing:.1em} .boss span{font:400 15px var(--mono);color:var(--ph);white-space:nowrap}
 .boss-hp{flex:1;height:16px;border:2px solid var(--line);background:#2a0d14;overflow:hidden} .boss-hp i{display:block;height:100%;background:linear-gradient(90deg,#ff3d6a,#ff8a1f);box-shadow:0 0 12px rgba(255,61,106,.8);transition:width .6s cubic-bezier(.2,1.4,.4,1)}
@@ -1179,8 +1181,8 @@ function reach(net,src,dst,proto,dport,srcIp){proto=proto||'icmp';dport=dport||0
 canPing=function(net,src,dst){return reach(net,src,dst).ok;};
 tracePath=function(net,src,dst){return fwd(net,src,{src:null,dst,proto:'icmp',sport:50000,dport:0});};
 const FAILMSG=r=>r.refused?'% Connection refused by remote host':'% Connection timed out; remote host not responding';
-C('pc,user,priv','telnet <ip> <rest?>',e=>{const p=/^\d+$/.test(e.args[1])?+e.args[1]:23,r=reach(e.net,e.d,e.args[0],'tcp',p);e.out('Trying '+n2ip(e.args[0])+(p===23?'':', '+p)+' ...');
-  e.out(r.ok?'Open\n['+(p===23?'Telnet':'TCP port '+p)+' connection to '+r.f.dest.hostname+' works. Session closed.]':FAILMSG(r));});
+C('pc,user,priv','telnet <ip> <rest?>',e=>{const p=/^\d+$/.test(e.args[1])?+e.args[1]:23,r=reach(e.net,e.d,e.args[0],'tcp',p),tl='Trying '+n2ip(e.args[0])+(p===23?'':', '+p)+' ...';
+  if(r.ok)e.out(tl+' Open','['+(p===23?'Telnet':'TCP port '+p)+' connection to '+r.f.dest.hostname+' works. Session closed.]');else e.out(tl,FAILMSG(r));});
 C('pc,user,priv','ssh -l <w> <ip>',e=>{const r=reach(e.net,e.d,e.args[1],'tcp',22);if(!r.ok)return e.out(FAILMSG(r));const u=(r.f.dest.users||[]).find(u=>u.name===e.args[0]);
   e.out('Password:',u?'[SSH login to '+r.f.dest.hostname+' as '+u.name+' works. Session closed.]':'% Authentication failed.');});
 
@@ -3304,10 +3306,13 @@ function pingRun(net,src,dst,count,srcOv){
   return {R,f,r,srcIp,res:out,unreach,ttl:R.ok&&r?(f.dest.type==='pc'?128:255)-Math.max(0,r.hops.length-1):(src.type==='pc'?128:255)};}
 function rttStats(L){const t=L.filter(p=>p.c==='!').map(p=>p.rtt);if(!t.length)return null;return {min:Math.min(...t),max:Math.max(...t),avg:Math.round(t.reduce((a,b)=>a+b,0)/t.length),n:t.length};}
 function iosRate(L,n){const s=rttStats(L.slice(0,n)),ok=s?s.n:0;return 'Success rate is '+Math.floor(ok*100/Math.max(1,n))+' percent ('+ok+'/'+n+')'+(s?', round-trip min/avg/max = '+s.min+'/'+s.avg+'/'+s.max+' ms':'');}
-function iosPing(e,dst,count,size,srcOv,timeout){const P=pingRun(e.net,e.d,dst,count,srcOv),L=P.res,chars=L.map(p=>p.c).join(''),lines=[],t=[];
-  lines.push('Type escape sequence to abort.','Sending '+count+', '+size+'-byte ICMP Echos to '+n2ip(dst)+', timeout is '+(timeout??2)+' seconds:');t.push(0,0);
+function iosPing(e,dst,count,size,srcOv,timeout,opt){opt=opt||{};const P=pingRun(e.net,e.d,dst,count,srcOv);let L=P.res;
+  if(opt.df&&(opt.maxSize||size)>1500)L=L.map((p,k)=>(opt.sizes?opt.sizes[k]:size)>1500?{c:k%2?'.':'M',rtt:0}:p);
+  const chars=L.map(p=>p.c).join(''),lines=[],t=[],tmo=timeout??2;
+  lines.push('Type escape sequence to abort.','Sending '+count+', '+(opt.sizeLabel||size)+'-byte ICMP Echos to '+n2ip(dst)+', timeout is '+tmo+' seconds:');t.push(0,0);
   if(srcOv!=null){lines.push('Packet sent with a source address of '+n2ip(srcOv)+' ');t.push(0);}
-  for(let k=0;k<chars.length;k+=70){const part=chars.slice(k,k+70);lines.push(part);t.push({chars:[...part].map(c=>c==='!'?140+(L[k].rtt||0)*20:c==='U'?260:2000),pkt:true});}
+  if(opt.df){lines.push('Packet sent with the DF bit set');t.push(0);}
+  for(let k=0;k<chars.length;k+=70){const part=chars.slice(k,k+70);lines.push(part);t.push({chars:[...part].map(c=>c==='!'?140+(L[k].rtt||0)*20:c==='U'||c==='M'?260:tmo*1000),pkt:true});}
   lines.push(iosRate(L,count));t.push(60);
   e.out(...lines);e.s.pace={t,abort:n=>[iosRate(L,n)]};}
 function winStats(a,L,n,ctrlC){const s=rttStats(L.slice(0,n)),got=L.slice(0,n).filter(p=>p.c!=='.').length,lost=n-got;
@@ -3712,11 +3717,16 @@ Object.assign(WHYC,{
 function srcResolve(net,d,txt){const up=Object.values(d.ifs).filter(i=>i.ip!==null&&ifUp(net,d,i));
   if(isIp(txt)){const ip=ip2n(txt);return up.some(i=>i.ip===ip)?{ip}:{err:'% Invalid source address - IP address not on any of our up interfaces'};}
   const n=parseIf(txt);if(!n||!d.ifs[n])return {err:BAD};const i=d.ifs[n];return i.ip!==null&&ifUp(net,d,i)?{ip:i.ip}:{err:'% Invalid source address - IP address not on any of our up interfaces'};}
-function pingDialog(e){const s=e.s,d=e.d,net=e.net,q={dst:null,count:5,size:100,timeout:2,src:null};
+function pingDialog(e){const s=e.s,d=e.d,net=e.net,q={dst:null,count:5,size:100,timeout:2,src:null,df:false,sweep:null};
   const E=env=>Object.assign({},env,{d,net});
   const num=(txt,def,lo,hi,set,next)=>{const again=()=>ask(s,txt+' ['+def+']: ',(a,env)=>{a=a.trim();if(a===''){set(def);return next(env);}if(!/^\d+$/.test(a)||+a<lo||+a>hi){env.out('% A decimal number between '+lo+' and '+hi+'.');return again();}set(+a);next(env);});again();};
-  const fire=env=>iosPing(E(env),q.dst,q.count,q.size,q.src,q.timeout);
-  const tail=env=>ask(s,'Type of service [0]: ',(_,e4)=>ask(s,'Set DF bit in IP header? [no]: ',(_,e5)=>ask(s,'Validate reply data? [no]: ',(_,e6)=>ask(s,'Data pattern [0xABCD]: ',(_,e7)=>ask(s,'Loose, Strict, Record, Timestamp, Verbose[none]: ',(_,e8)=>ask(s,'Sweep range of sizes [n]: ',(_,e9)=>fire(e9)))))));
+  const fire=env=>{if(!q.sweep)return iosPing(E(env),q.dst,q.count,q.size,q.src,q.timeout,{df:q.df});
+    const {min,max,step}=q.sweep,sizes=[];for(let v=min;v<=max;v+=step)for(let k=0;k<q.count;k++)sizes.push(v);
+    iosPing(E(env),q.dst,sizes.length,min,q.src,q.timeout,{df:q.df,sizes,maxSize:max,sizeLabel:'['+min+'..'+max+']'});};
+  const yes=a=>/^y(es)?$/i.test(a.trim());
+  const sweep=env=>ask(s,'Sweep range of sizes [n]: ',(a,e9)=>{if(!yes(a))return fire(e9);q.sweep={min:36,max:18024,step:1};
+    num('Sweep min size',36,36,18024,v=>q.sweep.min=v,()=>num('Sweep max size',18024,36,18024,v=>q.sweep.max=Math.max(v,q.sweep.min),()=>num('Sweep interval',1,1,18024,v=>q.sweep.step=v,fire)));});
+  const tail=env=>ask(s,'Type of service [0]: ',(_,e4)=>ask(s,'Set DF bit in IP header? [no]: ',(a5,e5)=>{q.df=yes(a5);ask(s,'Validate reply data? [no]: ',(_,e6)=>ask(s,'Data pattern [0xABCD]: ',(_,e7)=>ask(s,'Loose, Strict, Record, Timestamp, Verbose[none]: ',(_,e8)=>sweep(e8))));}));
   const source=()=>ask(s,'Source address or interface: ',(a,env)=>{a=a.trim();if(!a)return tail(env);const r=srcResolve(net,d,a);if(r.err){env.out(r.err==BAD?'% Invalid source address - IP address not on any of our up interfaces':r.err);return source();}q.src=r.ip;tail(env);});
   const ext=()=>ask(s,'Extended commands [n]: ',(a,env)=>{a=a.trim().toLowerCase();if(a===''||a==='n'||a==='no')return fire(env);if(a==='y'||a==='yes')return source();env.out('% Please answer \'yes\' or \'no\'.');ext();});
   const target=()=>ask(s,'Target IP address: ',(a,env)=>{a=a.trim();const ip=isIp(a)?ip2n(a):a?resolveHost(E(env),a):null;if(ip==null){if(!a)env.out('% Bad IP address or host name');return target();}q.dst=ip;
@@ -3786,18 +3796,18 @@ function conLogin(e){const d=e.d,s=e.s,how=lineLogin(d,'con');
 // With neither set, the console goes straight in, but a VTY (Telnet/SSH) session is refused: IOS says
 // "% No password set", which is why a router cannot be managed remotely without an enable secret.
 {const c=CMDS.find(c=>c.pat.join(' ')==='enable'&&c.modes.includes('user'));c.fn=e=>{const d=e.d,s=e.s,pw=d.secret||d.enPass;if(!pw){if(s.vty)return e.out('% No password set');s.mode='priv';return;}
-  let tries=0;const again=()=>ask(s,'Password: ',(a,env)=>{if(a===pw){s.mode='priv';return;}tries++;if(tries>=3)return env.out('% Bad secrets');again();},true);again();};}
+  let tries=0;const again=()=>ask(s,'Password: ',(a,env)=>{if(a===pw){s.mode='priv';return;}tries++;if(tries>=3)return env.out(d.secret?'% Bad secrets':'% Bad passwords');again();},true);again();};}
 // A remote session: telnet or ssh into a device that listens, then that device's own login.
 const closeMsg=R=>R.win?(R.proto==='ssh'?'Connection to '+n2ip(R.ip)+' closed.':'Connection to host lost.'):'[Connection to '+n2ip(R.ip)+' closed by foreign host]';
 function vtyOpen(e,ip,proto,user){const{net,d,s}=e,r=reach(net,d,ip,'tcp',proto==='ssh'?22:23),win=d.type==='pc',port=proto==='ssh'?22:23;
-  if(!win&&proto==='telnet')e.out('Trying '+n2ip(ip)+' ...');
+  const iosTel=!win&&proto==='telnet',tl='Trying '+n2ip(ip)+' ...';
   if(win&&proto==='telnet')e.out('Connecting To '+n2ip(ip)+'...');
   const rd=r.f.ok?r.f.dest:null;
-  if(r.ok&&rd&&quietMode(net,rd)){e.out(win?(proto==='ssh'?'ssh: connect to host '+n2ip(ip)+' port 22: Connection refused':'Could not open connection to the host, on port 23: Connect failed'):'% Connection refused by remote host');return;}
-  if(!r.ok){e.out(win?(proto==='ssh'?'ssh: connect to host '+n2ip(ip)+' port 22: Connection '+(r.refused?'refused':'timed out'):'Could not open connection to the host, on port 23: Connect failed'):FAILMSG(r));return;}
-  if(!win&&proto==='telnet')e.out('Open');
+  if(r.ok&&rd&&quietMode(net,rd)){if(iosTel)e.out(tl);e.out(win?(proto==='ssh'?'ssh: connect to host '+n2ip(ip)+' port 22: Connection refused':'Could not open connection to the host, on port 23: Connect failed'):'% Connection refused by remote host');return;}
+  if(!r.ok){if(iosTel)e.out(tl);e.out(win?(proto==='ssh'?'ssh: connect to host '+n2ip(ip)+' port 22: Connection '+(r.refused?'refused':'timed out'):'Could not open connection to the host, on port 23: Connect failed'):FAILMSG(r));return;}
+  if(iosTel)e.out(tl+' Open','','');
   // login with no password set: IOS accepts the connection, says so, and closes it
-  if(proto==='telnet'&&lineLogin(rd,'vty')==='none'){if(win)e.out('','Password required, but none set','','Connection to host lost.');else e.out('','','Password required, but none set','','[Connection to '+n2ip(ip)+' closed by foreign host]');return;}
+  if(proto==='telnet'&&lineLogin(rd,'vty')==='none'){if(win)e.out('','Password required, but none set','','Connection to host lost.');else e.out('Password required, but none set','','[Connection to '+n2ip(ip)+' closed by foreign host]');return;}
   const srcIp=r.f.pk.src,rs={mode:'user',ctx:null,vty:true,boot:rd.boots||0,hist:[],hi:0,lines:[]};
   s.remote={d:rd,s:rs,ip,proto,win,from:srcIp,user:null};
   const R=s.remote,finish=(ok,env,u)=>{if(ok){R.user=u;(rd.vtys=rd.vtys||[]).push(R);loginOk(net,rd,srcIp,u,port);return;}
@@ -3821,8 +3831,8 @@ const fp=d=>{const A='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345
 {const t=CMDS.find(c=>c.pat.join(' ')==='telnet <ip> <rest?>'),t0=t.fn;t.fn=e=>{const p=/^\d+$/.test(e.args[1])?+e.args[1]:23;if(p!==23)return t0(e);vtyOpen(e,e.args[0],'telnet');};
  const sh=CMDS.find(c=>c.pat.join(' ')==='ssh -l <w> <ip>');sh.fn=e=>vtyOpen(e,e.args[1],'ssh',e.args[0]);
  Cn('pc','ssh <w>',e=>{const m=/^([^@]+)@(.+)$/.exec(e.args[0]);if(!m||!isIp(m[2]))return e.out('ssh: Could not resolve hostname '+(m?m[2]:e.args[0])+': Name or service not known');vtyOpen(e,ip2n(m[2]),'ssh',m[1]);});}
-Cn(EX,'show users',e=>{const d=e.d,rows=[];rows.push('    Line       User       Host(s)              Idle       Location');rows.push('*  0 con 0                idle                 00:00:00   ');
-  (d.vtys||[]).forEach((R,k)=>rows.push(pad(' '+(514+k)+' vty '+k,15)+pad(R.user||'',11)+pad('idle',21)+pad('00:00:00',11)+n2ip(R.from)));rows.push('','  Interface    User               Mode         Idle     Peer Address','');e.out(...rows);},['router','switch']);
+Cn(EX,'show users',e=>{const d=e.d,rows=[],onVty=!!e.s.vty;rows.push('    Line       User       Host(s)              Idle       Location');rows.push((onVty?'   ':'*  ')+'0 con 0                idle                 00:00:00   ');
+  (d.vtys||[]).forEach((R,k)=>rows.push(pad((R.s===e.s?'*':' ')+(514+k)+' vty '+k,15)+pad(R.user||'',11)+pad('idle',21)+pad('00:00:00',11)+n2ip(R.from)));rows.push('','  Interface    User               Mode         Idle     Peer Address','');e.out(...rows);},['router','switch']);
 Cn('line','no password <rest?>',e=>{delete e.d.lines[e.s.ctx].password;});
 Cn('config','no banner motd <rest?>',e=>{delete e.d.banner;});
 Cn('config','login on-failure log',e=>{(e.d.loginLog=e.d.loginLog||{}).fail=true;},['router','switch']);
@@ -3855,7 +3865,10 @@ function restoreBoot(net,d){const snap=d.boot;if(!snap)return;const keep={name:d
 {const mk0=mkNet;mkNet=function(devs){const net=mk0(devs);for(const d of devs){snapBoot(net,d);d.factoryCfg=d.bootCfg;}return net;};
  for(const l of LABS){const b=l.build;l.build=function(){const net=b.apply(this,arguments);for(const d of Object.values(net.devs)){if(d.type==='pc')continue;snapBoot(net,d);if(d.bootCfg!==d.factoryCfg&&!d.startup)d.startup=runningConfig(net,d).slice(2);}return net;};}}
 function saveCfg(e){e.d.startup=runningConfig(e.net,e.d).slice(2);snapBoot(e.net,e.d);e.out('Building configuration...','[OK]');}
-{const c=CMDS.find(c=>c.pat.join(' ')==='copy running-config startup-config');c.fn=e=>ask(e.s,'Destination filename [startup-config]? ',(a,env)=>saveCfg(Object.assign({},env,{d:e.d})));
+{const c=CMDS.find(c=>c.pat.join(' ')==='copy running-config startup-config');c.fn=e=>ask(e.s,'Destination filename [startup-config]? ',(a,env)=>{const f=a.trim().replace(/^nvram:/i,'');
+   if(!f||f.toLowerCase()==='startup-config')return saveCfg(Object.assign({},env,{d:e.d}));
+   // another name: IOS writes a copy into NVRAM under that name; the startup-config (what a reload uses) is unchanged
+   const txt=runningConfig(env.net||e.net,e.d).slice(2);(e.d.nvram=e.d.nvram||{})[f]=txt;env.out(txt.join('\n').length+' bytes copied in 0.084 secs');});
  const w=CMDS.find(c=>c.pat.join(' ')==='write <rest?>');w.fn=e=>{const a=(e.args[0]||'').trim().toLowerCase();if(a&&!'memory'.startsWith(a))return e.out(BAD);saveCfg(e);};}
 const BOOT_ROUTER=['','System Bootstrap, Version 15.0(1r)M16, RELEASE SOFTWARE (fc1)','Technical Support: http://www.cisco.com/techsupport','Copyright (c) 2012 by cisco Systems, Inc.','','Total memory size = 512 MB - On-board = 512 MB, DIMM0 = 0 MB','CISCO2911/K9 platform with 524288 Kbytes of main memory with parity disabled','','Readonly ROMMON initialized','','program load complete, entry point: 0x80803000, size: 0x1b340','','Self decompressing the image : ################################################ [OK]','','Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.2(4)M3, RELEASE SOFTWARE (fc2)','Copyright (c) 1986-2012 by Cisco Systems, Inc.','','cisco CISCO2911/K9 (revision 1.0) with 491520K/32768K bytes of memory.','3 Gigabit Ethernet interfaces','255K bytes of non-volatile configuration memory.','250880K bytes of ATA System CompactFlash 0 (Read/Write)',''];
 const BOOT_SWITCH=['','Base ethernet MAC Address: 0019.e8a2.3c00','Xmodem file system is available.','Initializing Flash...','flashfs[0]: 2 files, 1 directories','flashfs[0]: 0 orphaned files, 0 orphaned directories','flashfs[0]: Total bytes: 32514048','flashfs[0]: Bytes used: 11015680','flashfs[0]: Bytes available: 21498368','flashfs[0]: flashfs fsck took 1 seconds.','...done Initializing Flash.','','Loading "flash:/c2960-lanbasek9-mz.150-2.SE4.bin"...','########################################################################## [OK]','','Cisco IOS Software, C2960 Software (C2960-LANBASEK9-M), Version 15.2(7)E2, RELEASE SOFTWARE (fc3)','Copyright (c) 1986-2019 by Cisco Systems, Inc.','','cisco WS-C2960-24TT-L (PowerPC405) processor (revision B0) with 65536K bytes of memory.','24 FastEthernet interfaces','2 Gigabit Ethernet interfaces','',''];
@@ -3947,7 +3960,9 @@ const EXAM_FAULTS=[
    const p=rpick(rnd,c);if(!p)return null;const [d,i,x]=p;return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'ip address '+n2ip(x)+' '+n2ip(lenMask(i.len)),'end']},desc:d.hostname+' '+shortIf(i.name)+' is addressed '+n2ip(x)+' instead of '+n2ip(i.ip)};}},
  {id:'nat',gen(net,rnd){const c=[];for(const d of netDevs(net,['router']))for(const i of Object.values(d.ifs))if(i.nat)c.push([d,i]);const p=rpick(rnd,c);if(!p)return null;const [d,i]=p;
    return {cmds:{[d.name]:[...enterCfg(d),'interface '+i.name,'no ip nat '+i.nat,'end']},desc:d.hostname+' '+shortIf(i.name)+' is no longer marked ip nat '+i.nat};}},
- {id:'gw',gen(net,rnd){const c=netDevs(net,['switch']).filter(d=>d.gw!=null);const d=rpick(rnd,c);if(!d)return null;const x=(d.gw+1)>>>0;
+ {id:'gw',gen(net,rnd){const c=netDevs(net,['switch']).filter(d=>d.gw!=null);const d=rpick(rnd,c);if(!d)return null;
+   const svi=Object.values(d.ifs).find(i=>i.ip!=null&&netOf(i.ip,i.len)===netOf(d.gw,i.len)),len=svi?svi.len:24,base=netOf(d.gw,len),bc=(base+2**(32-len)-1)>>>0;
+   let x=null;for(let k=1;k<2**(32-len)&&x===null;k++){const y=((d.gw+k-base)%(bc-base-1||1))+base+1;if(y!==d.gw&&y<bc&&!ownerOf(net,y))x=y>>>0;}if(x===null)return null;
    return {cmds:{[d.name]:[...enterCfg(d),'ip default-gateway '+n2ip(x),'end']},desc:d.hostname+'\'s default gateway points at '+n2ip(x)+' instead of '+n2ip(d.gw)};}},
  {id:'acl',gen(net,rnd){const c=[];for(const d of netDevs(net,['router','switch'])){const used=new Set();for(const i of Object.values(d.ifs)){if(i.aclIn)used.add(i.aclIn);if(i.aclOut)used.add(i.aclOut);}if(d.lines&&d.lines.vty&&d.lines.vty.aclClass)used.add(d.lines.vty.aclClass);
      for(const n of used)if(d.acls&&d.acls[n])c.push([d,n]);}const p=rpick(rnd,c);if(!p)return null;const [d,n]=p,A=d.acls[n],ext=A.type!=='standard';
@@ -3971,7 +3986,7 @@ function examFault(lab,seed,count){const rnd=seedRng(seed),base=solvedNet(lab);i
 // The exam's own lab object: the base lab's topology, requirements and checks, its solution already applied, and the faults on top.
 function examLab(base,faults,title){const l=Object.assign({},base,{title,group:'Exam',kind:'exam',exam:true,baseTitle:base.title,why:[],steps:[],ccna:base.ccna,
   brief:'This network was built to the requirements in the checklist and was working. Something has changed since. Find out what, repair it, and prove it works: every check must pass.',
-  lesson:faults.map(f=>f.desc).join('. ')+'.',
+  lesson:faults.map(f=>String(f.desc).replace(/^./,c=>c.toUpperCase())).join('. ')+'.',
   build(){const net=solvedNet(base);for(const f of faults)applyCmds(net,f.cmds);return net;}});
   l.tasks=base.tasks.slice();return l;}
 // ---------- duplex and speed: autonegotiation, mismatches, interface counters ----------
@@ -6434,7 +6449,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     if(i>=0&&LABS[i].examSeed===ex.seed&&LABS[i].title===title)return i;if(i>=0)LABS.splice(i,1);
     const base=LABS.find(l=>l.title===ex.base);if(!base)return -1;
     const l=ex.faults?examLab(base,ex.faults,title):Object.assign({},base,{title,group:'Exam',kind:'exam',exam:true,baseTitle:base.title,why:[],steps:[]});
-    l.examSeed=ex.seed;l.examMode=ex.mode;LABS.push(l);return LABS.length-1;}
+    l.examSeed=ex.seed;l.examMode=ex.mode;l.examFaults=ex.faults?ex.faults.length:0;l.examMinutes=ex.minutes;LABS.push(l);return LABS.length-1;}
   const running=()=>X.current&&X.current.state==='running'&&cur&&cur.view==='lab'&&cur.lab&&cur.lab.exam&&cur.lab.examSeed===X.current.seed;
   // An exam counts as running from start until it is cleared, times out or is given up, whether or not its lab is open.
   const active=()=>!!(X.current&&X.current.state==='running');
@@ -6445,7 +6460,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   function start(ex){if(active()&&X.current.seed!==ex.seed){notify('An exam is already running. Resume it from Exam sim, or give it up first.');return;}
     purge(null);if(window.l4nFun&&window.l4nFun.forget)window.l4nFun.forget('Exam · '+ex.base);
     const i=labIndex(ex);if(i<0)return notify('Could not build that exam.');ex.started=Date.now();ex.deadline=ex.started+ex.minutes*60000;ex.state='running';X.current=ex;save();
-    openLab(i,true);ex.hp0=ex.hp=failing();save();renderBrief();sfx('start');notify('Exam started. '+ex.minutes+' minutes on the clock. No guide, no why, no walkthrough.');tick();}
+    openLab(i,true);ex.hp0=ex.hp=failing();save();renderBrief();try{window.scrollTo(0,0);$('brief').scrollTop=0;}catch(e){}sfx('start');notify('Exam started. '+ex.minutes+' minutes on the clock. No guide, no why, no walkthrough.');tick();}
   function record(ex,cleared,passed,total){const r=cur&&cur.lab&&cur.lab.exam&&cur.lab.examSeed===ex.seed&&window.l4nFun&&window.l4nFun.run&&window.l4nFun.run();
     X.history.push({date:today(),base:ex.base,mode:ex.mode,tag:ex.tag||null,cleared,passed,total,rank:cleared&&r?r.rank||null:null,secs:Math.round((Date.now()-ex.started)/1000),minutes:ex.minutes});X.history=X.history.slice(-40);save();}
   function gradeNow(){const l=cur.lab;cur.graded=l.checks.map(([t,f])=>{try{return [t,!!f(cur.net)];}catch(e){return [t,false];}});const all=cur.graded.every(g=>g[1]);
@@ -6490,9 +6505,10 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const status=state==='running'?`<span class="exam-clock${left<=60?' late':''}" id="examClock">${mmss(left)}</span>`:state==='timeup'?'<span class="exam-clock late">Time\'s up</span>':'<span class="exam-clock">Done</span>';
     let boss='';if(l.examMode==='boss'){const total=Math.max(1,ex&&typeof ex.hp0==='number'?ex.hp0:l.checks.length);const hp=cur.graded?cur.graded.filter(g=>!g[1]).length:ex&&typeof ex.hp==='number'?ex.hp:total;const pct=Math.min(100,Math.round(hp/total*100));
       boss=`<div class="boss"><b>BOSS</b><div class="boss-hp" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${hp}"><i style="width:${pct}%"></i></div><span>${hp?hp+' / '+total+' HP · grade to strike':'BOSS DOWN'}</span></div>`;}
-    const bar=`<div class="exam-bar${l.examMode==='boss'?' boss-mode':''}"><b>${l.examMode==='boss'?'BOSS':'EXAM'}</b>${status}<span class="exam-note">${esc(modeText(l.examMode,ex&&ex.faults?ex.faults.length:0))} · ${ex?ex.minutes+' min':''} · no guide, no why, no walkthrough</span>${state==='running'?'<button class="small-btn" id="examQuit" type="button">Quit</button>':'<button class="small-btn" id="examNew" type="button">New exam</button>'}</div>`;
+    const bar=`<div class="exam-bar${l.examMode==='boss'?' boss-mode':''}"><b>${l.examMode==='boss'?'BOSS':'EXAM'}</b>${status}<span class="exam-note">${esc([modeText(l.examMode,l.examFaults||0),(ex?ex.minutes:l.examMinutes)?(ex?ex.minutes:l.examMinutes)+' min':'','no guide, no why, no walkthrough'].filter(Boolean).join(' · '))}</span>${state==='running'?'<button class="small-btn" id="examQuit" type="button">Quit</button>':'<button class="small-btn" id="examNew" type="button">New exam</button>'}</div>`;
     $('brief').insertAdjacentHTML('afterbegin',bar+boss);
-    if($('examQuit'))$('examQuit').onclick=()=>{giveUp();renderLabs();};
+    if($('examQuit'))$('examQuit').onclick=()=>{dialog('Give up this exam?','<p>It is recorded as not cleared, with the checks that pass right now. You cannot resume it afterwards.</p><div class="actions"><button class="btn primary" id="exConfirmQuit">Give it up</button><button class="btn" id="exKeep">Keep going</button></div>');
+      $('exConfirmQuit').onclick=()=>{$('dialog').close();giveUp();renderLabs();};$('exKeep').onclick=()=>$('dialog').close();};
     if($('examNew'))$('examNew').onclick=examDialog;
     // grading in an exam records the result; a clear stops the clock
     $('bGrade').onclick=()=>{const before=cur.graded?cur.graded.filter(g=>!g[1]).length:l.checks.length,all=gradeNow();
@@ -6506,12 +6522,13 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   function giveUp(){const ex=X.current;if(!ex||ex.state!=='running')return;ex.state='quit';const i=labIndex(ex),l=LABS[i];let ok=0,total=l?l.checks.length:0;
     if(l){const net=mine(cur&&cur.lab)?cur.net:(()=>{try{return replay(l,drafts[l.title]||null).net;}catch(e){return null;}})();ok=l.checks.filter(([,f])=>{try{return !!(net&&f(net));}catch(e){return false;}}).length;}
     record(ex,false,ok,total);X.current=null;save();notify('Exam given up: '+ok+'/'+total+' checks passed. It counts as not cleared.');if(cur&&cur.view==='lab')renderBrief();}
+  const dailyCache={day:null,ex:null};
   function examDialog(){if(active()){const ex=X.current,left=Math.max(0,Math.ceil((ex.deadline-Date.now())/1000));
       dialog('Exam sim',`<p>An exam is running: <b>${esc(ex.base)}</b> · ${esc(MODES[ex.mode]||ex.mode)} · <b>${mmss(left)}</b> left. Finish it before starting another; you can give it up, but it counts as not cleared.</p><div class="actions"><button class="btn primary" id="exResume">Resume the exam →</button><button class="btn" id="exGiveUp">Give it up</button></div>`);
       $('exResume').onclick=()=>{$('dialog').close();if(!running()){const i=labIndex(ex);if(i>=0)openLab(i,false);}};
-      $('exGiveUp').onclick=()=>{$('dialog').close();giveUp();};return;}
+      $('exGiveUp').onclick=()=>{$('dialog').close();giveUp();renderLabs();};return;}
     const seedDaily='daily-'+today(),done=X.history.find(h=>h.mode==='daily'&&h.date===today());
-    let daily=null;try{daily=makeExam('daily',20,seedDaily);}catch(e){daily=null;}
+    let daily=null;if(dailyCache.day!==today()){let d0=null;try{d0=makeExam('daily',20,seedDaily);}catch(e){d0=null;}dailyCache.day=today();dailyCache.ex=d0?JSON.stringify(d0):null;}daily=dailyCache.ex?JSON.parse(dailyCache.ex):null;
     const hist=X.history.slice(-8).reverse().map(h=>`<tr><td>${h.date}</td><td>${esc(h.base)}</td><td>${esc(MODES[h.mode]||h.mode)}</td><td class="${h.cleared?'good':'bad'}">${h.cleared?'Cleared · rank '+(h.rank||'—'):'Not cleared · '+h.passed+'/'+h.total}</td></tr>`).join('');
     dialog('Exam sim',`<p>A random lab, a clock, and no help: no guide, no "why", no walkthrough, no clues. The network is graded as it stands when time runs out. Ranks are scored on results, as always.</p>
       <div class="exam-daily"><div class="eyebrow">Daily challenge · ${today()}</div>${done?`<p><b>${done.cleared?'Cleared today · rank '+(done.rank||'—'):'Attempted today · '+done.passed+'/'+done.total+' checks'}</b> · ${esc(done.base)}</p>`:daily?`<p><b>${esc(daily.base)}</b> with two hidden faults · 20 minutes · the same for everyone today.</p><button class="btn primary" id="exDaily">Start today's challenge →</button>`:'<p>No daily challenge could be built.</p>'}</div>
@@ -6520,6 +6537,8 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
       <div class="actions"><button class="btn primary" id="exStart">Start exam →</button></div>
       ${hist?`<h3>Recent exams</h3><div class="table-wrap"><table><thead><tr><th>Date</th><th>Lab</th><th>Mode</th><th>Result</th></tr></thead><tbody>${hist}</tbody></table></div>`:''}`);
     if($('exDaily'))$('exDaily').onclick=()=>{$('dialog').close();start(daily);};
+    const syncClock=()=>{const boss=($('dialogBody').querySelector('input[name=exMode]:checked')||{}).value==='boss';$('dialogBody').querySelectorAll('input[name=exMin]').forEach(r=>{r.disabled=boss&&r.value!=='30';if(boss&&r.value==='30')r.checked=true;});};
+    $('dialogBody').querySelectorAll('input[name=exMode]').forEach(r=>r.addEventListener('change',syncClock));
     $('exStart').onclick=()=>{const mode=($('dialogBody').querySelector('input[name=exMode]:checked')||{}).value||'sabotage',min=+(($('dialogBody').querySelector('input[name=exMin]:checked')||{}).value||20);
       let ex=null;try{ex=makeExam(mode,mode==='boss'?30:min,mode+'-'+Date.now()+'-'+Math.floor(Math.random()*1e6));}catch(e){ex=null;}if(!ex)return notify('Could not build an exam of that kind.');$('dialog').close();start(ex);};}
   window.examDialog=examDialog;

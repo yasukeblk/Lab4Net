@@ -109,7 +109,7 @@ const fs = require('node:fs');
       // REVIEW-FIXES 14: the notice clears itself
       await p.waitForFunction(() => document.getElementById('notice').textContent === '', null, { timeout: 7000 });
       // REVIEW-FIXES 9: give it up from the bar: recorded as not cleared, and the lock lifts
-      await p.locator('#examQuit').click();
+      await p.locator('#examQuit').click(); await p.locator('#exConfirmQuit').click();
       const h = await p.evaluate(() => window.l4nExam.history().at(-1));
       assert.deepEqual([h.mode, h.cleared], ['daily', false]); assert.equal(await p.evaluate(() => window.l4nExam.active()), false);
       await p.evaluate(() => openPractice('quiz')); assert.equal(await p.evaluate(() => cur.view), 'quiz');
@@ -167,6 +167,27 @@ const fs = require('node:fs');
         assert.equal(await p.locator('.boss span').textContent(), hp + ' / ' + ex.hp0 + ' HP · grade to strike', 'health survives a reload');
       }
       await c.close(); done.push('boss: three faults, real starting health, health kept on reload');
+    }
+
+    // REVIEW-FIXES polish (exam UI): Quit asks first; after giving up the bar reads cleanly; Boss locks the clock to 30 minutes;
+    // on a phone the bar wraps instead of squeezing its note into a narrow column.
+    {
+      const { c, p } = await scenario(0);
+      assert.ok(await p.evaluate(() => window.l4nExam.start('sabotage', 15, 'pf-sab-2')));
+      await p.locator('#examQuit').click(); assert.equal(await p.locator('#exConfirmQuit').count(), 1, 'Quit asks first');
+      await p.locator('#exKeep').click(); assert.equal(await p.evaluate(() => window.l4nExam.active()), true, 'Keep going keeps the exam');
+      await p.locator('#examQuit').click(); await p.locator('#exConfirmQuit').click();
+      const note = await p.locator('.exam-note').textContent(); assert.ok(!/· ·|^ ·|· $/.test(note) && /15 min/.test(note), 'bar after giving up: ' + note);
+      await p.evaluate(() => window.examDialog()); await p.locator('input[name=exMode][value=boss]').check();
+      assert.equal(await p.locator('input[name=exMin][value="30"]').isChecked(), true); assert.equal(await p.locator('input[name=exMin][value="10"]').isDisabled(), true);
+      await p.locator('input[name=exMode][value=lab]').check(); assert.equal(await p.locator('input[name=exMin][value="10"]').isDisabled(), false);
+      await p.locator('#closeDialog').click();
+      await p.setViewportSize({ width: 390, height: 844 });
+      assert.ok(await p.evaluate(() => window.l4nExam.start('boss', 30, 'pf-boss-2')));
+      const h = await p.locator('.exam-note').evaluate(e => e.getBoundingClientRect().height);
+      assert.ok(h < 80, 'the note wraps under the clock on a phone, not into a tall column: ' + h + 'px');
+      assert.ok(await p.evaluate(() => document.getElementById('examClock').getBoundingClientRect().top < innerHeight), 'the clock is on screen');
+      await c.close(); done.push('exam UI polish');
     }
 
     // REVIEW-FIXES 13: the time's-up card is titled Time's up, not Stage clear.

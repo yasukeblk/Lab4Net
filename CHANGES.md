@@ -1,5 +1,20 @@
 # Lab4Net changes
 
+## Review fixes, part 5: polish for exams, Telnet and the extended ping
+
+From the Polish list of `docs/REVIEW-FIXES.md`.
+
+- **Exam bar on a phone** wraps its note under the clock instead of squeezing it into a tall column, and starting an exam (a campaign boss included) scrolls back to the top so the clock is in view.
+- **Quit asks first** ("Give up this exam?"), and afterwards the bar reads cleanly. Choosing Boss in the Exam dialog sets the clock to its fixed 30 minutes. Root-cause text starts with a capital letter. The daily challenge is worked out once a day, so the Exam dialog opens faster.
+- **The default-gateway exam fault** points at a free address in the right subnet, never at another device.
+- **Telnet looks like IOS**: `Trying 10.0.12.2 ... Open` on one line, two blank lines, the banner, then User Access Verification. `show users` stars your own line (your VTY line when you are inside a session). Three wrong `enable password` answers say `% Bad passwords` (`% Bad secrets` only with an enable secret).
+- **`copy running-config startup-config` honours the filename**: Enter saves the startup-config; another name saves a copy in NVRAM and leaves the startup-config (and so the next reload) unchanged.
+- **The extended ping uses your answers**: the timeout sets how long each `.` waits, "Set DF bit" with a packet over the 1500-byte MTU gives `M` (could not fragment), and "Sweep range of sizes" asks for the minimum, maximum and interval and pings every size.
+
+Tests: `pageflows.cjs` (exam bar, Quit confirmation, Boss clock, phone layout), `exam.cjs` (gateway fault, capital letters), `prompts.cjs` (Telnet output, `show users`, `% Bad passwords`, copy to another name, DF bit, sweep, timeout).
+
+Verification: all seventeen suites pass. Checked the boss bar at 390x844 in Edge.
+
 ## Review fixes, part 4: switching, OSPF and the quiz
 
 Items 21 to 27 of `docs/REVIEW-FIXES.md`.

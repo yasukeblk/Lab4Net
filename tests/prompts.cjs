@@ -52,7 +52,8 @@ net=solve('Static routing');const PC1=net.devs.PC1;R1=net.devs.R1;const R2=net.d
 go(net,R1,s,'enable');go(net,R1,s,'configure terminal');go(net,R1,s,'line vty 0 4');go(net,R1,s,'password vtypass');go(net,R1,s,'login');go(net,R1,s,'end');
 go(net,R2,{mode:'user'},'enable');const s2=S();go(net,R2,s2,'enable');go(net,R2,s2,'configure terminal');go(net,R2,s2,'line vty 0 4');go(net,R2,s2,'password r2pass');go(net,R2,s2,'login');go(net,R2,s2,'banner motd #R2 here#');go(net,R2,s2,'enable secret r2en');go(net,R2,s2,'end');
 r=go(net,R1,s,'telnet 10.0.12.2');
-assert.ok(r.out[0].startsWith('Trying 10.0.12.2 ...')&&r.out.includes('Open')&&r.text.includes('R2 here')&&r.text.includes('User Access Verification'),r.text);
+// polish: Trying x ... Open on one line, two blank lines, then the banner and User Access Verification
+assert.deepEqual(r.out.slice(0,3),['Trying 10.0.12.2 ... Open','','']);assert.ok(r.text.includes('R2 here')&&r.text.includes('User Access Verification'),r.text);assert.ok(r.text.indexOf('R2 here')<r.text.indexOf('User Access Verification'));
 assert.equal(r.prompt,'Password: ');assert.ok(s.remote&&s.remote.d===R2);
 r=go(net,R1,s,'r2pass');assert.equal(r.prompt,'R2>','now on R2');
 r=go(net,R1,s,'enable');assert.equal(r.prompt,'Password: ');r=go(net,R1,s,'r2en');assert.equal(r.prompt,'R2#');
@@ -222,6 +223,26 @@ for(let k=0;k<7;k++){r=go(net,R1,s,'');}
 assert.ok(r.text.includes('Tracing the route to 192.168.3.10'),r.text);assert.equal(r.prompt,'R1#');
 // a PC still prints the usage text for a bare ping
 assert.ok(go(net,net.devs.PC1,{mode:'pc'},'ping').text.includes('Usage: ping'));
+// REVIEW-FIXES polish: the extended ping uses the DF bit, the timeout and a sweep of sizes
+const xping=(answers)=>{go(net,R1,s,'ping');let q;for(const a of answers)q=go(net,R1,s,a);return q;};
+r=xping(['','192.168.3.10','2','1600','','y','','','y','','','','']);
+assert.ok(r.text.includes('Packet sent with the DF bit set')&&r.text.includes('Sending 2, 1600-byte'),r.text);assert.ok(/^M[.]$/m.test(r.text),'DF set on a packet bigger than the 1500-byte MTU: could not fragment: '+r.text);
+r=xping(['','192.168.3.10','2','1000','','y','','','y','','','','']);assert.ok(/^!!$/m.test(r.text),'DF on a packet that fits goes through');
+r=xping(['','192.168.3.10','1','','','y','','','','','','','y','100','102','1']);
+assert.ok(r.text.includes('Sending 3, [100..102]-byte ICMP Echos'),r.text);assert.ok(/^[!.]{3}$/m.test(r.text));
+r=xping(['','192.168.200.1','2','','5','']);assert.ok(r.text.includes('timeout is 5 seconds'));assert.ok(s.pace.t.some(x=>x&&x.chars&&x.chars.includes(5000)),'each . waits the timeout');
+// show users stars your own line; inside a Telnet session that is the VTY line, not the console
+{const n=solve('Static routing'),a1=S(),b1=S();go(n,n.devs.R2,b1,'enable');go(n,n.devs.R2,b1,'configure terminal');go(n,n.devs.R2,b1,'line vty 0 4');go(n,n.devs.R2,b1,'password vv');go(n,n.devs.R2,b1,'end');
+  go(n,n.devs.R1,a1,'enable');go(n,n.devs.R1,a1,'telnet 10.0.12.2');go(n,n.devs.R1,a1,'vv');const u=go(n,n.devs.R1,a1,'show users');
+  assert.ok(/^   0 con 0/m.test(u.text)&&/^[*]514 vty 0/m.test(u.text),u.text);
+  assert.ok(/^[*]  0 con 0/m.test(go(n,n.devs.R2,b1,'show users').text),'on the console the star is on con 0');}
+// three wrong enable passwords (no secret): % Bad passwords
+{const n=build('Basic device setup'),R=n.devs.R1,x=S();go(n,R,x,'enable');go(n,R,x,'configure terminal');go(n,R,x,'enable password pw');go(n,R,x,'end');go(n,R,x,'disable');
+  go(n,R,x,'enable');go(n,R,x,'a');go(n,R,x,'b');assert.deepEqual(go(n,R,x,'c').out,['% Bad passwords']);
+  // copy run start to another name keeps a copy and leaves the startup-config alone
+  go(n,R,x,'enable');go(n,R,x,'pw');go(n,R,x,'configure terminal');go(n,R,x,'hostname COPY');go(n,R,x,'end');const before=R.startup;
+  go(n,R,x,'copy running-config startup-config');const q=go(n,R,x,'backup.cfg');assert.ok(/bytes copied/.test(q.text),q.text);assert.equal(R.startup,before,'startup-config unchanged');assert.ok(R.nvram['backup.cfg'].some(l=>l==='hostname COPY'));
+  go(n,R,x,'copy running-config startup-config');go(n,R,x,'');assert.ok(R.startup.some(l=>l==='hostname COPY'),'Enter keeps the default name');}
 }
 `,context);
 console.log('PASS prompts: enable secret and password prompts, console logout/login (password, local, locked), telnet sessions with VTY login and remote commands, three-strike close, syslog kept off the VTY, login block-for quiet mode and logs, password-required-but-none-set, OpenSSH host key and password flow, Windows telnet messages, IOS ssh client, copy run start filename prompt, write, <cr>, reload with Save?/confirm, saved config restored, learned state cleared, setup dialog on a factory device, switch reload, ping/traceroute source (address, interface, invalid), interactive extended ping and traceroute.');
