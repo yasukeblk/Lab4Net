@@ -1,5 +1,9 @@
 # Lab4Net changes
 
+## Donation button on
+
+- `SITE.donate` is set to https://buymeacoffee.com/yasukeblk, so the gold **♥ Support Lab4Net** button now shows on the title screen and in How to use. It opens the page in a new tab. Nothing is sent anywhere unless someone clicks it.
+
 ## Title screen, share previews and an optional visitor counter
 
 - **Title screen.** First-time visitors now land on an arcade-style title screen: what Lab4Net is, six feature tiles with live lab counts, a small animated network, and **Press start ▶**. Start (or Esc) enters the lab, and returning visitors skip it. How to use has a **Show the title screen** button, and `?welcome` on the address shows it too. It's plain HTML in the page, so search engines can read it.

@@ -595,6 +595,7 @@ html.welcome-on #boot{display:none}
 #wStart{font-size:26px;padding:14px 30px;animation:wPulse 1.6s ease-in-out infinite}
 @keyframes wPulse{50%{box-shadow:0 0 0 3px var(--line),0 0 34px rgba(255,210,63,.8)}}
 .w-link{color:var(--cy);font-size:15px;text-underline-offset:3px}
+a.btn{text-decoration:none}
 .w-chips{list-style:none;display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:20px 0 0}
 .w-chips li{font:italic 800 14px var(--px);letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border:2px solid var(--line);border-radius:6px;background:#1d1640;box-shadow:0 0 0 1px rgba(92,240,138,.45);color:#c9ffdd}
 .w-demo{width:100%;height:auto;filter:drop-shadow(0 18px 30px rgba(0,0,0,.55))}
@@ -6802,7 +6803,7 @@ const CAMPAIGN=[
 // SITE: the public site's donation link and GoatCounter code. Both stay off until set.
 // The counter only runs on the public site (SITE.host), never on a self-hosted copy or a local file,
 // and not when the browser sends Do Not Track. It sends one cookieless page view per visit.
-const SITE={host:'yasukeblk.github.io',donate:'',counter:''};
+const SITE={host:'yasukeblk.github.io',donate:'https://buymeacoffee.com/yasukeblk',counter:''};
 (function(){const w=$('welcome');if(!w)return;
   const n={labs:LABS.length,build:LABS.filter(l=>l.kind==='build'&&!l.capstone).length,inc:LABS.filter(l=>l.kind==='incident').length,cap:LABS.filter(l=>l.capstone).length,lessons:typeof LESSONS==='object'?Object.keys(LESSONS).length:56};
   w.querySelectorAll('[data-w]').forEach(s=>{if(n[s.dataset.w]!=null)s.textContent=n[s.dataset.w];});

@@ -20,6 +20,8 @@ const { pathToFileURL } = require('node:url');
     assert.equal(await page.locator('#welcome').isVisible(), true, '?welcome shows the title screen');
     const n = await page.evaluate(() => ({ labs: LABS.length, shown: document.querySelector('[data-w="labs"]').textContent }));
     assert.equal(+n.shown, n.labs, 'the lab count is live');
+    const don = await page.evaluate(() => SITE.donate);
+    if (don) { assert.equal(await page.locator('#wDonate').isVisible(), true, 'donation button shows'); assert.equal(await page.locator('#wDonate').getAttribute('href'), don); assert.equal(await page.locator('#wDonate').getAttribute('target'), '_blank'); }
     await page.locator('#wStart').click();
     assert.equal(await page.locator('#welcome').isVisible(), false, 'Start enters the lab');
     assert.equal(await page.evaluate(() => localStorage.getItem('lab4net-welcomed')), '1');

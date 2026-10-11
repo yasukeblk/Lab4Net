@@ -35,6 +35,10 @@ No install, no account and no ads. Your progress stays in your own browser. The 
 
 Desktop is the main target. It works on phones, but a keyboard and a big screen make it much nicer.
 
+## Support Lab4Net
+
+Lab4Net is free and stays free. If it helped you study, you can say thanks at **https://buymeacoffee.com/yasukeblk**. It's entirely optional.
+
 ## Run it yourself
 
 It's one file. Download `index.html` and open it in a modern browser. It works offline and makes no network requests (the visit counter only runs on the public site).
