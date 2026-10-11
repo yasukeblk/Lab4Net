@@ -4,6 +4,8 @@
 
 **Use it now: https://yasukeblk.github.io/Lab4Net/**
 
+![A troubleshooting lab in Lab4Net: PC1's ping fails because R3 is in the wrong OSPF area, the network statements are fixed on R3's console, OSPF neighbours come up, and the ping succeeds along PC1, R1, R3, PC3](docs/demo.gif)
+
 No install, no account and no ads. Your progress stays in your own browser. The public site counts visits anonymously (no cookies, no personal data, and nothing at all if your browser sends Do Not Track); a copy you host yourself or open from a file sends nothing.
 
 > Lab4Net is an independent study tool. It is not affiliated with, endorsed by or sponsored by Cisco Systems, Inc. Cisco, Cisco IOS, CCNA and Catalyst are trademarks or registered trademarks of Cisco Systems, Inc. The simulator models what the labs need; when it and real equipment disagree, trust the real equipment.

@@ -1,5 +1,10 @@
 # Lab4Net changes
 
+## Demo GIF and sitemap
+
+- **Demo GIF.** `docs/demo.gif` (37 s, 918×784) shows Incident 07 played in the real app: PC1's ping stops at R1, R3's `network` statements move from area 1 to area 0, both OSPF neighbours come up, and the ping succeeds along PC1 → R1 → R3 → PC3. The README shows it under the link to the site.
+- **Sitemap.** `sitemap.xml` lists the site's one page, for Google Search Console. There is no `robots.txt`: search engines only read it at the root of the domain (`yasukeblk.github.io/robots.txt`), not in a project folder, and with none present everything may be indexed.
+
 ## Donation button on
 
 - `SITE.donate` is set to https://buymeacoffee.com/yasukeblk, so the gold **♥ Support Lab4Net** button now shows on the title screen and in How to use. It opens the page in a new tab. Nothing is sent anywhere unless someone clicks it.
