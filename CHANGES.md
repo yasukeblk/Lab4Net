@@ -1,5 +1,15 @@
 # Lab4Net changes
 
+## Public release
+
+- **Licence:** Lab4Net is now MIT licensed (`LICENSE`). Anyone may use, share and change it, with no warranty.
+- **Font credits:** `THIRD-PARTY-NOTICES.md` credits the three embedded fonts (Barlow Condensed, VT323, IBM Plex Sans) and includes the SIL Open Font License, as that licence requires.
+- **Disclaimer:** the README, the notices file and the app's How to use dialog (new "About Lab4Net" section) say Lab4Net is independent and not affiliated with Cisco, name the trademarks, and say that progress stays in the browser (no server, accounts, tracking or ads).
+- **Help text corrected:** How to use no longer says Telnet and SSH can't open a remote shell. They can, since the prompts build.
+- **README rewritten** for visitors: what Lab4Net is, the link to use it online, how to self-host, how to contribute, and the licence.
+- **Developer guide made public:** `docs/DEVELOPING.md` is the technical half of the old handoff notes (file map, engine, interface, tests, rules, known limits, roadmap). The personal working notes and the completed lab-library spec moved out of the repo into the maintainer's private notes.
+- **Ready for GitHub Pages:** an empty `.nojekyll` file makes GitHub Pages serve the page as-is.
+
 ## The pop-out guide can no longer hide behind other windows
 
 - The bug: with the guide popped out, its window could end up behind the map or console. The checklist showed no steps, so the step-by-step switch looked broken.

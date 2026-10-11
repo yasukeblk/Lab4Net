@@ -1,10 +1,10 @@
-# Lab4Net handoff
+# Developing Lab4Net
 
-State as of the review fixes on `main` (9 Oct 2026): every item in `docs/REVIEW-FIXES.md` is done or listed under Still owed. Eleven builds landed on 9 Oct: multi-area OSPF plus the wireless-wiring lab, the campaign, the follow-ups (storms, neighbours in the MAC table, per-VLAN aging, IPv6 learning), switching realism, prompts, ping source, exam sim, theory bank and sandbox rewards, duplex/speed, live IPv6 pings, boss fights. Read this before touching anything. The lab library is being expanded phase by phase following `docs/LESSONS-SPEC.md`.
+The technical guide for anyone changing Lab4Net: what is in the single `index.html`, how the simulator and interface fit together, how to test, and the rules that keep it working. Start with the README for what Lab4Net is and how to run it.
 
 ## What this is
 
-Lab4Net is a browser-based lab simulator for the Cisco CCNA exam, modeled on Boson NetSim with a Packet Tracer style sandbox. The owner, Yasuke, is the learner and the only user. He is studying for the CCNA and wants the tool to be accurate first, then rewarding and fun to use.
+Lab4Net is a browser-based lab simulator for the Cisco CCNA exam, with step-by-step labs, troubleshooting incidents and a free-build sandbox. It is built to be accurate first, then rewarding and fun to use.
 
 It currently has:
 
@@ -33,54 +33,21 @@ It currently has:
 
 | Thing | Location |
 | --- | --- |
-| Repo | https://github.com/yasukeblk/Lab4Net (public) |
+| Repo | https://github.com/yasukeblk/Lab4Net |
 | Working branch | `main` |
-| Local clone | `Documents/Lab4Net` on Yasuke's desktop |
-| Live copy | LXC container "Lab4Net" on his Proxmox server, `http://192.168.1.106/`, repo cloned at `/opt/lab4net`, served by nginx. Only reachable on his home network. |
-| Other branch | `chatgpt/improvements` is ChatGPT's independent line of work. Never merge it into `main`. |
+| Live site | GitHub Pages serves `index.html` from `main`, so a push to `main` updates the public site |
 
-The whole app is one self-contained file, `index.html`. There is no build step, no backend and no dependencies. Fonts are embedded as base64. Opening the file in a browser runs it.
-
-Deploying to the container, once a change is pushed:
-
-```
-cd /opt/lab4net && git checkout main && git pull && bash install-lxc.sh
-```
-
-Then he hard-refreshes the page.
-
-## How Yasuke works
-
-- He does not write code. Give him finished results and plain-language summaries, mostly as short bullet lists.
-- Do the work without asking permission for design or implementation choices. Tell him afterwards what you did and what you chose not to do.
-- Every command block you show him needs a one-line label saying which machine it runs on (his desktop, the Proxmox host, or the Lab4Net container). He treats a missing label as dangerous.
-- Only show deploy commands when a change is actually ready to deploy.
-- Keep the "Still owed" list at the bottom of this file current, and repeat it at the end of each summary. Dropped follow-ups have burned him before.
-- Report honestly what you verified and what you did not.
-
-## The workflow if you are working in chat
-
-This is how the project has run so far, and Yasuke wants it to continue the same way. You build and test in your own sandbox; Claude Code on his desktop commits and pushes; the container pulls.
-
-1. Clone the public repo in your sandbox and work on `index.html` there. You cannot push, and you cannot reach his desktop or the container.
-2. Run `node tests/labs.cjs`, `node tests/forwarding.cjs`, `node tests/curriculum.cjs`, `node tests/lessons.cjs` and `node tests/ping.cjs` before handing anything over.
-3. Check visual and interactive changes in a real browser. In the chat sandbox, `npm i @sparticuz/chromium puppeteer-core` gives a headless Chromium that works: launch it with `executablePath: await chromium.executablePath()` and `args: ['--no-sandbox','--disable-gpu','--single-process','--no-zygote']`, open the file, drive it, and take screenshots. `tests/ui.cjs` also runs there if you install `playwright-core` and point its `chromium.launch` at that same executable. The executable path sometimes comes back empty on the first call; it extracts to `/tmp/chromium`, so pointing at that path directly is reliable.
-4. Give him a zip containing only the files that changed, laid out as they sit in the repo.
-5. Give him a prompt to paste into Claude Code that says: fetch and pull `main`, copy the files from the zip in his Downloads folder over the repo, confirm `index.html` is the exact byte size you state, run the Node tests, commit with a given message, push, and report the commit hash. Stating the byte size matters: Code once picked up an older zip of the same name.
-6. Give him the container command from the section above, labelled for the Lab4Net container.
-7. If he says the change is not showing, clone the repo again and compare `main` with your build before guessing. Twice the cause was that the build had not been pushed, and once the container was still on ChatGPT's branch.
-
-Publishing the page as an artifact in chat as well lets him see a change before deploying it.
+The whole app is one self-contained file, `index.html`. There is no build step, no backend and no dependencies. Fonts are embedded as base64 (licences in `THIRD-PARTY-NOTICES.md`). Opening the file in a browser runs it. Self-hosting options (nginx in an LXC, Docker) are in the README.
 
 ## Design direction
 
-He chose this after several rounds, so do not restyle without being asked:
+The design direction is settled; do not restyle without a reason:
 
 - A remastered arcade game, in the spirit of Streets of Rage 4: an old game brought back with modern art, lighting and shadows.
 - Neon night palette, dark panels with soft shadows and coloured glows, bold italic arcade lettering, chunky slanted buttons, comic hit-sparks.
 - The console stays a retro amber CRT. The DOS-style path line and the boot screen stay.
 - Desktop is the target. The phone layout only has to stay usable.
-- He wants lots of animation, but everything must be disabled under `prefers-reduced-motion`.
+- Lots of animation is part of the style, but everything must be disabled under `prefers-reduced-motion`.
 
 Design tokens are CSS variables on `:root` at the top of the stylesheet (`--night`, `--panel`, `--yel`, `--mag`, `--cy`, `--go`, `--bad`, `--ph` and so on). Display type is Barlow Condensed italic (`--px`), console and code are VT323 (`--mono`), reading text is IBM Plex Sans (`--ui`). Window title bars are colour-coded: Mission gold, Checklist orange, Network map magenta, Console blue, Guide green.
 
@@ -163,7 +130,7 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 1. Guide switch (`stepsHtml`, `stepsBlock`), defined just before the first `openLab` call
 2. Menu clock and boot screen
 3. Pop-out guide window and the window manager (move, resize, snap, saved layout). On drop, `plan()` decides swap, split or fill (`freeRect()`) and `grow()` lets a flush neighbour take the space left; `links()` finds every window on a resized edge so it moves like a divider; `bounds()` takes the outer edges from where the windows already sit. Alt skips all of it. `ui.cjs` drags real windows to test it
-4. Rewards (ranks, XP, levels, combos, trophies, sound, device hover card). Ranks are scored on results only (Yasuke, 8 Oct: extra checking commands must never lower the grade; 9 Oct: the "test it yourself" condition for an S stays). A clear means every check passes. Score starts at 100, minus walkthrough 25, guide 15, each incident clue 5, and 2 per rejected command after the first two (cap 10). A run with no check command of its own (`CHECKCMD`: show, ping, traceroute, tracert, telnet, ssh, ipconfig, arp) is capped at A. Time and command count are shown but never scored. Do not reintroduce a par or a speed penalty.
+4. Rewards (ranks, XP, levels, combos, trophies, sound, device hover card). Ranks are scored on results only (design rules: extra checking commands must never lower the grade, and the "test it yourself" condition for an S stays). A clear means every check passes. Score starts at 100, minus walkthrough 25, guide 15, each incident clue 5, and 2 per rejected command after the first two (cap 10). A run with no check command of its own (`CHECKCMD`: show, ping, traceroute, tracert, telnet, ssh, ipconfig, arp) is capped at A. Time and command count are shown but never scored. Do not reintroduce a par or a speed penalty.
 5. Troubleshooting clues, CCNA tags and Study map. `ccnaTags`, `clueHtml`, `bindClues`, `clueLevel`, `setClueLevel` and `studyMap` are top-level function declarations so the base `renderBrief` can call them on the first render. This block also wraps `openLab` to hide clues on a fresh start. The rewards block exposes `window.l4nFun = {run, save}` so clue use reaches the current run.
 6. Sandbox (devices, cabling, zoom and pan, notes, kits, challenges, files, undo). Undo keeps up to 80 snapshots of devices, links, notes, challenge and journal; `mark()` runs from `saveDef` and after each sandbox command.
 7. Backup (adds ranks, layout, sandbox and incident clues to Transfer progress)
@@ -178,13 +145,13 @@ Later blocks, each under a `// ----------` comment, extend it in this order:
 
 The console and `replay` call the engine through `safeExec`: if a handler throws, that one command prints `% Lab4Net internal error: …` and everything else carries on, so a simulator bug never leaves the page half-updated or throws saved work away. Journal entries are `{device, line, t}` (`jEntry` keeps exactly those): `t` is when the line was typed, and `replay` sets the engine clock `SIM_NOW` to it for each line, so anything timed (login quiet mode, MAC aging) replays as it happened live. Engine code that depends on time must use `simNow()`, not `Date.now()`. A masked answer (a password) is kept out of history both live and on replay.
 
-The base `execute` plays any output that comes with `s.pace` through `streamStart` / `streamTick` / `streamStop` (`// ---------- live console output`, just before `renderTrace`). Only one output plays at a time (`STREAM`). `execute` calls `streamStop(false)` first, which finishes the current output instantly, so every wrapper still sees complete output. Ctrl+C (with no text selected in the input) or Ctrl+Shift+6 calls `streamStop(true)`. `renderTerm` hides the prompt while that session is playing. Reduced motion skips playback. `PACE_SCALE` (0.4) scales every engine delay, so playback runs at 40% of real time; Yasuke asked for it quicker than real (8 Oct). Sounds come from `window.l4nFun.sfx` (`echo`, `drop`, `unreach`) in the rewards block.
+The base `execute` plays any output that comes with `s.pace` through `streamStart` / `streamTick` / `streamStop` (`// ---------- live console output`, just before `renderTrace`). Only one output plays at a time (`STREAM`). `execute` calls `streamStop(false)` first, which finishes the current output instantly, so every wrapper still sees complete output. Ctrl+C (with no text selected in the input) or Ctrl+Shift+6 calls `streamStop(true)`. `renderTerm` hides the prompt while that session is playing. Reduced motion skips playback. `PACE_SCALE` (0.4) scales every engine delay, so playback runs at 40% of real time; chosen for pace. Sounds come from `window.l4nFun.sfx` (`echo`, `drop`, `unreach`) in the rewards block.
 
 `execute` stores each command's full output on `s.lastOut`; the rewards wrapper reads that rather than the console lines, because paced output may still be playing.
 
 The guide window: `index.html?guide` stops right after `//ENGINE-END` (the guide-only block throws a marked object, suppressed in its own `error` handler) after showing only `#guideWin`, so it never runs the app or touches storage. It talks to the main window on the `lab4net-guide` BroadcastChannel and, as a fallback, by `postMessage` with its opener. Messages: `hello` (sent on load and every 3 s; a main window that hears nothing for 9 s treats it as gone), `bye`, `dock`, `step {dev, cmd}` from the guide window; `show {html, title, keep}`, `ping`, `close` from the main window. On the main side, `extAlive` hides the in-page `#guideWin` and the inline steps; `renderGuideWin` sends the guide HTML whenever it changes; `openGuideWindow` is the "New window ↗" button; `setGuidePop(false)` closes the guide window.
 
-`guideFront(flash)` (defined in the window-manager block) raises the in-page `#guideWin` above every window, or focuses the separate guide window. It runs when the pop-out appears (from `layoutApply`), when step-by-step is switched on while popped out, and from the checklist's `.pop-note` button, which shows whenever the guide is on and popped out. Yasuke hit this: a buried pop-out made the guide switch look broken.
+`guideFront(flash)` (defined in the window-manager block) raises the in-page `#guideWin` above every window, or focuses the separate guide window. It runs when the pop-out appears (from `layoutApply`), when step-by-step is switched on while popped out, and from the checklist's `.pop-note` button, which shows whenever the guide is on and popped out. A buried pop-out once made the guide switch look broken.
 
 The top menu (`.header-actions`) starts with `#campaignTop`, which opens the campaign (bound in the campaign block, highlighted with `aria-current` by a `renderAll` wrapper there). Menu labels never wrap; below 1420px wide the spacing tightens, below 1180px the XP and progress bars hide, and on phones the menu wraps to a second row. Check the header at 1024 and 1280 wide if you add another menu item.
 
@@ -194,7 +161,7 @@ Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `la
 
 ## Verifying changes
 
-Run these before every commit. All of them pass on `main`.
+Run these before every commit. All of them pass on `main`, and `main` is the live public site, so never push with a failing test.
 
 ```
 node tests/labs.cjs
@@ -218,7 +185,6 @@ node tests/pageflows.cjs
 
 Current result: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1571 guide commands; 56 lessons (38 lab, 18 topic).
 
-On Yasuke's desktop there is no Node install. Claude Code runs the tests with Deno's Node-compatible binary (`%LOCALAPPDATA%\deno\node_compat_bin\node.exe`) and runs `ui.cjs` with Playwright installed by Deno into a folder outside the repo, linked in as `node_modules` (git-ignored), with `LAB4NET_BROWSER_CHANNEL=msedge`.
 
 - `labs.cjs` builds every lab, runs its solution and asserts every check passes, then does the same following the step-by-step instructions. It also runs in GitHub Actions on every push.
 - `forwarding.cjs` covers routing, ACL direction, static NAT, closed ports, VLAN paths and link failure.
@@ -270,7 +236,7 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - `clear ip ospf process` answers its own "Reset ALL OSPF processes?" prompt with yes. Hello and dead timers must match, as on a real router; a network-type mismatch forms the adjacency but the link is left out of SPF, so routes through it disappear. Authentication is not modelled. Equal-cost paths are not load-shared; one is used.
 - Syslog messages appear on the console of the device where the command was typed; other devices only log them (show logging, syslog server). The NTP clock stays synchronised as long as its server is configured. Log timestamps use the browser's clock.
 - show access-lists lists standard entries in sequence order; real IOS may list host entries first.
-- Ping and traceroute use ICMP for every probe (real IOS traceroute uses UDP), so an extended ACL that permits only some ICMP or UDP can disagree slightly with real gear. Unreachables are sent only for no-route and ACL drops; a failed next-hop ARP on a router gives timeouts. Extended ping has `repeat` and `size` but not `source`, and there is no interactive extended ping. Playback runs at 40% of real time (`PACE_SCALE`), at Yasuke's request.
+- Ping and traceroute use ICMP for every probe (real IOS traceroute uses UDP), so an extended ACL that permits only some ICMP or UDP can disagree slightly with real gear. Unreachables are sent only for no-route and ACL drops; a failed next-hop ARP on a router gives timeouts. Extended ping has `repeat` and `size` but not `source`, and there is no interactive extended ping. Playback runs at 40% of real time (`PACE_SCALE`).
 - IPv6 neighbours age REACH (30 s) then STALE, with no DELAY or PROBE states; the first echo is queued, not lost.
 - No wireless. IPv6 has static routing only: no OSPFv3, no DHCPv6, no IPv6 ACLs. Only the Layer 3 switch model (a 3560) routes; 2960s reject ip routing and static routes.
 - HSRP has no object tracking and fails over at once rather than after the 10-second hold time. The DHCP snooping rate limit is stored and shown but not enforced. DAI has no ARP ACLs or extra validation options.
@@ -278,16 +244,8 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - Exam sim: sabotage faults are drawn from a fixed set of generators (see `EXAM_FAULTS`); a few lab/seed pairs yield none and fall back to another lab. Faults that only matter at the next DHCP lease (exclusions, pool changes) are not used because existing leases rightly survive them. The exam lab's pass and rank are stored under its `Exam · <lab>` title; exam history keeps the last 40. The clock runs on the wall clock, so leaving the tab does not pause it.
 - Ranks, XP and trophies live in the browser. Transfer progress carries them, but a different browser starts fresh until an import.
 
-## ChatGPT's branch
+## Known gaps (roadmap)
 
-`chatgpt/improvements` has diverged and Yasuke compares the two by eye. Its first round (saved work, lab library, command guide, trace diagnostics, static NAT lab, theory check, the test files) was folded into `main` by hand. Its later commits add a sandbox, Cisco and Juniper hardware profiles with a Junos interpreter, an AI tutor that calls OpenAI through a server-side relay, a CCNA objective map and six fault investigations. The objective map, study map, the six incidents with their three-step hints, and an undo idea were rebuilt on `main`. Deliberately left out: the AI tutor (needs a backend and key), the Juniper/Junos work (not CCNA), the Matrix design and the sandbox ping probe. If Yasuke asks for one of its features, read the branch and rebuild the feature here; a git merge cannot combine two single-file apps. Note that the AI tutor needs a backend and an API key, and `main` is a static page.
-
-## Still owed
-
-Carry this list forward and keep it in every summary.
-
-- `show ip ospf database` (from the review's Polish list; not built yet).
-- Suspending a Telnet/SSH session: Ctrl+Shift+6 then x, `show sessions`, `resume`, `disconnect` (from the review's Polish list).
-Standing decision (not owed): Yasuke decided on 9 Oct 2026 to keep "test it yourself" (at least one show, ping, traceroute, telnet, ssh, ipconfig or arp during the run) as a requirement for an S rank. Do not remove it.
-
-His most recent direction (9 Oct 2026): build freely in milestones, accuracy first, keep the arcade design, keep every test green, and keep this list current. Done on 9 Oct: the console realism fixes, the guide window, switching realism, prompts (passwords, Telnet/SSH sessions, reload), ping/traceroute with a source and the interactive dialogs, the exam sim (seeded sabotage faults, daily challenge, boss fights), the 110-question theory bank, sandbox rewards, duplex/speed mismatch effects, live IPv6 pings, boss fights, the switching follow-ups (storms, neighbour rows, per-VLAN aging, IPv6 learning) the campaign, multi-area OSPF and the wireless-wiring lab, then every item of the review in `docs/REVIEW-FIXES.md`. Owed: the two items above; ideas for later: more IPv6 (an OSPFv3 engine would be the big one), a second campaign once the first is cleared.
+- `show ip ospf database`.
+- Suspending a Telnet/SSH session: Ctrl+Shift+6 then x, `show sessions`, `resume`, `disconnect`.
+- Rank rule (a design decision, not a gap): an S rank requires at least one check command of your own during the run (show, ping, traceroute, telnet, ssh, ipconfig or arp). Keep it.

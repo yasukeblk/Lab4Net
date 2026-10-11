@@ -2,7 +2,7 @@
 
 Review of Fable's 14 commits (switching realism through multi-area OSPF). All 14 Node test files, `ui.cjs` and `guidewin.cjs` pass, and the design holds up. The items below were found by driving the engine and the page directly; the HIGH ones were each reproduced twice. Fix them in this order. **Add a regression test for every HIGH and MEDIUM fix** (in the matching `tests/*.cjs`), so they stay fixed.
 
-Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, full suite before each push, check visual changes in a real browser, update CHANGES.md / HANDOFF.md / "Still owed".
+Rules from docs/DEVELOPING.md still apply: accuracy first, never weaken a test, full suite before each push, check visual changes in a real browser, update CHANGES.md / DEVELOPING.md / "Still owed".
 
 ---
 
@@ -22,9 +22,9 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
 - **Fix:** replay must reproduce the live result. Record time-dependent outcomes in the journal entry (e.g. accepted/refused), or use a simulated clock advanced by journal timestamps. Add a test that replays this exact journal and checks R1 keeps its hostname.
 
 ### 3. Transfer progress loses the new progress
-- **Done (milestone 1).** The three keys are in `EXTRA` and in the HANDOFF storage list. The exam, campaign and sandbox-challenge stores repair damaged values on load, and a failed exam resume is dropped instead of breaking the page. Test: `pageflows.cjs` (export carries the keys, a clean browser imports them, damaged values load with no errors).
+- **Done (milestone 1).** The three keys are in `EXTRA` and in the DEVELOPING storage list. The exam, campaign and sandbox-challenge stores repair damaged values on load, and a failed exam resume is dropped instead of breaking the page. Test: `pageflows.cjs` (export carries the keys, a clean browser imports them, damaged values load with no errors).
 - `EXTRA` in the backup block (~4918) is missing `lab4net-exam-v1`, `lab4net-campaign-v1` and `lab4net-sbx-done-v1`. Export then import in a clean browser: XP 640 → 350, stages cleared 1 → 0, exam history and daily count gone.
-- Add the keys; add them to the HANDOFF storage-key list too. Make loading tolerant of damaged values (`{"history":null}` in `lab4net-exam-v1` currently throws on load).
+- Add the keys; add them to the DEVELOPING storage-key list too. Make loading tolerant of damaged values (`{"history":null}` in `lab4net-exam-v1` currently throws on load).
 
 ### 4. `enable` over Telnet works with no enable password
 - **Done (milestone 1).** A VTY session with no enable secret or password gets `% No password set` and stays at `>`; the console still goes straight in. Test: `prompts.cjs`.
@@ -132,7 +132,7 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
   - `show users` inside a VTY session should put `*` on your own VTY line **Done (milestone 5).** Test: `prompts.cjs`.
   - three failed `enable password` attempts should say `% Bad passwords` (with `enable secret` set, `% Bad secrets` is correct) **Done (milestone 5).** Test: `prompts.cjs`.
   - Windows telnet to a VTY with `login` and no password should show "Password required, but none set" then "Connection to host lost.", not "Connect failed" **Done (milestone 3, with item 18).**
-  - suspending a session (Ctrl+Shift+6 then x, `show sessions`, `resume`, `disconnect`) doesn't exist yet; add it to Still owed **Done (milestone 5).** Added to Still owed in HANDOFF.md.
+  - suspending a session (Ctrl+Shift+6 then x, `show sessions`, `resume`, `disconnect`) doesn't exist yet; add it to Still owed **Done (milestone 5).** Added to Still owed in DEVELOPING.md.
 - **Copy and extended ping:**
   - `copy run start` ignores a typed destination filename **Done (milestone 5).** Another name saves a copy in NVRAM ("… bytes copied") and leaves the startup-config alone. Test: `prompts.cjs`.
   - extended ping: answering "Sweep range of sizes" with `y` skips the min/max/interval questions, and the DF-bit and timeout answers are ignored **Done (milestone 5).** The sweep asks min, max and interval and pings every size; DF set on a packet over the 1500-byte MTU answers `M` (could not fragment); the timeout sets how long each `.` takes. Test: `prompts.cjs`.
@@ -149,7 +149,7 @@ Rules from docs/HANDOFF.md still apply: accuracy first, never weaken a test, ful
   - `show ip ospf` / `show ip protocols` count areas from `network` statements only, missing `ip ospf 1 area 0` **Done (milestone 6).** Interface areas count too, and `show ip protocols` lists them under "Routing on Interfaces Configured Explicitly". Test: `ospfarea.cjs`.
   - areas should be listed in number order **Done (milestone 6).** Test: `ospfarea.cjs`.
   - `show ip protocols` should say "It is an area border router" **Done (milestone 6).** Test: `ospfarea.cjs`.
-  - `show ip ospf database` is missing (Still owed) **Done (milestone 6).** Not built; on the Still owed list in HANDOFF.md.
+  - `show ip ospf database` is missing (Still owed) **Done (milestone 6).** Not built; on the Still owed list in DEVELOPING.md.
 - **IPv6:** neighbours are always REACH with age 0 (no STALE/DELAY/PROBE, no FE80 entries). IOS usually holds the first IPv6 echo while it resolves the neighbour, so `!!!!!` is often seen first time.  **Done (milestone 6).** Checked: IOS queues packets awaiting neighbour resolution (the `ipv6 nd resolution data limit` command sets that queue), so the first IPv6 echo is no longer lost. Entries keep the time they were confirmed: Age in minutes, REACH for 30 seconds (the reachable time), then STALE; each end also learns the other's FE80 link-local address. DELAY and PROBE are not modelled. Test: `ping6.cjs`.Check before changing; if unsure, leave it and note it.
 - **Exam faults:** the `gw` fault uses the gateway +1 without checking that address is free. **Done (milestone 5).** It now picks a free address in the switch's subnet. Test: `exam.cjs`.
 - **Quiz:**
