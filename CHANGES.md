@@ -1,5 +1,14 @@
 # Lab4Net changes
 
+## Title screen, share previews and an optional visitor counter
+
+- **Title screen.** First-time visitors now land on an arcade-style title screen: what Lab4Net is, six feature tiles with live lab counts, a small animated network, and **Press start ▶**. Start (or Esc) enters the lab, and returning visitors skip it. How to use has a **Show the title screen** button, and `?welcome` on the address shows it too. It's plain HTML in the page, so search engines can read it.
+- **Share previews.** Links to the site now show a proper card (title, description and a 1200×630 image, `og.png`) on Reddit, Discord, LinkedIn and others. The page also has a description for search results, an icon, and a machine-readable description of the app.
+- **Visitor counter (off until set up).** `SITE.counter` in `index.html` takes a GoatCounter code. When set, the public site sends one page view and one "pressed Start" event per visit: no cookies, no personal data, and nothing at all with Do Not Track or on a self-hosted copy. The About text and the title screen say this only while the counter is on.
+- **Donation button (off until set up).** `SITE.donate` takes a donation link. When set, a **♥ Support Lab4Net** button appears on the title screen and in How to use.
+
+Tests: new `tests/landing.cjs` (optional, Playwright). All Node tests and the four browser suites pass. Checked in headless Chromium at 1440×900, 1366×768 and 390×844, with no page errors and no network requests while the counter is off. With a test code on a simulated public site the two counts are sent; with Do Not Track or on a self-hosted address nothing is sent.
+
 ## Public release
 
 - **Licence:** Lab4Net is now MIT licensed (`LICENSE`). Anyone may use, share and change it, with no warranty.

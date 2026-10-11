@@ -4,7 +4,7 @@
 
 **Use it now: https://yasukeblk.github.io/Lab4Net/**
 
-No install, no account and no ads. Your progress stays in your own browser.
+No install, no account and no ads. Your progress stays in your own browser. The public site counts visits anonymously (no cookies, no personal data, and nothing at all if your browser sends Do Not Track); a copy you host yourself or open from a file sends nothing.
 
 > Lab4Net is an independent study tool. It is not affiliated with, endorsed by or sponsored by Cisco Systems, Inc. Cisco, Cisco IOS, CCNA and Catalyst are trademarks or registered trademarks of Cisco Systems, Inc. The simulator models what the labs need; when it and real equipment disagree, trust the real equipment.
 
@@ -37,7 +37,7 @@ Desktop is the main target. It works on phones, but a keyboard and a big screen 
 
 ## Run it yourself
 
-It's one file. Download `index.html` and open it in a modern browser. It works offline and makes no network requests.
+It's one file. Download `index.html` and open it in a modern browser. It works offline and makes no network requests (the visit counter only runs on the public site).
 
 To host it on your own network:
 
