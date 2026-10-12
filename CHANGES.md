@@ -1,5 +1,9 @@
 # Lab4Net changes
 
+## Visitor counter on
+
+- `SITE.counter` is set to `lab4net`. The public site (yasukeblk.github.io) now sends one anonymous page view per visit, plus a "pressed Start" event, to lab4net.goatcounter.com: no cookies, no personal data, and nothing with Do Not Track. Self-hosted copies and local files send nothing. The title screen footer and How to use now say this on the public site.
+
 ## Demo GIF and sitemap
 
 - **Demo GIF.** `docs/demo.gif` (37 s, 918×784) shows Incident 07 played in the real app: PC1's ping stops at R1, R3's `network` statements move from area 1 to area 0, both OSPF neighbours come up, and the ping succeeds along PC1 → R1 → R3 → PC3. The README shows it under the link to the site.

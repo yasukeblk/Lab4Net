@@ -6803,7 +6803,7 @@ const CAMPAIGN=[
 // SITE: the public site's donation link and GoatCounter code. Both stay off until set.
 // The counter only runs on the public site (SITE.host), never on a self-hosted copy or a local file,
 // and not when the browser sends Do Not Track. It sends one cookieless page view per visit.
-const SITE={host:'yasukeblk.github.io',donate:'https://buymeacoffee.com/yasukeblk',counter:''};
+const SITE={host:'yasukeblk.github.io',donate:'https://buymeacoffee.com/yasukeblk',counter:'lab4net'};
 (function(){const w=$('welcome');if(!w)return;
   const n={labs:LABS.length,build:LABS.filter(l=>l.kind==='build'&&!l.capstone).length,inc:LABS.filter(l=>l.kind==='incident').length,cap:LABS.filter(l=>l.capstone).length,lessons:typeof LESSONS==='object'?Object.keys(LESSONS).length:56};
   w.querySelectorAll('[data-w]').forEach(s=>{if(n[s.dataset.w]!=null)s.textContent=n[s.dataset.w];});
