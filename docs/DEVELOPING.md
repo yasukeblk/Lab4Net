@@ -37,7 +37,7 @@ It currently has:
 | Working branch | `main` |
 | Live site | GitHub Pages serves `index.html` from `main`, so a push to `main` updates the public site |
 
-The whole app is one self-contained file, `index.html`. There is no build step, no backend and no dependencies. Fonts are embedded as base64 (licences in `THIRD-PARTY-NOTICES.md`). Opening the file in a browser runs it. Self-hosting options (nginx in an LXC, Docker) are in the README.
+The whole app is one self-contained file, `index.html`. There is no build step for the app, no backend and no dependencies. Fonts are embedded as base64 (licences in `THIRD-PARTY-NOTICES.md`). Opening the file in a browser runs it. Self-hosting options (nginx in an LXC, Docker) are in the README.
 
 ## Design direction
 
@@ -161,7 +161,19 @@ The title screen (`#welcome`, the landing page): static HTML right after `<body>
 - `SITE.counter`: a GoatCounter code. When set, the page sends one cookieless page view (and a `start` event when Start is pressed) to `https://<code>.goatcounter.com/count`, only on `SITE.host` and not when Do Not Track is on. The About text and the title-screen footer say so only while it is active.
 - `SITE.donate`: a donation link. When set, a "♥ Support Lab4Net" button shows on the title screen and in How to use.
 
-The share-preview tags (Open Graph, Twitter card, JSON-LD) are in `<head>` and point at `og.png` (1200×630) on the public site. Regenerate `og.png` if the branding changes. `tests/landing.cjs` (optional, Playwright) covers the title screen.
+Deep links: `?lab=<slug>` opens that lab and `?lesson=<slug>` opens that lesson, skipping the title screen (the inline script hides it for both), then removes the parameter from the address bar. A slug is the lab or lesson title in lower case, `&` as `and`, other runs of non-letters as `-` (`802.1Q trunking` → `802-1q-trunking`). The same `slug` is in `tools/build-site.cjs`, and `tests/sitepages.cjs` checks they match. An unknown slug shows a notice and stays on the last lab. These links are what the lesson pages use.
+
+### Lesson pages (the website's lessons)
+
+`lessons/` holds one public web page per lesson, for search engines and sharing, plus an index grouped by CCNA domain. They are generated: never edit them by hand. After any change to `LESSONS`, a lab title, `pos` or `build()`, `CCNA_OBJECTIVES` or the fonts, run:
+
+```
+node tools/build-site.cjs
+```
+
+It reads `index.html` (the engine for `LABS`, `CCNA_OBJECTIVES` and `CCNA_DOMAINS`, and the lessons data block), and writes `lessons/<slug>.html`, `lessons/index.html`, `lessons/site.css`, `lessons/fonts/*.woff2` (the app's embedded fonts as files) and `sitemap.xml` (every page; a page's `lastmod` only changes when its content does). Each page has its own title, description, canonical URL, share tags and JSON-LD (`LearningResource`), the lab's network drawn from `build()` and `pos`, the lesson's sections, the story steps as a list, terms, exam notes, mistakes and the quick check with answers behind `<details>`, a "Practise it" link (`../?lab=` or `../?lesson=`), and previous/next links. The only script is the visit counter, with the app's rules (public host only, Do Not Track honoured). `tests/sitepages.cjs` runs the generator with `--check` and fails if anything is out of date, then checks tags, links, deep links and the sitemap; it runs in GitHub Actions. The pages link back to the app with relative links, so they only work next to `index.html` (as on the public site); the title screen and About link to the public lessons with an absolute URL so self-hosted copies, which only install `index.html`, still reach them.
+
+The share-preview tags (Open Graph, Twitter card, JSON-LD) are in `<head>` and point at `og.png` (1200×630) on the public site. Regenerate `og.png` if the branding changes. `tests/landing.cjs` (optional, Playwright) covers the title screen, the deep links and the lesson pages in a browser.
 
 The trace box under the map (`renderTrace`) is one summary line (`.trace-title`: result, `.trace-sum` path, Details and Replay buttons) plus `.trace-more`, which holds everything else and is hidden until Details is pressed (`traceOpen()`, stored in `lab4net-trace-open`). Wrappers that add to the trace must insert into `.trace-more`, as the switching wrapper does. `#topo svg` max-height is `calc(31vh + 76px)`: the 76px is the height the trace box gave back, so the default window layout is unchanged; keep the two in step if the trace box height changes.
 
@@ -186,9 +198,11 @@ node tests/duplex.cjs
 node tests/ping6.cjs
 node tests/campaign.cjs
 node tests/ospfarea.cjs
+node tests/sitepages.cjs
 node tests/ui.cjs
 node tests/guidewin.cjs
 node tests/pageflows.cjs
+node tests/landing.cjs
 ```
 
 Current result: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1571 guide commands; 56 lessons (38 lab, 18 topic).
@@ -229,6 +243,7 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 8. `ui.cjs` relies on some specifics: the text "Reply received", the `.selring` class having no animation under reduced motion, task checkboxes being clickable, and the page not navigating mid-run.
 9. New CSS class names must not collide with device type names (`router`, `switch`, `pc`, `srv`), which are used as classes on map devices and console tabs.
 10. Update `CHANGES.md` with each change, in plain language.
+11. After changing lessons, lab titles or lab maps, run `node tools/build-site.cjs` and commit the `lessons/` folder and `sitemap.xml` with the change. `tests/sitepages.cjs` fails until you do. Renaming a lab or lesson changes its page address, which breaks links people have shared and loses its search ranking, so avoid renames once published.
 
 ## Known limits
 

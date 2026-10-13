@@ -1,5 +1,12 @@
 # Lab4Net changes
 
+## Lessons on the web
+
+- **56 lesson pages.** Every lesson now has its own public page at `yasukeblk.github.io/Lab4Net/lessons/<name>.html`, plus an index of all of them grouped by CCNA domain. Each page carries the lesson's text, the lab's network diagram, the "see it happen" steps, key terms, exam notes, common mistakes and the quick check (answers hidden until clicked), with a button that opens the matching lab. Search engines can find them, and they are easy to share. They are plain HTML in the app's style, work on phones, and use the same fonts and visit-counter rules as the app.
+- **Generated, never hand-edited.** `tools/build-site.cjs` builds the pages from the lessons inside `index.html`, so the app and the website always say the same thing. `tests/sitepages.cjs` (in GitHub Actions) fails if they ever drift.
+- **Links into the app.** `?lab=<name>` opens a lab and `?lesson=<name>` opens a lesson directly, skipping the title screen. Saved work is kept.
+- **Sitemap** now lists all 58 pages. The title screen and How to use link to the lessons.
+
 ## Visitor counter on
 
 - `SITE.counter` is set to `lab4net`. The public site (yasukeblk.github.io) now sends one anonymous page view per visit, plus a "pressed Start" event, to lab4net.goatcounter.com: no cookies, no personal data, and nothing with Do Not Track. Self-hosted copies and local files send nothing. The title screen footer and How to use now say this on the public site.

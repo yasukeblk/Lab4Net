@@ -24,3 +24,4 @@ jobs:
       - run: node tests/ping6.cjs
       - run: node tests/campaign.cjs
       - run: node tests/ospfarea.cjs
+      - run: node tests/sitepages.cjs
