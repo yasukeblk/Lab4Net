@@ -203,6 +203,7 @@ node tests/ui.cjs
 node tests/guidewin.cjs
 node tests/pageflows.cjs
 node tests/landing.cjs
+node tests/security.cjs
 ```
 
 Current result: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1571 guide commands; 56 lessons (38 lab, 18 topic).
@@ -243,7 +244,8 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 8. `ui.cjs` relies on some specifics: the text "Reply received", the `.selring` class having no animation under reduced motion, task checkboxes being clickable, and the page not navigating mid-run.
 9. New CSS class names must not collide with device type names (`router`, `switch`, `pc`, `srv`), which are used as classes on map devices and console tabs.
 10. Update `CHANGES.md` with each change, in plain language.
-11. After changing lessons, lab titles or lab maps, run `node tools/build-site.cjs` and commit the `lessons/` folder and `sitemap.xml` with the change. `tests/sitepages.cjs` fails until you do. Renaming a lab or lesson changes its page address, which breaks links people have shared and loses its search ranking, so avoid renames once published.
+11. Treat anything from outside the code as untrusted: text typed into consoles, imported backups (a backup is a file someone may have been sent), stored data (which a backup can set) and messages from other windows. Put it on the page with `textContent` or through `esc()`, never raw into `innerHTML`; validate stored values when loading them (as the Exam sim history does); and check `e.origin===location.origin` in every `message` listener, because any website can open or frame the app or `?guide`. The backup import replaces `<` and `>` in every imported extra as a second line of defence. `tests/security.cjs` (Playwright) tries each of these.
+12. After changing lessons, lab titles or lab maps, run `node tools/build-site.cjs` and commit the `lessons/` folder and `sitemap.xml` with the change. `tests/sitepages.cjs` fails until you do. Renaming a lab or lesson changes its page address, which breaks links people have shared and loses its search ranking, so avoid renames once published.
 
 ## Known limits
 

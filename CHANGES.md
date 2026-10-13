@@ -1,5 +1,11 @@
 # Lab4Net changes
 
+## Security fixes
+
+- **Guide window.** Another website could open Lab4Net's guide page (`?guide`) and send it HTML through `postMessage`, which ran as code on the Lab4Net site. Both the guide page and the app now only accept messages from Lab4Net itself (same origin), so other sites can no longer drive either one.
+- **Backup import.** A doctored backup file could run code once imported, through the Exam sim history and other stored values. The Exam sim history is now checked when it loads and fully escaped when shown, and imports replace `<` and `>` in every imported value, so a backup can only ever carry data.
+- **New test.** `tests/security.cjs` (browser) plays a hostile website and a doctored backup and checks that nothing runs. It also checks that markup typed into consoles stays text (it already did).
+
 ## Lessons on the web
 
 - **56 lesson pages.** Every lesson now has its own public page at `yasukeblk.github.io/Lab4Net/lessons/<name>.html`, plus an index of all of them grouped by CCNA domain. Each page carries the lesson's text, the lab's network diagram, the "see it happen" steps, key terms, exam notes, common mistakes and the quick check (answers hidden until clicked), with a button that opens the matching lab. Search engines can find them, and they are easy to share. They are plain HTML in the app's style, work on phones, and use the same fonts and visit-counter rules as the app.

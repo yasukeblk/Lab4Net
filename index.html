@@ -4283,7 +4283,7 @@ if(/(?:^|&)guide(?:[=&]|$)/.test(location.search.slice(1))){(function(){
   const on=m=>{if(!m)return;if(m.t==='show'){const sc=body.scrollTop;body.innerHTML=m.html;body.scrollTop=m.keep?sc:0;document.title=m.title?m.title+' · guide':'Lab4Net guide';}
     else if(m.t==='ping')send({t:'hello'});else if(m.t==='close')window.close();else if(m.t==='flash'){w.classList.remove('flash');void w.offsetWidth;w.classList.add('flash');}};
   if(ch)ch.onmessage=e=>on(e.data);
-  window.addEventListener('message',e=>{if(e.data&&e.data.l4nGuide&&e.source===window.opener)on(e.data.l4nGuide);});
+  window.addEventListener('message',e=>{if(e.origin===location.origin&&e.data&&e.data.l4nGuide&&e.source===window.opener)on(e.data.l4nGuide);});
   body.addEventListener('click',e=>{const b=e.target.closest('.step');if(!b)return;send({t:'step',dev:b.dataset.dev,cmd:b.dataset.cmd});b.classList.add('sent');setTimeout(()=>b.classList.remove('sent'),700);});
   dock.onclick=()=>{send({t:'dock'});window.close();};
   window.addEventListener('pagehide',()=>send({t:'bye'}));
@@ -4635,7 +4635,8 @@ function extMsg(m,src){if(!m||!cur)return;if(src)extWin=src;
   else if(m.t==='dock'){extAlive=false;extWin=null;setGuidePop(false);}
   else if(m.t==='step'&&cur.view==='lab'&&cur.net.devs[m.dev]){select(m.dev);$('tin').value=m.cmd;$('tin').focus({preventScroll:true});}}
 if(gch)gch.onmessage=e=>extMsg(e.data);
-window.addEventListener('message',e=>{if(e.data&&e.data.l4nGuide&&(!extWin||e.source===extWin||e.source&&e.source.name==='lab4net-guide'))extMsg(e.data.l4nGuide,e.source);});
+// Only Lab4Net's own guide window (same origin) may talk to this page: other sites can open or frame it.
+window.addEventListener('message',e=>{if(e.origin!==location.origin||!e.data||!e.data.l4nGuide)return;let ok=!extWin||e.source===extWin;try{ok=ok||!!(e.source&&e.source.name==='lab4net-guide');}catch(x){}if(ok)extMsg(e.data.l4nGuide,e.source);});
 setInterval(()=>{if(extAlive&&Date.now()-extBeat>9000){extAlive=false;extWin=null;extRefresh();}},2000);
 function openGuideWindow(){if(extAlive&&extWin&&!extWin.closed){try{extWin.focus();}catch(e){}return;}
   const w=window.open(location.href.split('#')[0].split('?')[0]+'?guide','lab4net-guide','popup=yes,width=560,height=900');
@@ -5156,7 +5157,8 @@ $('studyMap').onclick=studyMap;
     $('import').addEventListener('change',async e=>{const file=e.target.files[0];if(!file||file.size>5*1024*1024)return;let p;try{p=JSON.parse(await file.text());}catch(x){return;}
       if(!p||p.format!=='lab4net'||p.version!==1||!p.extras||typeof p.extras!=='object')return;
       setTimeout(()=>{const st=$('transferStatus');if(st&&/^Import failed/.test(st.textContent))return;
-        try{const pend={};for(const k of EXTRA){const v=p.extras[k];if(typeof v!=='string'||v.length>2e6)continue;if(/-v\d$/.test(k)){try{JSON.parse(v);}catch(x){continue;}}pend[k]=v;}
+        try{const pend={},safe=x=>typeof x==='string'?x.replace(/</g,'‹').replace(/>/g,'›'):Array.isArray(x)?x.map(safe):x&&typeof x==='object'?Object.fromEntries(Object.entries(x).map(([a,b])=>[safe(a),safe(b)])):x;
+          for(const k of EXTRA){const v=p.extras[k];if(typeof v!=='string'||v.length>2e6)continue;let j;try{j=JSON.parse(v);}catch(x){if(/-v\d$/.test(k))continue;pend[k]=safe(v);continue;}pend[k]=JSON.stringify(safe(j));}
           localStorage.setItem('lab4net-pending',JSON.stringify(pend));
           if(Array.isArray(p.sandboxJournal)){drafts.Sandbox={journal:p.sandboxJournal.filter(x=>x&&typeof x.device==='string'&&typeof x.line==='string'&&x.line.length<=512&&!/[\r\n]/.test(x.line)).slice(0,5000).map(jEntry),tasks:[]};persist();}
           if(st){st.textContent='Backup imported. Lab progress is restored now; reload to bring in ranks, trophies, your window layout and the sandbox. ';const btn=document.createElement('button');btn.className='small-btn';btn.textContent='Reload now';btn.onclick=()=>location.reload();st.appendChild(btn);}
@@ -6577,7 +6579,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   const KEY='lab4net-exam-v1';let X={current:null,history:[]};
   try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p&&typeof p==='object'&&!Array.isArray(p))X=Object.assign(X,p);}catch(e){}
   // A damaged store (a backup edited by hand, an older format) is repaired rather than allowed to break the page.
-  if(!Array.isArray(X.history))X.history=[];X.history=X.history.filter(h=>h&&typeof h==='object'&&typeof h.base==='string');
+  if(!Array.isArray(X.history))X.history=[];X.history=X.history.filter(h=>h&&typeof h==='object'&&typeof h.base==='string').map(h=>Object.assign({},h,{date:/^\d{4}-\d{2}-\d{2}$/.test(h.date)?h.date:'',rank:/^[SABCD]$/.test(h.rank)?h.rank:'',passed:Number.isInteger(h.passed)?h.passed:0,total:Number.isInteger(h.total)?h.total:0}));
   if(X.current&&(typeof X.current!=='object'||typeof X.current.seed!=='string'||typeof X.current.base!=='string'))X.current=null;
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(X));}catch(e){}};
   const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
@@ -6682,7 +6684,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
       $('exGiveUp').onclick=()=>{$('dialog').close();giveUp();renderLabs();};return;}
     const seedDaily='daily-'+today(),done=X.history.find(h=>h.mode==='daily'&&h.date===today());
     let daily=null;if(dailyCache.day!==today()){let d0=null;try{d0=makeExam('daily',20,seedDaily);}catch(e){d0=null;}dailyCache.day=today();dailyCache.ex=d0?JSON.stringify(d0):null;}daily=dailyCache.ex?JSON.parse(dailyCache.ex):null;
-    const hist=X.history.slice(-8).reverse().map(h=>`<tr><td>${h.date}</td><td>${esc(h.base)}</td><td>${esc(MODES[h.mode]||h.mode)}</td><td class="${h.cleared?'good':'bad'}">${h.cleared?'Cleared · rank '+(h.rank||'—'):'Not cleared · '+h.passed+'/'+h.total}</td></tr>`).join('');
+    const hist=X.history.slice(-8).reverse().map(h=>`<tr><td>${esc(h.date)}</td><td>${esc(h.base)}</td><td>${esc(MODES[h.mode]||h.mode)}</td><td class="${h.cleared?'good':'bad'}">${esc(h.cleared?'Cleared · rank '+(h.rank||'—'):'Not cleared · '+h.passed+'/'+h.total)}</td></tr>`).join('');
     dialog('Exam sim',`<p>A random lab, a clock, and no help: no guide, no "why", no walkthrough, no clues. The network is graded as it stands when time runs out. Ranks are scored on results, as always.</p>
       <div class="exam-daily"><div class="eyebrow">Daily challenge · ${today()}</div>${done?`<p><b>${done.cleared?'Cleared today · rank '+(done.rank||'—'):'Attempted today · '+done.passed+'/'+done.total+' checks'}</b> · ${esc(done.base)}</p>`:daily?`<p><b>${esc(daily.base)}</b> with two hidden faults · 20 minutes · the same for everyone today.</p><button class="btn primary" id="exDaily">Start today's challenge →</button>`:'<p>No daily challenge could be built.</p>'}</div>
       <h3>Pick your own</h3><div class="exam-opts"><label><input type="radio" name="exMode" value="sabotage" checked> <b>Sabotage</b> · a finished lab with one or two hidden faults (never the same twice)</label><label><input type="radio" name="exMode" value="lab"> <b>Build lab</b> · configure it from the checklist alone</label><label><input type="radio" name="exMode" value="incident"> <b>Incident</b> · a troubleshooting incident with no clues</label><label><input type="radio" name="exMode" value="boss"> <b>Boss fight</b> · three hidden faults at once, a health bar that drops as checks pass (30 minutes)</label></div>

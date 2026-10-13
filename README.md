@@ -59,7 +59,7 @@ Developers: start with [`docs/DEVELOPING.md`](docs/DEVELOPING.md), which covers 
     node tests/labs.cjs
     node tests/forwarding.cjs
 
-The other `tests/*.cjs` files cover the console, ping, switching, prompts, OSPF areas, the exam simulator, the quiz and more. GitHub Actions runs the Node tests on every push. The browser tests (`ui.cjs`, `guidewin.cjs`, `pageflows.cjs`) need Playwright:
+The other `tests/*.cjs` files cover the console, ping, switching, prompts, OSPF areas, the exam simulator, the quiz and more. GitHub Actions runs the Node tests on every push. The browser tests (`ui.cjs`, `guidewin.cjs`, `pageflows.cjs`, `landing.cjs`, `security.cjs`) need Playwright:
 
     npm install --no-save --package-lock=false playwright
     npx playwright install chromium
