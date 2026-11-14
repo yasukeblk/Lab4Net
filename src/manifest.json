@@ -1,0 +1,67 @@
+{
+  "template": "legacy/index.template.html",
+  "fonts": [
+    {
+      "family": "Barlow Condensed",
+      "weight": 700,
+      "style": "italic",
+      "file": "legacy/fonts/barlow-condensed-700-italic.woff2"
+    },
+    {
+      "family": "Barlow Condensed",
+      "weight": 800,
+      "style": "italic",
+      "file": "legacy/fonts/barlow-condensed-800-italic.woff2"
+    },
+    {
+      "family": "VT323",
+      "weight": 400,
+      "style": "normal",
+      "file": "legacy/fonts/vt323-400.woff2"
+    },
+    {
+      "family": "IBM Plex Sans",
+      "weight": 400,
+      "style": "normal",
+      "file": "legacy/fonts/ibm-plex-sans-400.woff2"
+    },
+    {
+      "family": "IBM Plex Sans",
+      "weight": 600,
+      "style": "normal",
+      "file": "legacy/fonts/ibm-plex-sans-600.woff2"
+    }
+  ],
+  "css": [
+    "legacy/legacy.css"
+  ],
+  "icons": [],
+  "engine": [
+    "engine/00-core.js",
+    "engine/10-v2.js",
+    "engine/20-v3.js",
+    "engine/30-labs.js",
+    "engine/40-steps.js",
+    "engine/50-curriculum.js",
+    "engine/60-library.js",
+    "engine/70-ping.js",
+    "engine/75-console.js",
+    "engine/80-switching.js",
+    "engine/82-source.js",
+    "engine/84-prompts.js",
+    "engine/86-exam.js",
+    "engine/88-duplex.js",
+    "engine/90-ipv6-live.js"
+  ],
+  "js": [
+    "legacy/ui-1.js",
+    "data/quiz.js",
+    "legacy/ui-2.js",
+    "data/lessons.js",
+    "legacy/ui-3.js",
+    "data/objectives.js",
+    "legacy/ui-4.js",
+    "data/campaign.js",
+    "legacy/ui-5.js"
+  ]
+}

@@ -1,5 +1,23 @@
 # Lab4Net changes
 
+## Redesign, phase 0: the source is split into files, with a build
+
+Nothing you can see has changed. The built `index.html` is byte-for-byte the same as `main`'s (tag `v1-arcade`, commit `3f158d6`).
+
+- **Source files.** The app is now edited in `src/` and built into the one `index.html` by `node tools/build.cjs`. The simulator is in `src/engine/` (15 files, cut at its own section comments, order kept). The quiz, the stages, the lessons and the extra objective names are in `src/data/`. The old interface, stylesheet, fonts and page markup are in `src/legacy/` until the new design replaces them.
+- **Fonts are files now.** The five fonts are `.woff2` files in `src/legacy/fonts/`. The build turns them back into the embedded font lines, so no source file holds base64 font data any more.
+- **The build.** `src/manifest.json` lists the files in order. `node tools/build.cjs --check` fails if the committed `index.html` is not what `src/` builds. The build prints a size table and fails if the size budget is broken. It uses Node only, no packages, and gives the same bytes every time.
+- **New tests.** `tests/build.cjs` checks the build is up to date, every marker the other tests rely on is there once, the simulator block is unchanged (its SHA-256 is in `tests/fixtures/engine.sha256`), and the size budget holds. `tests/slugs.cjs` checks every lab and lesson slug is unique and matches the frozen list in `tests/fixtures/slugs.json`. Both run in GitHub Actions, with the build check. `npm test` (or `node tests/run-node.cjs`) runs every Node test.
+- **Line endings.** A new `.gitattributes` keeps text files LF on every system, so the build gives the same bytes on Windows too.
+- **Old name fixed.** `install-lxc.sh` and `docker-compose.yml` said "CCNA Lab Bench"; they now say "Lab4Net". The Docker service and container are now called `lab4net`, so an existing `docker compose` setup starts a new container under the new name (stop the old `ccna-lab-bench` container by hand).
+- **Baseline.** Before anything changed, all 15 Node tests in the workflow passed on `main`.
+
+Where the repo and the redesign plan differ (the repo wins):
+
+- The plan says the interface JavaScript is 215 KB. Measured by the build, the old interface is 172 KB and the engine plus data is 1,040 KB (the plan says 996 KB). The plan's split counted the quiz and stages with the interface. The total (1,435 KB) and gzipped size (518 KB) match.
+- The plan puts the template at `src/index.template.html`. In Phase 0 the old page markup lives with the rest of the old interface, at `src/legacy/index.template.html`, so deleting `src/legacy/` in Phase 1 removes all of it. Phase 1 adds the new `src/index.template.html`.
+- The old interface has data in the middle of it (the quiz, the lessons and the stages sit between interface blocks). To keep the file identical, Phase 0's manifest interleaves `src/legacy/ui-*.js` with the data files. From Phase 1 the order is the plan's: engine, data, app.
+
 ## Security fixes
 
 - **Guide window.** Another website could open Lab4Net's guide page (`?guide`) and send it HTML through `postMessage`, which ran as code on the Lab4Net site. Both the guide page and the app now only accept messages from Lab4Net itself (same origin), so other sites can no longer drive either one.

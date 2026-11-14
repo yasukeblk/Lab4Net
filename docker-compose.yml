@@ -1,7 +1,7 @@
 services:
-  ccna-lab-bench:
+  lab4net:
     build: .
-    container_name: ccna-lab-bench
+    container_name: lab4net
     ports:
       - "8080:80"
     restart: unless-stopped
