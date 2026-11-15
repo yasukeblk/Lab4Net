@@ -46,7 +46,7 @@ test('a new visitor: landing, Start here, the step-by-step callout shown once', 
   await expect(page.getByText('Read the tasks.')).toBeVisible();
   await page.getByRole('link', { name: 'Start lab' }).click();
   await expect(page).toHaveURL(/#\/labs\/basic-device-setup$/);
-  const tip = page.getByText('New here? Turn on step-by-step to see the commands for each task.');
+  const tip = page.getByText('New here? Each task has a Hint and its commands');
   await expect(tip).toBeVisible();
   await page.getByRole('button', { name: 'Got it' }).click();
   await expect(tip).toHaveCount(0);

@@ -72,8 +72,8 @@
       why.classList.toggle('is-open', !!text && whyOpen);
       if (!text) { keyHints(); return; }
       clear(why);
-      why.append(el('span', { class: 'con__why-text' }, el('b', { text: 'Why: ' }), text),
-        ui.button({ label: whyOpen ? 'Less' : 'More', kind: 'ghost', class: 'con__why-btn', aria: whyOpen ? 'Show less of why' : 'Show all of why',
+      why.append(el('span', { class: 'con__why-text' }, el('b', { text: 'What it does: ' }), text),
+        ui.button({ label: whyOpen ? 'Less' : 'More', kind: 'ghost', class: 'con__why-btn', aria: whyOpen ? 'Show less about this command' : 'Show all about this command',
           onClick: () => { whyOpen = !whyOpen; setWhy(whyText); const b = why.querySelector('.con__why-btn'); if (b) b.focus(); } }));
       const b = why.querySelector('.con__why-btn');
       b.setAttribute('aria-expanded', String(whyOpen)); b.setAttribute('aria-controls', hintId);

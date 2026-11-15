@@ -77,6 +77,10 @@
 .task__text::before { counter-increment: task; content: counter(task) ". "; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .task.is-ticked .task__text { color: var(--text-2); }
 .task__more { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-1); }
+/* help for one task: small buttons in a row, and the hint once opened */
+.task__help { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.task__help .btn { height: 24px; padding: 0 var(--space-2); font-size: var(--fs-12); color: var(--text-2); }
+.task__hint { font-size: var(--fs-13); line-height: var(--lh-13); color: var(--text-2); }
 .why > summary { color: var(--accent); font-size: var(--fs-12); cursor: pointer; width: max-content; list-style: none; display: flex; align-items: center; gap: 2px; }
 .why > summary::-webkit-details-marker { display: none; }
 .why > summary .icon { width: 12px; height: 12px; transition: transform var(--dur-2) var(--ease); }

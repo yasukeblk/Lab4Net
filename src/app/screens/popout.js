@@ -21,7 +21,7 @@
     if (!w) return { type: 'state', slug: null, theme: L4N.theme.resolved() };
     const g = w.graded;
     return {
-      type: 'state', slug: w.slug, theme: L4N.theme.resolved(), tasks: Array.from({ length: w.st.lab.tasks.length }, (_, i) => !!w.tasks[i]),
+      type: 'state', slug: w.slug, theme: L4N.theme.resolved(), tasks: Array.from({ length: w.st.lab.tasks.length }, (_, i) => !!w.tasks[i]), auto: Array.from({ length: w.st.lab.tasks.length }, (_, i) => !!(w.auto && w.auto[i])),
       guide: !!w.guide, clues: w.clues || 0, walk: !!w.walk, exam: !!(w.hideHelp && w.hideHelp()),
       graded: g ? { pass: g.results.map(r => !!r[1]), stale: !!g.stale, grade: g.grade || null, hideList: !!g.hideList } : null
     };
@@ -138,7 +138,8 @@
           }
           more.append(box);
         }
-        const cb = L4N.ui.checkbox({ checked: !!(m.tasks && m.tasks[i]), aria: 'Task ' + (i + 1) + ' done', onChange: v => post({ type: 'tick', i, v }) });
+        const self = !!(m.auto && m.auto[i]);
+        const cb = L4N.ui.checkbox({ checked: !!(m.tasks && m.tasks[i]), aria: 'Task ' + (i + 1) + ' done', disabled: self, tip: self ? 'Ticks itself when the network does this' : null, onChange: v => post({ type: 'tick', i, v }) });
         list.append(el('li', { class: ['task', m.tasks && m.tasks[i] && 'is-ticked'] }, cb, trusted(t, 'div', { class: 'task__text' }), more));
       });
       body.append(list);

@@ -278,6 +278,47 @@
   }
   // the explanation for one command (repo content; may hold <code>)
   function why(cmd) { try { return whyOf(String(cmd)) || ''; } catch (e) { return ''; } }
+
+  // ---- tasks that tick themselves (TASK_CHECKS, src/data/task-checks.js) ----
+  // A command that only looks; a move between modes; an answer to a prompt. Only looking commands are asked for.
+  const LOOKS = /^\s*(do\s+)?(sh(o(w)?)?|ping|traceroute|tracert|ipconfig|ipv6config|arp|netstat|telnet|ssh|syslog)\b/i;
+  const TESTS = /^\s*(do\s+)?(ping|traceroute|tracert|telnet|ssh)\b/i, SHOWS = /^\s*(do\s+)?sh(o(w)?)?\b/i;
+  const MOVES = /^\s*(end|exit|enable|disable|conf(igure)?(\s+t(erminal)?)?|logout)\s*$/i;
+  // Did the learner type this command? Each word may be shortened the way IOS allows ("sh ip ro"); more words are fine.
+  function typed(line, want) {
+    const a = String(line).trim().toLowerCase().split(/\s+/), b = String(want).trim().toLowerCase().split(/\s+/);
+    if (a[0] === 'do') a.shift(); if (b[0] === 'do') b.shift();
+    return a.length >= b.length && b.every((w, k) => a[k] === w || (a[k].length >= 2 && w.startsWith(a[k])));
+  }
+  // taskStatus(st, entry, fixedAt) → one value per task: true (done now), false (not yet), or null (ticked by hand).
+  //  - a task linked to checks is done when they pass and, if its steps include looking commands (a ping, a show),
+  //    those were run too, so "Ping PC2 from PC1" waits for the ping;
+  //  - a 'run' task is done once its looking commands were run, each on its own device;
+  //  - incidents: reproduce = a test was run; evidence = a show was run; restore = every check passes;
+  //    retest = a test was run after the repair (fixedAt: the journal length when every check first passed).
+  function taskStatus(st, entry, fixedAt) {
+    const lab = entry.lab, J = st.journal || [];
+    if (entry.kind === 'incident') {
+      if (lab.tasks.length !== 4) return lab.tasks.map(() => null);
+      const fixed = grade(st).every(r => r[1]), after = fixedAt == null ? -1 : fixedAt;
+      return [J.some(e => TESTS.test(e.line)), J.some(e => SHOWS.test(e.line)), fixed, fixed && after >= 0 && J.slice(after).some(e => TESTS.test(e.line))];
+    }
+    const links = typeof TASK_CHECKS !== 'undefined' && TASK_CHECKS[entry.slug];
+    if (!links || links.length !== lab.tasks.length) return lab.tasks.map(() => null);
+    const res = links.some(e => Array.isArray(e) && e.length) ? grade(st) : [], all = steps(lab);
+    const looksOf = i => (all[i] || []).flatMap(g => g.lines.filter(x => x.cmd && !/:\s*$/.test(x.prompt || '') && !MOVES.test(x.cmd) && LOOKS.test(x.cmd)).map(x => [g.dev, x.cmd]));
+    // a command asked for again ("run show spanning-tree again") must be run again: as many times as the steps ask
+    // for it up to this task
+    const times = (dev, cmd) => J.filter(e => e.device === dev && typed(e.line, cmd)).length;
+    const need = (i, dev, cmd) => { let n = 0; for (let k = 0; k <= i; k++) n += looksOf(k).filter(([d, c]) => d === dev && c === cmd).length; return n; };
+    return links.map((e, i) => {
+      const looks = looksOf(i);
+      const looked = looks.every(([d, c]) => times(d, c) >= need(i, d, c));
+      if (e === 'run') return looks.length ? looked : null;
+      if (!Array.isArray(e) || !e.length) return null;
+      return e.every(j => res[j] && res[j][1]) && looked;
+    });
+  }
   // the commands a device supports, in its current mode (or all modes), each with its explanation
   function commands(st, dev, allModes) {
     const [d, s] = effPair(st.net.devs[dev], st.sess[dev]);
@@ -349,5 +390,5 @@
     const lab = faults ? examLab(base.lab, faults, title) : Object.assign({}, base.lab, { title, group: 'Exam', kind: 'exam', exam: true, baseTitle: base.title, why: [], steps: [] });
     return { base, faults: faults || [], lab };
   }
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, sandbox, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, taskStatus, typedCommand: typed, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, sandbox, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});
