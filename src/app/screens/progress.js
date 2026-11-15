@@ -19,8 +19,10 @@
     for (const d of st.domains()) {
       const objs = st.objectives(d.id).filter(o => o.labs.length || o.lessons.length);
       topics.append(el('details', { class: 'topic-d' },
-        el('summary', { class: 'row topic' }, icon('chevron-right', 'topic__chev'), el('span', { class: 'row__id', text: d.id }), el('span', { class: 'row__title', text: d.name }),
-          el('span', { class: 'row__meta' }, el('span', { class: 'num', text: d.weight + '%' }), el('span', { class: 'num', text: d.labs.done + '/' + d.labs.total + ' labs' }),
+        // The exam weight sits with the name, in words, so it can't be read as how far along the bar is.
+        el('summary', { class: 'row topic' }, icon('chevron-right', 'topic__chev'), el('span', { class: 'row__id', text: d.id }),
+          el('span', { class: 'row__title' }, d.name, el('span', { class: 'topic__weight num', text: d.weight + '% of the exam' })),
+          el('span', { class: 'row__meta' }, d.drill && !d.labs.total ? el('span', { class: 'num', text: d.drill.right + '/' + d.drill.total + ' drill' }) : el('span', { class: 'num', text: d.labs.done + '/' + d.labs.total + ' labs' }),
             el('span', { class: 'num', text: d.lessons.read + '/' + d.lessons.total + ' lessons' }), el('span', { class: 'topic__bar' }, ui.bar(d.done, d.total, d.name + ' coverage')))),
         el('div', { class: 'topic__objs' }, objs.map(o => el('div', { class: 'obj' }, el('p', {}, ui.objChip(o.id, o.name), ' ', el('span', { text: o.name })),
           el('div', { class: 'obj__links' }, o.labs.map(l => link(L4N.router.href('lab', l.slug), l.short, st.labStatus(l.slug) === 'done')),

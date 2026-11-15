@@ -4,7 +4,7 @@
 //   node tools/build.cjs --check  exit 1 if the committed index.html is not what src/ builds
 // The output depends only on the files in src/ (and package.json): no timestamps, no random values.
 'use strict';
-const fs = require('fs'), path = require('path'), zlib = require('zlib');
+const fs = require('fs'), path = require('path'), zlib = require('zlib'), vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
 const SRC = path.join(ROOT, 'src');
@@ -21,14 +21,46 @@ const BUDGET = {
   total: 1900 * KB,
   gzip: 700 * KB
 };
+// The hosted site (node tools/build.cjs --site, FIXES-PLAN.md phase 10): its first load is everything but the lesson
+// text, budgeted at the single file's size when it was split (1,588 KB) less the lesson text (489 KB), plus 10%.
+// Each lesson's text is its own file, loaded when the lesson opens.
+const SITE_BUDGET = { firstLoad: 1210 * KB, lessonText: 25 * KB };
+const SITE = path.join(ROOT, 'site');
 
 const read = rel => fs.readFileSync(path.join(SRC, rel), 'utf8');
+// A data file as the build uses it: data/lessons.js gets the lessons from src/lessons/*.md in place of //@lessons.
+// With site set (the hosted build), lessons keep only their index and their text goes in files (FIXES-PLAN.md phase 10).
+function readData(rel, site) {
+  let t = read(rel);
+  if (rel === 'data/lessons.js') {
+    if (t.split('//@lessons\n').length !== 2) throw new Error('src/data/lessons.js must hold //@lessons once, where the lesson files go');
+    const md = require('./lessons-md.cjs');
+    t = t.replace('//@lessons\n', () => site ? md.compileSite().code : md.compile());
+  }
+  return t;
+}
 const bytes = s => Buffer.byteLength(s, 'utf8');
 
-// The app's own comments stay in src/; the built file keeps the code exactly as written, without them, so it fits the
-// size budget (REDESIGN-PLAN.md risk 12). The engine and the data are never touched.
-const stripJs = t => t.replace(/^[ \t]*\/\/.*\r?\n/gm, '');
-const stripCss = t => t.replace(/\/\*[\s\S]*?\*\/\n?/g, '');
+// The app's own comments and indentation stay in src/; the built file keeps the code as written without them, so it
+// fits the size budget (REDESIGN-PLAN.md risk 12; indentation since FIXES-PLAN.md phase 5). The engine and the data are
+// never touched. Removing indentation is only safe while no string spans two lines, so the build refuses app code with
+// a template literal or a line continued with a backslash.
+const stripJs = (t, file) => {
+  t.split(/\r?\n/).forEach((l, i) => {
+    if (/^\s*\/\//.test(l)) return;
+    if (l.includes('`') || l.endsWith('\\')) throw new Error((file || 'app code') + ':' + (i + 1) + ' has a backtick or a trailing backslash; ' +
+      'the build strips indentation, which could change a string that spans lines. Use quotes and + instead.');
+  });
+  return t.replace(/^[ \t]*\/\/.*\r?\n/gm, '').replace(/^[ \t]+/gm, '');
+};
+// CSS: comments, indentation, and the spaces after : ; , and around { } (none of them matter in CSS). That could only
+// change a quoted string holding one of those followed by a space, so the build refuses such a string.
+const stripCss = t => {
+  const s = t.replace(/\/\*[\s\S]*?\*\/\n?/g, '');
+  const bad = (s.match(/"[^"\n]*"|'[^'\n]*'/g) || []).find(q => /[:;,{}]\s/.test(q));
+  if (bad) throw new Error('CSS string ' + bad + ' holds a separator and a space, which the build would remove. Write it with an escape such as \\3a  instead.');
+  return s.replace(/^[ \t]+/gm, '').replace(/:\s+/g, ':').replace(/;\s+/g, ';').replace(/,\s+/g, ',').replace(/\s*\{\s*/g, '{').replace(/\s*\}\s*/g, '}');
+};
 
 function fontFace(f) {
   const b64 = fs.readFileSync(path.join(SRC, f.file)).toString('base64');
@@ -43,7 +75,28 @@ function replaceOnce(text, marker, value, required) {
   return text.slice(0, at) + value + text.slice(at + marker.length);
 }
 
-function build() {
+// The totals the page states (the description, the share tags, the landing page), counted from the engine and the data
+// the way the tests count them, so a typed number can never go stale (FIXES-PLAN.md phase 8). {{NAME}} in the template.
+function counts(engine, data) {
+  const ctx = vm.createContext({ console });
+  vm.runInContext(engine + '\n' + data + '\n;globalThis.__c = { LABS, LESSONS, QUIZ };', ctx);
+  const { LABS, LESSONS, QUIZ } = ctx.__c;
+  const n = f => LABS.filter(f).length;
+  return { LABS: LABS.length, BUILD_LABS: n(l => !l.capstone && l.kind !== 'incident'), INCIDENTS: n(l => !l.capstone && l.kind === 'incident'),
+    CAPSTONES: n(l => l.capstone), LESSONS: Object.keys(LESSONS).length, TOPIC_LESSONS: Object.values(LESSONS).filter(L => L.topic).length,
+    LAB_LESSONS: Object.values(LESSONS).filter(L => !L.topic).length, QUIZ: QUIZ.length };
+}
+function fillCounts(text, c, where) {
+  return text.replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => { if (!(k in c)) throw new Error((where || 'template') + ' has an unknown count ' + m); return String(c[k]); });
+}
+// The counts from src/ without building the page (for tools/build-og.cjs and tests/counts.cjs).
+function srcCounts() {
+  const manifest = JSON.parse(fs.readFileSync(path.join(SRC, 'manifest.json'), 'utf8'));
+  return counts(manifest.engine.map(read).join(''), manifest.js.filter(f => f.startsWith('data/')).map(readData).join(''));
+}
+
+function build(opts) {
+  const site = !!(opts && opts.site);
   const manifest = JSON.parse(read('manifest.json'));
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const template = read(manifest.template);
@@ -55,13 +108,14 @@ function build() {
   for (const [k, t] of engineFiles.entries())
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(manifest.engine[k] + ' contains an engine marker');
   const engine = '//ENGINE-START\n' + engineFiles.join('') + '//ENGINE-END\n';
-  const jsFiles = manifest.js.map(f => [f, f.startsWith('data/') ? read(f) : stripJs(read(f))]);
+  const jsFiles = manifest.js.map(f => [f, f.startsWith('data/') ? readData(f, site) : stripJs(read(f), f)]);
   for (const [f, t] of jsFiles)
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(f + ' contains an engine marker');
   const data = jsFiles.filter(([f]) => f.startsWith('data/')).map(([, t]) => t).join('');
   const app = jsFiles.filter(([f]) => !f.startsWith('data/')).map(([, t]) => t).join('');
 
-  let html = template;
+  // the totals first, in the template only, before any code goes in
+  let html = fillCounts(template, counts(engine, data));
   // Simple values first, so a value can never be mistaken for a marker.
   html = html.split('/*@version*/').join(String(pkg.version || ''));
   html = html.split('/*@date*/').join(String((pkg.lab4net && pkg.lab4net.date) || ''));
@@ -94,9 +148,39 @@ function table(sizes, over) {
     (over.includes(k) ? '  OVER BUDGET' : '')).join('\n');
 }
 
-module.exports = { build, BUDGET, stripJs, stripCss };
+module.exports = { build, BUDGET, SITE_BUDGET, stripJs, stripCss, counts, fillCounts, srcCounts, readData };
 
-if (require.main === module) {
+// site/: what GitHub Pages publishes. The app with lessons as an index and each lesson's text in lesson-data/<slug>.json;
+// the lesson pages, sitemap, share image and licences at the same addresses as before; and the single file as
+// lab4net.html, to download and use offline. Built in CI, never committed.
+function writeSite() {
+  const r = build({ site: true });
+  const { bodies } = require('./lessons-md.cjs').compileSite();
+  fs.rmSync(SITE, { recursive: true, force: true });
+  fs.mkdirSync(path.join(SITE, 'lesson-data'), { recursive: true });
+  fs.writeFileSync(path.join(SITE, 'index.html'), r.html);
+  const big = [];
+  for (const [slug, body] of Object.entries(bodies)) {
+    const t = JSON.stringify(body);
+    if (bytes(t) > SITE_BUDGET.lessonText) big.push(slug + ' (' + (bytes(t) / KB).toFixed(1) + ' KB)');
+    fs.writeFileSync(path.join(SITE, 'lesson-data', slug + '.json'), t);
+  }
+  for (const f of ['og.png', 'sitemap.xml', 'LICENSE', 'THIRD-PARTY-NOTICES.md']) fs.copyFileSync(path.join(ROOT, f), path.join(SITE, f));
+  fs.cpSync(path.join(ROOT, 'lessons'), path.join(SITE, 'lessons'), { recursive: true });
+  fs.copyFileSync(OUT, path.join(SITE, 'lab4net.html'));
+  const kb = n => (n / KB).toFixed(1) + ' KB';
+  console.log('site/ written: first load ' + kb(r.sizes.total) + ' / ' + kb(SITE_BUDGET.firstLoad) + ' (' + kb(r.sizes.gzip) + ' gzipped), ' +
+    Object.keys(bodies).length + ' lesson files up to ' + kb(Math.max(...Object.values(bodies).map(b => bytes(JSON.stringify(b))))) + ' / ' + kb(SITE_BUDGET.lessonText));
+  const errs = [];
+  if (r.sizes.total > SITE_BUDGET.firstLoad) errs.push('the first load is over budget');
+  if (big.length) errs.push('lesson text over budget: ' + big.join(', '));
+  if (r.over.length) errs.push(r.over.join(', ') + ' over budget');
+  if (errs.length) { console.error('Size budget broken: ' + errs.join('; ')); process.exit(1); }
+}
+
+if (require.main === module && process.argv.includes('--site')) {
+  try { writeSite(); } catch (e) { console.error('site build failed: ' + e.message); process.exit(1); }
+} else if (require.main === module) {
   const check = process.argv.includes('--check');
   let r;
   try { r = build(); } catch (e) { console.error('build failed: ' + e.message); process.exit(1); }

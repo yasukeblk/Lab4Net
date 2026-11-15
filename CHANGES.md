@@ -1,6 +1,215 @@
 # Lab4Net changes
 
-## Fixes, phase 1: safe deploys
+## Fixes, phase 10: a lighter hosted site
+
+Every visitor used to download all 66 lessons' text (about 490 KB) before seeing anything, and it grew with every lesson batch. The public site now loads a lesson's text when the lesson is opened. The single-file download is unchanged.
+
+- **Two outputs from one source.**
+  - `index.html` is still the single file: everything inline, working from `file://` with no network.
+  - `node tools/build.cjs --site` writes `site/`, which GitHub Pages serves. It's the same app, but the page keeps only each lesson's index (name, minutes, topic, objectives and number of quiz questions), so lists, search, progress and the palette work at once. Each lesson's text is its own file, `lesson-data/<slug>.json`.
+- **Smaller first load.** The public site's first load went from 1,588 KB to 1,102 KB (370 KB gzipped, was 524 KB): 486 KB less, where the plan asked for at least 350. Lesson files are 5.7 to 9.1 KB each.
+- **Opening a lesson** fetches just that lesson's file, once. While it loads, the reader shows the title and "Loading the lesson…". The Lessons side panel fills in its summary when the text arrives.
+- **Offline on the public site**, a lesson says "This lesson needs a connection." It offers "Download Lab4Net for offline use" (the single file, published at `lab4net.html`) and "Try again". The rest of the app keeps working. Lesson text that comes back is checked like any outside data: only the expected fields, of the expected kinds, are kept.
+- **Same addresses.** `site/` also carries the lesson pages, `sitemap.xml`, `og.png` and the licences, exactly where they were. The deploy now builds `site/` and publishes that folder. `site/` is never committed.
+- **Budgets.**
+  - The hosted first load has its own budget: 1,210 KB, which is the single file's size when it was split, less the lesson text, plus 10%.
+  - Each lesson file has a 25 KB budget.
+  - The single file keeps its budgets.
+- **Tests.**
+  - Playwright has a new project, "site", which runs the whole browser suite again against `site/` on its own server, built fresh each run. All 379 tests in it pass.
+  - A new test, `site.spec.js`, runs only there. It checks that the page holds only the index and that no lesson file is requested before a lesson opens. It checks that opening Static routing fetches exactly `static-routing.json`, and nothing more on a second visit. Offline, it checks the message, the download (served, and it is the full single file), that labs still work, and that "Try again" loads the lesson once the connection is back. It also checks that the lesson pages, sitemap, share image and licences answer at their old addresses.
+- **Docs.** `docs/DEVELOPING.md` explains the two outputs, the budgets and what the deploy publishes. The README mentions `lab4net.html` and `--site`.
+
+
+
+Nothing changes for learners. Lessons used to be long HTML strings inside JavaScript in `src/data/lessons.js`, which made them hard to write, review and contribute to.
+
+- **One Markdown file per lesson.** The 66 lessons are now `src/lessons/NNN-slug.md`. The number keeps the order the lessons were added in, which saved progress and the frozen slug list rely on. A file has:
+  - a short header (title, name, `topic: true` and `ccna` for topic lessons, minutes);
+  - each section as a `## Heading` with its body on one line;
+  - then `## @terms` (`- term :: definition`), `## @exam`, `## @mistakes`, `## @quiz` (`### question`, four options with the right one marked `[x]`, and `> why`) and, for lab lessons, `## @story` as a JSON block.
+
+  Section bodies, notes and quiz text are the lesson's HTML exactly as before. No lesson text changed. `docs/LESSON-WRITING.md` explains the format with a complete example.
+- **The build reads the files.** `tools/lessons-md.cjs` parses a file, writes one, and compiles them all. `src/data/lessons.js` keeps only its markers and a `//@lessons` line, which the build fills. Every reader of the lesson data uses the same helper (`readData` in `tools/build.cjs`), so they can't drift apart.
+- **The conversion was proven before anything was deleted.** `tools/lessons-to-md.cjs` wrote the 66 files and checked two things: every file parses back to exactly its lesson, and the files compile to a `LESSONS` object deep-equal to the old one, with the same keys in the same order. After the switch:
+  - the `LESSONS` built into `index.html` is deep-equal to the one before, key order included;
+  - all 66 lesson web pages came out unchanged;
+  - every Node test passed.
+
+  The built `index.html` is not byte for byte the same, because the lessons are now written out as compact JSON; it is 0.3 KB smaller.
+- **Tests.**
+  - A new Node test, `tests/lessons-files.cjs`, checks that every file is in its exact canonical layout, that `index.html` holds the files' lessons in file order, and that broken files fail with the file name and the line (five kinds of mistake).
+  - `node tests/lessons.cjs path/to/new-lesson.md` checks a new lesson file before it is added. `.js` drafts still work.
+
+
+
+Nothing changes for learners. "56 lessons" used to be typed by hand in about ten places, and the generated files could go stale without anyone noticing.
+
+- **The page counts for itself.** The page description, the share tags, the landing figures and the share image's facts line now hold tokens:
+  - `{{LABS}}`, `{{BUILD_LABS}}`, `{{INCIDENTS}}`, `{{CAPSTONES}}`, `{{LESSONS}}` and `{{QUIZ}}`;
+  - `{{LAB_LESSONS}}` and `{{TOPIC_LESSONS}}`.
+
+  `tools/build.cjs` fills them from the engine and the data, counted the way the tests count, and refuses an unknown token. With the tokens in, the built `index.html` was byte for byte the same as before.
+- **The share image says when it is stale.** `tools/build-og.cjs` fills the same counts into `tools/og.html` and keeps a fingerprint of the result in `tools/og-source.sha256`. `node tools/build-og.cjs --check` compares it without a browser and fails if `og.png` was built from other counts or another template. `og.png` was rebuilt, so it shows the current workspace.
+- **The docs are checked.** A new Node test, `tests/counts.cjs`, finds every total stated in `README.md`, `docs/DEVELOPING.md` and `docs/LESSON-WRITING.md` (16 today) and checks it against the data. Each pattern needs the word that says what is being counted, so unrelated numbers can't match. A README with "56 lessons" fails with the line number and the right number.
+- **The browser tests read totals from the page.** `deeplinks`, `firstrun`, `lessons` and `quiz` no longer type 66, 77 or 110. The lessons test compares against the frozen slug list.
+- **Stale generated files fail CI.** The quick `labs` check and the deploy's `browser` check both fail if `lessons/` or `sitemap.xml` differ from what `tools/build-site.cjs` writes, or if `og.png` is out of date.
+- **The experiment.** In a scratch copy, a fake 67th lesson was added (with its slug and its place in the lesson order, as any new lesson needs), then the experiment was undone:
+  - every generated count followed on its own: the description, the share tags, the landing page and the web pages all said 67;
+  - the browser tests passed;
+  - the share-image check and `tests/counts.cjs` failed, pointing at `og.png` and at README line 29. That is the intended result: the README is written by hand, so it must be updated by hand, and now it can't be forgotten.
+
+Where this differs from the plan: the plan expected "every test still passes" after adding a lesson. With hand-written docs, the docs check fails until the docs are updated, by design. Every generated count updated on its own.
+
+
+
+New lessons used to land at the end of their group, each lesson had two names in two places, and exam topic 6 (Automation and programmability, 10% of the exam) had nothing to practise.
+
+- **Lessons in teaching order.** A new file, `src/data/lesson-order.js`, lists each exam topic's lessons in the order they are best learned. The Lessons list, Previous and Next in the reader, the lesson web pages and their Previous and Next all follow it. Network fundamentals now goes:
+  - the OSI and TCP/IP models;
+  - devices, cables, and TCP and UDP;
+  - binary, IPv4 addressing, subnetting and VLSM;
+  - how switches forward and ARP;
+  - device set-up, VLANs and DHCP;
+  - IPv6;
+  - wireless, virtualisation, and finding a fault.
+
+  Each other topic goes from ideas to configuration: trunks before spanning tree, static routes before OSPF, security ideas before ACLs. A new Node test, `tests/lessons-order.cjs`, checks that every lesson is listed exactly once, that every listed slug is a real lesson, and that each one sits in the group of its first exam objective.
+- **One heading everywhere.** The app now does what the web pages do: the lesson's title is the heading ("Static routing") and its name is the line under it ("How to tell a router about distant networks"). Lists, the palette and the Progress links show the title. The palette searches both. Slugs and web addresses didn't change.
+- **An automation drill.** Practice has a fourth card, Automation, with 42 items made from `src/data/automation.js`:
+  - 14 on reading JSON (6.7): what a key holds, which document is valid, types, arrays;
+  - 15 on REST APIs (6.5): verbs and CRUD, status codes, headers, statelessness, tokens;
+  - 13 on configuration management (6.6): Ansible (agentless, push, YAML playbooks, inventory), Terraform (declarative, state file, HCL), Puppet and Chef (agent and pull), idempotence, drift, version control.
+
+  It works like the quiz: the snippet in a code panel, four options (rotated per item, so the answer isn't always in the same place), Check, a "why" and Next, with the 1–4 and Enter keys. The score is kept under a new field, `automation`, in `lab4net:v2`:
+  - it's validated like the quiz answers;
+  - it's included in backups and merged on import;
+  - the drill is locked while an exam runs, like the other practice.
+
+  A profile saved before the drill existed loads with an empty score.
+- **Exam topic 6 counts the drill.** On Progress, topic 6 shows "*n*/42 drill", where it showed "0/0 labs", and its bar includes the drill.
+- **Tests.**
+  - `tests/validate.cjs` has five new checks: good answers kept, out-of-range and non-boolean ones dropped, an array refused, and a profile without the field loading.
+  - A new browser test, `automation.spec.js`, answers one item of each kind right and one wrong, then checks the score, the saved answers, a reload, the Practice card, Progress topic 6 and the keyboard.
+  - `lessons.spec.js` and `quiz.spec.js` now expect the title as the heading. The reader test also checks the name line under it.
+- **Found on the way.**
+  - The new lesson sorting first reused a helper name already taken in the same function. That's a syntax error that would have stopped the app loading; the Node tests caught it before any browser run.
+  - The drill's score wasn't saved at first, because the main save and the backup each keep their own list of fields to store. The browser test caught it on reload, and both lists now include the drill.
+
+
+
+Home and Progress repeated each other, "20%" next to a bar read as "20% done", Practice was three cards and empty space, and the quiz counter "1/110" looked like a score.
+
+- **Home is about what to do next.**
+  - It starts with one clear next step (Continue, or Start here).
+  - Then "Recently": the last three labs finished or lessons read, with grades.
+  - Then "Next up", and one line of totals ("2 of 77 labs · 1 of 66 lessons · 2 of 110 quiz questions right") with a "See your progress" link.
+  - The progress bars and the exam-topic table are on Progress only.
+- **The exam weight is in words.** On Progress, each exam topic shows "20% of the exam" in muted text next to its name, no longer as a bare "20%" next to its progress bar.
+- **Practice has buttons and results.**
+  - Each card has a Start button and its last result: the last exam with its grade, checks and date; the quiz's correct count and how many are left to review; the subnetting score, or "Not tried yet".
+  - The Quiz card has "Review *n*", which opens the quiz with "Only missed or unanswered" switched on.
+  - The last five exams are listed below the cards.
+- **The quiz counter says where you are.** It reads "Question 1 of 110". With "Only missed or unanswered" on, each answer also says how many are left to review.
+- **Accessibility.** The "See your progress" link in Home's summary line is underlined, because a link inside a sentence must not be told apart by colour alone (axe caught it).
+- **Tests.** A new browser test, `hub.spec.js`, checks:
+  - Home's order, its Recently list and the summary link, and that it has no bars or exam topics;
+  - that a new visitor sees Start here;
+  - that no bar on Home, Progress, Practice, the quiz, Lessons or Labs has a percentage next to it that isn't its own value;
+  - Practice's cards, Start and Review, and the "left to review" count going down after a right answer.
+
+  `counts.spec.js` now reads Home's totals from the summary line and the quiz's from "Question 1 of *n*". `quiz.spec.js` reads the new counter. It's the same check with the new wording.
+
+
+
+At 1366×768 the first task started at the bottom edge of the Tasks panel, the map took about 40% of the height even for a line of routers, and "Why" was squeezed into one strip of small text.
+
+- **Tasks first.** The Tasks panel now goes: the scenario, step-by-step, the tasks, then the address plan.
+  - The address plan is a folded "Addresses" section, open by default only in the two capstones, where it is the brief.
+  - "Read the lesson first" and the step-by-step tip are now compact rows with a close button, not cards.
+  - The first task is fully visible without scrolling in all 75 build labs and incidents.
+- **The map fits the network.** Its default height comes from the topology, worked out the way the map fits devices: short for a line of routers, taller for a mesh, never more than half the space. Static routing's map is 160 px (it was 290), and the console now shows 20 lines. Incident 07's triangle gets 293 px. A height you drag yourself is still remembered and wins.
+- **"Why" opens.** The explanation under the console is one line with a "More" button. "More" opens it at normal body size, up to 40% of the console; "Less" closes it. It stays open or closed for the next command while the lab is open, and the button reports its state to screen readers.
+- **On a phone,** task 1 shows near the top of the Tasks tab.
+- **A smaller file.** The size budgets were close to full (app code 299.7 of 300 KB, CSS 69.7 of 70 KB), and these phases add interface code. Instead of raising the budgets, the build now drops what never mattered:
+  - indentation in the app code;
+  - indentation and the spaces after `:` `;` `,` and around braces in the CSS.
+
+  The app code is 279.1 KB and the CSS 62.1 KB. `index.html` went from 1,593.8 to 1,566.3 KB, smaller for every visitor. The build refuses app code with a template literal or a line ending in a backslash, and CSS with a quoted string holding a separator and a space, the only cases where this could change what is shown. The strict screenshots from phase 2 confirm that every screen this phase didn't change renders exactly as before.
+- **Tests.** A new browser test, `layout.spec.js`, checks:
+  - the first task in all 75 build labs and incidents at 1366×768;
+  - the map and console sizes;
+  - that a mesh gets a taller map than a line;
+  - the address plan's place and folding;
+  - the phone;
+  - the "Why" line's More and Less.
+
+  In `map.spec.js`, "Restore the map" used to be checked as "taller than 160 px", which was the old default height. It is now checked more strictly: the map comes back to exactly the height it had before.
+
+
+
+A lab graded S used to say "0 of 5 done" in its header, "0 of 5 tasks" on Home and "0/5" in the Labs list, and still offered "Read the lesson first". Task ticks and grading were two separate records, and grading never touched the ticks. Now a lab that is done looks done everywhere.
+
+- **A full grade ticks every task.** When a grade passes every check, all of that lab's tasks are ticked and saved with the lab's work. A partial grade changes nothing, and you can still tick tasks by hand.
+- **The header counts checks after a grade.** Before a grade it says "2 of 5 done" (tasks). After one it says "6 of 6 checks", the real measure. After a reload it counts the ticked tasks again.
+- **The Labs list and Home say Done.** A finished lab shows "Done" and its grade, never "0/5". Home's Continue card for a finished lab reads "Routing · Done · S".
+- **Banners that have done their job go.**
+  - "Read the lesson first" no longer shows once the lab is done (as before, it also goes once the lesson is read or the banner was opened or skipped).
+  - The step-by-step tip goes for good once step-by-step has been switched on, as well as when "Got it" is pressed.
+- **Progress from before this change.** A lab marked done with no ticked tasks shows its tasks ticked and "Done" everywhere. This is worked out when the screen is drawn. Nothing in the saved data is rewritten when it loads, and the ticks are saved only once you work in that lab again.
+- **Tests.** A new browser test, `progress-one.spec.js`:
+  - grades Static routing with its solution, then checks the ticks, the "6 of 6 checks" header, the saved work, the reload, the Labs row, Home and the banner;
+  - loads a profile from before this change and checks the same screens, and that nothing was written;
+  - checks that using step-by-step retires its tip.
+
+  `tests/migrate.cjs` and `tests/validate.cjs` pass unchanged.
+- **Size.** The app code is now 299.7 KB of its 300 KB budget. Phases 5 to 7 add interface code, so that budget will need attention. See the note in phase 5.
+
+
+
+Small things that made the app look unfinished.
+
+- **Incident titles start with a capital.** 34 of the 37 incidents showed titles like "one branch fell off the map", because the app removed "Incident 07: " and kept what followed as it was. The title shown on its own now starts with a capital ("One branch fell off the map") in the Labs list, the workspace header, the palette, Home, Progress, the stage checks, the exam history and the popped-out Tasks window. The stored title doesn't change, because it feeds the lab's address and saved progress.
+- **Lab numbers follow the Path.** Labs were numbered in the order they were written, so the Path read LAB-01, LAB-17, LAB-38 and looked as if labs were missing. They are now numbered in Path order: LAB-01 to LAB-38 down the eight stages, then INC-01 to INC-37, then CAP-01 and CAP-02. Search by number uses the new numbers. Nothing stores these numbers, so no saved data changes.
+- **The landing page shows the real workspace.** The picture under "Start" was grey bars. It is now a drawing of the Static routing lab:
+  - the breadcrumb and the Grade button;
+  - the tasks, two of them ticked;
+  - the PC1–R1–R2–R3–PC2 map with the working path lit up and the "Reply received" line;
+  - the R1 console with `show ip route static` and a successful ping, copied from what the simulator prints.
+
+  It uses the app's colours, so it matches both themes, and it fits the markup budget (20.7 of 30 KB).
+- **The Lessons side panel shows whole sentences.** It showed the start of the lesson cut off mid-sentence. It now shows whole sentences from the first paragraph, up to about 300 characters. A full stop inside an address such as 192.168.3.0 doesn't count as the end of a sentence. All 66 summaries end on a complete sentence.
+- **An empty sandbox says what to do on the map.** The map was blank, and "No devices yet" sat in the console area. The map now says "Your network is empty. Add a device from the Build panel on the left" ("from the Build tab below" on a phone). The console says "No console yet. Each device you add gets a console here."
+- **Tests.** A new browser test, `titles.spec.js`, checks that every incident row and every incident's workspace header starts with a capital and has no "Incident NN:" prefix, and that the Labs list numbers LAB, INC and CAP in Path order with no gaps. `sandbox.spec.js` checks the new empty-state wording on the map and in the console.
+
+
+
+Nothing changes for learners. The tests now catch the kinds of mistakes that slipped through before.
+
+- **Screenshots are strict.** Before, a screenshot passed if up to 1% of its pixels differed. Changing "56 lessons" to "66 lessons" on almost every screen passed all 102 screenshots. Measured on the CI machines:
+  - a changed digit in a count alters 5 to 7 pixels at the default colour threshold;
+  - screens that didn't change match to the pixel, run after run.
+
+  Now:
+  - at most 2 pixels may differ;
+  - the exam clock is masked, the one thing that changes on purpose between runs;
+  - a screenshot with no baseline fails in CI. Before, it was written fresh and passed.
+
+  The proof: a scratch build that showed the lesson total in the sidebar as 56 failed 50 screenshots (every one with the desktop sidebar), along with `counts.spec.js`. Every other screenshot still matched.
+- **"Full" screenshots show the whole screen.** The app scrolls inside its main panel, not the page, so the gallery's "full page" screenshot stopped at the first screenful. A changed number lower down went unseen: a scratch build that changed the gallery's lesson bar passed every screenshot. Full screenshots now grow the window until nothing scrolls. The gallery is 2,836 pixels tall at desktop width and 6,594 on a phone.
+- **The palette screenshot is steady.** The test opened the palette by clicking the sidebar search box, which left a focus ring whose corners rendered differently between runs. It now opens the palette directly.
+- **Baselines refreshed.** The "Update screenshot baselines" workflow refreshed the baselines with the new settings. The first pass updated 69: the screens that show a lesson count (the desktop sidebar, Home, Progress, the landing page and the gallery) and the exam screens, where the clock is now masked. A second pass after the gallery fix updated the six gallery baselines. The palette ones still matched.
+- **No automatic retries.** CI used to rerun a failed browser test once, so a flaky test passed quietly. Now a failure is a failure. It found a second flaky test at once: "a reload resumes" in `exam.spec.js` started a random exam and typed `enable`, so when the exam happened to pick a lab with an enable password, the console stopped at "Password:". The test now starts a fixed exam (seed "resume"). Starting an exam from the screen is still covered by the test before it.
+- **Totals are checked against the data.** A new browser test, `counts.spec.js`, reads the number of labs (and of builds, incidents and capstones), lessons and quiz questions from the page's own data. It checks every place that shows them: the sidebar, Home, Progress, Practice, the quiz, the lesson groups, the landing page, and the page description and share tags (which are still typed by hand until phase 8). It has no numbers typed in. A scratch build with "56 lessons" back in the page description fails it with a clear message.
+- **The lesson checker rejects Markdown.** `tests/lessons.cjs` now fails a lesson containing a Markdown link `[text](url)`, bold `**` or a backtick, anywhere in its text, terms, exam notes, mistakes, quiz or story. The message names the field and says what to use instead. A new test, `tests/lessons-markdown.cjs`, proves it. It rebuilds the DNS lesson as it was first pasted (with the two links), adds bold and a backtick, and checks for exactly those four errors. It also checks that a clean copy passes. None of the 66 lessons had any of these.
+- **The flaky console test is fixed.** "Fast pace finishes on its own; another command finishes it at once" failed once in Firefox during a full run. It couldn't be reproduced in 100 runs under heavy load. The cause is in the test: it had to catch the "Running…" state during the roughly 1.5 seconds a fast-paced ping lasts, against the real clock, and a slow moment could miss it. The test now freezes the page's clock while the ping plays (Playwright's `page.clock`), so the state can't end before it is checked. It then moves time on by hand to prove the ping also finishes by itself. It passed 30 of 30 in Firefox with the whole suite running alongside. The app was not changed.
+
+Where this differs from the plan:
+
+- The plan suggested starting from `maxDiffPixels: 40`. A changed digit alters only 5 to 7 pixels, so 40 would still let it through. The limit is 2.
+- The plan didn't mention retries, the "write missing baselines" setting, or full screenshots stopping at the first screenful. All three hid failures, so all three are fixed.
+
+
 
 Nothing changes for learners. This phase changes how a change reaches the live site.
 

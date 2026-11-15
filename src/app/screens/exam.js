@@ -29,7 +29,7 @@
 
   // ---- the lock ----
   L4N.guard = (r) => {
-    if (!E().running() || !['lab', 'lesson', 'quiz', 'subnet', 'sandbox'].includes(r.screen)) return true;
+    if (!E().running() || !['lab', 'lesson', 'quiz', 'automation', 'subnet', 'sandbox'].includes(r.screen)) return true;
     L4N.toast({ text: 'An exam is running. Finish it first.', kind: 'warn', actions: [{ label: 'Resume exam', run: () => go('#/practice/exam/run') }, { label: 'Give up', run: giveUp }] });
     return false;
   };

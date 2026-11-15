@@ -26,7 +26,8 @@ async function build(page) {
 test('build two PCs and a switch, address them, ping across and see the packet on the map', async ({ page }) => {
   const errors = watch(page);
   await open(page, '#/sandbox', { main: MAIN });
-  await expect(page.getByText('No devices yet.')).toBeVisible();
+  await expect(page.locator('#ws-map').getByText('Your network is empty.')).toBeVisible();
+  await expect(page.locator('#ws-console').getByText('No console yet.')).toBeVisible();
   await build(page);
   expect((await sbx(page)).links.length).toBe(2);
   await node(page, 'PC1').click();
@@ -76,7 +77,8 @@ test('save, reset, load and get the same network; a doctored file is refused and
   const file = await dl.path();
   await page.getByRole('button', { name: 'Clear all' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Clear' }).click();
-  await expect(page.getByText('No devices yet.')).toBeVisible();
+  await expect(page.locator('#ws-map').getByText('Your network is empty.')).toBeVisible();
+  await expect(page.locator('#ws-console').getByText('No console yet.')).toBeVisible();
   await page.locator('.build input[type="file"]').setInputFiles(file);
   await expect(page.getByText(/Sandbox loaded/)).toBeVisible();
   const after = await sbx(page);

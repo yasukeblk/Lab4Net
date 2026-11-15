@@ -44,6 +44,10 @@
 .console:focus-within .con__line { box-shadow: inset 2px 0 0 var(--accent); }
 .con__why { flex: none; min-height: 28px; display: flex; align-items: center; gap: var(--space-1); padding: 4px var(--space-3); border-top: var(--hairline) solid var(--border-subtle); background: var(--bg-surface); color: var(--text-2); font-size: var(--fs-12); line-height: var(--lh-12); }
 .con__why b { color: var(--text); font-weight: var(--fw-medium); }
+.con__why-text { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.con__why .con__why-btn { flex: none; height: 22px; padding: 0 var(--space-2); font-size: var(--fs-12); }
+.con__why.is-open { align-items: flex-start; max-height: 40%; overflow: auto; padding: var(--space-2) var(--space-3); font-size: var(--fs-14); line-height: var(--lh-14); color: var(--text); }
+.con__why.is-open .con__why-text { white-space: normal; overflow: visible; }
 .con__why .kbd { margin: 0 1px; }
 .con__keys { display: flex; flex-wrap: wrap; gap: 2px var(--space-3); align-items: center; }
 .con__keys span { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }

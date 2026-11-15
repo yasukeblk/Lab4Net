@@ -23,6 +23,8 @@
     const chip = el('div', { class: 'mapchip', 'aria-hidden': 'true', hidden: true });
     const srList = el('ul', { class: 'sr-only', 'aria-label': 'Links' });
     const body = el('div', { class: 'map__body' }, svgEl, tip, chip, srList);
+    // An empty network (the sandbox) says what to do on the map itself, where the eye goes first.
+    if (opts.empty && !st.devs.length) body.append(el('div', { class: 'map__empty' }, L4N.ui.empty(opts.empty())));
     const nodes = new Map(), links = new Map();
     let W = 0, H = 0, fit = { s: 1, ox: 0, oy: 0, minX: 0, minY: 0 };
     let token = 0, fadeTimer = 0, tipTimer = 0, tipFor = null, lastTrace = null, markers = [];

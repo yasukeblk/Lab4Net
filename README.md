@@ -50,7 +50,7 @@ Lab4Net is free and stays free. If it helped you study, you can say thanks at **
 
 ## Run it yourself
 
-It's one file. Download `index.html` and open it in a modern browser. It works offline and makes no network requests (the visit counter only runs on the public site). The `lessons/` folder is the website's copy of the lessons; the app doesn't need it.
+It's one file. Download `index.html` (or `lab4net.html` from the public site) and open it in a modern browser. It works offline and makes no network requests (the visit counter only runs on the public site). The `lessons/` folder is the website's copy of the lessons; the app doesn't need it.
 
 To host it on your own network:
 
@@ -63,7 +63,7 @@ Bug reports and corrections are welcome, especially anything the simulator gets 
 
 Developers: start with [`docs/DEVELOPING.md`](docs/DEVELOPING.md), which covers the file layout, the build, the engine, storage, the tests and the rules that keep every lab gradable. You edit `src/`, and the build writes `index.html`:
 
-    npm run build        # src/ → index.html
+    npm run build        # src/ → index.html (node tools/build.cjs --site makes the hosted site/ too)
     npm test             # every Node test (they read the built index.html)
 
 The browser tests use Playwright, pinned in `package.json`:

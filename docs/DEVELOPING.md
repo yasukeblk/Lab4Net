@@ -19,7 +19,9 @@ src/
   manifest.json          the build order: template, fonts, styles, icons, engine, data, app
   index.template.html    <head>, the theme pre-paint script, the static landing section, #app
   engine/                the simulator, 15 files (00-core.js to 90-ipv6-live.js); see "The engine"
-  data/                  content: quiz.js (QUIZ), campaign.js (the eight stages), lessons.js (LESSONS),
+  lessons/               the lessons, one Markdown file each (NNN-slug.md); see docs/LESSON-WRITING.md
+  data/                  content: quiz.js (QUIZ), automation.js (the automation drill), campaign.js (the eight stages),
+                         lessons.js (LESSONS: the build fills it from lessons/), lesson-order.js (teaching order),
                          objectives.js (extra CCNA objective names), sandbox.js (starter kits and goals)
   app/
     core/                no DOM: slug, store (state and storage), validate, router, search,
@@ -37,7 +39,7 @@ src/
 tools/
   build.cjs              src/ → index.html, with the size report (--check: fail if index.html is stale)
   build-site.cjs         index.html → lessons/ and sitemap.xml (the public lesson pages)
-  build-og.cjs, og.html  og.png, the share image (needs Playwright)
+  build-og.cjs, og.html  og.png, the share image (needs Playwright); --check says if og.png is out of date
   build-demo.cjs         docs/demo.gif, recorded from the app (needs Playwright and ffmpeg)
   serve.cjs              a small static server for the browser tests and local previews
 tests/                   Node tests (*.cjs) and browser/ (Playwright)
@@ -49,13 +51,19 @@ lessons/, sitemap.xml    generated: never edit by hand
 ```
 node tools/build.cjs           # write index.html and print the size report
 node tools/build.cjs --check   # fail if index.html is not what src/ builds (CI runs this)
+node tools/build.cjs --site    # write site/, the hosted build (CI makes it; never committed)
 ```
+
+There are two outputs from the same source:
+
+- **`index.html`**, the single file: everything inline, including every lesson's text. It works from `file://` with no network, and it is the download.
+- **`site/`**, what GitHub Pages serves. It's the same app, but the page holds only each lesson's index (name, minutes, topic, objectives, number of quiz questions), and each lesson's text is `site/lesson-data/<slug>.json`, fetched when the lesson is opened. Offline, a lesson says it needs a connection and links to `lab4net.html`, the single file, which `site/` also carries. `site/` also has the lesson pages, `sitemap.xml`, `og.png` and the licences, at the same addresses as before.
 
 `build.cjs` uses Node only, no packages. It reads `src/manifest.json` and fills each of the template's markers once: `/*@fonts*/` (the woff2 files as base64 `@font-face` rules), `/*@css*/`, `<!--@icons-->`, `//@js` (engine, then data, then app), `/*@version*/` and `/*@date*/` (from `package.json`). Full-line `//` comments in the app's JavaScript and `/* */` comments in the CSS are left out of the output, so comment freely in `src/`. The engine and the data are copied byte for byte.
 
 The base64 font lines in `index.html` are tens of kilobytes each. Never print or read them in full; use a line range or grep.
 
-**Size budget** (KB = 1,000 bytes; the build fails above it): app JavaScript 300, CSS 70, fonts 170, markup and icons 30, `index.html` 1,550, gzipped 570. The engine and data (about 1,045 KB) have no budget of their own. Today: app JS 297, CSS 68, fonts 93, markup 20, total 1,523, gzipped 498. Content such as stages, kits and goals belongs in `src/data/`, outside the app budget.
+**Size budget** (KB = 1,000 bytes; the build fails above it): app JavaScript 300, CSS 70, fonts 170, markup and icons 30, `index.html` 1,900, gzipped 700. For `site/`: the first load (everything but lesson text) 1,210, and each lesson's text 25. The engine and data (about 1,045 KB) have no budget of their own. Today: app JS 297, CSS 68, fonts 93, markup 20, total 1,523, gzipped 498. Content such as stages, kits and goals belongs in `src/data/`, outside the app budget.
 
 After changing lessons, a lab title, a lab map or the fonts, also run `node tools/build-site.cjs` and commit `lessons/` and `sitemap.xml`. `tests/sitepages.cjs` fails until you do.
 
@@ -162,8 +170,14 @@ The Node tests read the built `index.html`, so build first.
 
 - The fourteen engine tests (`labs`, `forwarding`, `curriculum`, `lessons`, `ping`, `console`, `switching`, `prompts`, `exam`, `quiz`, `duplex`, `ping6`, `campaign`, `ospfarea`) and `sitepages` are the ones from before the redesign. Do not edit them or weaken a check. `labs.cjs` builds every lab, runs its solution and its step-by-step guide, and asserts every check passes.
 - `build.cjs` (markers, engine hash, budget, `--check`), `slugs.cjs` (lab and lesson slugs unique and frozen), `grade.cjs`, `migrate.cjs` and `validate.cjs` cover the new code. `app-core.cjs` loads the engine, the data and the DOM-free core in Node.
-- `tests/browser/` (Playwright, pinned in `package.json`): `shell`, `labs-all` (all 77 labs solved and graded through the real Grade button), `guide`, `console`, `map`, `popout`, `deeplinks`, `firstrun`, `offline`, `labs`, `lessons`, `lessonpages`, `exam`, `quiz`, `subnet`, `sandbox`, `security`, `phone` (390 by 844), `a11y` (axe on every route in both themes, the keyboard-only run, keyboard patterns, live regions), `themes` and `motion`. `shell`, `console` and `map` also run in Firefox and WebKit.
-- `visual.spec` compares screenshots of the main screens. Baselines are made on Linux, so it only compares in CI. After an intended change, refresh them with the "Update screenshot baselines" workflow (Actions › Update screenshot baselines › Run workflow), which commits them to the branch.
+- `tests/browser/` (Playwright, pinned in `package.json`): `shell`, `labs-all` (all 77 labs solved and graded through the real Grade button), `guide`, `console`, `map`, `popout`, `deeplinks`, `firstrun`, `offline`, `labs`, `lessons`, `counts`, `lessonpages`, `exam`, `quiz`, `subnet`, `sandbox`, `security`, `phone` (390 by 844), `a11y` (axe on every route in both themes, the keyboard-only run, keyboard patterns, live regions), `themes` and `motion`. `shell`, `console` and `map` also run in Firefox and WebKit.
+- `visual.spec` compares screenshots of the main screens. Baselines are made on Linux, so it only compares in CI. At most 2 pixels may differ (on the CI machines a changed digit alters 5 to 7, and unchanged screens match to the pixel), parts that change on purpose (the exam clock) are masked, "full" states grow the window until `#screen` no longer scrolls, and a missing baseline fails. After an intended change, refresh them with the "Update screenshot baselines" workflow (Actions › Update screenshot baselines › Run workflow), which commits them to the branch.
+- `counts.spec` checks every lab, lesson and quiz total the app shows against the data in the page. It has no typed numbers, so it keeps working as content grows.
+- `lessons-markdown.cjs` proves that `lessons.cjs` rejects Markdown (links, bold, backticks) in a lesson.
+- `lessons-order.cjs` checks `src/data/lesson-order.js`: every lesson once, in the group of its first objective. A new lesson goes in that file too.
+- Totals are never typed. In `src/index.template.html` and `tools/og.html` they are tokens (`{{LABS}}`, `{{BUILD_LABS}}`, `{{INCIDENTS}}`, `{{CAPSTONES}}`, `{{LESSONS}}`, `{{QUIZ}}`, `{{LAB_LESSONS}}`, `{{TOPIC_LESSONS}}`) that the build fills from the data. The docs are written by hand, and `counts.cjs` checks every total they state. The browser tests read totals from the page.
+- Generated files are checked: CI fails if `lessons/` or `sitemap.xml` differ from what `tools/build-site.cjs` writes, or if `og.png` was built from other counts or another `tools/og.html` (`node tools/build-og.cjs --check`, which compares a fingerprint in `tools/og-source.sha256`).
+- CI never retries a failed test. A test that only passes on a second try is a bug: find the cause. For timing, control the page's clock (`page.clock`) instead of waiting longer.
 
 Current numbers: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1,571 guide commands; 66 lessons (38 lab, 28 topic); 110 quiz questions.
 
@@ -180,7 +194,14 @@ For anything visual, open the page in a real browser at 1366 by 768 in both them
 3. Both `labs` and `browser` must pass before the pull request can merge.
 4. After the merge, "Test and deploy" runs the whole suite again on `main`. Only if it passes does its `deploy` job publish the site to GitHub Pages. A failed run leaves the live site as it was.
 
-The deploy publishes exactly these files: `index.html`, `og.png`, `sitemap.xml`, `LICENSE`, `THIRD-PARTY-NOTICES.md` and the `lessons/` folder (the pages, `site.css` and `fonts/`). Nothing else in the repository is on the public site. To publish a new file, add it to the "Collect the files the site serves" step in `deploy.yml`.
+The deploy builds `site/` (`node tools/build.cjs --site`) and publishes exactly that folder:
+
+- the app (`index.html`), with `lesson-data/` for the lessons' text;
+- `lab4net.html`, the single file for offline use;
+- `og.png`, `sitemap.xml`, `LICENSE` and `THIRD-PARTY-NOTICES.md`;
+- the `lessons/` folder (the pages, `site.css` and `fonts/`).
+
+Nothing else in the repository is on the public site. To publish a new file, copy it in `writeSite()` in `tools/build.cjs`. The browser tests run twice, once against the single file and once against `site/` (the Playwright project "site").
 
 To roll back, open a pull request that reverts the bad change. For a merge commit, that's `git revert -m 1 <merge commit>` on a new branch. When it merges, the deploy tests the reverted code and publishes it. A hand run of "Test and deploy" on `main` (Actions › Test and deploy › Run workflow) republishes the current `main`.
 

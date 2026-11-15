@@ -6,8 +6,9 @@
   // The catalogue of labs and lessons, and the slugs storage is allowed to name.
   L4N.data = L4N.sim.catalogue();
   for (const l of L4N.data.labs) V.known.labs.add(l.slug);
-  for (const l of L4N.data.lessons) { V.known.lessons.add(l.slug); V.known.lessonQuiz[l.slug] = Array.isArray(l.lesson.quiz) ? l.lesson.quiz.length : 0; }
+  for (const l of L4N.data.lessons) { V.known.lessons.add(l.slug); V.known.lessonQuiz[l.slug] = Array.isArray(l.lesson.quiz) ? l.lesson.quiz.length : (l.lesson.quizCount || 0); }
   V.known.quizCount = typeof QUIZ !== 'undefined' ? QUIZ.length : 0;
+  V.known.automationCount = typeof AUTOMATION !== 'undefined' ? AUTOMATION.length : 0;
 
   // index.html?panel=tasks is the pop-out Tasks window: it never touches storage and never runs the app.
   if (L4N.popout && L4N.popout.isPopout()) { L4N.popout.boot(); return; }
@@ -44,7 +45,7 @@
   L4N.theme.apply(doc.settings);
 
   // Save the main document a moment after any change, and when the page is hidden.
-  const SAVED = ['settings', 'labs', 'lessons', 'quiz', 'subnet', 'exam', 'ui', 'migrated'];
+  const SAVED = ['settings', 'labs', 'lessons', 'quiz', 'automation', 'subnet', 'exam', 'ui', 'migrated'];
   let timer = 0;
   function save() {
     clearTimeout(timer); timer = 0;

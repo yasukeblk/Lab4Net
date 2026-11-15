@@ -3,22 +3,35 @@
 (function (L4N) {
   'use strict';
   const slug = L4N.slug;
+  const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
 
   // ---- catalogue: labs and lessons by slug, with display IDs ----
   function catalogue() {
-    let b = 0, inc = 0, cap = 0;
+    const kindOf = l => l.capstone ? 'capstone' : l.kind === 'incident' ? 'incident' : 'build';
+    // Display IDs (LAB-01, INC-01, CAP-01) count in Path order: the stages in CAMPAIGN order, the labs of each stage
+    // in LABS order, then any lab in no stage. They are display only; nothing stores them.
+    const stage = new Map((typeof CAMPAIGN !== 'undefined' ? CAMPAIGN : []).map((c, i) => [c.group, i]));
+    const rank = l => stage.has(l.group) ? stage.get(l.group) : Infinity;
+    const ids = new Map(), next = { build: 0, incident: 0, capstone: 0 }, PRE = { build: 'LAB-', incident: 'INC-', capstone: 'CAP-' };
+    LABS.map((l, i) => i).sort((a, c) => (rank(LABS[a]) - rank(LABS[c])) || a - c)
+      .forEach(i => { const k = kindOf(LABS[i]); ids.set(i, PRE[k] + String(++next[k]).padStart(2, '0')); });
     const labs = LABS.map((l, i) => {
-      const kind = l.capstone ? 'capstone' : l.kind === 'incident' ? 'incident' : 'build';
-      const idText = kind === 'capstone' ? 'CAP-' + String(++cap).padStart(2, '0') : kind === 'incident' ? 'INC-' + String(++inc).padStart(2, '0') : 'LAB-' + String(++b).padStart(2, '0');
-      const short = kind === 'incident' ? l.title.replace(/^Incident \d+:\s*/, '') : l.title;
+      const kind = kindOf(l), idText = ids.get(i);
+      // An incident shown on its own drops "Incident NN: " and starts with a capital, as a title should.
+      // Display only: the title itself feeds the frozen slug and never changes.
+      const short = kind === 'incident' ? capFirst(l.title.replace(/^Incident \d+:\s*/, '')) : l.title;
       return { slug: slug(l.title), title: l.title, short, idText, kind, group: l.group, index: i, lab: l };
     });
     const bySlug = new Map(labs.map(x => [x.slug, x]));
     const byTitle = new Map(labs.map(x => [x.title, x]));
+    // Lessons in teaching order (LESSON_ORDER, by exam topic); any lesson not listed goes last, in data order.
+    const ORDER = typeof LESSON_ORDER !== 'undefined' ? Object.keys(LESSON_ORDER).sort().flatMap(d => LESSON_ORDER[d]) : [];
+    const lessonRank = s => { const r = ORDER.indexOf(s); return r < 0 ? Infinity : r; };
     const lessons = Object.keys(LESSONS).map((k, i) => {
       const L = LESSONS[k];
-      return { slug: slug(k), key: k, title: L.name || k, topic: !!L.topic, mins: L.mins || 5, index: i, lesson: L, lab: L.topic ? null : bySlug.get(slug(k)) || null };
-    });
+      // One heading everywhere: the lesson's title (the key, as on its web page), with its name as the line under it.
+      return { slug: slug(k), key: k, title: k, name: L.name || '', topic: !!L.topic, mins: L.mins || 5, index: i, lesson: L, lab: L.topic ? null : bySlug.get(slug(k)) || null };
+    }).sort((a, c) => (lessonRank(a.slug) - lessonRank(c.slug)) || a.index - c.index);
     const lessonBySlug = new Map(lessons.map(x => [x.slug, x]));
     return {
       labs, lessons,

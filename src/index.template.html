@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lab4Net · Free CCNA lab simulator in your browser</title>
-<meta name="description" content="A free CCNA lab simulator in your browser: 77 hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, 66 lessons, practice exams and a sandbox. No sign-up, no ads.">
+<meta name="description" content="A free CCNA lab simulator in your browser: {{LABS}} hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, {{LESSONS}} lessons, practice exams and a sandbox. No sign-up, no ads.">
 <link rel="canonical" href="https://yasukeblk.github.io/Lab4Net/">
 <meta name="theme-color" content="#0D0E10">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Lab4Net">
 <meta property="og:title" content="Lab4Net · Learn the CCNA by doing it">
-<meta property="og:description" content="A free CCNA lab simulator in your browser: 77 hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, 66 lessons, practice exams and a sandbox. No sign-up, no ads.">
+<meta property="og:description" content="A free CCNA lab simulator in your browser: {{LABS}} hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, {{LESSONS}} lessons, practice exams and a sandbox. No sign-up, no ads.">
 <meta property="og:url" content="https://yasukeblk.github.io/Lab4Net/">
 <meta property="og:image" content="https://yasukeblk.github.io/Lab4Net/og.png">
 <meta property="og:image:width" content="1200">
@@ -18,7 +18,7 @@
 <meta property="og:image:alt" content="Lab4Net: a free CCNA lab simulator in your browser">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F6BEB'/%3E%3Cpath d='M10 9v9.5a4.5 4.5 0 0 0 4.5 4.5H22' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='10' cy='9' r='3.25' fill='%23fff'/%3E%3Ccircle cx='22.5' cy='23' r='3.25' fill='%23fff'/%3E%3Ccircle cx='16.5' cy='23' r='2.4' fill='%23fff'/%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Lab4Net","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","url":"https://yasukeblk.github.io/Lab4Net/","description":"A free CCNA lab simulator in your browser: 77 hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, 66 lessons, practice exams and a sandbox. No sign-up, no ads.","isAccessibleForFree":true,"license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Lab4Net","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","url":"https://yasukeblk.github.io/Lab4Net/","description":"A free CCNA lab simulator in your browser: {{LABS}} hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, {{LESSONS}} lessons, practice exams and a sandbox. No sign-up, no ads.","isAccessibleForFree":true,"license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
 <script>
 /* Theme, console colours and motion before the first paint, so there is no flash. Storage is untrusted: only known values are used. */
 (function(){var d=document.documentElement,s={};if(/[?&]panel=tasks(&|$)/.test(location.search))return;try{var v=JSON.parse(localStorage.getItem('lab4net:v2')||'{}');if(v&&typeof v.settings==='object'&&v.settings)s=v.settings;}catch(e){}
@@ -38,29 +38,44 @@ d.setAttribute('data-theme',t);if(s.consoleTheme==='dark')d.setAttribute('data-c
 <h1 id="landing-title" class="landing__title" tabindex="-1">Learn the CCNA by doing it.</h1>
 <p class="landing__lead">Lab4Net is a free CCNA 200-301 lab simulator that runs in your browser. Configure routers, switches and PCs from IOS-style consoles, watch packets cross the network map, and get graded on whether the network actually works.</p>
 <div class="landing__cta"><button class="btn btn--primary btn--lg" id="landingStart" type="button">Start</button><a href="https://yasukeblk.github.io/Lab4Net/lessons/">Free CCNA lessons</a><a href="https://github.com/yasukeblk/Lab4Net" rel="noopener noreferrer">Source on GitHub</a></div>
-<figure class="landing__shot"><svg class="landing__svg" viewBox="0 0 720 380" role="img" aria-label="The Lab4Net lab workspace: the tasks on the left, the network map at the top right and a router console below it">
-<rect x="0.5" y="0.5" width="719" height="379" rx="10" class="ls-frame"/>
-<rect x="0.5" y="0.5" width="719" height="30" rx="10" class="ls-bar"/><rect x="0.5" y="20" width="719" height="11" class="ls-bar"/>
-<rect x="14" y="10" width="11" height="11" rx="3" class="ls-acc"/><rect x="34" y="12" width="120" height="7" rx="3.5" class="ls-mute"/><rect x="612" y="9" width="94" height="13" rx="4" class="ls-acc"/>
-<line x1="200" y1="31" x2="200" y2="380" class="ls-line"/>
-<rect x="16" y="48" width="150" height="8" rx="4" class="ls-text"/><rect x="16" y="64" width="166" height="6" rx="3" class="ls-mute"/><rect x="16" y="76" width="120" height="6" rx="3" class="ls-mute"/>
-<g class="ls-task"><rect x="16" y="104" width="10" height="10" rx="2" class="ls-box"/><rect x="34" y="105" width="140" height="7" rx="3.5" class="ls-text"/>
-<rect x="16" y="132" width="10" height="10" rx="2" class="ls-box"/><rect x="34" y="133" width="124" height="7" rx="3.5" class="ls-text"/>
-<rect x="16" y="160" width="10" height="10" rx="2" class="ls-done"/><rect x="34" y="161" width="132" height="7" rx="3.5" class="ls-mute"/>
-<rect x="16" y="188" width="10" height="10" rx="2" class="ls-box"/><rect x="34" y="189" width="108" height="7" rx="3.5" class="ls-text"/></g>
-<rect x="28" y="214" width="156" height="66" rx="6" class="ls-panel"/><rect x="38" y="226" width="100" height="6" rx="3" class="ls-code"/><rect x="38" y="242" width="126" height="6" rx="3" class="ls-code"/><rect x="38" y="258" width="88" height="6" rx="3" class="ls-code"/>
-<line x1="200" y1="190" x2="720" y2="190" class="ls-line"/>
-<line x1="270" y1="110" x2="400" y2="110" class="ls-link ls-hi"/><line x1="400" y1="110" x2="530" y2="110" class="ls-link ls-hi"/><line x1="530" y1="110" x2="650" y2="110" class="ls-link"/>
-<circle cx="270" cy="110" r="15" class="ls-node"/><circle cx="400" cy="110" r="15" class="ls-node ls-sel"/><circle cx="530" cy="110" r="15" class="ls-node"/><circle cx="650" cy="110" r="15" class="ls-node"/>
-<circle cx="466" cy="110" r="4" class="ls-pkt"/>
-<rect x="258" y="134" width="24" height="6" rx="3" class="ls-mute"/><rect x="388" y="134" width="24" height="6" rx="3" class="ls-text"/><rect x="518" y="134" width="24" height="6" rx="3" class="ls-mute"/><rect x="638" y="134" width="24" height="6" rx="3" class="ls-mute"/>
-<rect x="200" y="190" width="520" height="190" class="ls-console"/><rect x="200" y="368" width="520" height="12" class="ls-console"/>
-<rect x="216" y="208" width="180" height="6" rx="3" class="ls-ctext"/><rect x="216" y="224" width="240" height="6" rx="3" class="ls-ctext"/><rect x="216" y="240" width="96" height="6" rx="3" class="ls-ok"/>
-<rect x="216" y="256" width="210" height="6" rx="3" class="ls-ctext"/><rect x="216" y="272" width="150" height="6" rx="3" class="ls-ok"/><rect x="216" y="296" width="70" height="6" rx="3" class="ls-ctext"/><rect x="290" y="294" width="2" height="10" class="ls-acc"/>
+<figure class="landing__shot"><svg class="landing__svg" viewBox="0 0 720 400" role="img" aria-label="The Lab4Net lab workspace for Static routing: the tasks on the left, the network map with a ping going from R1 to PC2, and the R1 console showing its static routes and a successful ping">
+<rect x="0.5" y="0.5" width="719" height="399" rx="10" class="ls-frame"/>
+<path d="M10.5 .5h699a10 10 0 0 1 10 10V34H.5V10.5a10 10 0 0 1 10-10z" class="ls-bar"/>
+<rect x="14" y="10" width="14" height="14" rx="4" class="ls-acc"/>
+<text x="40" y="21.5" class="ls-t ls-t2">Labs › Routing ›</text><text x="135" y="21.5" class="ls-t ls-b">Static routing</text>
+<rect x="640" y="8" width="66" height="18" rx="5" class="ls-acc"/><text x="673" y="21" class="ls-t ls-on" text-anchor="middle">Grade</text>
+<line x1="210" y1="34" x2="210" y2="400" class="ls-line"/>
+<text x="14" y="54" class="ls-t ls-b">Tasks</text><text x="196" y="54" class="ls-t ls-t3" text-anchor="end">2 of 5 done</text>
+<text x="14" y="78" class="ls-t ls-t2">Three routers in a row. Add the</text><text x="14" y="93" class="ls-t ls-t2">routes that let the two LANs talk.</text>
+<rect x="14" y="112" width="11" height="11" rx="2.5" class="ls-done"/><path d="M16.5 117.5l2.2 2.2 4-4.2" class="ls-tick"/><text x="33" y="121.5" class="ls-t ls-t3">On R1, add static routes</text>
+<rect x="14" y="138" width="11" height="11" rx="2.5" class="ls-done"/><path d="M16.5 143.5l2.2 2.2 4-4.2" class="ls-tick"/><text x="33" y="147.5" class="ls-t ls-t3">On R2, add both LAN routes</text>
+<rect x="14" y="164" width="11" height="11" rx="2.5" class="ls-box"/><text x="33" y="173.5" class="ls-t">On R3, add a default route</text>
+<rect x="14" y="190" width="11" height="11" rx="2.5" class="ls-box"/><text x="33" y="199.5" class="ls-t">Check each table</text>
+<rect x="14" y="216" width="11" height="11" rx="2.5" class="ls-box"/><text x="33" y="225.5" class="ls-t">Ping PC2 from PC1</text>
+<rect x="14" y="248" width="182" height="58" rx="6" class="ls-panel"/><text x="24" y="266" class="ls-t ls-t3">R1</text>
+<text x="24" y="282" class="ls-m ls-t2">ip route 192.168.3.0</text><text x="24" y="296" class="ls-m ls-t2">255.255.255.0 10.0.12.2</text>
+<line x1="246" y1="92" x2="330" y2="92" class="ls-link"/><line x1="330" y1="92" x2="680" y2="92" class="ls-link ls-hi"/>
+<rect x="234" y="80" width="24" height="18" rx="3" class="ls-node"/><rect x="242" y="99" width="8" height="2" class="ls-stand"/>
+<circle cx="330" cy="92" r="14" class="ls-node ls-sel"/><circle cx="447" cy="92" r="14" class="ls-node"/><circle cx="564" cy="92" r="14" class="ls-node"/>
+<rect x="668" y="80" width="24" height="18" rx="3" class="ls-node"/><rect x="676" y="99" width="8" height="2" class="ls-stand"/>
+<circle cx="505" cy="92" r="4" class="ls-pkt"/>
+<text x="246" y="124" class="ls-t ls-t2" text-anchor="middle">PC1</text><text x="330" y="124" class="ls-t ls-b" text-anchor="middle">R1</text><text x="447" y="124" class="ls-t ls-t2" text-anchor="middle">R2</text><text x="564" y="124" class="ls-t ls-t2" text-anchor="middle">R3</text><text x="680" y="124" class="ls-t ls-t2" text-anchor="middle">PC2</text>
+<line x1="210" y1="148" x2="720" y2="148" class="ls-line"/>
+<circle cx="230" cy="164" r="6" class="ls-okfill"/><path d="M227.3 164l1.9 1.9 3.6-3.8" class="ls-tick"/>
+<text x="244" y="168" class="ls-t ls-okt">Reply received</text><text x="342" y="168" class="ls-t ls-t2">R1 → R2 → R3 → PC2</text>
+<rect x="210" y="182" width="510" height="218" class="ls-console"/><path d="M210 390h510v.5a9.5 9.5 0 0 1-9.5 9.5H210z" class="ls-console"/>
+<text x="224" y="206" class="ls-m ls-c">R1#show ip route static</text>
+<text x="224" y="224" class="ls-m ls-cd">S     10.0.23.0/30 [1/0] via 10.0.12.2</text>
+<text x="224" y="242" class="ls-m ls-cd">S     192.168.3.0/24 [1/0] via 10.0.12.2</text>
+<text x="224" y="266" class="ls-m ls-c">R1#ping 192.168.3.10</text>
+<text x="224" y="284" class="ls-m ls-cd">Sending 5, 100-byte ICMP Echos to 192.168.3.10</text>
+<text x="224" y="302" class="ls-m ls-okt">!!!!!</text>
+<text x="224" y="320" class="ls-m ls-cd">Success rate is 100 percent (5/5)</text>
+<text x="224" y="344" class="ls-m ls-c">R1#</text><rect x="251" y="334" width="7" height="13" class="ls-caret"/>
 </svg></figure>
 <ul class="landing__facts"><li>Free</li><li>No sign-up</li><li>No ads</li><li>Works offline</li><li>Open source</li></ul>
 <div class="landing__features">
-<section><h2>The labs</h2><p><span data-w="labs">77</span> hands-on labs mapped to the CCNA 200-301 exam topics: <span data-w="build">38</span> builds, <span data-w="incidents">37</span> troubleshooting incidents and <span data-w="capstones">2</span> capstones, with <span data-w="lessons">66</span> lessons that teach the idea before the commands.</p></section>
+<section><h2>The labs</h2><p><span data-w="labs">{{LABS}}</span> hands-on labs mapped to the CCNA 200-301 exam topics: <span data-w="build">{{BUILD_LABS}}</span> builds, <span data-w="incidents">{{INCIDENTS}}</span> troubleshooting incidents and <span data-w="capstones">{{CAPSTONES}}</span> capstones, with <span data-w="lessons">{{LESSONS}}</span> lessons that teach the idea before the commands.</p></section>
 <section><h2>The console</h2><p>Consoles that answer like IOS: <code>?</code> help, Tab completion, the <code>^</code> error marker, passwords, Telnet and SSH, and live ping and traceroute output.</p></section>
 <section><h2>The map</h2><p>Every ping travels the map along the path it really takes. When it fails, the map shows where and says why.</p></section>
 </div>

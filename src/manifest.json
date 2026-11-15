@@ -50,8 +50,10 @@
   ],
   "js": [
     "data/quiz.js",
+    "data/automation.js",
     "data/campaign.js",
     "data/lessons.js",
+    "data/lesson-order.js",
     "data/objectives.js",
     "data/sandbox.js",
     "app/core/slug.js",

@@ -144,6 +144,8 @@
       left: ws => buildPanel(ws),
       mapOpts: ws => ({
         view: viewFull, label: 'Sandbox map', maxScale: 3,
+        empty: () => ({ icon: 'sandbox', what: 'Your network is empty.',
+          todo: window.matchMedia('(max-width: 767px)').matches ? 'Add a device from the Build tab below.' : 'Add a device from the Build panel on the left.' }),
         posOf: n => { const d = def.devs.find(x => x.name === n); return d ? [d.x, d.y] : [100, 100]; },
         notes: () => def.notes,
         onNodeClick: (n, e) => {

@@ -140,6 +140,8 @@
       out.lessons[s] = { read: a.read || b.read, quiz: Object.assign({}, a.quiz, b.quiz) };
     }
     out.quiz = { rev: 2, answers: Object.assign({}, out.quiz.answers, inc.main.quiz.answers) };
+    // the automation drill merges like the quiz (a backup from before the drill has no answers, which changes nothing)
+    out.automation = { answers: Object.assign({}, (out.automation || {}).answers, (inc.main.automation || {}).answers) };
     if (inc.main.subnet.total > out.subnet.total) out.subnet = inc.main.subnet;
     if (L4N.exam && L4N.exam.mergeHistory) out.exam = L4N.exam.mergeHistory(out.exam, inc.main.exam);
     const work = Object.assign({}, cur.work);

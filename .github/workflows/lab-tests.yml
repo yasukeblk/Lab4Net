@@ -16,6 +16,16 @@ jobs:
         with:
           node-version: '22'
       - run: node tools/build.cjs --check
+      - name: Lesson pages and sitemap are up to date
+        run: |
+          node tools/build-site.cjs
+          if [ -n "$(git status --porcelain -- lessons sitemap.xml)" ]; then
+            git status --short -- lessons sitemap.xml
+            echo "::error::lessons/ or sitemap.xml is out of date. Run node tools/build-site.cjs and commit the result."
+            exit 1
+          fi
+      - name: The share image is up to date
+        run: node tools/build-og.cjs --check
       - run: node tests/build.cjs
       - run: node tests/slugs.cjs
       - run: node tests/grade.cjs
@@ -25,6 +35,10 @@ jobs:
       - run: node tests/forwarding.cjs
       - run: node tests/curriculum.cjs
       - run: node tests/lessons.cjs
+      - run: node tests/lessons-markdown.cjs
+      - run: node tests/lessons-order.cjs
+      - run: node tests/lessons-files.cjs
+      - run: node tests/counts.cjs
       - run: node tests/ping.cjs
       - run: node tests/console.cjs
       - run: node tests/switching.cjs

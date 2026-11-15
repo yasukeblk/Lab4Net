@@ -27,8 +27,10 @@
       const labsIn = L4N.data.labs.filter(l => domainOf((l.lab.ccna || [])[0]) === id);
       const lessonsIn = L4N.data.lessons.filter(l => domainOf(lessonObjs(l)[0]) === id);
       const ld = labsIn.filter(l => labStatus(l.slug) === 'done').length, lr = lessonsIn.filter(l => lessonRead(l.slug)).length;
-      const total = labsIn.length + lessonsIn.length;
-      return { id, name, weight, labs: { done: ld, total: labsIn.length }, lessons: { read: lr, total: lessonsIn.length }, done: ld + lr, total, labsIn, lessonsIn };
+      // Exam topic 6 has no console labs; its practice is the automation drill, counted by items answered right.
+      const drill = id === '6' && typeof AUTOMATION !== 'undefined' ? { right: Object.values((L4N.store.get().automation || {}).answers || {}).filter(v => v === true).length, total: AUTOMATION.length } : null;
+      const total = labsIn.length + lessonsIn.length + (drill ? drill.total : 0);
+      return { id, name, weight, labs: { done: ld, total: labsIn.length }, lessons: { read: lr, total: lessonsIn.length }, drill, done: ld + lr + (drill ? drill.right : 0), total, labsIn, lessonsIn };
     });
   }
   function objectives(domainId) {

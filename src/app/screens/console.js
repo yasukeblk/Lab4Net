@@ -11,7 +11,7 @@
   function createConsole(ws) {
     const st = ws.st;
     if (!st.devs.length) {
-      const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' }, ui.empty({ icon: 'labs', what: 'No devices yet.', todo: 'Add a device from the Build panel and its console opens here.' }));
+      const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' }, ui.empty({ icon: 'labs', what: 'No console yet.', todo: 'Each device you add gets a console here.' }));
       const no = () => {};
       return { el: root, input: el('input'), out: root, run: no, select: no, stop: no, showResult: no, refreshPrompt: no, refreshTabs: no, renderAll: no, clearScreen: no, focus: no, playing: () => false, setMaximised: no, destroy: no };
     }
@@ -64,9 +64,19 @@
         el('span', {}, el('kbd', { class: 'kbd', text: 'Ctrl' }), el('kbd', { class: 'kbd', text: 'Z' }), 'end'),
         el('span', {}, el('kbd', { class: 'kbd', text: 'Esc' }), 'leave the console')));
     }
+    // "Why" for the last command: one line under the console, with More to open it at body size, and Less to close.
+    // Open or closed stays as the learner left it while the lab is open.
+    let whyOpen = false, whyText = null;
     function setWhy(text) {
+      whyText = text || null;
+      why.classList.toggle('is-open', !!text && whyOpen);
       if (!text) { keyHints(); return; }
-      clear(why); why.append(el('span', {}, el('b', { text: 'Why: ' }), text));
+      clear(why);
+      why.append(el('span', { class: 'con__why-text' }, el('b', { text: 'Why: ' }), text),
+        ui.button({ label: whyOpen ? 'Less' : 'More', kind: 'ghost', class: 'con__why-btn', aria: whyOpen ? 'Show less of why' : 'Show all of why',
+          onClick: () => { whyOpen = !whyOpen; setWhy(whyText); const b = why.querySelector('.con__why-btn'); if (b) b.focus(); } }));
+      const b = why.querySelector('.con__why-btn');
+      b.setAttribute('aria-expanded', String(whyOpen)); b.setAttribute('aria-controls', hintId);
     }
 
     // ---- output ----

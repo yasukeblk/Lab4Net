@@ -1,4 +1,4 @@
-// Every one of the 77 labs: open it, run its solution through L4N.test.exec (the same path as pressing Enter),
+// Every lab: open it, run its solution through L4N.test.exec (the same path as pressing Enter),
 // press the real Grade button, see every check pass and the lab marked done. Then reload and see it still done.
 const { test, expect } = require('@playwright/test');
 const { open, watch } = require('./helpers');

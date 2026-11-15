@@ -9,7 +9,10 @@ const LABS=ctx.api.LABS.filter(l=>l.kind!=='incident'&&!l.capstone),byTitle=Obje
 const OBJ=['1.1','1.2','1.3','1.4','1.5','1.6','1.7','1.8','1.9','1.10','1.11','1.12','1.13','2.1','2.2','2.3','2.4','2.5','2.6','2.7','2.8','2.9','3.1','3.2','3.3','3.4','3.5','4.1','4.2','4.3','4.4','4.5','4.6','4.7','4.8','4.9','5.1','5.2','5.3','5.4','5.5','5.6','5.7','5.8','5.9','5.10','6.1','6.2','6.3','6.4','6.5','6.6','6.7'];
 let errors=0,seen={};const err=(k,m)=>{errors++;console.log('ERROR',k+':',m);};
 const words=s=>String(s).replace(/<[^>]+>/g,' ').split(/\s+/).filter(Boolean).length;
-function tags(k,where,s){if(typeof s!=='string')return err(k,where+' is not a string');
+// Markdown is not rendered: a link, bold or code written in Markdown would show its punctuation to the learner.
+const MD=[[/\[[^\]]*\]\(/,'a Markdown link [text](url); use plain text'],[/\*\*/,'Markdown bold **; use <b>'],[/`/,'a backtick; use <code>']];
+const markdown=(k,where,s)=>{for(const [re,why] of MD)if(re.test(s))err(k,where+' has '+why);};
+function tags(k,where,s){if(typeof s!=='string')return err(k,where+' is not a string');markdown(k,where,s);
   if(/<script|\$\{|on\w+=|<img|<svg|<a /i.test(s))err(k,where+' has forbidden markup');
   const st=[];for(const m of s.matchAll(/<(\/?)(\w+)[^>]*>/g)){const t=m[2].toLowerCase();if(t==='br')continue;
     if(!['p','b','i','code','ol','ul','li','small','kbd'].includes(t))err(k,where+' uses <'+t+'>');
@@ -17,7 +20,9 @@ function tags(k,where,s){if(typeof s!=='string')return err(k,where+' is not a st
   if(st.length)err(k,where+' leaves <'+st.join(',')+'> open');}
 const data=html.split('//LESSONS-DATA-START')[1]?.split('//LESSONS-DATA-END')[0];
 if(!data){console.log('ERROR lesson data markers missing');process.exit(1);}
-const sources=[['index.html',data],...process.argv.slice(2).map(f=>[f,fs.readFileSync(f,'utf8')])],all={};
+// A draft can be a .js file (Object.assign(LESSONS,{...})) or a lesson file in the src/lessons/*.md format.
+const draft=f=>{if(!/\.md$/i.test(f))return fs.readFileSync(f,'utf8');const x=require('../tools/lessons-md.cjs').parse(fs.readFileSync(f,'utf8'),f);return 'Object.assign(LESSONS,'+JSON.stringify({[x.key]:x.lesson})+');';};
+const sources=[['index.html',data],...process.argv.slice(2).map(f=>[f,draft(f)])],all={};
 for(const [f,code] of sources){const LESSONS={};
   try{vm.runInContext(code,vm.createContext({LESSONS}));}catch(e){err(f,'does not parse: '+e.message);continue;}
   Object.assign(all,LESSONS);
@@ -29,7 +34,7 @@ for(const [f,code] of sources){const LESSONS={};
     if(!(L.mins>=4&&L.mins<=12))err(k,'mins should be 4 to 12');
     if(!Array.isArray(L.sections)||L.sections.length<4||L.sections.length>8)err(k,'needs 4 to 8 sections');
     (L.sections||[]).forEach(([h,b],i)=>{if(typeof h!=='string'||!h)err(k,'section '+i+' heading');tags(k,'section '+i,b);if(!/^<(p|ol|ul)>/.test(b||''))err(k,'section '+i+' must start with <p>, <ol> or <ul>');});
-    if(!Array.isArray(L.terms)||L.terms.length<5)err(k,'needs at least 5 terms');(L.terms||[]).forEach(t=>{if(!Array.isArray(t)||t.length!==2||/</.test(t[0]+t[1]))err(k,'terms are [term, definition] plain text');});
+    if(!Array.isArray(L.terms)||L.terms.length<5)err(k,'needs at least 5 terms');(L.terms||[]).forEach(t=>{if(!Array.isArray(t)||t.length!==2||/</.test(t[0]+t[1]))err(k,'terms are [term, definition] plain text');if(Array.isArray(t))markdown(k,'term '+t[0],t.join(' '));});
     for(const f2 of ['exam','mistakes']){if(!Array.isArray(L[f2])||L[f2].length<3)err(k,f2+' needs at least 3');(L[f2]||[]).forEach((x,i)=>tags(k,f2+' '+i,x));}
     if(!Array.isArray(L.quiz)||L.quiz.length<4||L.quiz.length>5)err(k,'quiz needs 4 or 5 questions');
     (L.quiz||[]).forEach((q,i)=>{if(!Array.isArray(q)||q.length!==4)return err(k,'quiz '+i+' shape');tags(k,'quiz '+i,q[0]);q[1].forEach(o=>tags(k,'quiz '+i+' option',o));tags(k,'quiz '+i+' why',q[3]);

@@ -28,9 +28,11 @@
     const root = el('section', { class: 'pane tasks', 'aria-label': 'Tasks', id: 'ws-tasks' }, head, panelTasks, panelCmds);
     const results = el('section', { class: 'results', 'aria-label': 'Results', 'aria-live': 'polite', id: id('results') });
 
+    // Before a grade the header counts ticked tasks; after one it counts the checks that passed, the real measure.
     function updateCount() {
-      const n = ws.tasks.filter(Boolean).length;
-      countEl.textContent = n + ' of ' + lab.tasks.length + ' done';
+      const g = ws.graded && ws.graded.results;
+      if (g) { countEl.textContent = g.filter(x => x[1]).length + ' of ' + g.length + ' checks'; return; }
+      countEl.textContent = ws.tasks.filter(Boolean).length + ' of ' + lab.tasks.length + ' done';
     }
 
     // ---- steps for one task: command rows grouped by device ----
@@ -82,11 +84,21 @@
       return box;
     }
 
+    // One line with a close button, so the tasks stay near the top.
     function firstRunTip() {
       if (!help() || ws.guide || (ws.hints && ws.hints.stepTip)) return null;
-      const box = ui.callout({ icon: 'info', body: [el('span', { text: 'New here? Turn on step-by-step to see the commands for each task.' }),
-        el('div', {}, ui.button({ label: 'Got it', kind: 'secondary', onClick: () => { ws.dismissHint('stepTip'); box.remove(); } }))] });
+      const box = el('div', { class: 'banner banner--line', role: 'note' }, icon('info'),
+        el('span', { text: 'New here? Turn on step-by-step to see the commands for each task.' }),
+        ui.button({ icon: 'x', aria: 'Got it, hide this tip', kind: 'ghost', onClick: () => { ws.dismissHint('stepTip'); box.remove(); } }));
       return box;
+    }
+    function addressPlan() {
+      if (!lab.addr || !lab.addr.length) return null;
+      return el('details', { class: 'sect addr-plan', open: entry.kind === 'capstone' },
+        el('summary', {}, icon('chevron-down', 'icon--chev'), el('span', { class: 'label-caps', text: 'Addresses' })),
+        el('div', { class: 'table-wrap' }, el('table', { class: 'table addr' },
+          el('thead', {}, el('tr', {}, el('th', { text: 'Device', scope: 'col' }), el('th', { text: 'Interface', scope: 'col' }), el('th', { text: 'Address', scope: 'col' }))),
+          el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) })))))));
     }
 
     function build() {
@@ -98,15 +110,7 @@
       if (entry.kind === 'incident') tasksBody.append(ui.callout({ kind: 'warn', icon: 'alert', body: ['This network worked until something changed. Find it, make the smallest repair, keep everything else working.'] }));
       for (const fn of ws.topExtras || []) { const x = fn(); if (x) tasksBody.append(x); }
       const tip = firstRunTip(); if (tip) tasksBody.append(tip);
-      // 3. address plan
-      if (lab.addr && lab.addr.length) {
-        tasksBody.append(el('details', { class: 'sect', open: true },
-          el('summary', {}, icon('chevron-down', 'icon--chev'), el('span', { class: 'label-caps', text: 'Address plan' })),
-          el('div', { class: 'table-wrap' }, el('table', { class: 'table addr' },
-            el('thead', {}, el('tr', {}, el('th', { text: 'Device', scope: 'col' }), el('th', { text: 'Interface', scope: 'col' }), el('th', { text: 'Address', scope: 'col' }))),
-            el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) }))))))));
-      }
-      // 4. step-by-step switch and the count
+      // 3. step-by-step switch and the count (the address plan now comes after the tasks)
       if (help()) tasksBody.append(stepRow());
       // 5. the tasks
       const list = el('ol', { class: 'tasklist', 'aria-label': 'Tasks' });
@@ -122,6 +126,8 @@
         list.append(li);
       });
       tasksBody.append(list);
+      // 5. the address plan, folded away except in capstones, where it is the brief
+      const plan = addressPlan(); if (plan) tasksBody.append(plan);
       // 6. clues
       const c = clues(); if (c) tasksBody.append(c);
       // 7. results

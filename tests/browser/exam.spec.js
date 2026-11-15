@@ -94,7 +94,10 @@ test('fixing the faults passes, the end shows what was wrong, and the base lab i
 
 test('a reload resumes; a second exam cannot start; other labs are locked with a toast', async ({ page }) => {
   await open(page, '#/', { main: MAIN });
-  await startExam(page, 'lab', 20);
+  // A fixed exam, so the lab is the same every run. A random one sometimes picked a lab with an enable password,
+  // where "enable" stops at "Password:" (starting from the screen is covered by the test above).
+  await page.evaluate(() => { L4N.exam.begin('lab', 20, { seed: 'resume' }); L4N.shell.go('#/practice/exam/run'); });
+  await expect(page.locator('#gradeBtn')).toBeVisible();
   await page.evaluate(() => { L4N.test.exec(null, 'enable'); L4N.test.exec(null, 'configure terminal'); });
   await page.waitForTimeout(300);
   await page.reload();

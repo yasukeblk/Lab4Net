@@ -9,155 +9,7 @@
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/basic-device-setup.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/vlans-and-access-ports.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/802-1q-trunking.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/router-on-a-stick.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/static-routing.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/single-area-ospf.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/spanning-tree-root-bridge-and-edge-ports.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/etherchannel-with-lacp.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dhcp-server-and-relay.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/nat-overload-pat.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/standard-acl.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/extended-named-acl.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/port-security.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ssh-remote-access.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/static-nat-publish-a-server.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/native-vlan-and-allowed-vlans-on-trunks.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/switch-management-access.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/locking-down-device-access.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ospf-router-ids-and-passive-interfaces.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/per-vlan-root-bridges.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/map-an-unknown-network-with-cdp.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/small-office-build.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/floating-static-route.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/how-a-router-chooses-a-route.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ospf-on-a-shared-segment.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/lldp.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/voice-vlan.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dynamic-nat-with-a-pool.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/named-acls-and-sequence-numbers.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ntp-and-syslog.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/inter-vlan-routing-on-a-layer-3-switch.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dhcp-snooping.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dynamic-arp-inspection.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ipv6-addressing.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ipv6-static-and-default-routes.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/first-hop-redundancy-with-hsrp.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/multi-area-ospf.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/wiring-a-wireless-lan.html</loc>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/the-osi-and-tcp-ip-models.html</loc>
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
@@ -173,7 +25,19 @@
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/binary-and-the-powers-of-two.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
     <loc>https://yasukeblk.github.io/Lab4Net/lessons/ipv4-addresses-subnets-and-private-ranges.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/subnetting-questions-the-exam-asks.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/vlsm-subnets-of-different-sizes.html</loc>
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
@@ -181,7 +45,31 @@
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/virtualization-and-the-cloud.html</loc>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/arp-and-the-journey-of-a-packet.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/basic-device-setup.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/switch-management-access.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/vlans-and-access-ports.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dhcp-server-and-relay.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ipv6-addressing.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ipv6-neighbor-discovery.html</loc>
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
@@ -189,15 +77,143 @@
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/wiring-a-wireless-lan.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/virtualization-and-the-cloud.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/finding-a-fault-step-by-step.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/802-1q-trunking.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/native-vlan-and-allowed-vlans-on-trunks.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/voice-vlan.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/router-on-a-stick.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/inter-vlan-routing-on-a-layer-3-switch.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/spanning-tree-root-bridge-and-edge-ports.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/per-vlan-root-bridges.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/protecting-the-spanning-tree.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/etherchannel-with-lacp.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/map-an-unknown-network-with-cdp.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/lldp.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
     <loc>https://yasukeblk.github.io/Lab4Net/lessons/wireless-architectures-and-ap-modes.html</loc>
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/securing-and-configuring-a-wlan.html</loc>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/managing-devices-and-aaa.html</loc>
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/managing-devices-and-aaa.html</loc>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/how-a-router-chooses-a-route.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/static-routing.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/floating-static-route.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ipv6-static-and-default-routes.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/single-area-ospf.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ospf-router-ids-and-passive-interfaces.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ospf-on-a-shared-segment.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ospf-neighbor-states-and-troubleshooting.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/multi-area-ospf.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/first-hop-redundancy-with-hsrp.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/small-office-build.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dns-names-to-addresses.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/nat-overload-pat.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/static-nat-publish-a-server.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dynamic-nat-with-a-pool.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ntp-and-syslog.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/snmp-tftp-and-ftp.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ssh-remote-access.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/quality-of-service.html</loc>
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
@@ -209,11 +225,35 @@
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/snmp-tftp-and-ftp.html</loc>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/locking-down-device-access.html</loc>
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/quality-of-service.html</loc>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/standard-acl.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/extended-named-acl.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/named-acls-and-sequence-numbers.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/port-security.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dhcp-snooping.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dynamic-arp-inspection.html</loc>
+    <lastmod>2026-11-15</lastmod>
+  </url>
+  <url>
+    <loc>https://yasukeblk.github.io/Lab4Net/lessons/securing-and-configuring-a-wlan.html</loc>
     <lastmod>2026-11-15</lastmod>
   </url>
   <url>
@@ -230,46 +270,6 @@
   </url>
   <url>
     <loc>https://yasukeblk.github.io/Lab4Net/lessons/ai-and-machine-learning-in-network-operations.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/binary-and-the-powers-of-two.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/subnetting-questions-the-exam-asks.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/vlsm-subnets-of-different-sizes.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/dns-names-to-addresses.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/arp-and-the-journey-of-a-packet.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/the-osi-and-tcp-ip-models.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ipv6-neighbor-discovery.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/protecting-the-spanning-tree.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/ospf-neighbor-states-and-troubleshooting.html</loc>
-    <lastmod>2026-11-15</lastmod>
-  </url>
-  <url>
-    <loc>https://yasukeblk.github.io/Lab4Net/lessons/finding-a-fault-step-by-step.html</loc>
     <lastmod>2026-11-15</lastmod>
   </url>
 </urlset>

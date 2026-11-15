@@ -52,7 +52,11 @@
       const traceH = parts.trace.offsetHeight || 33;
       if (lay === 'stacked') {
         mapMin = LIM.mapMin; mapMax = Math.max(mapMin, H - traceH - LIM.consoleMin - 1);
-        map = saved.map != null ? Math.round(saved.map * H) : Math.round(Math.min(290, Math.max(mapMin, H * 0.4)));
+        // A height the learner dragged is kept. Otherwise the map takes what the network needs (a line of devices is
+        // short, a mesh is taller), up to half the space; without a topology to measure, 40% up to 290 px as before.
+        const want = !saved.map && ws.mapWant ? ws.mapWant(W - tasksShown - 2) : null;
+        map = saved.map != null ? Math.round(saved.map * H)
+          : want != null ? Math.round(Math.max(mapMin, Math.min(want, H * 0.5))) : Math.round(Math.min(290, Math.max(mapMin, H * 0.4)));
       } else {
         const rest = W - tasksShown - 2;
         mapMin = LIM.mapWMin; mapMax = Math.max(mapMin, rest - consoleW);

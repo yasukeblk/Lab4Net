@@ -1,4 +1,4 @@
-// home.js: Home (section 5.2): Continue (or Start here), Next up, Progress, Exam topics, Practice.
+// home.js: Home (section 5.2): Continue (or Start here), Recently, Next up, a line of totals, Practice.
 (function (L4N) {
   'use strict';
   const { el, icon } = L4N.dom;
@@ -30,31 +30,36 @@
         ui.button({ label: 'Start lab', kind: 'primary', size: 'lg', icon: 'play', href: L4N.router.href('lab', first.slug) })));
     } else if (last) {
       const w = L4N.work.get(last.slug), ticked = w ? (w.tasks || []).filter(Boolean).length : 0;
+      const done = stats.labStatus(last.slug) === 'done', grade = (L4N.store.get().labs[last.slug] || {}).grade;
       page.append(el('section', { class: 'card home__card', 'aria-labelledby': 'home-continue' },
         el('div', { class: 'home__card-body' },
           el('span', { class: 'label-caps', text: 'Continue' }),
           el('h2', { class: 'section__title', id: 'home-continue', text: last.title }),
-          el('p', { class: 'muted num' }, last.lab.group + ' · ' + ticked + ' of ' + last.lab.tasks.length + ' tasks', ' · ', ui.statusChip(stats.labStatus(last.slug)))),
+          // A finished lab shows Done and its grade; one in progress shows how many tasks are ticked.
+          el('p', { class: 'muted num' }, done ? last.lab.group + ' · ' : last.lab.group + ' · ' + ticked + ' of ' + last.lab.tasks.length + ' tasks · ',
+            ui.statusChip(stats.labStatus(last.slug)), done && grade ? ' ' : null, done && grade ? ui.gradeChip(grade) : null)),
         ui.button({ label: 'Resume', kind: 'primary', size: 'lg', icon: 'play', href: L4N.router.href('lab', last.slug) })));
     }
 
-    // 2. Next up: the next three labs on the Path that are not done
+    // 2. Recently: the last three labs finished or lessons read, with grades. Progress has the full picture.
+    const recent = Object.keys(S.labs).filter(k => S.labs[k].done && S.labs[k].doneAt && L4N.data.lab(k))
+      .map(k => ({ at: S.labs[k].doneAt, title: L4N.data.lab(k).short, href: L4N.router.href('lab', k), kind: 'Lab', grade: S.labs[k].grade }))
+      .concat(Object.keys(S.lessons).filter(k => S.lessons[k].read && S.lessons[k].readAt && L4N.data.lesson(k))
+        .map(k => ({ at: S.lessons[k].readAt, title: L4N.data.lesson(k).title, href: L4N.router.href('lesson', k), kind: 'Lesson' })))
+      .sort((a, b) => b.at - a.at).slice(0, 3);
+    if (recent.length) page.append(el('section', { class: 'section', 'aria-labelledby': 'home-recent' },
+      el('h2', { class: 'section__title', id: 'home-recent', text: 'Recently' }),
+      el('div', { class: 'list' }, recent.map(x => el('a', { class: 'row', href: x.href }, icon(x.kind === 'Lab' ? 'labs' : 'lessons'), el('span', { class: 'row__title', text: x.title }),
+        el('span', { class: 'row__meta' }, el('span', { text: x.kind }), x.grade ? ui.gradeChip(x.grade) : null))))));
+
+    // 3. Next up: the next three labs on the Path that are not done
     const next = order.filter(l => stats.labStatus(l.slug) !== 'done' && l.slug !== (last && last.slug)).slice(0, 3);
     if (next.length) page.append(el('section', { class: 'section', 'aria-labelledby': 'home-next' },
       el('h2', { class: 'section__title', id: 'home-next', text: 'Next up' }), el('div', { class: 'list' }, next.map(row))));
 
-    // 3. Progress
-    const stat = (label, done, total, href) => el('a', { class: 'stat', href }, el('span', { class: 'stat__label', text: label }), ui.bar(done, total, label));
-    page.append(el('section', { class: 'section', 'aria-labelledby': 'home-progress' },
-      el('h2', { class: 'section__title', id: 'home-progress', text: 'Progress' }),
-      el('div', { class: 'stats' }, stat('Labs', labs.done, labs.total, '#/labs'), stat('Lessons', lessons.done, lessons.total, '#/lessons'), stat('Quiz', quiz.correct, quiz.total, '#/practice/quiz'))));
-
-    // 4. Exam topics
-    page.append(el('section', { class: 'section', 'aria-labelledby': 'home-topics' },
-      el('h2', { class: 'section__title', id: 'home-topics', text: 'Exam topics' }),
-      el('div', { class: 'list' }, stats.domains().map(d => el('a', { class: 'row topic', href: '#/progress' },
-        el('span', { class: 'row__id', text: d.id }), el('span', { class: 'row__title', text: d.name }),
-        el('span', { class: 'row__meta' }, el('span', { class: 'num', text: d.weight + '%' }), el('span', { class: 'topic__bar' }, ui.bar(d.done, d.total, d.name + ' coverage'))))))));
+    // 4. One line of totals; the bars and the exam topics live on Progress
+    page.append(el('p', { class: 'home__summary num' }, labs.done + ' of ' + labs.total + ' labs · ' + lessons.done + ' of ' + lessons.total + ' lessons · ' +
+      quiz.correct + ' of ' + quiz.total + ' quiz questions right · ', el('a', { href: '#/progress', text: 'See your progress' })));
 
     // 5. Practice
     page.append(el('section', { class: 'section', 'aria-labelledby': 'home-practice' },

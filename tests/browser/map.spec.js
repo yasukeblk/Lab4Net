@@ -179,11 +179,13 @@ test('collapse, maximise, and the console keeps 80 columns at 1366 by 768', asyn
   expect(Math.round((await page.locator('#ws-map').boundingBox()).height)).toBe(32);
   await expect(page.locator('#ws-trace')).toBeVisible();
   await page.getByRole('button', { name: 'Expand the map' }).click();
-  // Maximise the console collapses the map; again restores
+  // Maximise the console collapses the map; again restores it to exactly the height it had
+  const before = Math.round((await page.locator('#ws-map').boundingBox()).height);
+  expect(before).toBeGreaterThan(32);
   await page.getByRole('button', { name: 'Maximise the console' }).click();
   expect(Math.round((await page.locator('#ws-map').boundingBox()).height)).toBe(32);
   await page.getByRole('button', { name: 'Restore the map' }).click();
-  expect(Math.round((await page.locator('#ws-map').boundingBox()).height)).toBeGreaterThan(160);
+  expect(Math.round((await page.locator('#ws-map').boundingBox()).height)).toBe(before);
 });
 
 test('side by side layout from 1600 px, and its own saved sizes', async ({ page }) => {

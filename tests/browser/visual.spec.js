@@ -6,6 +6,15 @@ const { open } = require('./helpers');
 
 const SIZES = [[1366, 768], [1920, 1080], [390, 844]];
 const COMPARE = process.platform === 'linux' && !!process.env.CI;
+// Parts of a screen that change on purpose between runs. Everything else must match the baseline.
+const MASK = page => [page.locator('.chip--clock')];
+
+// A "full" state shows everything. The app scrolls inside #screen, not the page, so a full-page screenshot
+// alone stops at the first screenful: grow the window until #screen no longer scrolls.
+async function fitScreen(page, w, h) {
+  const extra = await page.evaluate(() => { const s = document.querySelector('#screen'); return s ? Math.max(0, s.scrollHeight - s.clientHeight) : 0; });
+  if (extra) { await page.setViewportSize({ width: w, height: h + extra }); await page.waitForTimeout(150); }
+}
 
 const STATES = [
   { name: 'gallery', route: '#/dev/components', full: true },
@@ -23,7 +32,8 @@ const STATES = [
   { name: 'exam-running', route: '#/practice/exam', act: async page => { await page.evaluate(() => { L4N.exam.begin('sabotage', 20, { seed: 'visual' }); L4N.shell.go('#/practice/exam/run'); }); await page.locator('#gradeBtn').waitFor(); } },
   { name: 'progress-seeded', route: '#/progress', main: { v: 2, ui: { landingSeen: true }, labs: { 'static-routing': { done: true, grade: 'S', doneAt: 1731600000000 }, 'basic-device-setup': { done: true, grade: 'B', doneAt: 1731500000000 } }, lessons: { 'static-routing': { read: true, readAt: 1731650000000, quiz: {} } }, quiz: { answers: { 0: true, 1: true } }, exam: { history: [{ at: 1731700000000, mode: 'sabotage', base: 'static-routing', cleared: true, passed: 6, total: 6, grade: 'A', secs: 300, minutes: 20 }] } } },
   { name: 'sandbox', route: '#/sandbox', act: async page => { await page.locator('.build__goal').nth(4).getByRole('button', { name: 'Load' }).click(); await page.locator('#ws-map .node').first().waitFor({ state: 'attached' }); } },
-  { name: 'palette', route: '#/', act: async page => { await page.locator('.sb__search').click({ force: true }).catch(() => {}); if (!(await page.locator('dialog[open]').count())) await page.evaluate(() => L4N.palette.open()); } }
+  // Opened directly, not by clicking the sidebar search, which would leave a focus ring that renders differently between runs.
+  { name: 'palette', route: '#/', act: async page => { await page.evaluate(() => L4N.palette.open()); await page.locator('dialog[open]').waitFor(); } }
 ];
 
 // The lesson web page follows prefers-color-scheme instead of the app's theme.
@@ -33,7 +43,7 @@ for (const scheme of ['dark', 'light']) for (const [w, h] of SIZES) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
     await page.goto('/lessons/static-routing.html');
     const name = `lesson-page-${scheme}-${w}x${h}.png`;
-    if (COMPARE) await expect(page).toHaveScreenshot(name);
+    if (COMPARE) await expect(page).toHaveScreenshot(name, { mask: MASK(page) });
     else await page.screenshot({ path: path.join(__dirname, '..', '..', 'test-results', 'shots', name) });
   });
 }
@@ -50,8 +60,9 @@ for (const theme of ['dark', 'light']) {
         await open(page, s.route, { theme, main: s.main && JSON.parse(JSON.stringify(s.main)), keys: s.keys });
         if (s.act) await s.act(page);
         await page.waitForTimeout(150);
+        if (s.full) await fitScreen(page, w, h);
         const name = `${s.name}-${theme}-${w}x${h}.png`;
-        if (COMPARE) await expect(page).toHaveScreenshot(name, { fullPage: !!s.full });
+        if (COMPARE) await expect(page).toHaveScreenshot(name, { fullPage: !!s.full, mask: MASK(page) });
         else await page.screenshot({ path: path.join(__dirname, '..', '..', 'test-results', 'shots', name), fullPage: !!s.full });
       });
     }

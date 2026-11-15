@@ -20,9 +20,10 @@
     const meta = objs.slice(0, 2).map(o => ui.objChip(o, objName(o)));
     if (objs.length > 2) meta.push(ui.chip('+' + (objs.length - 2)));
     if (rec.grade) meta.push(ui.gradeChip(rec.grade));
-    const ticked = w ? (w.tasks || []).filter(Boolean).length : 0;
-    meta.push(el('span', { class: 'num', text: ticked + '/' + l.lab.tasks.length }));
     const st = stats().labStatus(l.slug);
+    // A finished lab says so; only a lab in progress counts its ticked tasks.
+    const ticked = w ? (w.tasks || []).filter(Boolean).length : 0;
+    meta.push(el('span', { class: 'num', text: st === 'done' ? 'Done' : ticked + '/' + l.lab.tasks.length }));
     return { key: l.slug, status: st, idText: l.idText, title: l.short, meta, entry: l,
       aria: l.idText + ', ' + l.short + ', ' + { todo: 'to do', progress: 'in progress', done: 'done' }[st] + (rec.grade ? ', grade ' + rec.grade : '') };
   }
