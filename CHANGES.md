@@ -1,6 +1,25 @@
 # Lab4Net changes
 
-## Fixes, phase 3: polish
+## Fixes, phase 4: one kind of progress
+
+A lab graded S used to say "0 of 5 done" in its header, "0 of 5 tasks" on Home and "0/5" in the Labs list, and still offered "Read the lesson first". Task ticks and grading were two separate records, and grading never touched the ticks. Now a lab that is done looks done everywhere.
+
+- **A full grade ticks every task.** When a grade passes every check, all of that lab's tasks are ticked and saved with the lab's work. A partial grade changes nothing, and you can still tick tasks by hand.
+- **The header counts checks after a grade.** Before a grade it says "2 of 5 done" (tasks). After one it says "6 of 6 checks", the real measure. After a reload it counts the ticked tasks again.
+- **The Labs list and Home say Done.** A finished lab shows "Done" and its grade, never "0/5". Home's Continue card for a finished lab reads "Routing · Done · S".
+- **Banners that have done their job go.**
+  - "Read the lesson first" no longer shows once the lab is done (as before, it also goes once the lesson is read or the banner was opened or skipped).
+  - The step-by-step tip goes for good once step-by-step has been switched on, as well as when "Got it" is pressed.
+- **Progress from before this change.** A lab marked done with no ticked tasks shows its tasks ticked and "Done" everywhere. This is worked out when the screen is drawn. Nothing in the saved data is rewritten when it loads, and the ticks are saved only once you work in that lab again.
+- **Tests.** A new browser test, `progress-one.spec.js`:
+  - grades Static routing with its solution, then checks the ticks, the "6 of 6 checks" header, the saved work, the reload, the Labs row, Home and the banner;
+  - loads a profile from before this change and checks the same screens, and that nothing was written;
+  - checks that using step-by-step retires its tip.
+
+  `tests/migrate.cjs` and `tests/validate.cjs` pass unchanged.
+- **Size.** The app code is now 299.7 KB of its 300 KB budget. Phases 5 to 7 add interface code, so that budget will need attention. See the note in phase 5.
+
+
 
 Small things that made the app look unfinished.
 

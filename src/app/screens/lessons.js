@@ -169,9 +169,11 @@
   // the lesson banner in a build lab, the first time it opens
   (L4N.workspaceExtras = L4N.workspaceExtras || []).push(ws => {
     const lesson = ws.entry.kind === 'build' ? L4N.data.lessonFor(ws.entry) : null;
-    if (!lesson || rec(lesson.slug).read || (L4N.store.get().ui.seenLesson || {})[ws.slug]) return;
+    // No banner once the lesson is read, the lab is done, or the learner has opened or skipped it before.
+    const quiet = () => rec(lesson.slug).read || L4N.stats.labStatus(ws.slug) === 'done' || (L4N.store.get().ui.seenLesson || {})[ws.slug];
+    if (!lesson || quiet()) return;
     const seen = () => L4N.store.set(s => ({ ui: Object.assign({}, s.ui, { seenLesson: Object.assign({}, s.ui.seenLesson, { [ws.slug]: true }) }) }));
-    ws.topExtras = (ws.topExtras || []).concat(() => (L4N.store.get().ui.seenLesson || {})[ws.slug] ? null :
+    ws.topExtras = (ws.topExtras || []).concat(() => quiet() ? null :
       el('div', { class: 'banner', role: 'note' }, icon('lessons'), el('span', { text: 'Read the lesson first (' + lesson.mins + ' min)' }),
         ui.button({ label: 'Open lesson', kind: 'secondary', onClick: () => { seen(); L4N.shell.go(L4N.router.href('lesson', lesson.slug)); } }),
         ui.button({ label: 'Skip', kind: 'ghost', onClick: () => { seen(); ws.tasksView.rebuild(); } })));

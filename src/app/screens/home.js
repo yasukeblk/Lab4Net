@@ -30,11 +30,14 @@
         ui.button({ label: 'Start lab', kind: 'primary', size: 'lg', icon: 'play', href: L4N.router.href('lab', first.slug) })));
     } else if (last) {
       const w = L4N.work.get(last.slug), ticked = w ? (w.tasks || []).filter(Boolean).length : 0;
+      const done = stats.labStatus(last.slug) === 'done', grade = (L4N.store.get().labs[last.slug] || {}).grade;
       page.append(el('section', { class: 'card home__card', 'aria-labelledby': 'home-continue' },
         el('div', { class: 'home__card-body' },
           el('span', { class: 'label-caps', text: 'Continue' }),
           el('h2', { class: 'section__title', id: 'home-continue', text: last.title }),
-          el('p', { class: 'muted num' }, last.lab.group + ' · ' + ticked + ' of ' + last.lab.tasks.length + ' tasks', ' · ', ui.statusChip(stats.labStatus(last.slug)))),
+          // A finished lab shows Done and its grade; one in progress shows how many tasks are ticked.
+          el('p', { class: 'muted num' }, done ? last.lab.group + ' · ' : last.lab.group + ' · ' + ticked + ' of ' + last.lab.tasks.length + ' tasks · ',
+            ui.statusChip(stats.labStatus(last.slug)), done && grade ? ' ' : null, done && grade ? ui.gradeChip(grade) : null)),
         ui.button({ label: 'Resume', kind: 'primary', size: 'lg', icon: 'play', href: L4N.router.href('lab', last.slug) })));
     }
 

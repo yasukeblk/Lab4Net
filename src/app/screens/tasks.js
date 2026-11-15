@@ -28,9 +28,11 @@
     const root = el('section', { class: 'pane tasks', 'aria-label': 'Tasks', id: 'ws-tasks' }, head, panelTasks, panelCmds);
     const results = el('section', { class: 'results', 'aria-label': 'Results', 'aria-live': 'polite', id: id('results') });
 
+    // Before a grade the header counts ticked tasks; after one it counts the checks that passed, the real measure.
     function updateCount() {
-      const n = ws.tasks.filter(Boolean).length;
-      countEl.textContent = n + ' of ' + lab.tasks.length + ' done';
+      const g = ws.graded && ws.graded.results;
+      if (g) { countEl.textContent = g.filter(x => x[1]).length + ' of ' + g.length + ' checks'; return; }
+      countEl.textContent = ws.tasks.filter(Boolean).length + ' of ' + lab.tasks.length + ' done';
     }
 
     // ---- steps for one task: command rows grouped by device ----

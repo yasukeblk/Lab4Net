@@ -52,6 +52,9 @@
       hooks: [],
       next: () => nextLab(entry)
     };
+    // A lab finished before grading ticked the tasks shows them ticked. Worked out for display only: nothing is
+    // written until the learner works in the lab again.
+    if (!ov && (labRec(entry.slug) || {}).done && !ws.tasks.some(Boolean)) ws.tasks = entry.lab.tasks.map(() => true);
     current = ws;
 
     // a run counts toward a grade only if it started from a fresh lab (the old rule)
@@ -82,6 +85,8 @@
       if (capstone) setLab(entry.slug, { guide: ws.guide });
       else L4N.setSetting({ guideDefault: ws.guide });
       if (ws.guide) markRun({ help: true });
+      // Once step-by-step has been used, the tip that points to it has done its job.
+      if (ws.guide && ws.hints && !ws.hints.stepTip) ws.dismissHint('stepTip');
       ws.tasksView.rebuild();
       ws.sync();
     };
@@ -147,9 +152,13 @@
         }
         setLab(entry.slug, patch);
         letter = letter || (labRec(entry.slug) || {}).grade || null;
+        // Every check passed, so every task is done: tick them all and keep it.
+        ws.tasks = entry.lab.tasks.map(() => true);
+        ws.save();
       }
       ws.graded = { results, stale: false, grade: letter };
-      ws.tasksView.renderResults();
+      if (done) ws.tasksView.rebuild(); else ws.tasksView.renderResults();
+      if (ws.onLayout) ws.onLayout();
       refreshStatus();
       ws.sync();
       const pass = results.filter(x => x[1]).length;

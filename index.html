@@ -8647,8 +8647,9 @@ const SANDBOX=(function(){
     const results = el('section', { class: 'results', 'aria-label': 'Results', 'aria-live': 'polite', id: id('results') });
 
     function updateCount() {
-      const n = ws.tasks.filter(Boolean).length;
-      countEl.textContent = n + ' of ' + lab.tasks.length + ' done';
+      const g = ws.graded && ws.graded.results;
+      if (g) { countEl.textContent = g.filter(x => x[1]).length + ' of ' + g.length + ' checks'; return; }
+      countEl.textContent = ws.tasks.filter(Boolean).length + ' of ' + lab.tasks.length + ' done';
     }
 
     function stepRows(i) {
@@ -9519,6 +9520,7 @@ const SANDBOX=(function(){
       hooks: [],
       next: () => nextLab(entry)
     };
+    if (!ov && (labRec(entry.slug) || {}).done && !ws.tasks.some(Boolean)) ws.tasks = entry.lab.tasks.map(() => true);
     current = ws;
 
     const L = labRec(entry.slug);
@@ -9547,6 +9549,7 @@ const SANDBOX=(function(){
       if (capstone) setLab(entry.slug, { guide: ws.guide });
       else L4N.setSetting({ guideDefault: ws.guide });
       if (ws.guide) markRun({ help: true });
+      if (ws.guide && ws.hints && !ws.hints.stepTip) ws.dismissHint('stepTip');
       ws.tasksView.rebuild();
       ws.sync();
     };
@@ -9612,9 +9615,12 @@ const SANDBOX=(function(){
         }
         setLab(entry.slug, patch);
         letter = letter || (labRec(entry.slug) || {}).grade || null;
+        ws.tasks = entry.lab.tasks.map(() => true);
+        ws.save();
       }
       ws.graded = { results, stale: false, grade: letter };
-      ws.tasksView.renderResults();
+      if (done) ws.tasksView.rebuild(); else ws.tasksView.renderResults();
+      if (ws.onLayout) ws.onLayout();
       refreshStatus();
       ws.sync();
       const pass = results.filter(x => x[1]).length;
@@ -10148,11 +10154,13 @@ const SANDBOX=(function(){
         ui.button({ label: 'Start lab', kind: 'primary', size: 'lg', icon: 'play', href: L4N.router.href('lab', first.slug) })));
     } else if (last) {
       const w = L4N.work.get(last.slug), ticked = w ? (w.tasks || []).filter(Boolean).length : 0;
+      const done = stats.labStatus(last.slug) === 'done', grade = (L4N.store.get().labs[last.slug] || {}).grade;
       page.append(el('section', { class: 'card home__card', 'aria-labelledby': 'home-continue' },
         el('div', { class: 'home__card-body' },
           el('span', { class: 'label-caps', text: 'Continue' }),
           el('h2', { class: 'section__title', id: 'home-continue', text: last.title }),
-          el('p', { class: 'muted num' }, last.lab.group + ' · ' + ticked + ' of ' + last.lab.tasks.length + ' tasks', ' · ', ui.statusChip(stats.labStatus(last.slug)))),
+          el('p', { class: 'muted num' }, done ? last.lab.group + ' · ' : last.lab.group + ' · ' + ticked + ' of ' + last.lab.tasks.length + ' tasks · ',
+            ui.statusChip(stats.labStatus(last.slug)), done && grade ? ' ' : null, done && grade ? ui.gradeChip(grade) : null)),
         ui.button({ label: 'Resume', kind: 'primary', size: 'lg', icon: 'play', href: L4N.router.href('lab', last.slug) })));
     }
 
@@ -10203,9 +10211,9 @@ const SANDBOX=(function(){
     const meta = objs.slice(0, 2).map(o => ui.objChip(o, objName(o)));
     if (objs.length > 2) meta.push(ui.chip('+' + (objs.length - 2)));
     if (rec.grade) meta.push(ui.gradeChip(rec.grade));
-    const ticked = w ? (w.tasks || []).filter(Boolean).length : 0;
-    meta.push(el('span', { class: 'num', text: ticked + '/' + l.lab.tasks.length }));
     const st = stats().labStatus(l.slug);
+    const ticked = w ? (w.tasks || []).filter(Boolean).length : 0;
+    meta.push(el('span', { class: 'num', text: st === 'done' ? 'Done' : ticked + '/' + l.lab.tasks.length }));
     return { key: l.slug, status: st, idText: l.idText, title: l.short, meta, entry: l,
       aria: l.idText + ', ' + l.short + ', ' + { todo: 'to do', progress: 'in progress', done: 'done' }[st] + (rec.grade ? ', grade ' + rec.grade : '') };
   }
@@ -10493,9 +10501,10 @@ const SANDBOX=(function(){
 
   (L4N.workspaceExtras = L4N.workspaceExtras || []).push(ws => {
     const lesson = ws.entry.kind === 'build' ? L4N.data.lessonFor(ws.entry) : null;
-    if (!lesson || rec(lesson.slug).read || (L4N.store.get().ui.seenLesson || {})[ws.slug]) return;
+    const quiet = () => rec(lesson.slug).read || L4N.stats.labStatus(ws.slug) === 'done' || (L4N.store.get().ui.seenLesson || {})[ws.slug];
+    if (!lesson || quiet()) return;
     const seen = () => L4N.store.set(s => ({ ui: Object.assign({}, s.ui, { seenLesson: Object.assign({}, s.ui.seenLesson, { [ws.slug]: true }) }) }));
-    ws.topExtras = (ws.topExtras || []).concat(() => (L4N.store.get().ui.seenLesson || {})[ws.slug] ? null :
+    ws.topExtras = (ws.topExtras || []).concat(() => quiet() ? null :
       el('div', { class: 'banner', role: 'note' }, icon('lessons'), el('span', { text: 'Read the lesson first (' + lesson.mins + ' min)' }),
         ui.button({ label: 'Open lesson', kind: 'secondary', onClick: () => { seen(); L4N.shell.go(L4N.router.href('lesson', lesson.slug)); } }),
         ui.button({ label: 'Skip', kind: 'ghost', onClick: () => { seen(); ws.tasksView.rebuild(); } })));
