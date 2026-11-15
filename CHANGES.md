@@ -1,5 +1,9 @@
 # Lab4Net changes
 
+## A flaky pop-out test
+
+The pop-out test sometimes failed in CI, which blocked a deploy. Its Dock button closes the pop-out window, and the window could close before Playwright finished the click, so Playwright reported the click as failed. The test now accepts that error only when the window really did close. It still checks that the window closes and the Tasks panel docks. The app itself is unchanged.
+
 ## Tickets and the services strip: the work comes from people, and the business sees it working
 
 Labs used to open with a technical brief and nothing else. Now each one arrives the way real network work does, from someone at Harbor Street Logistics, the story company. The map also shows what the business gets out of the work, live.
