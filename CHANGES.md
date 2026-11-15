@@ -1,5 +1,61 @@
 # Lab4Net changes
 
+## Fixes, phase 1: safe deploys
+
+Nothing changes for learners. This phase changes how a change reaches the live site.
+
+Before this phase, a push to `main` went live at once, while the tests were still running, and nothing stopped a broken build. Now:
+
+- **Changes reach `main` through pull requests**, and a pull request merges only when its checks pass.
+- **The site deploys only after every test passes.** A new workflow, "Test and deploy" (`.github/workflows/deploy.yml`), has two jobs:
+  - `browser` runs on every pull request and every push to `main`: the build check, every Node test (`tests/run-node.cjs`), a check that `lessons/` and `sitemap.xml` are up to date, and every browser test.
+  - `deploy` publishes the site to GitHub Pages, only from `main` and only if `browser` passed. If a run fails, the live site stays as it was.
+- **"Simulator regression checks"** (`lab-tests.yml`, job `labs`) keeps running the build check and the Node tests on every push to a branch and every pull request. Its browser job moved into `deploy.yml`, and it no longer runs on `main`, where "Test and deploy" covers everything.
+- **Docs.** `docs/DEVELOPING.md` has a new section, "Shipping a change", on pull requests, the two checks, the deploy and how to roll back. The README's line about CI is updated.
+
+**What the site serves.** The deploy publishes exactly these files, at the same addresses as before:
+
+- `index.html`
+- `og.png`
+- `sitemap.xml`
+- `lessons/`: the 66 lesson pages, `index.html`, `site.css` and `fonts/` (two `.woff2` files)
+- `LICENSE` and `THIRD-PARTY-NOTICES.md`, for the code and the fonts
+
+That covers every address in `sitemap.xml`, the share image every page points to, and every file the app and the lesson pages link to. Before, Pages served the whole repository, so files such as `README.md`, `docs/`, `src/` and `tests/` could also be opened on the site. Nothing links to them there, and they are no longer published. They stay on GitHub as before.
+
+**Owner steps, in this order:**
+
+1. Switch GitHub Pages to deploy from GitHub Actions. The live site keeps serving the current version until the next deploy:
+
+   ```bash
+   gh api -X PUT repos/yasukeblk/Lab4Net/pages -f build_type=workflow
+   ```
+
+2. Protect `main`: require a pull request (no approvals needed, since there is one maintainer), require the `labs` and `browser` checks, apply the rule to admins too, and block force pushes and deletion:
+
+   ```bash
+   gh api -X PUT repos/yasukeblk/Lab4Net/branches/main/protection --input - <<'EOF'
+   {
+     "required_status_checks": { "strict": false, "contexts": ["labs", "browser"] },
+     "enforce_admins": true,
+     "required_pull_request_reviews": { "required_approving_review_count": 0 },
+     "restrictions": null,
+     "allow_force_pushes": false,
+     "allow_deletions": false
+   }
+   EOF
+   ```
+
+3. Merge this phase's pull request. The merge is the first deploy through the new workflow.
+
+For an emergency fix while the checks are broken, an admin can turn off "Do not allow bypassing the above settings" for `main` in Settings › Branches, merge, and turn it back on.
+
+**Where this differs from the plan:**
+
+- The plan kept the browser tests for pull requests in `lab-tests.yml`. Instead they moved into `deploy.yml`, whose `browser` job runs on pull requests too. That way the exact job that guards the deploy is the one tested on every pull request, the browser suite doesn't run twice, and the job named `browser` is the required check.
+- The plan's check was a hand run of the workflow on this branch. GitHub only allows hand runs of a workflow that already exists on `main`, so the pull request run of the same `browser` job is the check instead.
+- `LICENSE` and `THIRD-PARTY-NOTICES.md` are published too. They were served before, and the fonts' licence asks for its notice to travel with the fonts.
+
 ## Lessons, batch 1: ten new topic lessons
 
 Lab4Net now has 66 lessons (38 lab lessons and 28 topic lessons). The ten new ones are topic lessons, so they have no story on a lab map:

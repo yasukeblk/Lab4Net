@@ -7,7 +7,7 @@ The technical guide for anyone changing Lab4Net: how the source is laid out, how
 | Thing | Location |
 | --- | --- |
 | Repo | https://github.com/yasukeblk/Lab4Net |
-| Live site | GitHub Pages serves `index.html` from `main`, so a push to `main` updates the public site |
+| Live site | GitHub Pages, deployed by the "Test and deploy" workflow after a merge to `main`, only if every test passes (see "Shipping a change") |
 | The arcade version | Tag `v1-arcade`, the last commit before the redesign |
 
 The app people use is one self-contained file, `index.html`: the simulator, the data, the interface, the styles, the icons and the fonts are all inside it, and it runs from a file with no network. You edit `src/`, and `node tools/build.cjs` writes `index.html`. Commit the built file with every change, because the live site and the Node tests read it.
@@ -168,6 +168,21 @@ The Node tests read the built `index.html`, so build first.
 Current numbers: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1,571 guide commands; 66 lessons (38 lab, 28 topic); 110 quiz questions.
 
 For anything visual, open the page in a real browser at 1366 by 768 in both themes and at 390 wide, and look at it. Tests catch a lot, not everything.
+
+## Shipping a change
+
+`main` is protected: nobody pushes to it directly, and a pull request merges only when its checks pass.
+
+1. Work on a branch and open a pull request.
+2. Two workflows check it:
+   - "Simulator regression checks" (`lab-tests.yml`, job `labs`) runs the build check and every Node test, on every push to a branch and every pull request.
+   - "Test and deploy" (`deploy.yml`, job `browser`) runs the build check, every Node test, a check that `lessons/` and `sitemap.xml` match `tools/build-site.cjs`, and every browser test.
+3. Both `labs` and `browser` must pass before the pull request can merge.
+4. After the merge, "Test and deploy" runs the whole suite again on `main`. Only if it passes does its `deploy` job publish the site to GitHub Pages. A failed run leaves the live site as it was.
+
+The deploy publishes exactly these files: `index.html`, `og.png`, `sitemap.xml`, `LICENSE`, `THIRD-PARTY-NOTICES.md` and the `lessons/` folder (the pages, `site.css` and `fonts/`). Nothing else in the repository is on the public site. To publish a new file, add it to the "Collect the files the site serves" step in `deploy.yml`.
+
+To roll back, open a pull request that reverts the bad change. For a merge commit, that's `git revert -m 1 <merge commit>` on a new branch. When it merges, the deploy tests the reverted code and publishes it. A hand run of "Test and deploy" on `main` (Actions › Test and deploy › Run workflow) republishes the current `main`.
 
 ## Rules that keep it working
 

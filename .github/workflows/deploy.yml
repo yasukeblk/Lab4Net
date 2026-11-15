@@ -1,0 +1,76 @@
+name: Test and deploy
+# Every pull request and every push to main runs the whole test suite (the job "browser").
+# A push to main (or a hand run on main) then deploys the site to GitHub Pages, but only if every test passed.
+# Needs Settings › Pages › Source set to "GitHub Actions" (see CHANGES.md, "Safe deploys").
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  # One run at a time per branch. Pull request runs replace older ones; runs on main wait their turn.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: index.html is built from src/
+        run: node tools/build.cjs --check
+      - name: Every Node test
+        run: node tests/run-node.cjs
+      - name: Lesson pages and sitemap are up to date
+        run: |
+          node tools/build-site.cjs
+          if [ -n "$(git status --porcelain -- lessons sitemap.xml)" ]; then
+            git status --short -- lessons sitemap.xml
+            echo "::error::lessons/ or sitemap.xml is out of date. Run node tools/build-site.cjs and commit the result."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Browser tests
+        run: npx playwright test
+        env:
+          CI: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+  deploy:
+    needs: browser
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect the files the site serves
+        # Exactly what the public site needs: the app, the lesson pages with their stylesheet and fonts,
+        # the sitemap, the share image, and the licences for the code and the fonts.
+        run: |
+          mkdir _site
+          cp index.html og.png sitemap.xml LICENSE THIRD-PARTY-NOTICES.md _site/
+          cp -r lessons _site/lessons
+          find _site -type f | sort
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
