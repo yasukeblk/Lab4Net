@@ -31,5 +31,7 @@
   .topbar__actions .btn--ghost > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .topbar__actions .btn--ghost { width: 40px; padding: 0; }
   .topbar__actions { gap: var(--space-1); }
+  .tabs .tab, .seg__opt, .btn--lg, .toggle { min-height: 40px; }
+  .pane__head .btn--icon { width: 40px; height: 40px; }
 }
 @media (min-width: 768px) { .drawer-scrim { display: none; } }

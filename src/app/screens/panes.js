@@ -11,13 +11,14 @@
   // createPanes(ws, parts: {tasks, map, trace, console, strip}) → {el, apply(), ...}
   function createPanes(ws, parts) {
     const frame = el('div', { class: 'ws' });
-    const h1 = el('div', { class: 'handle handle--v ws__h1', role: 'separator', tabindex: '0', 'aria-orientation': 'vertical', 'aria-label': 'Resize the Tasks panel', 'aria-controls': 'ws-tasks', 'data-tip': 'Drag, or use the arrow keys. Double-click resets.' });
+    const first = parts.tasks.getAttribute('aria-label') || 'Tasks';
+    const h1 = el('div', { class: 'handle handle--v ws__h1', role: 'separator', tabindex: '0', 'aria-orientation': 'vertical', 'aria-label': 'Resize the ' + first + ' panel', 'aria-controls': 'ws-tasks', 'data-tip': 'Drag, or use the arrow keys. Double-click resets.' });
     const h2 = el('div', { class: 'handle ws__h2', role: 'separator', tabindex: '0', 'aria-controls': 'ws-map' });
     const bar = el('nav', { class: 'ws__phonebar', 'aria-label': 'Workspace panes' });
     frame.append(parts.tasks, parts.strip, h1, parts.map, parts.trace, h2, parts.console, bar);
     let phonePane = 'tasks', charW = 0;
     const phoneBtns = {};
-    for (const [k, label, ic] of [['tasks', 'Tasks', 'list-checks'], ['map', 'Map', 'route'], ['console', 'Console', 'labs']]) {
+    for (const [k, label, ic] of [['tasks', first, first === 'Build' ? 'sandbox' : 'list-checks'], ['map', 'Map', 'route'], ['console', 'Console', 'labs']]) {
       phoneBtns[k] = el('button', { class: 'ws__pb', type: 'button', 'aria-pressed': 'false', onClick: () => showPhone(k) }, icon(ic), el('span', { text: label }));
       bar.append(phoneBtns[k]);
     }

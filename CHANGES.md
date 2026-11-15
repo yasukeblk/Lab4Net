@@ -1,5 +1,43 @@
 # Lab4Net changes
 
+## Redesign, phase 9: polish and release
+
+The last phase: a phone and accessibility pass on every screen, the remaining tests, new docs, a new demo and screenshots.
+
+- **Phones.** Every control on every screen is now at least 40 px tall on a phone: the panel tabs, the segmented choices (exam mode and time, tools, settings), the large buttons, the switches and the panel header buttons. No route scrolls sideways at 390 wide, including a running exam.
+- **The sandbox on a phone.** The bottom bar now says "Build" (not "Tasks"), and the divider is called "Resize the Build panel".
+- **Map bug fixed.** On a link too short for both port names, the two names were pushed past each other and ended up at the wrong ends. Router-on-a-stick and Incident 04 showed R1's port as `Gi0/1` and the switch's as `Gi0/0`. Such a name is now hidden until there is room (zoom in, in the sandbox). Hovering a device still lists its ports, and the screen-reader list still names both ends. Of the 77 lab maps, only that one link in those two labs is affected.
+- **New tests.**
+  - `themes.spec`: dark, light and system (with the computer set to either) on every route, each checked against the colours in `tokens.css`; "Console: always dark" in the light theme; the first paint already has the theme, its colours and Inter.
+  - `motion.spec`: with reduced motion from the system or from Settings, no animation or transition runs in menus, dialogs, toasts or the palette; a real-time ping prints at once; no packet moves on the map and the result is still shown; a lesson story step is a still picture.
+  - `a11y.spec` adds:
+    - the keyboard-only run: open the palette, find a lab, finish it in the console, grade it with `Ctrl+Enter`, open its lesson and mark it read, answer a quiz question with the number keys, and change the theme, all from the keyboard;
+    - the keyboard patterns of the pane divider, the tabs, a menu and a dialog;
+    - the live regions for the trace line and the console output;
+    - axe on a running exam, in both themes.
+  - `phone.spec` adds the running exam to the sideways-scroll check, and a 40 px check of every control on every screen.
+- **Docs.**
+  - `README.md` is rewritten for the new app, with six screenshots in `docs/screens/`, the font credits and the new test commands.
+  - `docs/DEVELOPING.md` is rewritten: file layout, build, size budget, the interface, storage and migration, testing, and the rules. The engine reference, the known limits and the roadmap are kept, because the engine has not changed.
+  - `docs/LESSON-WRITING.md` now points at `src/data/lessons.js` and the lesson reader, and says 56 lessons.
+  - The references to `docs/REVIEW-FIXES.md` that no longer apply (the old browser tests) are gone from the developer guide. The file itself and the history entries below stay as a record. Comments in the engine tests still mention it, because those tests are not edited.
+- **Demo.** A new `docs/demo.gif` from the new app: Incident 07, where PC1's ping fails, R3's OSPF networks are moved from area 1 to area 0, the neighbours come up, the ping works and the grade is S. `tools/build-demo.cjs` records it with Playwright and ffmpeg, so it can be made again.
+- **Size.** `index.html` is 1,524 KB of the 1,550 KB budget, 498 KB gzipped of 570.
+
+Where the build differs from the plan:
+
+- **Visual baselines.** The plan asks for final baselines. Baselines are made on Linux, so they are made in GitHub Actions by the "Update screenshot baselines" workflow, run on this branch after this commit.
+- **Dialogs and Tab.** Dialogs use the browser's own modal dialog. The page behind it is inert, so Tab never reaches it, but after the last control Tab can move to the browser's own toolbar, as it does on any site. The test allows that.
+- **The demo GIF** is 4.1 MB, against 3.2 MB for the old one. It is longer, because it shows the cause (`show ip ospf interface brief`) as well as the fix.
+
+### How to roll back
+
+If the redesign has to come off the live site after the merge:
+
+1. Revert the merge commit on `main` (`git revert -m 1 <merge commit>`) and push. GitHub Pages serves the old app again within a few minutes. The tag `v1-arcade` marks the same code.
+2. Nobody loses progress. The new app wrote only its own keys (`lab4net:v2` and the keys under it). It never changed or deleted the old app's keys, so the old app finds everything as it was before the redesign. Progress made in the new app stays in its keys, ready for when the redesign comes back.
+3. The lesson pages (`lessons/`) and `sitemap.xml` come back with the revert, and their addresses never changed, so shared links keep working.
+
 ## Redesign, phase 8: the sandbox
 
 Free build is back, inside the same workspace as the labs.

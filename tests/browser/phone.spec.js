@@ -20,6 +20,22 @@ async function noSideways(page) {
 test('no route scrolls sideways', async ({ page }) => {
   await open(page, '#/', { main: INSTANT });
   for (const r of ROUTES) { await go(page, r); await noSideways(page); }
+  // and an exam running
+  await page.evaluate(() => { L4N.exam.begin('sabotage', 20, { seed: 7 }); L4N.shell.go('#/practice/exam/run'); });
+  await expect(page.locator('#gradeBtn')).toBeAttached();
+  await noSideways(page);
+});
+
+test('touch targets on every screen are at least 40 px tall', async ({ page }) => {
+  await open(page, '#/', { main: INSTANT });
+  const bad = [];
+  for (const r of ROUTES.filter(r => !r.startsWith('#/dev'))) {
+    await go(page, r);
+    bad.push(...await page.evaluate(r => [...document.querySelectorAll('#screen button, #screen [role="radio"], #screen [role="tab"], #screen select, .topbar button')]
+      .filter(b => b.offsetParent && !b.closest('.map, .l-map, svg'))
+      .map(b => [r, (b.textContent.trim() || b.getAttribute('aria-label') || '').slice(0, 30), Math.round(b.getBoundingClientRect().height)]).filter(x => x[2] < 40), r));
+  }
+  expect(bad).toEqual([]);
 });
 
 test('the sidebar is a drawer opened from the top bar', async ({ page }) => {

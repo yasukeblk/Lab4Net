@@ -1,70 +1,97 @@
 # Developing Lab4Net
 
-The technical guide for anyone changing Lab4Net: what is in the single `index.html`, how the simulator and interface fit together, how to test, and the rules that keep it working. Start with the README for what Lab4Net is and how to run it.
-
-## What this is
-
-Lab4Net is a browser-based lab simulator for the Cisco CCNA exam, with step-by-step labs, troubleshooting incidents and a free-build sandbox. It is built to be accurate first, then rewarding and fun to use.
-
-It currently has:
-
-- 38 graded build labs (multi-area OSPF and the wired side of a wireless LAN joined on 9 Oct): the original 15 (device basics, VLANs, trunking, router-on-a-stick, static routing, OSPF, spanning tree, EtherChannel, DHCP and relay, PAT, static NAT, standard and extended ACLs, port security, SSH) plus phases 1 and 2 of the library expansion (native VLAN and trunk pruning, switch management access, locking down device access, OSPF router IDs and passive interfaces, per-VLAN root bridges, mapping a network with CDP, a small office build, floating static routes, how a router chooses a route, OSPF on a shared segment, LLDP, voice VLAN with an IP phone, dynamic NAT with a pool, named ACLs edited by sequence number, NTP and syslog, inter-VLAN routing on a Layer 3 switch, DHCP snooping, Dynamic ARP Inspection, IPv6 addressing, IPv6 static and default routes, HSRP)
-- 37 troubleshooting incidents built from those labs (one or more for every build lab), each with three clues that cost rank points
-- 2 capstones that build a whole network from factory defaults (a branch office; a campus core with a Layer 3 switch). They open with the step-by-step guide off
-- CCNA 200-301 v1.1 objective tags on every lab, and a Study map by exam domain
-- Real-life ping and traceroute: output plays live, ARP loses the first echo through a cold router, routers send unreachables (`U.U.U`, `!H`, `!A`), Windows quirks are kept, Ctrl+C or Ctrl+Shift+6 stops a run
-- Switching realism: each switch learns a MAC address table from the frames the console sends, floods unknown destinations and ARP requests (the map shows the flood), ages entries out, and frames follow the spanning tree, so the animated path matches `show spanning-tree`. `show mac address-table` and friends (neighbour switch and router ports appear from their CDP and BPDU frames, `macBackground`), `clear mac address-table dynamic`, static entries, global and per-VLAN aging time; `no spanning-tree vlan` makes a switch transparent to the others' STP, and with it off on every switch of a loop a real broadcast storm (`l2peers` result `storm`, `fwd`/`fwd6` fail with the reason, `%SW_MATM-4-MACFLAP_NOTIF` on the loop's consoles)
-- Prompts: `enable` asks for the secret, the console logs out on `exit` and asks for the line password or local login, Telnet and SSH open a real session on the far device (its prompt, its commands, VTY login, `login block-for` quiet mode, Windows and OpenSSH messages from PCs), `reload` asks Save?/confirm and restores the saved config, `copy run start` asks for the filename; `ping`/`traceroute` with `source`, and the interactive extended ping and traceroute dialogs
-- Duplex and speed settle per link (`linkSettle`): forced speeds that differ keep the link down; a port stops negotiating only when speed and duplex are both forced, and an auto end facing it falls back to half at 10/100 or full at 1000, so `speed 100` + `duplex full` against auto is a mismatch that stays up, logs `%CDP-4-DUPLEX_MISMATCH` on both ends and shows in the counters (`show interfaces` has the full counter block, `clear counters` asks to confirm)
-- An IOS-style console that errors like IOS (`^` marker, % Incomplete, % Ambiguous, hostname lookup on a typo), with `| include/exclude/begin/section/count` and `?` descriptions; PCs answer like Windows
-- The step-by-step guide can open in its own browser window for a second monitor
-- A simulated IOS-style console per device, with `?` help, Tab completion, abbreviations and history
-- A network map that animates each ping, telnet or ssh along the path the packet really takes, and labels where and why it fails
-- Step-by-step instructions per task (switchable, and can pop out into its own window), plus a "why" for every task and every command
-- 56 lessons that teach the concept before the commands: one per build lab (opens on the first visit, with a step-through animation on the lab's map) and 18 topic lessons for exam objectives with no lab, in a Lessons view and on the Study map. Each has key terms, exam notes, common mistakes and a quick check
-- Exam sim: a random build lab, a random incident, or a sabotage (a finished lab with one or two seeded hidden faults), timed, with no guide, why, walkthrough, clues or command guide; a daily challenge seeded by the date, and boss fights (three faults, 30 minutes, a health bar of failing checks); results, trophies and XP
-- A campaign: eight stages over the lab groups (`CAMPAIGN` data in the interface: id, group, title, story, outro, boss, optional `need`), a stage map, bosses (sabotage exams limited to the stage's labs, named incidents, a boss fight), trophies and XP
-- A subnetting drill and a 110-question theory check (`QUIZ`, in the interface: `[domain, question, [4 options], answer index, explanation]`; append new questions at the end so saved answers keep their indices)
-- Stage ranks (S to D) scored on results, not speed or command count; XP and levels, combos, trophies, generated sound effects
-- Movable, resizable, snapping windows with a saved layout. Dropped windows swap, split or fill the space, and shared edges resize like dividers
-- A sandbox (challenges earn XP and the Builder/Architect trophies through `window.l4nSbxDone`): place devices (including a Layer 3 switch), choose ports when cabling, zoom and pan, notes, starter kits, save and load files, undo, and four goal-checked challenges
+The technical guide for anyone changing Lab4Net: how the source is laid out, how the one `index.html` is built, how the simulator and the interface fit together, how to test, and the rules that keep it working. Start with the README for what Lab4Net is and how to run it.
 
 ## Where everything is
 
 | Thing | Location |
 | --- | --- |
 | Repo | https://github.com/yasukeblk/Lab4Net |
-| Working branch | `main` |
 | Live site | GitHub Pages serves `index.html` from `main`, so a push to `main` updates the public site |
+| The arcade version | Tag `v1-arcade`, the last commit before the redesign |
 
-The whole app is one self-contained file, `index.html`. There is no build step for the app, no backend and no dependencies. Fonts are embedded as base64 (licences in `THIRD-PARTY-NOTICES.md`). Opening the file in a browser runs it. Self-hosting options (nginx in an LXC, Docker) are in the README.
+The app people use is one self-contained file, `index.html`: the simulator, the data, the interface, the styles, the icons and the fonts are all inside it, and it runs from a file with no network. You edit `src/`, and `node tools/build.cjs` writes `index.html`. Commit the built file with every change, because the live site and the Node tests read it.
 
-## Design direction
+## File layout
 
-The design direction is settled; do not restyle without a reason:
+```
+src/
+  manifest.json          the build order: template, fonts, styles, icons, engine, data, app
+  index.template.html    <head>, the theme pre-paint script, the static landing section, #app
+  engine/                the simulator, 15 files (00-core.js to 90-ipv6-live.js); see "The engine"
+  data/                  content: quiz.js (QUIZ), campaign.js (the eight stages), lessons.js (LESSONS),
+                         objectives.js (extra CCNA objective names), sandbox.js (starter kits and goals)
+  app/
+    core/                no DOM: slug, store (state and storage), validate, router, search,
+                         sim (the engine bridge), grade, progress, migrate (old storage, backups), exam
+    ui/                  dom.js (el, and the one innerHTML door), theme, shortcuts, shell (sidebar,
+                         top bar, palette commands), components/ (button, dialog, list, menu, palette,
+                         tabs, toast, tooltip)
+    screens/             one file per screen, plus the workspace parts (tasks, map, trace, console,
+                         panes, popout)
+    site.js              SITE (host, donate, counter): the only code that makes a network request
+    main.js              boot: pending backup, migration, deep links, the first screen
+  styles/                tokens.css (every colour, size and duration, dark and light), one file per area
+  icons/                 ui.svg (57 interface icons) and devices.svg (7 device icons), as <symbol>s
+  fonts/                 Inter (variable) and JetBrains Mono 400, woff2 files from Fontsource
+tools/
+  build.cjs              src/ → index.html, with the size report (--check: fail if index.html is stale)
+  build-site.cjs         index.html → lessons/ and sitemap.xml (the public lesson pages)
+  build-og.cjs, og.html  og.png, the share image (needs Playwright)
+  build-demo.cjs         docs/demo.gif, recorded from the app (needs Playwright and ffmpeg)
+  serve.cjs              a small static server for the browser tests and local previews
+tests/                   Node tests (*.cjs) and browser/ (Playwright)
+lessons/, sitemap.xml    generated: never edit by hand
+```
 
-- A remastered arcade game, in the spirit of Streets of Rage 4: an old game brought back with modern art, lighting and shadows.
-- Neon night palette, dark panels with soft shadows and coloured glows, bold italic arcade lettering, chunky slanted buttons, comic hit-sparks.
-- The console stays a retro amber CRT. The DOS-style path line and the boot screen stay.
-- Desktop is the target. The phone layout only has to stay usable.
-- Lots of animation is part of the style, but everything must be disabled under `prefers-reduced-motion`.
+## The build
 
-Design tokens are CSS variables on `:root` at the top of the stylesheet (`--night`, `--panel`, `--yel`, `--mag`, `--cy`, `--go`, `--bad`, `--ph` and so on). Display type is Barlow Condensed italic (`--px`), console and code are VT323 (`--mono`), reading text is IBM Plex Sans (`--ui`). Window title bars are colour-coded: Mission gold, Checklist orange, Network map magenta, Console blue, Guide green.
+```
+node tools/build.cjs           # write index.html and print the size report
+node tools/build.cjs --check   # fail if index.html is not what src/ builds (CI runs this)
+```
 
-## Map of index.html
+`build.cjs` uses Node only, no packages. It reads `src/manifest.json` and fills each of the template's markers once: `/*@fonts*/` (the woff2 files as base64 `@font-face` rules), `/*@css*/`, `<!--@icons-->`, `//@js` (engine, then data, then app), `/*@version*/` and `/*@date*/` (from `package.json`). Full-line `//` comments in the app's JavaScript and `/* */` comments in the CSS are left out of the output, so comment freely in `src/`. The engine and the data are copied byte for byte.
 
-Line numbers are approximate. Search for the markers rather than trusting them.
+The base64 font lines in `index.html` are tens of kilobytes each. Never print or read them in full; use a line range or grep.
 
-| Lines | What |
+**Size budget** (KB = 1,000 bytes; the build fails above it): app JavaScript 300, CSS 70, fonts 170, markup and icons 30, `index.html` 1,550, gzipped 570. The engine and data (about 1,045 KB) have no budget of their own. Today: app JS 297, CSS 68, fonts 93, markup 20, total 1,523, gzipped 498. Content such as stages, kits and goals belongs in `src/data/`, outside the app budget.
+
+After changing lessons, a lab title, a lab map or the fonts, also run `node tools/build-site.cjs` and commit `lessons/` and `sitemap.xml`. `tests/sitepages.cjs` fails until you do.
+
+## The interface
+
+Plain scripts, no framework. Every file is an IIFE that attaches to `window.L4N`, and the manifest's order is the load order.
+
+- **Markup** is made with `L4N.dom.el(tag, attrs, ...children)`, which sets text with `textContent`. `dom.trusted()` is the only `innerHTML` in the app, and it only takes our own lesson and task HTML. Anything typed, stored, imported or received goes on the page as text.
+- **State** is one store (`L4N.store`: `get`, `set`, `subscribe`). Screens read from it and redraw on change. Saved lab work is in `L4N.work`.
+- **Screens** register with `L4N.screens.register(name, {title, crumbs, nav, mount})`. The router (`core/router.js`) maps the hash to a screen: `#/`, `#/labs`, `#/labs/<slug>`, `#/lessons`, `#/lessons/<slug>`, `#/practice`, `#/practice/exam`, `#/practice/exam/run`, `#/practice/quiz`, `#/practice/subnetting`, `#/sandbox`, `#/progress`, `#/settings` and `#/dev/components` (the component gallery). `L4N.guard` lets a running exam refuse other screens. `?lab=<slug>` and `?lesson=<slug>` still work and become hash routes.
+- **The palette** collects commands from providers (`L4N.commands.add(() => [...])`). **Shortcuts** are `L4N.keys.add({keys, label, group, when, run})`; the `?` list is built from the same table. Alt shortcuts match the physical key (`e.code`), so they work on every keyboard layout.
+- **The engine bridge** is `core/sim.js`: open a lab, run a line, the prompt, help, completion, grading, draining consoles, links, device details, steps, why, the subnet drill, exams and the sandbox build. Screens never touch engine globals directly.
+- **The workspace** (`screens/workspace.js`) is one component for labs, exams and the sandbox: the Tasks panel (`tasks.js`; the Build panel in the sandbox), the map (`map.js`, which lessons and the sandbox use too), the trace line (`trace.js`), the console (`console.js`) and the resizable panes (`panes.js`). A lab's saved work is its command journal, replayed onto a fresh `build()`. Journal entries are `{device, line, t}`; replay sets the engine clock to each `t`, so anything timed replays as it happened. A command that throws prints `% Lab4Net internal error` and nothing else breaks.
+- **Grades** (`core/grade.js`): a run starts at 100, minus 25 for the walkthrough, 15 for step-by-step, 5 per incident clue, and 2 per rejected command after the first two (at most 10). A run with no check command of its own (show, ping, traceroute, tracert, telnet, ssh, ipconfig, arp) is capped at A. Time and command count are never scored. A grade is only awarded for a run that started from a fresh lab, and the best is kept.
+- **The pop-out** (`?panel=tasks`, `screens/popout.js`) talks to the main window on the `lab4net-tasks` BroadcastChannel. Messages carry data only and are checked on both sides. The pop-out never writes storage.
+- **Exams** (`core/exam.js`, `screens/exam.js`) are rebuilt from their seed: storage keeps the mode, seed, minutes, tag, start time, journal and run, never the faults. One exam runs at a time, and an exam never changes the labs.
+- **Theme and motion**: the inline script in the template sets `data-theme` on `<html>` before the first paint. Every colour is a token in `tokens.css`. Reduced motion (the system setting, or Settings) turns off every transition and animation, prints console output at once, and shows packet results as still pictures.
+
+The test hook `window.L4N.test` (`openLab`, `exec`, `grade`, `state`) uses the same code paths a person does: `exec` is pressing Enter.
+
+## Storage
+
+| Key | What |
 | --- | --- |
-| 1 to 456 | `<head>` and the stylesheet. The first six `@font-face` lines are base64 font data, tens of kilobytes each. Never print or read them in full; skip them with a line range or grep. |
-| 458 to 488 | Page markup: header, status line, the windows, dialog, overlays |
-| 490 to 1252 | The simulator, between `//ENGINE-START` and `//ENGINE-END` |
-| 1252 to end | The interface |
+| `lab4net:v2` | `{v, settings, labs, lessons, quiz, subnet, exam, ui, migrated}`. Labs and lessons are keyed by slug. Quiz answers are kept by question index, so new questions only go at the end of `QUIZ`. |
+| `lab4net:v2:work` | Saved work per lab slug: the journal and the run. |
+| `lab4net:v2:sandbox` | The sandbox build: devices, cables, notes, the view, a goal and the commands. |
+| `lab4net:v2:pending` | A checked backup waiting for "Reload now". |
 
-### Engine (pure logic, no DOM)
+Everything read from storage, a backup file, a sandbox file or another window goes through `core/validate.js` first. Each function builds a fresh object from known keys, so odd values are dropped and keys like `__proto__` never reach the app.
 
-In file order:
+On the first load with no `lab4net:v2`, `core/migrate.js` imports the old app's keys (`lab4net-workspace-v1`, `lab4net-fun-v1`, `lab4net-lessons-v1`, `lab4net-exam-v1` and the rest) and says what it brought over. **The old keys are never changed or deleted**, so going back to the old version loses nothing. Backups (Settings › Data) are JSON files of the keys above; old-format backups import too, through the same migration.
+
+## The engine (pure logic, no DOM)
+
+The engine is `src/engine/`, fifteen files cut at the section comments below, in this order (core is `00-core.js`, the v2 engine `10-v2.js`, and so on to `90-ipv6-live.js`). The build joins them between `//ENGINE-START` and `//ENGINE-END`, and `tests/fixtures/engine.sha256` holds the hash of the joined text: `tests/build.cjs` fails if one byte changes. The redesign did not change the engine; read rule 2 under "Rules that keep it working" before you do.
 
 1. Core: address helpers (`ip2n`, `n2ip`, `lenMask`, `netOf`), device constructors (`mkRouter`, `mkSwitch`, `mkPC`, `mkNet`, `link`, `setIp`, `addIf`), link state (`ifUp`), Layer 2 flooding with VLANs and trunks (`l2peers`), routing (`routes`, `nextHop`, OSPF), the command table, the parser, and labs 1 to 6.
 2. `// ---------- v2 engine`: ACLs, NAT, packet forwarding (`fwd`, `reach`), DHCP, port security, SSH, CDP, spanning tree (`stpCalc`: per VLAN, bundled EtherChannel members count as their port-channel with the combined-bandwidth cost, switches that cannot hear each other each elect their own root, `info[sw].root`; switches with `stpOff(d, v)` are left out and `through()` lets a port see the STP switch beyond a chain of them, a port whose BPDUs come back to its own switch blocks; when every switch is off for a VLAN the result is `{root:null, info:{}}`), EtherChannel (`bundled`), `runningConfig` extras, per-command explanations (`WHYC`, `whyOf`), and the later labs.
@@ -100,7 +127,7 @@ Phase 2 changed the core in place too:
 - ACL entries have `seq` and are kept sorted; `aclLine()` formats standard entries for show access-lists.
 - Phase 3: `isL3(d)` (a router, or a switch with `ipRouting`) replaced `type==='router'` wherever routing happens; switch ports may be `routed`; Layer 3 switches have `l3:true` and come from `mkL3Switch()`. DHCP: `dhcpCandidates()` gathers every server that can answer and `snoopPath()` applies snooping and option 82; bindings live in `switch.snoop.bind`. `daiBlock()` is called from `fwd()` for both ends of each hop. HSRP: `hsrpElect(net)` keeps `net.hsrp`, `hsrpVip()` lets the active router own the virtual IP (used by `ownsIp()` and `fwd()`). IPv6 lives in its own section of the library block: `parse6`/`fmt6`, `eui64`, `macIf` (a MAC per router port), `linkLocal`, `routes6`/`nextHop6`/`fwd6`/`reach6`, interface fields `v6`, `ll`, `v6on`, device fields `v6routing`, `statics6`, `gw6`. The `<ip6>` argument token is handled in `matchPat()`.
 - Phase 4: ports can be `errdis` (a reason: bpduguard, channel-misconfig, psecure-violation); `ifUp()` treats them as down at both ends. `errScan()` runs after every command from the outermost `execLine` wrapper, logs the real messages, and a port is recovered by `shutdown` then `no shutdown` (the scan trips it again if the cause remains). Port security keeps `ps.macs` (`{mac, kind: dynamic|sticky|static}`), `ps.viol`, `ps.blocked` (restrict/protect drops, checked in the `daiBlock` wrapper). OSPF interfaces have `ospfHello`/`ospfDead` (`ospfTimers()`), which must match; a network-type mismatch now forms the adjacency but SPF skips that link. `addIncident(spec)` appends an incident like the original six, with an optional `setup` applied before the `fault`.
-- Phase 5: `addCapstone(l, steps)` is `addLab` with `capstone:true` and group `Capstone` (kind stays `build`, so code that needs build labs only filters `!l.capstone`). Router subinterfaces may have `nativeTag` (`encapsulation dot1Q N native`): `l2peers` sends untagged frames on the parent port to it. `dhcpCandidates()` applies the client-side interface's inbound ACL to the discover. The capstone guide default lives in its own block just before `</script>`, which wraps `openLab` and `openSandbox` and listens on `#guideToggle` in the capture phase.
+- Phase 5: `addCapstone(l, steps)` is `addLab` with `capstone:true` and group `Capstone` (kind stays `build`, so code that needs build labs only filters `!l.capstone`). Router subinterfaces may have `nativeTag` (`encapsulation dot1Q N native`): `l2peers` sends untagged frames on the parent port to it. `dhcpCandidates()` applies the client-side interface's inbound ACL to the discover. Capstones open with step-by-step off (`src/app/screens/workspace.js`).
 - In the library block: `lldpPeers()`, `mkPhone()`, `together(net, fn)` (run checks as if the traffic were simultaneous, then restore NAT and ACL counters), `whileDown(net, dev, ifn, fn)` (run a check with a link shut, then restore it), `udpOk()`, `ntpState()`, `logEvent()` and the outermost `execLine` wrapper, which logs link changes on the far-end device, adds %SYS-5-CONFIG_I, applies timestamps and sends syslog.
 
 Key facts:
@@ -119,133 +146,42 @@ A lab is an object in `LABS`:
   tasks:[html], why:[text], checks:[[description, net=>boolean]], solution:{device:[commands]} }
 ```
 
-`steps` is filled from `STEPS[title]`: one entry per task, written as `"DEV: cmd | cmd ; DEV2: cmd"`. A command starting with `#` is a note, not a command. Every lab must have exactly one `why` and one `STEPS` entry per task. Every lab needs at least one `ccna` objective that exists in `CCNA_OBJECTIVES`. Keep lab titles stable: progress, ranks and journals are keyed by title.
+`steps` is filled from `STEPS[title]`: one entry per task, written as `"DEV: cmd | cmd ; DEV2: cmd"`. A command starting with `#` is a note, not a command. Every lab must have exactly one `why` and one `STEPS` entry per task. Every lab needs at least one `ccna` objective that exists in `CCNA_OBJECTIVES`. Keep lab titles stable: a lab's slug comes from its title, and saved progress, saved work and every `?lab=` link use the slug (`tests/slugs.cjs` freezes the list).
 
-### Interface
-
-The base layer was written by ChatGPT on top of the original: global state (`cur`, `progress`, `drafts`), `openLab`, `replay`, `saveWork`, `renderAll`, `renderLabs`, `renderBrief`, `renderDrill`, `renderQuiz`, `drawTopo`, `fly`, `burst`, `playTrace`, `renderTerm`, `execute`, `select`, `library`, `help`, `transfer`, `dialog`, `notify`. A lab's saved work is its command journal, replayed onto a fresh `build()`.
-
-Later blocks, each under a `// ----------` comment, extend it in this order:
-
-1. Guide switch (`stepsHtml`, `stepsBlock`), defined just before the first `openLab` call
-2. Menu clock and boot screen
-3. Pop-out guide window and the window manager (move, resize, snap, saved layout). On drop, `plan()` decides swap, split or fill (`freeRect()`) and `grow()` lets a flush neighbour take the space left; `links()` finds every window on a resized edge so it moves like a divider; `bounds()` takes the outer edges from where the windows already sit. Alt skips all of it. `ui.cjs` drags real windows to test it
-4. Rewards (ranks, XP, levels, combos, trophies, sound, device hover card). Ranks are scored on results only (design rules: extra checking commands must never lower the grade, and the "test it yourself" condition for an S stays). A clear means every check passes. Score starts at 100, minus walkthrough 25, guide 15, each incident clue 5, and 2 per rejected command after the first two (cap 10). A run with no check command of its own (`CHECKCMD`: show, ping, traceroute, tracert, telnet, ssh, ipconfig, arp) is capped at A. Time and command count are shown but never scored. Do not reintroduce a par or a speed penalty.
-5. Troubleshooting clues, CCNA tags and Study map. `ccnaTags`, `clueHtml`, `bindClues`, `clueLevel`, `setClueLevel` and `studyMap` are top-level function declarations so the base `renderBrief` can call them on the first render. This block also wraps `openLab` to hide clues on a fresh start. The rewards block exposes `window.l4nFun = {run, save}` so clue use reaches the current run.
-6. Sandbox (devices, cabling, zoom and pan, notes, kits, challenges, files, undo). Undo keeps up to 80 snapshots of devices, links, notes, challenge and journal; `mark()` runs from `saveDef` and after each sandbox command.
-7. Backup (adds ranks, layout, sandbox and incident clues to Transfer progress)
-8. Capstone guide default
-9. Switching realism: replaces `playTrace` (each Layer 2 event in turn: an ARP broadcast or unknown-MAC flood fans out along `ev.edges` with `floodFly`, the ARP reply flies back, then the frame continues; `flyWay` per direction) and wraps `renderTrace` with a Switching section (one line per switch per direction, plus a `show mac address-table` tip after a flood). The rewards `sfx` object gained `flood`
-10. Lessons.
-11. Exam sim: storage key `lab4net-exam-v1` (`current`, `history`; `current` also keeps `hp0`, the failing checks at the start, and `hp`, the last graded count, for the boss bar). Only one exam runs at a time (`active()`): while it runs, the exam block's wrappers refuse `openLab` for any other lab, `openPractice`, `openLesson` and `openSandbox` (`lockMsg`), and the Exam dialog offers Resume or Give up (`giveUp` records a not-cleared result). `settleAway()` grades an exam whose deadline passed while its lab was not open (from its saved journal) and records it; it runs on load and in `tick`. Exam labs never write `progress`; `purge()` and `l4nFun.forget(title)` clear old `Exam · …` titles from progress, drafts and ranks; `saveWork` never stores an exam as `lastLab`. Bosses look for three faults across the pool before settling for two (`modeText` names the real count). `makeExam(mode, minutes, seed)`, `labIndex(ex)` (keeps one `Exam · <base>` lab at the end of `LABS`, with `examSeed` and `examMode`), `start`, `tick` (1 s interval; `timeUp` grades, records, locks `#tin` and shows a card in `#resultCard`), `record`. Wraps `stepsHtml` (empty in an exam), `labTag` (mode tag), `openLab` (forces `guideOn` off after the inner chain, closes a popped-out guide, restores on leaving), `renderBrief` (exam bar at the top of `#brief`, `body[data-exam]` for the CSS that hides help, exam-aware `#bGrade`), `celebrate` (records a clear, trophies `exam`/`saboteur`/`boss`/`daily3` via `window.l4nFun.unlock`); the boss mode (`examMode:'boss'`) renders `.boss` with the HP bar under the exam bar and shakes it when a Grade lowers the failing count, `library` (Exam sim button), `renderLabs` (Exam sim option, the exam lab's own option, a meter that counts real labs only) and `execute` (no why line). `window.examStats()` feeds XP (80 per clear). A running exam is resumed on load.
-12. Campaign (`// ---------- campaign`): `CAMPAIGN` data, storage key `lab4net-campaign-v1` (`stage`), `stateOf(k)` (missions from `progress`, boss from `progress` for incidents or the exam history's `tag` `campaign:<id>`), `renderCampaign` (stage map in `#brief`, stage page in `#practice`), `fightBoss` (uses `window.l4nExam.start(mode, minutes, seed, pool, tag)`, which the exam block exposes along with `history()`), `checkCampaign` (trophies `chapter`/`campaign`, a status-line fanfare), `window.campaignStats()` for XP (150 per stage). Wraps `renderBrief` (view `campaign`), `renderLabs` (Campaign option), `library` (Campaign button) and `celebrate`.
-13. Sandbox challenge count (last): storage key `lab4net-sbx-done-v1`; `window.sandboxStats()` feeds XP (60 per challenge) and `window.l4nSbxDone(i, total)` (called from the sandbox's completion code) unlocks `builder`/`architect`. The data sits between `//LESSONS-DATA-START` and `//LESSONS-DATA-END` as `Object.assign(LESSONS,{...})` blocks. Lab lessons are keyed by build lab title; topic lessons have `topic:true` and `ccna` ids and no story. Fields: `name`, `mins`, `sections` ([heading, html]), `story` (lab lessons: steps with `path` of cabled device names, `cls` req/rep, `at`, `label`, `good`/`bad`, `t`, `x`), `terms`, `exam`, `mistakes`, `quiz` ([question, options, correct index, explanation]; the display order is a fixed shuffle per question). The block after the data wraps `renderBrief` (a lab lesson replaces the mission window, or a card is inserted after the CCNA tags; the Lessons view renders the list in the mission window and a topic lesson in the practice window), `openLab` (opens on the lesson until read), `renderLabs` (adds Lessons under Practice) and `studyMap` (adds topic lessons per domain). It also fills in `CCNA_OBJECTIVES` for every v1.1 objective. `window.lessonFor(lab)`, `window.openLesson(key)` and `window.lessonStats()` (used by XP and the Bookworm trophy) are exposed. New lessons follow `docs/LESSON-WRITING.md` and `tests/lessons.cjs`
-
-**The pattern to know:** these blocks do not edit the base functions. They wrap them by reassigning the name, for example `const ex0 = execute; execute = function(line){ ex0(line); ... }`. `renderAll`, `openLab`, `execute`, `celebrate`, `library`, `renderBrief`, `renderTerm`, `drawTopo`, `select`, `renderLabs` and `transfer` are all wrapped, some more than once. The outermost wrapper is the one defined last. Before changing behaviour, grep for every `name=function` to see the whole chain.
-
-The console and `replay` call the engine through `safeExec`: if a handler throws, that one command prints `% Lab4Net internal error: …` and everything else carries on, so a simulator bug never leaves the page half-updated or throws saved work away. Journal entries are `{device, line, t}` (`jEntry` keeps exactly those): `t` is when the line was typed, and `replay` sets the engine clock `SIM_NOW` to it for each line, so anything timed (login quiet mode, MAC aging) replays as it happened live. Engine code that depends on time must use `simNow()`, not `Date.now()`. A masked answer (a password) is kept out of history both live and on replay.
-
-The base `execute` plays any output that comes with `s.pace` through `streamStart` / `streamTick` / `streamStop` (`// ---------- live console output`, just before `renderTrace`). Only one output plays at a time (`STREAM`). `execute` calls `streamStop(false)` first, which finishes the current output instantly, so every wrapper still sees complete output. Ctrl+C (with no text selected in the input) or Ctrl+Shift+6 calls `streamStop(true)`. `renderTerm` hides the prompt while that session is playing. Reduced motion skips playback. `PACE_SCALE` (0.4) scales every engine delay, so playback runs at 40% of real time; chosen for pace. Sounds come from `window.l4nFun.sfx` (`echo`, `drop`, `unreach`) in the rewards block.
-
-`execute` stores each command's full output on `s.lastOut`; the rewards wrapper reads that rather than the console lines, because paced output may still be playing.
-
-The guide window: `index.html?guide` stops right after `//ENGINE-END` (the guide-only block throws a marked object, suppressed in its own `error` handler) after showing only `#guideWin`, so it never runs the app or touches storage. It talks to the main window on the `lab4net-guide` BroadcastChannel and, as a fallback, by `postMessage` with its opener. Messages: `hello` (sent on load and every 3 s; a main window that hears nothing for 9 s treats it as gone), `bye`, `dock`, `step {dev, cmd}` from the guide window; `show {html, title, keep}`, `ping`, `close` from the main window. On the main side, `extAlive` hides the in-page `#guideWin` and the inline steps; `renderGuideWin` sends the guide HTML whenever it changes; `openGuideWindow` is the "New window ↗" button; `setGuidePop(false)` closes the guide window.
-
-`guideFront(flash)` (defined in the window-manager block) raises the in-page `#guideWin` above every window, or focuses the separate guide window. It runs when the pop-out appears (from `layoutApply`), when step-by-step is switched on while popped out, and from the checklist's `.pop-note` button, which shows whenever the guide is on and popped out. A buried pop-out once made the guide switch look broken.
-
-The top menu (`.header-actions`) starts with `#campaignTop`, which opens the campaign (bound in the campaign block, highlighted with `aria-current` by a `renderAll` wrapper there). Menu labels never wrap; below 1420px wide the spacing tightens, below 1180px the XP and progress bars hide, and on phones the menu wraps to a second row. Check the header at 1024 and 1280 wide if you add another menu item.
-
-The title screen (`#welcome`, the landing page): static HTML right after `<body>`, so search engines and link previews can read it, plus an inline script that hides it for returning visitors (`lab4net-welcomed`), browser tests (`navigator.webdriver`) and the guide window. `?welcome` always shows it, and How to use has a "Show the title screen" button (`showWelcome()`). Lab counts in it (`data-w`) are filled from `LABS` and `LESSONS` at load. Its styles are the `title screen` block before the reduced-motion rule; its script is the last block of the main script, which also holds `SITE`:
-
-- `SITE.host`: the public site's hostname. The visitor counter only runs there.
-- `SITE.counter`: a GoatCounter code. When set, the page sends one cookieless page view (and a `start` event when Start is pressed) to `https://<code>.goatcounter.com/count`, only on `SITE.host` and not when Do Not Track is on. The About text and the title-screen footer say so only while it is active.
-- `SITE.donate`: a donation link. When set, a "♥ Support Lab4Net" button shows on the title screen and in How to use.
-
-Deep links: `?lab=<slug>` opens that lab and `?lesson=<slug>` opens that lesson, skipping the title screen (the inline script hides it for both), then removes the parameter from the address bar. A slug is the lab or lesson title in lower case, `&` as `and`, other runs of non-letters as `-` (`802.1Q trunking` → `802-1q-trunking`). The same `slug` is in `tools/build-site.cjs`, and `tests/sitepages.cjs` checks they match. An unknown slug shows a notice and stays on the last lab. These links are what the lesson pages use.
-
-### Lesson pages (the website's lessons)
-
-`lessons/` holds one public web page per lesson, for search engines and sharing, plus an index grouped by CCNA domain. They are generated: never edit them by hand. After any change to `LESSONS`, a lab title, `pos` or `build()`, `CCNA_OBJECTIVES` or the fonts, run:
+## Testing
 
 ```
-node tools/build-site.cjs
+npm run build       # node tools/build.cjs
+npm run check       # node tools/build.cjs --check
+npm test            # every Node test
+npx playwright install chromium firefox webkit   # once
+npx playwright test # the browser tests (they serve the repo on 127.0.0.1:8138)
 ```
 
-It reads `index.html` (the engine for `LABS`, `CCNA_OBJECTIVES` and `CCNA_DOMAINS`, and the lessons data block), and writes `lessons/<slug>.html`, `lessons/index.html`, `lessons/site.css`, `lessons/fonts/*.woff2` (the app's embedded fonts as files) and `sitemap.xml` (every page; a page's `lastmod` only changes when its content does). Each page has its own title, description, canonical URL, share tags and JSON-LD (`LearningResource`), the lab's network drawn from `build()` and `pos`, the lesson's sections, the story steps as a list, terms, exam notes, mistakes and the quick check with answers behind `<details>`, a "Practise it" link (`../?lab=` or `../?lesson=`), and previous/next links. The only script is the visit counter, with the app's rules (public host only, Do Not Track honoured). `tests/sitepages.cjs` runs the generator with `--check` and fails if anything is out of date, then checks tags, links, deep links and the sitemap; it runs in GitHub Actions. The pages link back to the app with relative links, so they only work next to `index.html` (as on the public site); the title screen and About link to the public lessons with an absolute URL so self-hosted copies, which only install `index.html`, still reach them.
+The Node tests read the built `index.html`, so build first.
 
-The share-preview tags (Open Graph, Twitter card, JSON-LD) are in `<head>` and point at `og.png` (1200×630) on the public site. Regenerate `og.png` if the branding changes. `tests/landing.cjs` (optional, Playwright) covers the title screen, the deep links and the lesson pages in a browser.
+- The fourteen engine tests (`labs`, `forwarding`, `curriculum`, `lessons`, `ping`, `console`, `switching`, `prompts`, `exam`, `quiz`, `duplex`, `ping6`, `campaign`, `ospfarea`) and `sitepages` are the ones from before the redesign. Do not edit them or weaken a check. `labs.cjs` builds every lab, runs its solution and its step-by-step guide, and asserts every check passes.
+- `build.cjs` (markers, engine hash, budget, `--check`), `slugs.cjs` (lab and lesson slugs unique and frozen), `grade.cjs`, `migrate.cjs` and `validate.cjs` cover the new code. `app-core.cjs` loads the engine, the data and the DOM-free core in Node.
+- `tests/browser/` (Playwright, pinned in `package.json`): `shell`, `labs-all` (all 77 labs solved and graded through the real Grade button), `guide`, `console`, `map`, `popout`, `deeplinks`, `firstrun`, `offline`, `labs`, `lessons`, `lessonpages`, `exam`, `quiz`, `subnet`, `sandbox`, `security`, `phone` (390 by 844), `a11y` (axe on every route in both themes, the keyboard-only run, keyboard patterns, live regions), `themes` and `motion`. `shell`, `console` and `map` also run in Firefox and WebKit.
+- `visual.spec` compares screenshots of the main screens. Baselines are made on Linux, so it only compares in CI. After an intended change, refresh them with the "Update screenshot baselines" workflow (Actions › Update screenshot baselines › Run workflow), which commits them to the branch.
 
-The trace box under the map (`renderTrace`) is one summary line (`.trace-title`: result, `.trace-sum` path, Details and Replay buttons) plus `.trace-more`, which holds everything else and is hidden until Details is pressed (`traceOpen()`, stored in `lab4net-trace-open`). Wrappers that add to the trace must insert into `.trace-more`, as the switching wrapper does. `#topo svg` max-height is `calc(31vh + 76px)`: the 76px is the height the trace box gave back, so the default window layout is unchanged; keep the two in step if the trace box height changes.
+Current numbers: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1,571 guide commands; 56 lessons (38 lab, 18 topic); 110 quiz questions.
 
-Browser storage keys: `lab4net-workspace-v1` (progress, journals, last lab), `lab4net-trace-open` (trace details open), `lab4net-welcomed` (title screen seen), `lab4net-layout-v3`, `lab4net-fun-v1`, `lab4net-sandbox-v1`, `lab4net-guide`, `lab4net-guide-pop`, `lab4net-last`, `lab4net-incident-hints` (clues revealed per incident), `lab4net-capstone-guide` (guide switched on per capstone), `lab4net-lessons-v1` (lessons read and quick-check answers), `lab4net-exam-v1` (exam sim), `lab4net-campaign-v1` (campaign stage), `lab4net-sbx-done-v1` (sandbox challenges done); all of these travel in Transfer progress (`EXTRA`), `lab4net-pending` (extras from an imported backup, applied on the next load), and `l4n-boot` in session storage.
-
-## Verifying changes
-
-Run these before every commit. All of them pass on `main`, and `main` is the live public site, so never push with a failing test.
-
-```
-node tests/labs.cjs
-node tests/forwarding.cjs
-node tests/curriculum.cjs
-node tests/lessons.cjs
-node tests/ping.cjs
-node tests/console.cjs
-node tests/switching.cjs
-node tests/prompts.cjs
-node tests/exam.cjs
-node tests/quiz.cjs
-node tests/duplex.cjs
-node tests/ping6.cjs
-node tests/campaign.cjs
-node tests/ospfarea.cjs
-node tests/sitepages.cjs
-node tests/ui.cjs
-node tests/guidewin.cjs
-node tests/pageflows.cjs
-node tests/landing.cjs
-node tests/security.cjs
-```
-
-Current result: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1571 guide commands; 56 lessons (38 lab, 18 topic).
-
-
-- `labs.cjs` builds every lab, runs its solution and asserts every check passes, then does the same following the step-by-step instructions. It also runs in GitHub Actions on every push.
-- `forwarding.cjs` covers routing, ACL direction, static NAT, closed ports, VLAN paths and link failure.
-- `lessons.cjs` checks every lesson (structure, markup, quiz answers, story steps on cabled devices) and that every build lab has one. It also takes draft files as arguments. It runs in GitHub Actions.
-- `curriculum.cjs` ignores counters, logs, console queues (`conq`) and NAT translations when comparing state around a probe. It checks objective mappings and that every incident starts with a real failing service and is fixed by its repair without breaking any original check. It runs in GitHub Actions.
-- An incident's `symptom` is either `[source, target, proto, port]` (a packet test with `reach`) or a function of the network for services that are not a single packet (CDP or LLDP discovery, NTP, IPv6, a preferred path). The curriculum test checks it fails after the build and works after the repair, and compares configuration before and after the probe, ignoring counters, logs and NAT translations.
-- `console.cjs` covers the parser errors (caret, incomplete, ambiguous, exact keywords, hostname lookup, Windows messages), output modifiers, `?` help and the everyday commands. It runs in GitHub Actions.
-- `switching.cjs` covers the spanning-tree path (blocking honoured, root change, island roots, EtherChannel as one port), MAC learning from ARP and unicast frames, flooding, every `show mac address-table` form and layout, clear/static/aging, per-port router MACs, the HSRP virtual MAC, DHCP learning and a switch SVI as sender. It runs in GitHub Actions.
-- `prompts.cjs` covers enable and line passwords, console logout and login (password, local, locked), Telnet and SSH sessions from IOS and from PCs, three-strike closes, syslog kept off the VTY, `login block-for`, the filename prompt, `write`, `<cr>`, and `reload` (Save?, confirm, restore, volatile state cleared, setup dialog). It runs in GitHub Actions.
-- `exam.cjs` covers the sabotage generators: every build lab's solution passes, each generator breaks a check on some lab with accepted commands, most lab/seed pairs yield a fault, seeds reproduce, and the exam lab object is right. It runs in GitHub Actions.
-- `quiz.cjs` reads `QUIZ` out of the page and checks structure, domains, uniqueness, a minimum of 100 questions and the spread of answer slots. It runs in GitHub Actions.
-- `duplex.cjs` covers autonegotiation, the forced-vs-auto mismatch (link up, CDP warnings, counters), matching ends, half/auto, `clear counters`, speed sensing, a forced speed mismatch (down), `show interfaces status` columns, the PC NIC fallback and the speed exam fault. It runs in GitHub Actions.
-- `ping6.cjs` covers the live IPv6 ping on Windows and IOS (cold first echo, warm cache, repeat/size), show/clear ipv6 neighbors, traceroute and tracert, and the no-route case. It runs in GitHub Actions.
-- `campaign.cjs` reads `CAMPAIGN` out of the page and checks the stages against the lab groups and bosses. It runs in GitHub Actions.
-- `ospfarea.cjs` covers multi-area OSPF: areas and ABRs, O versus O IA with metrics, the route output, the backbone rule, intra beating inter, single-area unchanged. It runs in GitHub Actions.
-- `pageflows.cjs` (optional, Playwright, like `ui.cjs`) serves the page and checks flows that live in the page: saved work replayed on reload, engine errors contained, Transfer progress with the exam/campaign/sandbox stores, the exam sim. Each block names the `docs/REVIEW-FIXES.md` item it guards.
-- `guidewin.cjs` (optional, Playwright, like `ui.cjs`) serves the page over http and checks the guide window: open, steps to the console, lab changes, reconnect after reload, fall back when closed, dock.
-- `ping.cjs` covers the ping and traceroute output rules (ARP first echo, unreachables, Windows quirks, extended options, abort summaries). It runs in GitHub Actions.
-- `ui.cjs` reopens Static NAT for its trace checks, because incidents now come after it in the lab list.
-- `ui.cjs` also checks the capstone guide default: off on opening a capstone, remembered per capstone once switched on.
-- `ui.cjs` drives the real page in a browser at desktop and phone sizes. It needs Playwright and a Chromium-family browser installed locally (`npm i -D playwright`), and it is not part of CI.
-
-For anything visual, open the page in a real browser and look at it. Earlier in this project several bugs were only caught by screenshots or by driving the page: a CSS class named `.switch` that restyled the switch device icon, a transformed element that covered a hidden checkbox, and a results dialog that blocked later clicks.
+For anything visual, open the page in a real browser at 1366 by 768 in both themes and at 390 wide, and look at it. Tests catch a lot, not everything.
 
 ## Rules that keep it working
 
 1. Every lab must stay completable and gradable. Do not weaken a check to make a test pass.
-2. `git pull && bash install-lxc.sh` on a plain Debian container must keep working. If you ever split the file, update `install-lxc.sh`, the `Dockerfile` and the `README`.
-3. Keep it fully offline: no external requests, fonts stay embedded.
-4. Keep the "why" explanations. Understanding the reason for each step is the point of the project.
-5. Do not open modal dialogs or reload the page automatically after an action; both have broken the browser test. Non-modal cards and a "Reload now" button are the established answers.
-6. If you change the default size of a window, bump the layout storage key so saved layouts re-derive.
-7. Ctrl+Z inside the console is IOS `end`. Sandbox undo only takes Ctrl+Z when focus is outside inputs.
-8. `ui.cjs` relies on some specifics: the text "Reply received", the `.selring` class having no animation under reduced motion, task checkboxes being clickable, and the page not navigating mid-run.
-9. New CSS class names must not collide with device type names (`router`, `switch`, `pc`, `srv`), which are used as classes on map devices and console tabs.
-10. Update `CHANGES.md` with each change, in plain language.
-11. Treat anything from outside the code as untrusted: text typed into consoles, imported backups (a backup is a file someone may have been sent), stored data (which a backup can set) and messages from other windows. Put it on the page with `textContent` or through `esc()`, never raw into `innerHTML`; validate stored values when loading them (as the Exam sim history does); and check `e.origin===location.origin` in every `message` listener, because any website can open or frame the app or `?guide`. The backup import replaces `<` and `>` in every imported extra as a second line of defence. `tests/security.cjs` (Playwright) tries each of these.
-12. After changing lessons, lab titles or lab maps, run `node tools/build-site.cjs` and commit the `lessons/` folder and `sitemap.xml` with the change. `tests/sitepages.cjs` fails until you do. Renaming a lab or lesson changes its page address, which breaks links people have shared and loses its search ranking, so avoid renames once published.
+2. Do not change the engine for the interface's sake. If a hook is truly needed, keep it as small as possible, update `tests/fixtures/engine.sha256` in the same commit, and say why in `CHANGES.md`.
+3. Keep it fully offline: no external requests (except the visit counter in `site.js`, on the public host only, never with Do Not Track), and the fonts stay embedded.
+4. Keep the "why" explanations. Understanding the reason for each step is the point.
+5. Build and commit `index.html` with every change, inside the size budget.
+6. Treat everything from outside the code as untrusted: console input, stored data, backup and sandbox files, BroadcastChannel messages and the URL. Text goes through `textContent`; stored and imported data through `validate.js`.
+7. Slugs are frozen. Renaming a lab or lesson breaks saved progress, shared `?lab=` and `?lesson=` links, and the lesson pages' search ranking.
+8. Ctrl+Z inside the console is IOS `end`. Sandbox undo only takes Ctrl+Z when focus is outside the console.
+9. Colours, sizes and durations come from `tokens.css`. Check both themes, reduced motion and a phone.
+10. `git pull && bash install-lxc.sh` on a plain Debian container must keep working; it installs `index.html` only.
+11. Update `CHANGES.md` with each change, in plain language.
 
 ## Known limits
 
@@ -266,11 +202,12 @@ For anything visual, open the page in a real browser and look at it. Earlier in 
 - No wireless. IPv6 has static routing only: no OSPFv3, no DHCPv6, no IPv6 ACLs. Only the Layer 3 switch model (a 3560) routes; 2960s reject ip routing and static routes.
 - HSRP has no object tracking and fails over at once rather than after the 10-second hold time. The DHCP snooping rate limit is stored and shown but not enforced. DAI has no ARP ACLs or extra validation options.
 - Incidents are fixed scenarios; randomised faults live in the exam sim's sabotage mode. Sandbox device models are fixed (3 or 5 port routers, 10 or 26 port switches).
-- Exam sim: sabotage faults are drawn from a fixed set of generators (see `EXAM_FAULTS`); a few lab/seed pairs yield none and fall back to another lab. Faults that only matter at the next DHCP lease (exclusions, pool changes) are not used because existing leases rightly survive them. The exam lab's pass and rank are stored under its `Exam · <lab>` title; exam history keeps the last 40. The clock runs on the wall clock, so leaving the tab does not pause it.
-- Ranks, XP and trophies live in the browser. Transfer progress carries them, but a different browser starts fresh until an import.
+- Exam sim: sabotage faults are drawn from a fixed set of generators (see `EXAM_FAULTS`); a few lab/seed pairs yield none and fall back to another lab. Faults that only matter at the next DHCP lease (exclusions, pool changes) are not used because existing leases rightly survive them. An exam never writes to the labs; exam history keeps the last 40. The clock runs on the wall clock, so leaving the tab does not pause it.
+- Progress lives in the browser. A backup (Settings › Data) carries it to another browser or device.
 
 ## Known gaps (roadmap)
 
 - `show ip ospf database`.
 - Suspending a Telnet/SSH session: Ctrl+Shift+6 then x, `show sessions`, `resume`, `disconnect`.
-- Rank rule (a design decision, not a gap): an S rank requires at least one check command of your own during the run (show, ping, traceroute, telnet, ssh, ipconfig or arp). Keep it.
+- Grade rule (a design decision, not a gap): an S grade requires at least one check command of your own during the run (show, ping, traceroute, telnet, ssh, ipconfig or arp). Keep it.
+

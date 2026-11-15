@@ -163,13 +163,14 @@
         L.g.classList.toggle('is-down', !up);
         set(L.line, { x1: ax, y1: ay, x2: bx, y2: by });
         if (L.hit) set(L.hit, { x1: ax, y1: ay, x2: bx, y2: by });
-        const sides = [[ax, ay, 1], [bx, by, -1]];
+        const sides = [[ax, ay, 1], [bx, by, -1]], ports = [], marks = [];
         sides.forEach(([x, y, s], i) => {
           const e = L.ends[i], E = l.ends[i];
           // how far along the link a point must be to clear this device's icon and label
           const nd = nodes.get(E.dev), hw = Math.max(22, ((nd && nd.w) || 48) / 2 + 3);
           const clear = (d, px, top, bottom) => { for (; d < 140; d += 2) { const qx = ux * s * d + nx * px, qy = uy * s * d + ny * px; if (Math.abs(qx) > hw || qy < top || qy > bottom) return d; } return d; };
           const dMark = Math.max(26, clear(22, 0, -23, 41) + 4);
+          marks[i] = dMark;
           const mx = x + ux * dMark * s, my = y + uy * dMark * s;
           set(e.mark, { cx: mx, cy: my });
           e.mark.setAttribute('class', 'link__mark ' + (up ? 'is-up' : 'is-down'));
@@ -185,9 +186,13 @@
             if (e.port.textContent !== t) e.port.textContent = t;
             const side = off < 0 ? -1 : 1;
             const dPort = Math.max(dMark + 16, clear(dMark + 10, 9 * side * s, -30, 48) + 14);
+            ports[i] = { e, dPort };
             set(e.port, { x: x + ux * dPort * s + nx * 9 * side, y: y + uy * dPort * s + ny * 9 * side + 3.5, 'text-anchor': 'middle' });
           }
         });
+        // a short link (a zoomed-out sandbox): a port name that would run into the far device, or past the other
+        // port name (they would swap ends), is hidden until there is room. Device tooltips and the screen-reader list still name the ports.
+        ports.forEach((p, i) => { if (p && (p.dPort > len - (ports[1 - i] ? marks[1 - i] + 10 : 24) || (ports[1 - i] && p.dPort + ports[1 - i].dPort > len - 14))) p.e.port.style.display = 'none'; });
         const A = st.net.devs[l.a], B = st.net.devs[l.b];
         srItems.push(A.hostname + ' ' + l.ends[0].short + ' to ' + B.hostname + ' ' + l.ends[1].short + ', ' + (up ? 'up' : 'down') + '.');
       }
