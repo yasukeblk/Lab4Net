@@ -40,7 +40,7 @@
   function detail(box, l) {
     clear(box);
     const r = rec(l.slug);
-    box.append(el('h2', { class: 'detail__title', text: l.title }),
+    box.append(el('h2', { class: 'detail__title', text: l.title }), l.name ? el('p', { class: 'detail__name', text: l.name }) : null,
       el('div', { class: 'hstack' }, ui.chip(l.mins + ' min', '', 'clock'), r.read ? ui.chip('Read', 'chip--done', 'check-circle') : ui.chip('Not read yet', 'chip--todo', 'circle')),
       el('ul', { class: 'detail__objs' }, objs(l).map(o => el('li', {}, ui.objChip(o, objName(o)), el('span', { text: objName(o) })))),
       summary(l),
@@ -80,7 +80,8 @@
     toc.append(tocList);
     const col = el('article', { class: 'reader__col' });
     const add = (id, title, ...kids) => { const h = el('h2', { id, class: 'reader__h', tabindex: '-1', text: title }); col.append(el('section', { class: 'reader__sect', 'aria-labelledby': id }, h, kids)); tocList.append(el('li', {}, el('a', { href: '#' + id, onClick: e => { e.preventDefault(); h.scrollIntoView({ block: 'start' }); h.focus({ preventScroll: true }); } }, title))); };
-    col.append(el('h1', { class: 'reader__title', 'data-heading': '', tabindex: '-1', text: l.title }), el('div', { class: 'tasks__chips' }, objs(l).map(o => ui.objChip(o, objName(o)))));
+    col.append(el('h1', { class: 'reader__title', 'data-heading': '', tabindex: '-1', text: l.title }), l.name ? el('p', { class: 'reader__name', text: l.name }) : null,
+      el('div', { class: 'tasks__chips' }, objs(l).map(o => ui.objChip(o, objName(o)))));
     (L.sections || []).forEach(([h, html], k) => add('ls-' + k, h, trusted(html, 'div', { class: 'reader__html' })));
     const endOfSections = el('div', { class: 'reader__sentinel', 'aria-hidden': 'true' });
     col.append(endOfSections);
@@ -181,7 +182,7 @@
     ws.tasksView.rebuild();
   });
 
-  L4N.commands.add(() => L4N.data.lessons.map(l => ({ id: 'lesson-' + l.slug, group: 'Lessons', title: 'Open lesson: ' + l.title, subtitle: l.mins + ' min', icon: 'lessons',
+  L4N.commands.add(() => L4N.data.lessons.map(l => ({ id: 'lesson-' + l.slug, group: 'Lessons', title: 'Open lesson: ' + l.title, subtitle: (l.name ? l.name + ' · ' : '') + l.mins + ' min', icon: 'lessons',
     keywords: l.key + ' ' + objs(l).map(o => o + ' ' + objName(o)).join(' '), run: () => L4N.shell.go(L4N.router.href('lesson', l.slug)) })));
 
   L4N.screens.register('lessons', { title: () => 'Lessons', mount: mountList });

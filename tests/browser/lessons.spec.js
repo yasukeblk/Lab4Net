@@ -18,7 +18,8 @@ test('all 66 lessons open in the reader', async ({ page }) => {
 test('?lesson= opens the reader; reaching the end marks it read; Mark as read works too', async ({ page }) => {
   await open(page, '#/');
   await page.goto('/?lesson=static-routing');
-  await expect(page.locator('.reader__title')).toHaveText('How to tell a router about distant networks');
+  await expect(page.locator('.reader__title')).toHaveText('Static routing');
+  await expect(page.locator('.reader__name')).toHaveText('How to tell a router about distant networks');
   await expect(page.locator('.topbar__status')).toContainText('Not read yet');
   await page.locator('.reader__sentinel').scrollIntoViewIfNeeded();
   await expect(page.locator('.topbar__status')).toContainText('Read', { timeout: 5000 });

@@ -46,7 +46,7 @@ test('Progress numbers equal the store for a seeded profile', async ({ page }) =
   await expect(grades.nth(2)).toContainText('B1');
   await expect(page.locator('#pg-exams + .table-wrap tbody tr')).toHaveCount(1);
   await expect(page.locator('#pg-recent + .list .row')).toHaveCount(4);
-  await expect(page.locator('#pg-recent + .list .row').first()).toContainText('How to tell a router');
+  await expect(page.locator('#pg-recent + .list .row').first()).toContainText('Static routingLesson');
   // exam topics expand to objectives, with labs and lessons as links
   await page.locator('.topic-d summary').nth(2).click();
   await expect(page.locator('.topic-d').nth(2).locator('.objlink').first()).toBeVisible();

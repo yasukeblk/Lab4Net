@@ -24,10 +24,14 @@
     });
     const bySlug = new Map(labs.map(x => [x.slug, x]));
     const byTitle = new Map(labs.map(x => [x.title, x]));
+    // Lessons in teaching order (LESSON_ORDER, by exam topic); any lesson not listed goes last, in data order.
+    const ORDER = typeof LESSON_ORDER !== 'undefined' ? Object.keys(LESSON_ORDER).sort().flatMap(d => LESSON_ORDER[d]) : [];
+    const lessonRank = s => { const r = ORDER.indexOf(s); return r < 0 ? Infinity : r; };
     const lessons = Object.keys(LESSONS).map((k, i) => {
       const L = LESSONS[k];
-      return { slug: slug(k), key: k, title: L.name || k, topic: !!L.topic, mins: L.mins || 5, index: i, lesson: L, lab: L.topic ? null : bySlug.get(slug(k)) || null };
-    });
+      // One heading everywhere: the lesson's title (the key, as on its web page), with its name as the line under it.
+      return { slug: slug(k), key: k, title: k, name: L.name || '', topic: !!L.topic, mins: L.mins || 5, index: i, lesson: L, lab: L.topic ? null : bySlug.get(slug(k)) || null };
+    }).sort((a, c) => (lessonRank(a.slug) - lessonRank(c.slug)) || a.index - c.index);
     const lessonBySlug = new Map(lessons.map(x => [x.slug, x]));
     return {
       labs, lessons,

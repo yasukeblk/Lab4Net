@@ -30,10 +30,15 @@ const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
 const text = h => String(h).replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 const clip = (s, n) => s.length <= n ? s : s.slice(0, s.lastIndexOf(' ', n - 1)).replace(/[,;:.]$/, '') + '…';
 
-// ---- the lessons, in a stable order: lab lessons in lab order, then topic lessons in data order ----
+// ---- the lessons, in teaching order: LESSON_ORDER from the app (by exam topic), then any not listed in data order ----
 const labOf = k => LABS.find(l => l.title === k);
 const keys = Object.keys(LESSONS);
-const ordered = [...keys.filter(k => !LESSONS[k].topic && labOf(k)).sort((a, b) => LABS.indexOf(labOf(a)) - LABS.indexOf(labOf(b))), ...keys.filter(k => LESSONS[k].topic)];
+const lo = /const LESSON_ORDER=(\{[\s\S]*?\n\});/.exec(html);
+if (!lo) throw Error('LESSON_ORDER is missing from index.html');
+const LESSON_ORDER = vm.runInNewContext('(' + lo[1] + ')');
+const ORDER = Object.keys(LESSON_ORDER).sort().flatMap(d => LESSON_ORDER[d]);
+const rank = k => { const r = ORDER.indexOf(slug(k)); return r < 0 ? Infinity : r; };
+const ordered = keys.slice().sort((a, b) => (rank(a) - rank(b)) || keys.indexOf(a) - keys.indexOf(b));
 const pages = ordered.map(k => {
   const L = LESSONS[k], lab = L.topic ? null : labOf(k);
   return { k, L, lab, slug: slug(k), ccna: (L.topic ? L.ccna : lab.ccna) || [], group: L.topic ? 'Exam topic' : lab.group };

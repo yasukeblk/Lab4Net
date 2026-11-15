@@ -30,6 +30,8 @@
 .screen[data-screen="labs"] { overflow: hidden; }
 .detail__head { display: flex; flex-direction: column; gap: 2px; }
 .detail__title { font-size: var(--fs-18); line-height: var(--lh-18); letter-spacing: var(--track-tight); }
+.detail__name, .reader__name { color: var(--text-2); }
+.reader__name { font-size: var(--fs-16); line-height: var(--lh-16); margin-top: calc(-1 * var(--space-2)); }
 .detail__brief { font-size: var(--fs-14); line-height: var(--lh-14); color: var(--text); }
 .detail__objs { display: flex; flex-direction: column; gap: var(--space-1); }
 .detail__objs li { display: flex; align-items: center; gap: var(--space-2); color: var(--text-2); font-size: var(--fs-12); }
