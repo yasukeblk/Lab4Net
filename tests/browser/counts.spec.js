@@ -20,23 +20,29 @@ test('the sidebar shows the lab and lesson totals', async ({ page }) => {
   await expect(page.locator('.sidebar [data-nav="lessons"] .sb__count')).toHaveText(exact('0/' + n.lessons));
 });
 
-for (const route of ['#/', '#/progress']) {
-  test(`${route} shows the lab, lesson and quiz totals`, async ({ page }) => {
-    const errors = watch(page);
-    await open(page, route);
-    const n = await totals(page);
-    for (const t of [n.labs, n.lessons, n.quiz]) await expect(page.locator('.bar__num', { hasText: exact('0/' + t) }).first()).toBeVisible();
-    expect(errors()).toEqual([]);
-  });
-}
+test('Home gives the lab, lesson and quiz totals in one line', async ({ page }) => {
+  const errors = watch(page);
+  await open(page, '#/');
+  const n = await totals(page);
+  await expect(page.locator('.home__summary')).toContainText(`0 of ${n.labs} labs · 0 of ${n.lessons} lessons · 0 of ${n.quiz} quiz questions right`);
+  expect(errors()).toEqual([]);
+});
+
+test('Progress shows the lab, lesson and quiz totals', async ({ page }) => {
+  const errors = watch(page);
+  await open(page, '#/progress');
+  const n = await totals(page);
+  for (const t of [n.labs, n.lessons, n.quiz]) await expect(page.locator('.bar__num', { hasText: exact('0/' + t) }).first()).toBeVisible();
+  expect(errors()).toEqual([]);
+});
 
 test('Practice and the quiz show the number of questions', async ({ page }) => {
   await open(page, '#/practice');
   const n = await totals(page);
   await expect(page.getByText(n.quiz + ' theory questions.')).toBeVisible();
-  await expect(page.getByText('0/' + n.quiz + ' correct')).toBeVisible();
+  await expect(page.getByText(`0 of ${n.quiz} correct · ${n.quiz} to review`)).toBeVisible();
   await open(page, '#/practice/quiz');
-  await expect(page.locator('.bar__num', { hasText: exact('1/' + n.quiz) }).first()).toBeVisible();
+  await expect(page.locator('.quiz__count')).toHaveText('Question 1 of ' + n.quiz);
 });
 
 test('the lesson groups add up to every lesson', async ({ page }) => {

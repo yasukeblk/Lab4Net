@@ -42,6 +42,9 @@
 .home__card { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--space-6); flex-wrap: wrap; }
 .home__card-body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .home__card .section__title { margin: 0; }
+.home__summary { margin-top: var(--space-2); padding-top: var(--space-4); border-top: var(--hairline) solid var(--border-subtle); color: var(--text-2); font-size: var(--fs-14); line-height: var(--lh-14); }
+.home__summary a { text-decoration: underline; text-underline-offset: 2px; }
+.topic__weight { margin-left: var(--space-2); color: var(--text-3); font-size: var(--fs-12); white-space: nowrap; }
 .home__card .muted { display: flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; }
 .home__steps { list-style: decimal; padding-left: var(--space-5); color: var(--text-2); font-size: var(--fs-14); line-height: var(--lh-14); margin-top: var(--space-1); }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
@@ -58,7 +61,7 @@
 /* ---- practice, exam, quiz, subnetting, progress (reusing cards, rows, bars and the quick-check styles) ---- */
 .pcards { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
 .pcard { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-5); color: var(--text); }
-.pcard:hover { background: var(--bg-hover); text-decoration: none; }
+.pcard__actions { margin-top: auto; padding-top: var(--space-2); flex-wrap: wrap; }
 .pcard .section__title { margin: 0; }
 .setup { padding: var(--space-2) var(--space-5) var(--space-5); }
 .chip--clock { font-size: var(--fs-13); height: 24px; }

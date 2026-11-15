@@ -12,7 +12,7 @@ test('answers are saved by question index; keys 1 to 4 and Enter; filters work',
   await expect(page.locator('.qc__res')).toContainText('Right.');
   expect(await page.evaluate(() => L4N.store.get().quiz.answers)).toEqual({ 0: true });
   await page.keyboard.press('Enter');
-  await expect(page.locator('.bar__num').first()).toHaveText('2/110');
+  await expect(page.locator('.quiz__count')).toHaveText('Question 2 of 110');
   // a wrong answer to question 1
   const wrong = await page.evaluate(() => (QUIZ[1][3] + 1) % 4);
   await page.locator(`.qc__opt[data-a="${wrong}"]`).click();
@@ -22,10 +22,10 @@ test('answers are saved by question index; keys 1 to 4 and Enter; filters work',
   // filters: a topic, and only missed or unanswered
   await page.getByRole('combobox', { name: 'Topic' }).selectOption('IPv6');
   await expect(page.locator('.quiz .label-caps')).toContainText('IPv6');
-  await expect(page.locator('.bar__num').first()).toHaveText('1/9');
+  await expect(page.locator('.quiz__count')).toHaveText('Question 1 of 9');
   await page.getByRole('combobox', { name: 'Topic' }).selectOption('all');
   await page.getByRole('switch', { name: 'Only missed or unanswered' }).click();
-  await expect(page.locator('.bar__num').first()).toHaveText('1/109');
+  await expect(page.locator('.quiz__count')).toHaveText('Question 1 of 109');
   await page.reload();
   expect(await page.evaluate(() => L4N.store.get().quiz.answers)).toEqual({ 0: true, 1: false });
 });

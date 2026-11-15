@@ -6,15 +6,24 @@
   const S = () => L4N.store.get();
 
   // ---------------------------------------------------------------- hub
+  // Each card: what it is, the last result, and buttons to start (and, for the quiz, to review what was missed).
+  // Below the cards, the last five exams.
   function hub(root) {
     const ex = S().exam.history, last = ex[ex.length - 1], q = L4N.stats.quiz(), sn = S().subnet;
-    const card = (title, line, stat, href, ic) => el('a', { class: 'card pcard', href }, el('div', { class: 'hstack' }, icon(ic), el('h2', { class: 'section__title', text: title })),
-      el('p', { class: 'muted', text: line }), el('p', { class: 'num', text: stat }));
+    const review = q.total - q.correct;
+    const card = (title, line, stat, ic, actions) => el('section', { class: 'card pcard', 'aria-label': title }, el('div', { class: 'hstack' }, icon(ic), el('h2', { class: 'section__title', text: title })),
+      el('p', { class: 'muted', text: line }), el('p', { class: 'num', text: stat }), el('div', { class: 'hstack pcard__actions' }, actions));
+    const lastExam = last ? 'Last: ' + (last.grade ? 'grade ' + last.grade + ', ' : '') + last.passed + ' of ' + last.total + ' checks · ' + new Date(last.at).toLocaleDateString() : 'No exams yet';
     root.append(el('div', { class: 'page' }, el('h1', { class: 'page__title', 'data-heading': '', tabindex: '-1', text: 'Practice' }),
       el('div', { class: 'pcards' },
-        card('Exam', 'Timed fault-finding with no help.', (last ? 'Last: ' + (last.cleared ? 'passed' : last.passed + '/' + last.total) + ' · ' : '') + ex.filter(h => h.cleared).length + ' passed', '#/practice/exam', 'clock'),
-        card('Quiz', q.total + ' theory questions.', q.correct + '/' + q.total + ' correct', '#/practice/quiz', 'list-checks'),
-        card('Subnetting', 'Find the network, broadcast and host range.', sn.right + '/' + sn.total + ' fields right on the first try', '#/practice/subnetting', 'practice'))));
+        card('Exam', 'Timed fault-finding with no help.', lastExam + ' · ' + ex.filter(h => h.cleared).length + ' passed', 'clock',
+          [ui.button({ label: 'Start', kind: 'primary', href: '#/practice/exam', aria: 'Start an exam' })]),
+        card('Quiz', q.total + ' theory questions.', q.correct + ' of ' + q.total + ' correct · ' + review + ' to review', 'list-checks',
+          [ui.button({ label: 'Start', kind: 'primary', aria: 'Start the quiz', onClick: () => { qMissed = false; qPos = 0; L4N.shell.go('#/practice/quiz'); } }),
+            review ? ui.button({ label: 'Review ' + review, kind: 'secondary', aria: 'Review ' + review + ' missed or unanswered questions', onClick: () => { qMissed = true; qPos = 0; L4N.shell.go('#/practice/quiz'); } }) : null]),
+        card('Subnetting', 'Find the network, broadcast and host range.', sn.total ? sn.right + ' of ' + sn.total + ' fields right on the first try' : 'Not tried yet', 'practice',
+          [ui.button({ label: 'Start', kind: 'primary', href: '#/practice/subnetting', aria: 'Start the subnetting drill' })])),
+      el('section', { class: 'section', 'aria-labelledby': 'pr-last' }, el('h2', { class: 'section__title', id: 'pr-last', text: 'Last five exams' }), L4N.examHistory(ex.slice(-5)))));
   }
 
   // ---------------------------------------------------------------- quiz
@@ -38,11 +47,14 @@
       const btns = order.map((j, k) => el('button', { class: 'qc__opt', type: 'button', 'data-a': String(j), 'aria-pressed': String(qPick === j), onClick: () => { if (!qChecked) { qPick = j; draw(); } } },
         el('span', { class: 'qc__key', text: String(k + 1) }), trusted(opts[j], 'span')));
       if (qChecked) for (const b of btns) { const j = +b.dataset.a; b.classList.toggle('is-right', j === ok); b.classList.toggle('is-wrong', j === qPick && j !== ok); }
-      box.append(ui.bar(qPos + 1, ids.length, 'Question ' + (qPos + 1) + ' of ' + ids.length),
+      // where you are in the set, in words (a bar here read like a score)
+      box.append(el('p', { class: 'quiz__count num muted', text: 'Question ' + (qPos + 1) + ' of ' + ids.length }),
         el('p', { class: 'label-caps', text: dom + (answers()[i] === true ? ' · answered right before' : answers()[i] === false ? ' · missed before' : '') }),
         trusted(text, 'p', { class: 'quiz__q', id: 'quiz-q' }), el('div', { class: 'qc__opts', role: 'group', 'aria-labelledby': 'quiz-q' }, btns));
       const res = el('div', { class: 'qc__res', 'aria-live': 'polite' });
       if (qChecked) res.append(el('p', { class: qPick === ok ? 'ok' : 'bad' }, icon(qPick === ok ? 'check-circle' : 'x-circle'), el('b', { text: qPick === ok ? 'Right.' : 'Not quite.' })), trusted(why, 'p', { class: 'qc__why' }));
+      // reviewing: how many missed or unanswered questions are left (a right answer drops out of the set)
+      if (qChecked && qMissed) res.append(el('p', { class: 'quiz__left muted num', text: set().length + ' left to review' }));
       box.append(res, el('div', { class: 'hstack' }, qChecked ? ui.button({ label: 'Next', kind: 'primary', kbd: 'enter', onClick: next }) : ui.button({ label: 'Check', kind: 'primary', kbd: 'enter', disabled: qPick == null, onClick: check })));
       drawSide();
     }

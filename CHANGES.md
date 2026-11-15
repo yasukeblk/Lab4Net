@@ -1,6 +1,30 @@
 # Lab4Net changes
 
-## Fixes, phase 5: the lab screen layout
+## Fixes, phase 6: Home, Progress and Practice
+
+Home and Progress repeated each other, "20%" next to a bar read as "20% done", Practice was three cards and empty space, and the quiz counter "1/110" looked like a score.
+
+- **Home is about what to do next.**
+  - It starts with one clear next step (Continue, or Start here).
+  - Then "Recently": the last three labs finished or lessons read, with grades.
+  - Then "Next up", and one line of totals ("2 of 77 labs · 1 of 66 lessons · 2 of 110 quiz questions right") with a "See your progress" link.
+  - The progress bars and the exam-topic table are on Progress only.
+- **The exam weight is in words.** On Progress, each exam topic shows "20% of the exam" in muted text next to its name, no longer as a bare "20%" next to its progress bar.
+- **Practice has buttons and results.**
+  - Each card has a Start button and its last result: the last exam with its grade, checks and date; the quiz's correct count and how many are left to review; the subnetting score, or "Not tried yet".
+  - The Quiz card has "Review *n*", which opens the quiz with "Only missed or unanswered" switched on.
+  - The last five exams are listed below the cards.
+- **The quiz counter says where you are.** It reads "Question 1 of 110". With "Only missed or unanswered" on, each answer also says how many are left to review.
+- **Accessibility.** The "See your progress" link in Home's summary line is underlined, because a link inside a sentence must not be told apart by colour alone (axe caught it).
+- **Tests.** A new browser test, `hub.spec.js`, checks:
+  - Home's order, its Recently list and the summary link, and that it has no bars or exam topics;
+  - that a new visitor sees Start here;
+  - that no bar on Home, Progress, Practice, the quiz, Lessons or Labs has a percentage next to it that isn't its own value;
+  - Practice's cards, Start and Review, and the "left to review" count going down after a right answer.
+
+  `counts.spec.js` now reads Home's totals from the summary line and the quiz's from "Question 1 of *n*". `quiz.spec.js` reads the new counter. It's the same check with the new wording.
+
+
 
 At 1366×768 the first task started at the bottom edge of the Tasks panel, the map took about 40% of the height even for a line of routers, and "Why" was squeezed into one strip of small text.
 
