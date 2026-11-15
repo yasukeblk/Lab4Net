@@ -1,6 +1,27 @@
 # Lab4Net changes
 
-## Fixes, phase 8: counts from the data, and checked generated files
+## Fixes, phase 9: lessons as files
+
+Nothing changes for learners. Lessons used to be long HTML strings inside JavaScript in `src/data/lessons.js`, which made them hard to write, review and contribute to.
+
+- **One Markdown file per lesson.** The 66 lessons are now `src/lessons/NNN-slug.md`. The number keeps the order the lessons were added in, which saved progress and the frozen slug list rely on. A file has:
+  - a short header (title, name, `topic: true` and `ccna` for topic lessons, minutes);
+  - each section as a `## Heading` with its body on one line;
+  - then `## @terms` (`- term :: definition`), `## @exam`, `## @mistakes`, `## @quiz` (`### question`, four options with the right one marked `[x]`, and `> why`) and, for lab lessons, `## @story` as a JSON block.
+
+  Section bodies, notes and quiz text are the lesson's HTML exactly as before. No lesson text changed. `docs/LESSON-WRITING.md` explains the format with a complete example.
+- **The build reads the files.** `tools/lessons-md.cjs` parses a file, writes one, and compiles them all. `src/data/lessons.js` keeps only its markers and a `//@lessons` line, which the build fills. Every reader of the lesson data uses the same helper (`readData` in `tools/build.cjs`), so they can't drift apart.
+- **The conversion was proven before anything was deleted.** `tools/lessons-to-md.cjs` wrote the 66 files and checked two things: every file parses back to exactly its lesson, and the files compile to a `LESSONS` object deep-equal to the old one, with the same keys in the same order. After the switch:
+  - the `LESSONS` built into `index.html` is deep-equal to the one before, key order included;
+  - all 66 lesson web pages came out unchanged;
+  - every Node test passed.
+
+  The built `index.html` is not byte for byte the same, because the lessons are now written out as compact JSON; it is 0.3 KB smaller.
+- **Tests.**
+  - A new Node test, `tests/lessons-files.cjs`, checks that every file is in its exact canonical layout, that `index.html` holds the files' lessons in file order, and that broken files fail with the file name and the line (five kinds of mistake).
+  - `node tests/lessons.cjs path/to/new-lesson.md` checks a new lesson file before it is added. `.js` drafts still work.
+
+
 
 Nothing changes for learners. "56 lessons" used to be typed by hand in about ten places, and the generated files could go stale without anyone noticing.
 

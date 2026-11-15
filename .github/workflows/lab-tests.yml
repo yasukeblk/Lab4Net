@@ -37,6 +37,7 @@ jobs:
       - run: node tests/lessons.cjs
       - run: node tests/lessons-markdown.cjs
       - run: node tests/lessons-order.cjs
+      - run: node tests/lessons-files.cjs
       - run: node tests/counts.cjs
       - run: node tests/ping.cjs
       - run: node tests/console.cjs

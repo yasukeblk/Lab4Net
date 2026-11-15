@@ -4,7 +4,7 @@ This is the brief the current 66 lessons were written to. Use it for any new les
 
 Lab4Net is a browser CCNA 200-301 v1.1 lab simulator. Its owner is studying for the CCNA. The labs teach which commands to type; the lessons teach the networking behind them, so he understands what he is doing and can answer exam questions. He asked for this because he "is not learning stuff, like what is DHCP pooling".
 
-A lesson is read in the lesson reader (the Lessons screen, and the lesson card a build lab shows before you start), takes about 6 to 10 minutes, and ends with a short quick check. The DHCP server and relay lesson (in `src/data/lessons.js`, between `//LESSONS-DATA-START` and `//LESSONS-DATA-END`) is the model for length, tone, structure and depth. Read it first, and match it.
+A lesson is read in the lesson reader (the Lessons screen, and the lesson card a build lab shows before you start), takes about 6 to 10 minutes, and ends with a short quick check. The DHCP server and relay lesson (`src/lessons/001-dhcp-server-and-relay.md`) is the model for length, tone, structure and depth. Read it first, and match it.
 
 ## Two kinds of lesson
 
@@ -13,27 +13,63 @@ A lesson is read in the lesson reader (the Lessons screen, and the lesson card a
 
 ## Format
 
-Write a draft file (anywhere outside the repo is fine) containing only:
+Each lesson is one file in `src/lessons/`, named `NNN-slug.md`. The number is the order lessons were added in: give a new lesson the next free number. The slug is the title in lower case with hyphens. The build turns the files into the app's lesson data, so you never edit `src/data/lessons.js`.
 
-```js
-Object.assign(LESSONS,{
-'Exact lab title':{name:'Short lesson title',mins:8,
- sections:[['Heading','<p>...</p>'], ...],
- terms:[['Term','Plain-text definition.'], ...],
- exam:['...'], mistakes:['...'],
- story:[{path:['PC1','SW1','R1'],cls:'req',at:'R1',label:'DISCOVER',t:'Step title',x:'What happens and why.'}, ...],
- quiz:[['Question?',['A','B','C','D'],0,'Why the right answer is right (and the tempting wrong one wrong).'], ...]},
-'A topic lesson title':{topic:true,ccna:['1.11'],name:'...',mins:8, sections:[...], terms:[...], exam:[...], mistakes:[...], quiz:[...]}
-});
+A complete topic lesson looks like this (a lab lesson has no `topic` or `ccna` line, its title is the lab's exact title, and it adds a `## @story`):
+
+~~~text
+---
+title: DNS: names to addresses
+name: How names become addresses
+topic: true
+ccna: 4.3
+mins: 8
+---
+
+## The problem DNS solves
+<p>Devices talk to IP addresses. People remember names. <b>DNS</b> turns a name into an address.</p>
+
+## Ports
+<p>DNS uses port <b>53</b>: UDP for normal queries, TCP for large answers.</p>
+
+## @terms
+- DNS :: Domain Name System: the service that maps names to IP addresses.
+- Resolver :: The DNS server a host is configured to ask.
+
+## @exam
+- 4.3: explain the role of DHCP and DNS within the network.
+
+## @mistakes
+- Blaming routing when only names fail. If a ping to an address works and a ping to a name does not, look at DNS.
+
+## @quiz
+
+### Which transport and port does a normal DNS query use?
+- [x] UDP 53
+- TCP 23
+- UDP 67
+- TCP 443
+> DNS queries use UDP port 53. TCP 53 is also used, for large answers and zone transfers.
+~~~
+
+How the file is read:
+
+- **The header** is between the two `---` lines: `title` (the lesson's title, which also makes its address, so never change it once published), `name` (the line under the title), `topic: true` and `ccna` (comma-separated objective ids) for topic lessons, and `mins`.
+- **A section** is `## Heading` followed by its body: one line of HTML.
+- **`## @terms`**: one `- term :: definition` per line.
+- **`## @exam` and `## @mistakes`**: one `- item` per line (the items may use the allowed tags).
+- **`## @quiz`**: each question is `### question`, then four `- option` lines with the right one marked `- [x]`, then `> why`.
+- **`## @story`** (lab lessons): the steps as a ```` ```json ```` block, an array of `{path, cls, at, label, t, x}` objects (plus `good: 1` or `bad: 1`).
+
+Check a new file before adding it, and fix everything it reports:
+
+```
+node tests/lessons.cjs path/to/new-lesson.md
 ```
 
-Rules `tests/lessons.cjs` enforces. Check a draft before adding it, and fix everything it reports:
+Then put the file in `src/lessons/`, add its slug to `src/data/lesson-order.js` (in its exam topic, where it should be taught) and to `tests/fixtures/slugs.json` (at the end), and run `node tools/build.cjs`, `node tools/build-site.cjs` and every test. `tests/lessons-files.cjs` checks that each file is in the exact layout above; if it complains, match the layout of an existing file. A `.js` draft (`Object.assign(LESSONS,{...})`) can still be checked the same way.
 
-```
-node tests/lessons.cjs path/to/draft.js
-```
-
-Then paste the draft's entries into `src/data/lessons.js` inside the lesson data block (before `//LESSONS-DATA-END`), run `node tools/build.cjs` to rebuild `index.html`, and run `node tests/lessons.cjs` again with no arguments. Then run `node tools/build-site.cjs` so the lesson gets its web page.
+The rules `tests/lessons.cjs` enforces:
 
 - `name` at most 48 characters, written as what you will learn ("How devices get their addresses", "Why VLANs split a switch"). `mins` 4 to 12.
 - 4 to 8 `sections`, each `[heading, html]`. The html starts with `<p>`, `<ol>` or `<ul>`. Allowed tags only: `p b i code ol ul li small kbd br`. No links, images, SVG or `${`.
@@ -41,7 +77,6 @@ Then paste the draft's entries into `src/data/lessons.js` inside the lesson data
 - At least 3 `exam` items and 3 `mistakes` (these may use the allowed tags).
 - 4 or 5 `quiz` questions, each with exactly 4 different options and the index (0 to 3) of the correct one. **Vary where the correct answer is** across questions. Wrong options must be plausible, not silly. The explanation teaches.
 - Lab lessons: 3 to 8 `story` steps. Every device in `path` must be on the lab's map (its `pos`), and each consecutive pair must be directly cabled in the lab's `build()`. `cls` is `req` for traffic going out and `rep` for traffic coming back. `at` is the device where the step's label pops up (usually the last in the path). `label` is UPPERCASE, at most 16 characters. Add `good:1` for a success and `bad:1` for a failure or drop. `t` is a short step title, `x` explains the step in 1 to 3 sentences. Steps are clicked through one at a time, so each must make sense on its own and the sequence must tell the story of the concept (a frame being tagged, a route being chosen, a packet being translated or dropped).
-- Use JS single-quoted strings; escape apostrophes as `\'`.
 
 ## Content rules
 

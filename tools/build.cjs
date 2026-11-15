@@ -23,6 +23,15 @@ const BUDGET = {
 };
 
 const read = rel => fs.readFileSync(path.join(SRC, rel), 'utf8');
+// A data file as the build uses it: data/lessons.js gets the lessons from src/lessons/*.md in place of //@lessons.
+function readData(rel) {
+  let t = read(rel);
+  if (rel === 'data/lessons.js') {
+    if (t.split('//@lessons\n').length !== 2) throw new Error('src/data/lessons.js must hold //@lessons once, where the lesson files go');
+    t = t.replace('//@lessons\n', () => require('./lessons-md.cjs').compile());
+  }
+  return t;
+}
 const bytes = s => Buffer.byteLength(s, 'utf8');
 
 // The app's own comments and indentation stay in src/; the built file keeps the code as written without them, so it
@@ -76,8 +85,7 @@ function fillCounts(text, c, where) {
 // The counts from src/ without building the page (for tools/build-og.cjs and tests/counts.cjs).
 function srcCounts() {
   const manifest = JSON.parse(fs.readFileSync(path.join(SRC, 'manifest.json'), 'utf8'));
-  const read = rel => fs.readFileSync(path.join(SRC, rel), 'utf8');
-  return counts(manifest.engine.map(read).join(''), manifest.js.filter(f => f.startsWith('data/')).map(read).join(''));
+  return counts(manifest.engine.map(read).join(''), manifest.js.filter(f => f.startsWith('data/')).map(readData).join(''));
 }
 
 function build() {
@@ -92,7 +100,7 @@ function build() {
   for (const [k, t] of engineFiles.entries())
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(manifest.engine[k] + ' contains an engine marker');
   const engine = '//ENGINE-START\n' + engineFiles.join('') + '//ENGINE-END\n';
-  const jsFiles = manifest.js.map(f => [f, f.startsWith('data/') ? read(f) : stripJs(read(f), f)]);
+  const jsFiles = manifest.js.map(f => [f, f.startsWith('data/') ? readData(f) : stripJs(read(f), f)]);
   for (const [f, t] of jsFiles)
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(f + ' contains an engine marker');
   const data = jsFiles.filter(([f]) => f.startsWith('data/')).map(([, t]) => t).join('');
@@ -132,7 +140,7 @@ function table(sizes, over) {
     (over.includes(k) ? '  OVER BUDGET' : '')).join('\n');
 }
 
-module.exports = { build, BUDGET, stripJs, stripCss, counts, fillCounts, srcCounts };
+module.exports = { build, BUDGET, stripJs, stripCss, counts, fillCounts, srcCounts, readData };
 
 if (require.main === module) {
   const check = process.argv.includes('--check');

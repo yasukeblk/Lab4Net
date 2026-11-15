@@ -20,7 +20,9 @@ function tags(k,where,s){if(typeof s!=='string')return err(k,where+' is not a st
   if(st.length)err(k,where+' leaves <'+st.join(',')+'> open');}
 const data=html.split('//LESSONS-DATA-START')[1]?.split('//LESSONS-DATA-END')[0];
 if(!data){console.log('ERROR lesson data markers missing');process.exit(1);}
-const sources=[['index.html',data],...process.argv.slice(2).map(f=>[f,fs.readFileSync(f,'utf8')])],all={};
+// A draft can be a .js file (Object.assign(LESSONS,{...})) or a lesson file in the src/lessons/*.md format.
+const draft=f=>{if(!/\.md$/i.test(f))return fs.readFileSync(f,'utf8');const x=require('../tools/lessons-md.cjs').parse(fs.readFileSync(f,'utf8'),f);return 'Object.assign(LESSONS,'+JSON.stringify({[x.key]:x.lesson})+');';};
+const sources=[['index.html',data],...process.argv.slice(2).map(f=>[f,draft(f)])],all={};
 for(const [f,code] of sources){const LESSONS={};
   try{vm.runInContext(code,vm.createContext({LESSONS}));}catch(e){err(f,'does not parse: '+e.message);continue;}
   Object.assign(all,LESSONS);

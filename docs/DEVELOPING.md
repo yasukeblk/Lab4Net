@@ -19,7 +19,9 @@ src/
   manifest.json          the build order: template, fonts, styles, icons, engine, data, app
   index.template.html    <head>, the theme pre-paint script, the static landing section, #app
   engine/                the simulator, 15 files (00-core.js to 90-ipv6-live.js); see "The engine"
-  data/                  content: quiz.js (QUIZ), campaign.js (the eight stages), lessons.js (LESSONS),
+  lessons/               the lessons, one Markdown file each (NNN-slug.md); see docs/LESSON-WRITING.md
+  data/                  content: quiz.js (QUIZ), automation.js (the automation drill), campaign.js (the eight stages),
+                         lessons.js (LESSONS: the build fills it from lessons/), lesson-order.js (teaching order),
                          objectives.js (extra CCNA objective names), sandbox.js (starter kits and goals)
   app/
     core/                no DOM: slug, store (state and storage), validate, router, search,

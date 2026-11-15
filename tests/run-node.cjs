@@ -2,7 +2,7 @@
 //   node tests/run-node.cjs
 'use strict';
 const { spawnSync } = require('child_process'), path = require('path');
-const TESTS = ['labs', 'forwarding', 'curriculum', 'lessons', 'lessons-markdown', 'lessons-order', 'counts', 'ping', 'console', 'switching', 'prompts', 'exam',
+const TESTS = ['labs', 'forwarding', 'curriculum', 'lessons', 'lessons-markdown', 'lessons-order', 'lessons-files', 'counts', 'ping', 'console', 'switching', 'prompts', 'exam',
   'quiz', 'duplex', 'ping6', 'campaign', 'ospfarea', 'sitepages', 'build', 'slugs', 'migrate', 'grade', 'validate'];
 const fs = require('fs');
 let failed = 0;
