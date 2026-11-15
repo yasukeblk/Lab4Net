@@ -30,7 +30,7 @@ test('a first visit shows the landing section; Start goes Home; a second visit d
   await expect(page.locator('#landing')).toBeVisible();
   await expect(page.locator('#app')).toBeHidden();
   await expect(page.getByRole('heading', { level: 1, name: 'Learn the CCNA by doing it.' })).toBeVisible();
-  await expect(page.locator('#landing [data-w="labs"]')).toHaveText('77');
+  await expect(page.locator('#landing [data-w="labs"]')).toHaveText(String(await page.evaluate(() => L4N.data.labs.length)));
   await page.getByRole('button', { name: 'Start' }).click();
   await expect(page.locator('#landing')).toBeHidden();
   await expect(page.locator('#app')).toBeVisible();

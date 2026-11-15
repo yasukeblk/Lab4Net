@@ -37,7 +37,7 @@ src/
 tools/
   build.cjs              src/ → index.html, with the size report (--check: fail if index.html is stale)
   build-site.cjs         index.html → lessons/ and sitemap.xml (the public lesson pages)
-  build-og.cjs, og.html  og.png, the share image (needs Playwright)
+  build-og.cjs, og.html  og.png, the share image (needs Playwright); --check says if og.png is out of date
   build-demo.cjs         docs/demo.gif, recorded from the app (needs Playwright and ffmpeg)
   serve.cjs              a small static server for the browser tests and local previews
 tests/                   Node tests (*.cjs) and browser/ (Playwright)
@@ -166,6 +166,9 @@ The Node tests read the built `index.html`, so build first.
 - `visual.spec` compares screenshots of the main screens. Baselines are made on Linux, so it only compares in CI. At most 2 pixels may differ (on the CI machines a changed digit alters 5 to 7, and unchanged screens match to the pixel), parts that change on purpose (the exam clock) are masked, "full" states grow the window until `#screen` no longer scrolls, and a missing baseline fails. After an intended change, refresh them with the "Update screenshot baselines" workflow (Actions › Update screenshot baselines › Run workflow), which commits them to the branch.
 - `counts.spec` checks every lab, lesson and quiz total the app shows against the data in the page. It has no typed numbers, so it keeps working as content grows.
 - `lessons-markdown.cjs` proves that `lessons.cjs` rejects Markdown (links, bold, backticks) in a lesson.
+- `lessons-order.cjs` checks `src/data/lesson-order.js`: every lesson once, in the group of its first objective. A new lesson goes in that file too.
+- Totals are never typed. In `src/index.template.html` and `tools/og.html` they are tokens (`{{LABS}}`, `{{BUILD_LABS}}`, `{{INCIDENTS}}`, `{{CAPSTONES}}`, `{{LESSONS}}`, `{{QUIZ}}`, `{{LAB_LESSONS}}`, `{{TOPIC_LESSONS}}`) that the build fills from the data. The docs are written by hand, and `counts.cjs` checks every total they state. The browser tests read totals from the page.
+- Generated files are checked: CI fails if `lessons/` or `sitemap.xml` differ from what `tools/build-site.cjs` writes, or if `og.png` was built from other counts or another `tools/og.html` (`node tools/build-og.cjs --check`, which compares a fingerprint in `tools/og-source.sha256`).
 - CI never retries a failed test. A test that only passes on a second try is a bug: find the cause. For timing, control the page's clock (`page.clock`) instead of waiting longer.
 
 Current numbers: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1,571 guide commands; 66 lessons (38 lab, 28 topic); 110 quiz questions.

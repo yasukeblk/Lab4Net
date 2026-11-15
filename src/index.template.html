@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lab4Net · Free CCNA lab simulator in your browser</title>
-<meta name="description" content="A free CCNA lab simulator in your browser: 77 hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, 66 lessons, practice exams and a sandbox. No sign-up, no ads.">
+<meta name="description" content="A free CCNA lab simulator in your browser: {{LABS}} hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, {{LESSONS}} lessons, practice exams and a sandbox. No sign-up, no ads.">
 <link rel="canonical" href="https://yasukeblk.github.io/Lab4Net/">
 <meta name="theme-color" content="#0D0E10">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Lab4Net">
 <meta property="og:title" content="Lab4Net · Learn the CCNA by doing it">
-<meta property="og:description" content="A free CCNA lab simulator in your browser: 77 hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, 66 lessons, practice exams and a sandbox. No sign-up, no ads.">
+<meta property="og:description" content="A free CCNA lab simulator in your browser: {{LABS}} hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, {{LESSONS}} lessons, practice exams and a sandbox. No sign-up, no ads.">
 <meta property="og:url" content="https://yasukeblk.github.io/Lab4Net/">
 <meta property="og:image" content="https://yasukeblk.github.io/Lab4Net/og.png">
 <meta property="og:image:width" content="1200">
@@ -18,7 +18,7 @@
 <meta property="og:image:alt" content="Lab4Net: a free CCNA lab simulator in your browser">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F6BEB'/%3E%3Cpath d='M10 9v9.5a4.5 4.5 0 0 0 4.5 4.5H22' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='10' cy='9' r='3.25' fill='%23fff'/%3E%3Ccircle cx='22.5' cy='23' r='3.25' fill='%23fff'/%3E%3Ccircle cx='16.5' cy='23' r='2.4' fill='%23fff'/%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Lab4Net","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","url":"https://yasukeblk.github.io/Lab4Net/","description":"A free CCNA lab simulator in your browser: 77 hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, 66 lessons, practice exams and a sandbox. No sign-up, no ads.","isAccessibleForFree":true,"license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Lab4Net","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","url":"https://yasukeblk.github.io/Lab4Net/","description":"A free CCNA lab simulator in your browser: {{LABS}} hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, {{LESSONS}} lessons, practice exams and a sandbox. No sign-up, no ads.","isAccessibleForFree":true,"license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
 <script>
 /* Theme, console colours and motion before the first paint, so there is no flash. Storage is untrusted: only known values are used. */
 (function(){var d=document.documentElement,s={};if(/[?&]panel=tasks(&|$)/.test(location.search))return;try{var v=JSON.parse(localStorage.getItem('lab4net:v2')||'{}');if(v&&typeof v.settings==='object'&&v.settings)s=v.settings;}catch(e){}
@@ -75,7 +75,7 @@ d.setAttribute('data-theme',t);if(s.consoleTheme==='dark')d.setAttribute('data-c
 </svg></figure>
 <ul class="landing__facts"><li>Free</li><li>No sign-up</li><li>No ads</li><li>Works offline</li><li>Open source</li></ul>
 <div class="landing__features">
-<section><h2>The labs</h2><p><span data-w="labs">77</span> hands-on labs mapped to the CCNA 200-301 exam topics: <span data-w="build">38</span> builds, <span data-w="incidents">37</span> troubleshooting incidents and <span data-w="capstones">2</span> capstones, with <span data-w="lessons">66</span> lessons that teach the idea before the commands.</p></section>
+<section><h2>The labs</h2><p><span data-w="labs">{{LABS}}</span> hands-on labs mapped to the CCNA 200-301 exam topics: <span data-w="build">{{BUILD_LABS}}</span> builds, <span data-w="incidents">{{INCIDENTS}}</span> troubleshooting incidents and <span data-w="capstones">{{CAPSTONES}}</span> capstones, with <span data-w="lessons">{{LESSONS}}</span> lessons that teach the idea before the commands.</p></section>
 <section><h2>The console</h2><p>Consoles that answer like IOS: <code>?</code> help, Tab completion, the <code>^</code> error marker, passwords, Telnet and SSH, and live ping and traceroute output.</p></section>
 <section><h2>The map</h2><p>Every ping travels the map along the path it really takes. When it fails, the map shows where and says why.</p></section>
 </div>

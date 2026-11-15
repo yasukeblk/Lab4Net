@@ -1,6 +1,26 @@
 # Lab4Net changes
 
-## Fixes, phase 7: lessons and the automation drill
+## Fixes, phase 8: counts from the data, and checked generated files
+
+Nothing changes for learners. "56 lessons" used to be typed by hand in about ten places, and the generated files could go stale without anyone noticing.
+
+- **The page counts for itself.** The page description, the share tags, the landing figures and the share image's facts line now hold tokens:
+  - `{{LABS}}`, `{{BUILD_LABS}}`, `{{INCIDENTS}}`, `{{CAPSTONES}}`, `{{LESSONS}}` and `{{QUIZ}}`;
+  - `{{LAB_LESSONS}}` and `{{TOPIC_LESSONS}}`.
+
+  `tools/build.cjs` fills them from the engine and the data, counted the way the tests count, and refuses an unknown token. With the tokens in, the built `index.html` was byte for byte the same as before.
+- **The share image says when it is stale.** `tools/build-og.cjs` fills the same counts into `tools/og.html` and keeps a fingerprint of the result in `tools/og-source.sha256`. `node tools/build-og.cjs --check` compares it without a browser and fails if `og.png` was built from other counts or another template. `og.png` was rebuilt, so it shows the current workspace.
+- **The docs are checked.** A new Node test, `tests/counts.cjs`, finds every total stated in `README.md`, `docs/DEVELOPING.md` and `docs/LESSON-WRITING.md` (16 today) and checks it against the data. Each pattern needs the word that says what is being counted, so unrelated numbers can't match. A README with "56 lessons" fails with the line number and the right number.
+- **The browser tests read totals from the page.** `deeplinks`, `firstrun`, `lessons` and `quiz` no longer type 66, 77 or 110. The lessons test compares against the frozen slug list.
+- **Stale generated files fail CI.** The quick `labs` check and the deploy's `browser` check both fail if `lessons/` or `sitemap.xml` differ from what `tools/build-site.cjs` writes, or if `og.png` is out of date.
+- **The experiment.** In a scratch copy, a fake 67th lesson was added (with its slug and its place in the lesson order, as any new lesson needs), then the experiment was undone:
+  - every generated count followed on its own: the description, the share tags, the landing page and the web pages all said 67;
+  - the browser tests passed;
+  - the share-image check and `tests/counts.cjs` failed, pointing at `og.png` and at README line 29. That is the intended result: the README is written by hand, so it must be updated by hand, and now it can't be forgotten.
+
+Where this differs from the plan: the plan expected "every test still passes" after adding a lesson. With hand-written docs, the docs check fails until the docs are updated, by design. Every generated count updated on its own.
+
+
 
 New lessons used to land at the end of their group, each lesson had two names in two places, and exam topic 6 (Automation and programmability, 10% of the exam) had nothing to practise.
 

@@ -12,7 +12,8 @@ test('answers are saved by question index; keys 1 to 4 and Enter; filters work',
   await expect(page.locator('.qc__res')).toContainText('Right.');
   expect(await page.evaluate(() => L4N.store.get().quiz.answers)).toEqual({ 0: true });
   await page.keyboard.press('Enter');
-  await expect(page.locator('.quiz__count')).toHaveText('Question 2 of 110');
+  const n = await page.evaluate(() => QUIZ.length);
+  await expect(page.locator('.quiz__count')).toHaveText('Question 2 of ' + n);
   // a wrong answer to question 1
   const wrong = await page.evaluate(() => (QUIZ[1][3] + 1) % 4);
   await page.locator(`.qc__opt[data-a="${wrong}"]`).click();
@@ -25,7 +26,7 @@ test('answers are saved by question index; keys 1 to 4 and Enter; filters work',
   await expect(page.locator('.quiz__count')).toHaveText('Question 1 of 9');
   await page.getByRole('combobox', { name: 'Topic' }).selectOption('all');
   await page.getByRole('switch', { name: 'Only missed or unanswered' }).click();
-  await expect(page.locator('.quiz__count')).toHaveText('Question 1 of 109');
+  await expect(page.locator('.quiz__count')).toHaveText('Question 1 of ' + (n - 1));
   await page.reload();
   expect(await page.evaluate(() => L4N.store.get().quiz.answers)).toEqual({ 0: true, 1: false });
 });
@@ -37,9 +38,10 @@ test('Progress numbers equal the store for a seeded profile', async ({ page }) =
     exam: { history: [{ at: 1731700000000, mode: 'sabotage', base: 'static-routing', cleared: true, passed: 6, total: 6, grade: 'A', secs: 300, minutes: 20 }] } };
   await open(page, '#/progress', { main });
   const stats = page.locator('.stats .stat');
-  await expect(stats.nth(0)).toContainText('3/77');
-  await expect(stats.nth(1)).toContainText('1/66');
-  await expect(stats.nth(2)).toContainText('2/110');
+  const tot = await page.evaluate(() => ({ labs: L4N.data.labs.length, lessons: L4N.data.lessons.length, quiz: QUIZ.length }));
+  await expect(stats.nth(0)).toContainText('3/' + tot.labs);
+  await expect(stats.nth(1)).toContainText('1/' + tot.lessons);
+  await expect(stats.nth(2)).toContainText('2/' + tot.quiz);
   await expect(stats.nth(3)).toContainText('1');
   const grades = page.locator('.grades li');
   await expect(grades.nth(0)).toContainText('S2');

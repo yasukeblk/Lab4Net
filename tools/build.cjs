@@ -4,7 +4,7 @@
 //   node tools/build.cjs --check  exit 1 if the committed index.html is not what src/ builds
 // The output depends only on the files in src/ (and package.json): no timestamps, no random values.
 'use strict';
-const fs = require('fs'), path = require('path'), zlib = require('zlib');
+const fs = require('fs'), path = require('path'), zlib = require('zlib'), vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
 const SRC = path.join(ROOT, 'src');
@@ -59,6 +59,27 @@ function replaceOnce(text, marker, value, required) {
   return text.slice(0, at) + value + text.slice(at + marker.length);
 }
 
+// The totals the page states (the description, the share tags, the landing page), counted from the engine and the data
+// the way the tests count them, so a typed number can never go stale (FIXES-PLAN.md phase 8). {{NAME}} in the template.
+function counts(engine, data) {
+  const ctx = vm.createContext({ console });
+  vm.runInContext(engine + '\n' + data + '\n;globalThis.__c = { LABS, LESSONS, QUIZ };', ctx);
+  const { LABS, LESSONS, QUIZ } = ctx.__c;
+  const n = f => LABS.filter(f).length;
+  return { LABS: LABS.length, BUILD_LABS: n(l => !l.capstone && l.kind !== 'incident'), INCIDENTS: n(l => !l.capstone && l.kind === 'incident'),
+    CAPSTONES: n(l => l.capstone), LESSONS: Object.keys(LESSONS).length, TOPIC_LESSONS: Object.values(LESSONS).filter(L => L.topic).length,
+    LAB_LESSONS: Object.values(LESSONS).filter(L => !L.topic).length, QUIZ: QUIZ.length };
+}
+function fillCounts(text, c, where) {
+  return text.replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => { if (!(k in c)) throw new Error((where || 'template') + ' has an unknown count ' + m); return String(c[k]); });
+}
+// The counts from src/ without building the page (for tools/build-og.cjs and tests/counts.cjs).
+function srcCounts() {
+  const manifest = JSON.parse(fs.readFileSync(path.join(SRC, 'manifest.json'), 'utf8'));
+  const read = rel => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  return counts(manifest.engine.map(read).join(''), manifest.js.filter(f => f.startsWith('data/')).map(read).join(''));
+}
+
 function build() {
   const manifest = JSON.parse(read('manifest.json'));
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
@@ -77,7 +98,8 @@ function build() {
   const data = jsFiles.filter(([f]) => f.startsWith('data/')).map(([, t]) => t).join('');
   const app = jsFiles.filter(([f]) => !f.startsWith('data/')).map(([, t]) => t).join('');
 
-  let html = template;
+  // the totals first, in the template only, before any code goes in
+  let html = fillCounts(template, counts(engine, data));
   // Simple values first, so a value can never be mistaken for a marker.
   html = html.split('/*@version*/').join(String(pkg.version || ''));
   html = html.split('/*@date*/').join(String((pkg.lab4net && pkg.lab4net.date) || ''));
@@ -110,7 +132,7 @@ function table(sizes, over) {
     (over.includes(k) ? '  OVER BUDGET' : '')).join('\n');
 }
 
-module.exports = { build, BUDGET, stripJs, stripCss };
+module.exports = { build, BUDGET, stripJs, stripCss, counts, fillCounts, srcCounts };
 
 if (require.main === module) {
   const check = process.argv.includes('--check');

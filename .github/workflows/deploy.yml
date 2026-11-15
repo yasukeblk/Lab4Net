@@ -33,6 +33,8 @@ jobs:
             echo "::error::lessons/ or sitemap.xml is out of date. Run node tools/build-site.cjs and commit the result."
             exit 1
           fi
+      - name: The share image is up to date
+        run: node tools/build-og.cjs --check
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox webkit
       - name: Browser tests

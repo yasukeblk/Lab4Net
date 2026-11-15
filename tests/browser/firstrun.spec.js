@@ -16,8 +16,9 @@ test('a browser with the old keys shows the same finished labs, grades and read 
   await page.goto('/');
   await expect(page.locator('#landing')).toBeHidden();          // they had seen the old title screen
   await expect(page.getByText('Your progress was carried over: 3 labs and 1 lesson.')).toBeVisible();
-  await expect(page.locator('.sidebar [data-nav="labs"] .sb__count')).toHaveText('3/77');
-  await expect(page.locator('.sidebar [data-nav="lessons"] .sb__count')).toHaveText('1/66');
+  const tot = await page.evaluate(() => ({ labs: L4N.data.labs.length, lessons: L4N.data.lessons.length, quiz: QUIZ.length }));
+  await expect(page.locator('.sidebar [data-nav="labs"] .sb__count')).toHaveText('3/' + tot.labs);
+  await expect(page.locator('.sidebar [data-nav="lessons"] .sb__count')).toHaveText('1/' + tot.lessons);
   // the Labs list shows them done, with their grades
   await page.goto('/#/labs');
   const row = page.locator('.row[data-key="static-routing"]');

@@ -4,11 +4,24 @@
 //   2. puts that picture into tools/og.html with the mark, the wordmark and the headline, and photographs that.
 // Needs the test-only dev dependency @playwright/test and its Chromium (npx playwright install chromium).
 //   node tools/build-og.cjs
+//   node tools/build-og.cjs --check   exit 1 if og.png is out of date with tools/og.html and the counts (no browser)
+// The totals in tools/og.html are {{TOKENS}}, filled from src/ like the page's. The filled template's SHA-256 is kept in
+// tools/og-source.sha256 next to og.png, so --check can tell whether og.png still shows the right numbers.
 'use strict';
-const fs = require('fs'), path = require('path');
-const { chromium } = require('@playwright/test');
+const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const ROOT = path.join(__dirname, '..');
 const fileUrl = p => 'file:///' + path.join(ROOT, p).replace(/\\/g, '/').replace(/^\/+/, '');
+const { fillCounts, srcCounts } = require('./build.cjs');
+const SUM = path.join(__dirname, 'og-source.sha256');
+const filled = fillCounts(fs.readFileSync(path.join(__dirname, 'og.html'), 'utf8'), srcCounts(), 'tools/og.html');
+const sum = crypto.createHash('sha256').update(filled, 'utf8').digest('hex');
+if (process.argv.includes('--check')) {
+  const want = fs.existsSync(SUM) ? fs.readFileSync(SUM, 'utf8').trim() : '';
+  if (want !== sum) { console.error('og.png is out of date with tools/og.html or the counts. Run node tools/build-og.cjs and commit og.png and tools/og-source.sha256.'); process.exit(1); }
+  console.log('og.png is up to date.');
+  process.exit(0);
+}
+const { chromium } = require('@playwright/test');
 
 (async () => {
   const browser = await chromium.launch();
@@ -31,12 +44,13 @@ const fileUrl = p => 'file:///' + path.join(ROOT, p).replace(/\\/g, '/').replace
   // 2. the share card
   const fonts = JSON.parse(fs.readFileSync(path.join(ROOT, 'src/manifest.json'), 'utf8')).fonts.map(f =>
     '@font-face{font-family:"' + f.family + '";font-weight:' + f.weight + ';src:url(data:font/woff2;base64,' + fs.readFileSync(path.join(ROOT, 'src', f.file)).toString('base64') + ') format("woff2")}').join('\n');
-  const html = fs.readFileSync(path.join(__dirname, 'og.html'), 'utf8').replace('/*FONTS*/', fonts);
+  const html = filled.replace('/*FONTS*/', fonts);
   const card = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
   await card.setContent(html);
   await card.evaluate(src => new Promise(res => { const i = document.getElementById('shot'); i.onload = res; i.src = src; }), 'data:image/png;base64,' + shot.toString('base64'));
   await card.evaluate(() => document.fonts.ready);
   await card.screenshot({ path: path.join(ROOT, 'og.png'), type: 'png' });
   await browser.close();
-  console.log('wrote og.png');
+  fs.writeFileSync(SUM, sum + '\n');
+  console.log('wrote og.png and tools/og-source.sha256');
 })().catch(e => { console.error(e); process.exit(1); });
