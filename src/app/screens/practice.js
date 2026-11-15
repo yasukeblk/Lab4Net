@@ -21,6 +21,9 @@
         card('Quiz', q.total + ' theory questions.', q.correct + ' of ' + q.total + ' correct · ' + review + ' to review', 'list-checks',
           [ui.button({ label: 'Start', kind: 'primary', aria: 'Start the quiz', onClick: () => { qMissed = false; qPos = 0; L4N.shell.go('#/practice/quiz'); } }),
             review ? ui.button({ label: 'Review ' + review, kind: 'secondary', aria: 'Review ' + review + ' missed or unanswered questions', onClick: () => { qMissed = true; qPos = 0; L4N.shell.go('#/practice/quiz'); } }) : null]),
+        card('Automation', 'Read JSON and REST, and know what Ansible and Terraform do.', (() => { const a = S().automation.answers, right = Object.values(a).filter(v => v === true).length;
+          return Object.keys(a).length ? right + ' of ' + AUTOMATION.length + ' right' : 'Not tried yet'; })(), 'labs',
+          [ui.button({ label: 'Start', kind: 'primary', href: '#/practice/automation', aria: 'Start the automation drill' })]),
         card('Subnetting', 'Find the network, broadcast and host range.', sn.total ? sn.right + ' of ' + sn.total + ' fields right on the first try' : 'Not tried yet', 'practice',
           [ui.button({ label: 'Start', kind: 'primary', href: '#/practice/subnetting', aria: 'Start the subnetting drill' })])),
       el('section', { class: 'section', 'aria-labelledby': 'pr-last' }, el('h2', { class: 'section__title', id: 'pr-last', text: 'Last five exams' }), L4N.examHistory(ex.slice(-5)))));
@@ -73,7 +76,7 @@
     ctx.quizKeys = e => { if (/^[1-4]$/.test(e.key) && !qChecked) { const b = box.querySelectorAll('.qc__opt')[+e.key - 1]; if (b) b.click(); return true; } if (e.key === 'Enter') { qChecked ? next() : check(); return true; } return false; };
     draw();
   }
-  const inQuiz = () => L4N.route && L4N.route.screen === 'quiz';
+  const inQuiz = () => L4N.route && (L4N.route.screen === 'quiz' || L4N.route.screen === 'automation');
   L4N.keys.add({ keys: '1', label: 'Pick an answer (1 to 4)', group: 'Quiz', when: inQuiz, run: e => L4N.ctx.quizKeys(e) || false });
   for (const k of ['2', '3', '4']) L4N.keys.add({ keys: k, label: '', hidden: true, when: inQuiz, run: e => L4N.ctx.quizKeys(e) || false });
   L4N.keys.add({ keys: 'enter', label: 'Check, then next', group: 'Quiz and subnetting', when: () => inQuiz() && !(document.activeElement && document.activeElement.tagName === 'BUTTON'), run: e => L4N.ctx.quizKeys(e) || false });
@@ -111,9 +114,49 @@
     draw();
   }
 
+  // ---------------------------------------------------------------- automation drill (exam topic 6)
+  // Like the quiz: read the JSON, the request or the reply, pick one of four, see why. Answers kept by item index.
+  const KIND = { json: 'Reading JSON', rest: 'REST APIs', config: 'Configuration management' };
+  let aPos = 0, aPick = null, aChecked = false;
+  const aAnswers = () => S().automation.answers;
+  function automation(root, r, ctx) {
+    const box = el('div', { class: 'quiz' }), score = el('p', { class: 'muted num' });
+    root.append(el('div', { class: 'page' }, el('h1', { class: 'page__title', 'data-heading': '', tabindex: '-1', text: 'Automation' }),
+      el('p', { class: 'page__lead', text: 'Exam topic 6: read JSON, REST requests and replies, and what configuration management tools do.' }), score, box));
+    function draw() {
+      const n = AUTOMATION.length, i = aPos % n, [kind, obj, shown, text, opts, ok, why] = AUTOMATION[i], a = aAnswers();
+      score.textContent = Object.values(a).filter(v => v === true).length + ' of ' + n + ' right';
+      clear(box);
+      // the options rotate with the item, so the right one is not always in the same place
+      const order = [0, 1, 2, 3].map(k => (k + i) % 4);
+      const btns = order.map((j, k) => el('button', { class: 'qc__opt', type: 'button', 'data-a': String(j), 'aria-pressed': String(aPick === j), onClick: () => { if (!aChecked) { aPick = j; draw(); } } },
+        el('span', { class: 'qc__key', text: String(k + 1) }), el('span', { text: opts[j] })));
+      if (aChecked) for (const b of btns) { const j = +b.dataset.a; b.classList.toggle('is-right', j === ok); b.classList.toggle('is-wrong', j === aPick && j !== ok); }
+      box.append(el('p', { class: 'quiz__count num muted', text: 'Item ' + (i + 1) + ' of ' + n }),
+        el('p', { class: 'label-caps', text: KIND[kind] + ' · CCNA ' + obj + (a[i] === true ? ' · answered right before' : a[i] === false ? ' · missed before' : '') }),
+        shown ? el('pre', { class: 'drill__shown', text: shown }) : null,
+        el('p', { class: 'quiz__q', id: 'auto-q', text }), el('div', { class: 'qc__opts', role: 'group', 'aria-labelledby': 'auto-q' }, btns));
+      const res = el('div', { class: 'qc__res', 'aria-live': 'polite' });
+      if (aChecked) res.append(el('p', { class: aPick === ok ? 'ok' : 'bad' }, icon(aPick === ok ? 'check-circle' : 'x-circle'), el('b', { text: aPick === ok ? 'Right.' : 'Not quite.' })), el('p', { class: 'qc__why', text: why }));
+      box.append(res, el('div', { class: 'hstack' }, aChecked ? ui.button({ label: 'Next', kind: 'primary', kbd: 'enter', onClick: next }) : ui.button({ label: 'Check', kind: 'primary', kbd: 'enter', disabled: aPick == null, onClick: check })));
+    }
+    function check() {
+      if (aPick == null) return;
+      const i = aPos % AUTOMATION.length;
+      aChecked = true;
+      L4N.store.set(s => ({ automation: { answers: Object.assign({}, s.automation.answers, { [i]: aPick === AUTOMATION[i][5] }) } }));
+      draw();
+    }
+    function next() { aPick = null; aChecked = false; aPos = (aPos + 1) % AUTOMATION.length; draw(); }
+    ctx.quizKeys = e => { if (/^[1-4]$/.test(e.key) && !aChecked) { const b = box.querySelectorAll('.qc__opt')[+e.key - 1]; if (b) b.click(); return true; } if (e.key === 'Enter') { aChecked ? next() : check(); return true; } return false; };
+    draw();
+  }
+
   L4N.commands.add(() => [{ id: 'pr-quiz', group: 'Practice', title: 'Start quiz', icon: 'list-checks', run: () => L4N.shell.go('#/practice/quiz') },
+    { id: 'pr-auto', group: 'Practice', title: 'Automation drill', subtitle: 'JSON, REST APIs, Ansible and Terraform', icon: 'labs', run: () => L4N.shell.go('#/practice/automation') },
     { id: 'pr-subnet', group: 'Practice', title: 'Subnetting drill', icon: 'practice', run: () => L4N.shell.go('#/practice/subnetting') }]);
   L4N.screens.register('practice', { title: () => 'Practice', mount: hub });
   L4N.screens.register('quiz', { nav: 'practice', title: () => 'Quiz', crumbs: () => [{ label: 'Practice', href: '#/practice' }, { label: 'Quiz' }], mount: quiz });
+  L4N.screens.register('automation', { nav: 'practice', title: () => 'Automation', crumbs: () => [{ label: 'Practice', href: '#/practice' }, { label: 'Automation' }], mount: automation });
   L4N.screens.register('subnet', { nav: 'practice', title: () => 'Subnetting', crumbs: () => [{ label: 'Practice', href: '#/practice' }, { label: 'Subnetting' }], mount: subnet });
 })(window.L4N = window.L4N || {});

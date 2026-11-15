@@ -69,6 +69,7 @@
       labs: ext.labs ? ext.labs(d.labs) : {},
       lessons: ext.lessons ? ext.lessons(d.lessons) : {},
       quiz: ext.quiz ? ext.quiz(d.quiz) : { rev: 2, answers: {} },
+      automation: ext.automation ? ext.automation(d.automation) : { answers: {} },
       subnet: ext.subnet ? ext.subnet(d.subnet) : { right: 0, total: 0 },
       exam: ext.exam ? ext.exam(d.exam) : { current: null, history: [] },
       ui: ui(d.ui),
@@ -147,6 +148,13 @@
     for (const i of Object.keys(q.answers)) { const n = +i; if (Number.isInteger(n) && n >= 0 && n < known.quizCount && typeof q.answers[i] === 'boolean') out.answers[n] = q.answers[i]; }
     return out;
   }
+  // automation drill: {answers: {index: bool}}, kept by item index like the quiz (FIXES-PLAN.md phase 7)
+  function automation(a) {
+    const out = { answers: {} };
+    if (!isObj(a) || !isObj(a.answers)) return out;
+    for (const i of Object.keys(a.answers)) { const n = +i; if (Number.isInteger(n) && n >= 0 && n < known.automationCount && typeof a.answers[i] === 'boolean') out.answers[n] = a.answers[i]; }
+    return out;
+  }
   function subnet(s) {
     if (!isObj(s)) return { right: 0, total: 0 };
     const total = int(s.total, 0, 1e7, 0), right = int(s.right, 0, total, 0);
@@ -194,5 +202,6 @@
 
   known.lessonQuiz = {};
   known.quizCount = 0;
-  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs, lessons, quiz, subnet, migrated }, lessons, quiz, subnet, migrated, stripTags, sandbox, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
+  known.automationCount = 0;
+  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs, lessons, quiz, automation, subnet, migrated }, lessons, quiz, automation, subnet, migrated, stripTags, sandbox, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
 })(window.L4N = window.L4N || {});

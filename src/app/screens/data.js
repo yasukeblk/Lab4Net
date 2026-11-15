@@ -10,7 +10,7 @@
 
   function current() {
     const s = L4N.store.get(), main = { v: 2 };
-    for (const k of ['settings', 'labs', 'lessons', 'quiz', 'subnet', 'exam', 'ui', 'migrated']) main[k] = s[k];
+    for (const k of ['settings', 'labs', 'lessons', 'quiz', 'automation', 'subnet', 'exam', 'ui', 'migrated']) main[k] = s[k];
     const work = {};
     const all = L4N.work.all();
     for (const k of Object.keys(all)) if (!all[k].corrupt) work[k] = { journal: all[k].journal, tasks: all[k].tasks };

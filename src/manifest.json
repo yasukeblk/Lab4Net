@@ -50,6 +50,7 @@
   ],
   "js": [
     "data/quiz.js",
+    "data/automation.js",
     "data/campaign.js",
     "data/lessons.js",
     "data/lesson-order.js",

@@ -13,6 +13,7 @@
     [/^practice\/exam\/run$/, 'examrun'],
     [/^practice\/quiz$/, 'quiz'],
     [/^practice\/subnetting$/, 'subnet'],
+    [/^practice\/automation$/, 'automation'],
     [/^sandbox$/, 'sandbox'],
     [/^progress$/, 'progress'],
     [/^settings$/, 'settings'],
@@ -38,7 +39,7 @@
   }
 
   const PATHS = { home: '', labs: 'labs', lab: 'labs/', lessons: 'lessons', lesson: 'lessons/', practice: 'practice', exam: 'practice/exam', examrun: 'practice/exam/run',
-    quiz: 'practice/quiz', subnet: 'practice/subnetting', sandbox: 'sandbox', progress: 'progress', settings: 'settings', gallery: 'dev/components' };
+    quiz: 'practice/quiz', subnet: 'practice/subnetting', automation: 'practice/automation', sandbox: 'sandbox', progress: 'progress', settings: 'settings', gallery: 'dev/components' };
   function href(screen, slug) {
     const p = PATHS[screen];
     if (p == null) return '#/';

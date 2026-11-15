@@ -1,6 +1,41 @@
 # Lab4Net changes
 
-## Fixes, phase 6: Home, Progress and Practice
+## Fixes, phase 7: lessons and the automation drill
+
+New lessons used to land at the end of their group, each lesson had two names in two places, and exam topic 6 (Automation and programmability, 10% of the exam) had nothing to practise.
+
+- **Lessons in teaching order.** A new file, `src/data/lesson-order.js`, lists each exam topic's lessons in the order they are best learned. The Lessons list, Previous and Next in the reader, the lesson web pages and their Previous and Next all follow it. Network fundamentals now goes:
+  - the OSI and TCP/IP models;
+  - devices, cables, and TCP and UDP;
+  - binary, IPv4 addressing, subnetting and VLSM;
+  - how switches forward and ARP;
+  - device set-up, VLANs and DHCP;
+  - IPv6;
+  - wireless, virtualisation, and finding a fault.
+
+  Each other topic goes from ideas to configuration: trunks before spanning tree, static routes before OSPF, security ideas before ACLs. A new Node test, `tests/lessons-order.cjs`, checks that every lesson is listed exactly once, that every listed slug is a real lesson, and that each one sits in the group of its first exam objective.
+- **One heading everywhere.** The app now does what the web pages do: the lesson's title is the heading ("Static routing") and its name is the line under it ("How to tell a router about distant networks"). Lists, the palette and the Progress links show the title. The palette searches both. Slugs and web addresses didn't change.
+- **An automation drill.** Practice has a fourth card, Automation, with 42 items made from `src/data/automation.js`:
+  - 14 on reading JSON (6.7): what a key holds, which document is valid, types, arrays;
+  - 15 on REST APIs (6.5): verbs and CRUD, status codes, headers, statelessness, tokens;
+  - 13 on configuration management (6.6): Ansible (agentless, push, YAML playbooks, inventory), Terraform (declarative, state file, HCL), Puppet and Chef (agent and pull), idempotence, drift, version control.
+
+  It works like the quiz: the snippet in a code panel, four options (rotated per item, so the answer isn't always in the same place), Check, a "why" and Next, with the 1–4 and Enter keys. The score is kept under a new field, `automation`, in `lab4net:v2`:
+  - it's validated like the quiz answers;
+  - it's included in backups and merged on import;
+  - the drill is locked while an exam runs, like the other practice.
+
+  A profile saved before the drill existed loads with an empty score.
+- **Exam topic 6 counts the drill.** On Progress, topic 6 shows "*n*/42 drill", where it showed "0/0 labs", and its bar includes the drill.
+- **Tests.**
+  - `tests/validate.cjs` has five new checks: good answers kept, out-of-range and non-boolean ones dropped, an array refused, and a profile without the field loading.
+  - A new browser test, `automation.spec.js`, answers one item of each kind right and one wrong, then checks the score, the saved answers, a reload, the Practice card, Progress topic 6 and the keyboard.
+  - `lessons.spec.js` and `quiz.spec.js` now expect the title as the heading. The reader test also checks the name line under it.
+- **Found on the way.**
+  - The new lesson sorting first reused a helper name already taken in the same function. That's a syntax error that would have stopped the app loading; the Node tests caught it before any browser run.
+  - The drill's score wasn't saved at first, because the main save and the backup each keep their own list of fields to store. The browser test caught it on reload, and both lists now include the drill.
+
+
 
 Home and Progress repeated each other, "20%" next to a bar read as "20% done", Practice was three cards and empty space, and the quiz counter "1/110" looked like a score.
 

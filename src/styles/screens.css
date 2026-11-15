@@ -61,7 +61,8 @@
 @media (max-width: 767px) { .stats { grid-template-columns: 1fr; } .topic .row__meta { min-width: 0; } .topic__bar { width: 90px; } .filters .search { width: 100%; } }
 
 /* ---- practice, exam, quiz, subnetting, progress (reusing cards, rows, bars and the quick-check styles) ---- */
-.pcards { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+.pcards { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); }
+.drill__shown { margin: 0; padding: var(--space-3); border-radius: var(--radius-3); background: var(--bg-console); color: var(--text-console); font-family: var(--font-mono); font-size: var(--fs-13); line-height: var(--lh-13); overflow-x: auto; white-space: pre; }
 .pcard { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-5); color: var(--text); }
 .pcard__actions { margin-top: auto; padding-top: var(--space-2); flex-wrap: wrap; }
 .pcard .section__title { margin: 0; }

@@ -35,6 +35,11 @@ eq(V.lessons({ 'static-routing': { read: true, quiz: { 0: true, 1: false, 2: X, 
 eq(V.lessons({ [X]: { read: true }, 'static-routing': X }), {});
 eq(V.quiz({ answers: { 0: true, 5: false, 109: true, 110: true, a: true, 3: X } }), { rev: 2, answers: { 0: true, 5: false, 109: true } });
 eq(V.quiz(X), { rev: 2, answers: {} });
+// the automation drill (phase 7): answers by item index, booleans only, inside the item count
+eq(V.automation({ answers: { 0: true, 7: false, 41: true, 42: true, '-1': true, a: true, 3: X } }), { answers: { 0: true, 7: false, 41: true } });
+eq(V.automation(X), { answers: {} }); eq(V.automation({ answers: [true] }), { answers: {} }, 'an array is not the stored shape');
+eq(V.main({ v: 2 }).automation, { answers: {} }, 'a profile saved before the drill existed loads with an empty drill score');
+eq(V.main({ v: 2, automation: { answers: { 1: true } } }).automation, { answers: { 1: true } });
 eq(V.subnet({ right: 10, total: 12 }), { right: 10, total: 12 });
 eq(V.subnet({ right: 13, total: 12 }), { right: 0, total: 12 }, 'more right than asked is dropped');
 eq(V.subnet({ right: X, total: -1 }), { right: 0, total: 0 });
