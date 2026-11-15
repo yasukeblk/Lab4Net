@@ -23,6 +23,7 @@ The last phase: a phone and accessibility pass on every screen, the remaining te
   - The references to `docs/REVIEW-FIXES.md` that no longer apply (the old browser tests) are gone from the developer guide. The file itself and the history entries below stay as a record. Comments in the engine tests still mention it, because those tests are not edited.
 - **Demo.** A new `docs/demo.gif` from the new app: Incident 07, where PC1's ping fails, R3's OSPF networks are moved from area 1 to area 0, the neighbours come up, the ping works and the grade is S. `tools/build-demo.cjs` records it with Playwright and ffmpeg, so it can be made again.
 - **Size.** `index.html` is 1,524 KB of the 1,550 KB budget, 498 KB gzipped of 570.
+- **Baselines.** The 102 screenshot baselines (17 screens, both themes, 1366, 1920 and 390 wide) were made by GitHub Actions on this branch and are committed in `tests/browser/__screenshots__/`. From now on CI compares against them.
 
 Where the build differs from the plan:
 
