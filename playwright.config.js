@@ -15,7 +15,8 @@ module.exports = defineConfig({
   // the "Update screenshot baselines" workflow makes them (it passes --update-snapshots).
   updateSnapshots: 'none',
   snapshotPathTemplate: '{testDir}/__screenshots__/{testFileName}/{arg}{ext}',
-  // A changed digit in a count alters 3 to 9 pixels at the default colour threshold, so allow at most 2.
+  // Measured on the CI machines: a changed digit in a count alters 5 to 7 pixels at the default colour threshold,
+  // and unchanged screens match to the pixel. So allow at most 2.
   // Parts that change on purpose (the exam clock) are masked in visual.spec.js.
   expect: { toHaveScreenshot: { maxDiffPixels: 2, animations: 'disabled' } },
   use: {

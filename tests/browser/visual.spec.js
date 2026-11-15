@@ -32,9 +32,8 @@ const STATES = [
   { name: 'exam-running', route: '#/practice/exam', act: async page => { await page.evaluate(() => { L4N.exam.begin('sabotage', 20, { seed: 'visual' }); L4N.shell.go('#/practice/exam/run'); }); await page.locator('#gradeBtn').waitFor(); } },
   { name: 'progress-seeded', route: '#/progress', main: { v: 2, ui: { landingSeen: true }, labs: { 'static-routing': { done: true, grade: 'S', doneAt: 1731600000000 }, 'basic-device-setup': { done: true, grade: 'B', doneAt: 1731500000000 } }, lessons: { 'static-routing': { read: true, readAt: 1731650000000, quiz: {} } }, quiz: { answers: { 0: true, 1: true } }, exam: { history: [{ at: 1731700000000, mode: 'sabotage', base: 'static-routing', cleared: true, passed: 6, total: 6, grade: 'A', secs: 300, minutes: 20 }] } } },
   { name: 'sandbox', route: '#/sandbox', act: async page => { await page.locator('.build__goal').nth(4).getByRole('button', { name: 'Load' }).click(); await page.locator('#ws-map .node').first().waitFor({ state: 'attached' }); } },
-  // Opened directly, not by clicking the sidebar search, which would leave a focus ring that renders differently
-  // between runs. The blurred backdrop also varies by a pixel or so, so this state keeps the default colour threshold.
-  { name: 'palette', route: '#/', cmp: { threshold: 0.2, maxDiffPixels: 2 }, act: async page => { await page.evaluate(() => L4N.palette.open()); await page.locator('dialog[open]').waitFor(); } }
+  // Opened directly, not by clicking the sidebar search, which would leave a focus ring that renders differently between runs.
+  { name: 'palette', route: '#/', act: async page => { await page.evaluate(() => L4N.palette.open()); await page.locator('dialog[open]').waitFor(); } }
 ];
 
 // The lesson web page follows prefers-color-scheme instead of the app's theme.
@@ -63,7 +62,7 @@ for (const theme of ['dark', 'light']) {
         await page.waitForTimeout(150);
         if (s.full) await fitScreen(page, w, h);
         const name = `${s.name}-${theme}-${w}x${h}.png`;
-        if (COMPARE) await expect(page).toHaveScreenshot(name, { fullPage: !!s.full, mask: MASK(page), ...s.cmp });
+        if (COMPARE) await expect(page).toHaveScreenshot(name, { fullPage: !!s.full, mask: MASK(page) });
         else await page.screenshot({ path: path.join(__dirname, '..', '..', 'test-results', 'shots', name), fullPage: !!s.full });
       });
     }

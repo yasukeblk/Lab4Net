@@ -4,12 +4,19 @@
 
 Nothing changes for learners. The tests now catch the kinds of mistakes that slipped through before.
 
-- **Screenshots are strict.** Before, a screenshot passed if up to 1% of its pixels differed. Changing "56 lessons" to "66 lessons" on almost every screen passed all 102 screenshots. A measurement showed why: at the default colour threshold, a changed digit alters only 3 to 9 pixels. Now:
+- **Screenshots are strict.** Before, a screenshot passed if up to 1% of its pixels differed. Changing "56 lessons" to "66 lessons" on almost every screen passed all 102 screenshots. Measured on the CI machines:
+  - a changed digit in a count alters 5 to 7 pixels at the default colour threshold;
+  - screens that didn't change match to the pixel, run after run.
+
+  Now:
   - at most 2 pixels may differ;
   - the exam clock is masked, the one thing that changes on purpose between runs;
   - a screenshot with no baseline fails in CI. Before, it was written fresh and passed.
 
-  The "Update screenshot baselines" workflow refreshed 69 baselines with the new settings. They are the screens that show a lesson count (the desktop sidebar, Home, Progress, the landing page and the component gallery) and the exam screens, where the clock is now masked.
+  The proof: a scratch build that showed the lesson total in the sidebar as 56 failed 50 screenshots (every one with the desktop sidebar), along with `counts.spec.js`. Every other screenshot still matched.
+- **"Full" screenshots show the whole screen.** The app scrolls inside its main panel, not the page, so the gallery's "full page" screenshot stopped at the first screenful. A changed number lower down went unseen: a scratch build that changed the gallery's lesson bar passed every screenshot. Full screenshots now grow the window until nothing scrolls. The gallery is 2,836 pixels tall at desktop width and 6,594 on a phone.
+- **The palette screenshot is steady.** The test opened the palette by clicking the sidebar search box, which left a focus ring whose corners rendered differently between runs. It now opens the palette directly.
+- **Baselines refreshed.** The "Update screenshot baselines" workflow refreshed the baselines with the new settings. The first pass updated 69: the screens that show a lesson count (the desktop sidebar, Home, Progress, the landing page and the gallery) and the exam screens, where the clock is now masked. A second pass after the gallery and palette fixes updated those two.
 - **No automatic retries.** CI used to rerun a failed browser test once, so a flaky test passed quietly. Now a failure is a failure.
 - **Totals are checked against the data.** A new browser test, `counts.spec.js`, reads the number of labs (and of builds, incidents and capstones), lessons and quiz questions from the page's own data. It checks every place that shows them: the sidebar, Home, Progress, Practice, the quiz, the lesson groups, the landing page, and the page description and share tags (which are still typed by hand until phase 8). It has no numbers typed in. A scratch build with "56 lessons" back in the page description fails it with a clear message.
 - **The lesson checker rejects Markdown.** `tests/lessons.cjs` now fails a lesson containing a Markdown link `[text](url)`, bold `**` or a backtick, anywhere in its text, terms, exam notes, mistakes, quiz or story. The message names the field and says what to use instead. A new test, `tests/lessons-markdown.cjs`, proves it. It rebuilds the DNS lesson as it was first pasted (with the two links), adds bold and a backtick, and checks for exactly those four errors. It also checks that a clean copy passes. None of the 66 lessons had any of these.
@@ -17,8 +24,8 @@ Nothing changes for learners. The tests now catch the kinds of mistakes that sli
 
 Where this differs from the plan:
 
-- The plan suggested starting from `maxDiffPixels: 40`. The measurement showed a changed digit alters only 3 to 9 pixels, so 40 would still let it through. The limit is 2.
-- The plan didn't mention retries or the "write missing baselines" setting. Both hid failures, so both are gone.
+- The plan suggested starting from `maxDiffPixels: 40`. A changed digit alters only 5 to 7 pixels, so 40 would still let it through. The limit is 2.
+- The plan didn't mention retries, the "write missing baselines" setting, or full screenshots stopping at the first screenful. All three hid failures, so all three are fixed.
 
 
 
