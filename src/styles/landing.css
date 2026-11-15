@@ -18,20 +18,28 @@ html[data-landing="show"] body { overflow: auto; }
 .ls-bar { fill: var(--bg-app); }
 .ls-line { stroke: var(--border); stroke-width: 1; }
 .ls-acc { fill: var(--accent-solid); }
-.ls-text { fill: var(--text-2); }
-.ls-mute { fill: var(--border); }
+.ls-t { font-family: var(--font-ui); font-size: 12px; font-weight: 500; fill: var(--text); }
+.ls-m { font-family: var(--font-mono); font-size: 12px; white-space: pre; }
+.ls-b { font-weight: 600; fill: var(--text); }
+.ls-t2 { fill: var(--text-2); }
+.ls-t3 { fill: var(--text-3); }
+.ls-on { font-weight: 600; fill: var(--accent-on); }
 .ls-box { fill: none; stroke: var(--border-control); stroke-width: 1.2; }
 .ls-done { fill: var(--accent-solid); }
+.ls-tick { fill: none; stroke: var(--accent-on); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .ls-panel { fill: var(--bg-surface); stroke: var(--border-subtle); }
-.ls-code { fill: var(--text-3); }
 .ls-link { stroke: var(--text-3); stroke-width: 1.5; }
 .ls-hi { stroke: var(--accent); stroke-width: 2; }
 .ls-node { fill: var(--bg-raised); stroke: var(--text-2); stroke-width: 1.5; }
-.ls-sel { stroke: var(--accent); }
+.ls-sel { stroke: var(--accent); stroke-width: 2; }
+.ls-stand { fill: var(--text-2); }
 .ls-pkt { fill: var(--accent); }
+.ls-okfill { fill: var(--ok); }
+.ls-okt { fill: var(--ok); }
 .ls-console { fill: var(--bg-console); }
-.ls-ctext { fill: var(--text-console-dim); }
-.ls-ok { fill: var(--ok); }
+.ls-c { fill: var(--text-console); }
+.ls-cd { fill: var(--text-console-dim); }
+.ls-caret { fill: var(--text-console); }
 .landing__facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); color: var(--text-2); font-size: var(--fs-14); }
 .landing__facts li { display: flex; align-items: center; gap: var(--space-2); }
 .landing__facts li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }

@@ -11,7 +11,7 @@
   function createConsole(ws) {
     const st = ws.st;
     if (!st.devs.length) {
-      const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' }, ui.empty({ icon: 'labs', what: 'No devices yet.', todo: 'Add a device from the Build panel and its console opens here.' }));
+      const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' }, ui.empty({ icon: 'labs', what: 'No console yet.', todo: 'Each device you add gets a console here.' }));
       const no = () => {};
       return { el: root, input: el('input'), out: root, run: no, select: no, stop: no, showResult: no, refreshPrompt: no, refreshTabs: no, renderAll: no, clearScreen: no, focus: no, playing: () => false, setMaximised: no, destroy: no };
     }

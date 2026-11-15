@@ -678,6 +678,7 @@ button.cmd:hover { background: var(--bg-hover); }
 .build__goal { display: flex; gap: var(--space-2); align-items: flex-start; justify-content: space-between; }
 .zoom .btn--icon { width: 24px; height: 24px; }
 .map__body { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--bg-surface); }
+.map__empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .topo { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-select: none; }
 .link__line { stroke: var(--text-3); stroke-width: 1.5; fill: none; transition: stroke var(--dur-3) var(--ease); }
 .link.is-down .link__line { stroke: var(--bad); stroke-dasharray: 5 4; opacity: .7; }
@@ -853,7 +854,6 @@ button.cmd:hover { background: var(--bg-hover); }
 .reader__pn a { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-14); max-width: 48%; }
 .reader__pn a.is-next { text-align: right; margin-left: auto; }
 .reader__pn small { display: block; font-size: var(--fs-12); color: var(--text-2); }
-.detail__excerpt { max-height: 9.5em; overflow: hidden; }
 .banner { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2) var(--space-3); border: var(--hairline) solid var(--border); border-left: 2px solid var(--accent); border-radius: var(--radius-2); font-size: var(--fs-13); }
 .banner > .icon { color: var(--accent); }
 .banner > span { flex: 1; min-width: 140px; }
@@ -957,20 +957,28 @@ html[data-landing="show"] body { overflow: auto; }
 .ls-bar { fill: var(--bg-app); }
 .ls-line { stroke: var(--border); stroke-width: 1; }
 .ls-acc { fill: var(--accent-solid); }
-.ls-text { fill: var(--text-2); }
-.ls-mute { fill: var(--border); }
+.ls-t { font-family: var(--font-ui); font-size: 12px; font-weight: 500; fill: var(--text); }
+.ls-m { font-family: var(--font-mono); font-size: 12px; white-space: pre; }
+.ls-b { font-weight: 600; fill: var(--text); }
+.ls-t2 { fill: var(--text-2); }
+.ls-t3 { fill: var(--text-3); }
+.ls-on { font-weight: 600; fill: var(--accent-on); }
 .ls-box { fill: none; stroke: var(--border-control); stroke-width: 1.2; }
 .ls-done { fill: var(--accent-solid); }
+.ls-tick { fill: none; stroke: var(--accent-on); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .ls-panel { fill: var(--bg-surface); stroke: var(--border-subtle); }
-.ls-code { fill: var(--text-3); }
 .ls-link { stroke: var(--text-3); stroke-width: 1.5; }
 .ls-hi { stroke: var(--accent); stroke-width: 2; }
 .ls-node { fill: var(--bg-raised); stroke: var(--text-2); stroke-width: 1.5; }
-.ls-sel { stroke: var(--accent); }
+.ls-sel { stroke: var(--accent); stroke-width: 2; }
+.ls-stand { fill: var(--text-2); }
 .ls-pkt { fill: var(--accent); }
+.ls-okfill { fill: var(--ok); }
+.ls-okt { fill: var(--ok); }
 .ls-console { fill: var(--bg-console); }
-.ls-ctext { fill: var(--text-console-dim); }
-.ls-ok { fill: var(--ok); }
+.ls-c { fill: var(--text-console); }
+.ls-cd { fill: var(--text-console-dim); }
+.ls-caret { fill: var(--text-console); }
 .landing__facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); color: var(--text-2); font-size: var(--fs-14); }
 .landing__facts li { display: flex; align-items: center; gap: var(--space-2); }
 .landing__facts li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
@@ -1096,25 +1104,40 @@ html[data-landing="show"] body { overflow: auto; }
 <h1 id="landing-title" class="landing__title" tabindex="-1">Learn the CCNA by doing it.</h1>
 <p class="landing__lead">Lab4Net is a free CCNA 200-301 lab simulator that runs in your browser. Configure routers, switches and PCs from IOS-style consoles, watch packets cross the network map, and get graded on whether the network actually works.</p>
 <div class="landing__cta"><button class="btn btn--primary btn--lg" id="landingStart" type="button">Start</button><a href="https://yasukeblk.github.io/Lab4Net/lessons/">Free CCNA lessons</a><a href="https://github.com/yasukeblk/Lab4Net" rel="noopener noreferrer">Source on GitHub</a></div>
-<figure class="landing__shot"><svg class="landing__svg" viewBox="0 0 720 380" role="img" aria-label="The Lab4Net lab workspace: the tasks on the left, the network map at the top right and a router console below it">
-<rect x="0.5" y="0.5" width="719" height="379" rx="10" class="ls-frame"/>
-<rect x="0.5" y="0.5" width="719" height="30" rx="10" class="ls-bar"/><rect x="0.5" y="20" width="719" height="11" class="ls-bar"/>
-<rect x="14" y="10" width="11" height="11" rx="3" class="ls-acc"/><rect x="34" y="12" width="120" height="7" rx="3.5" class="ls-mute"/><rect x="612" y="9" width="94" height="13" rx="4" class="ls-acc"/>
-<line x1="200" y1="31" x2="200" y2="380" class="ls-line"/>
-<rect x="16" y="48" width="150" height="8" rx="4" class="ls-text"/><rect x="16" y="64" width="166" height="6" rx="3" class="ls-mute"/><rect x="16" y="76" width="120" height="6" rx="3" class="ls-mute"/>
-<g class="ls-task"><rect x="16" y="104" width="10" height="10" rx="2" class="ls-box"/><rect x="34" y="105" width="140" height="7" rx="3.5" class="ls-text"/>
-<rect x="16" y="132" width="10" height="10" rx="2" class="ls-box"/><rect x="34" y="133" width="124" height="7" rx="3.5" class="ls-text"/>
-<rect x="16" y="160" width="10" height="10" rx="2" class="ls-done"/><rect x="34" y="161" width="132" height="7" rx="3.5" class="ls-mute"/>
-<rect x="16" y="188" width="10" height="10" rx="2" class="ls-box"/><rect x="34" y="189" width="108" height="7" rx="3.5" class="ls-text"/></g>
-<rect x="28" y="214" width="156" height="66" rx="6" class="ls-panel"/><rect x="38" y="226" width="100" height="6" rx="3" class="ls-code"/><rect x="38" y="242" width="126" height="6" rx="3" class="ls-code"/><rect x="38" y="258" width="88" height="6" rx="3" class="ls-code"/>
-<line x1="200" y1="190" x2="720" y2="190" class="ls-line"/>
-<line x1="270" y1="110" x2="400" y2="110" class="ls-link ls-hi"/><line x1="400" y1="110" x2="530" y2="110" class="ls-link ls-hi"/><line x1="530" y1="110" x2="650" y2="110" class="ls-link"/>
-<circle cx="270" cy="110" r="15" class="ls-node"/><circle cx="400" cy="110" r="15" class="ls-node ls-sel"/><circle cx="530" cy="110" r="15" class="ls-node"/><circle cx="650" cy="110" r="15" class="ls-node"/>
-<circle cx="466" cy="110" r="4" class="ls-pkt"/>
-<rect x="258" y="134" width="24" height="6" rx="3" class="ls-mute"/><rect x="388" y="134" width="24" height="6" rx="3" class="ls-text"/><rect x="518" y="134" width="24" height="6" rx="3" class="ls-mute"/><rect x="638" y="134" width="24" height="6" rx="3" class="ls-mute"/>
-<rect x="200" y="190" width="520" height="190" class="ls-console"/><rect x="200" y="368" width="520" height="12" class="ls-console"/>
-<rect x="216" y="208" width="180" height="6" rx="3" class="ls-ctext"/><rect x="216" y="224" width="240" height="6" rx="3" class="ls-ctext"/><rect x="216" y="240" width="96" height="6" rx="3" class="ls-ok"/>
-<rect x="216" y="256" width="210" height="6" rx="3" class="ls-ctext"/><rect x="216" y="272" width="150" height="6" rx="3" class="ls-ok"/><rect x="216" y="296" width="70" height="6" rx="3" class="ls-ctext"/><rect x="290" y="294" width="2" height="10" class="ls-acc"/>
+<figure class="landing__shot"><svg class="landing__svg" viewBox="0 0 720 400" role="img" aria-label="The Lab4Net lab workspace for Static routing: the tasks on the left, the network map with a ping going from R1 to PC2, and the R1 console showing its static routes and a successful ping">
+<rect x="0.5" y="0.5" width="719" height="399" rx="10" class="ls-frame"/>
+<path d="M10.5 .5h699a10 10 0 0 1 10 10V34H.5V10.5a10 10 0 0 1 10-10z" class="ls-bar"/>
+<rect x="14" y="10" width="14" height="14" rx="4" class="ls-acc"/>
+<text x="40" y="21.5" class="ls-t ls-t2">Labs › Routing ›</text><text x="135" y="21.5" class="ls-t ls-b">Static routing</text>
+<rect x="640" y="8" width="66" height="18" rx="5" class="ls-acc"/><text x="673" y="21" class="ls-t ls-on" text-anchor="middle">Grade</text>
+<line x1="210" y1="34" x2="210" y2="400" class="ls-line"/>
+<text x="14" y="54" class="ls-t ls-b">Tasks</text><text x="196" y="54" class="ls-t ls-t3" text-anchor="end">2 of 5 done</text>
+<text x="14" y="78" class="ls-t ls-t2">Three routers in a row. Add the</text><text x="14" y="93" class="ls-t ls-t2">routes that let the two LANs talk.</text>
+<rect x="14" y="112" width="11" height="11" rx="2.5" class="ls-done"/><path d="M16.5 117.5l2.2 2.2 4-4.2" class="ls-tick"/><text x="33" y="121.5" class="ls-t ls-t3">On R1, add static routes</text>
+<rect x="14" y="138" width="11" height="11" rx="2.5" class="ls-done"/><path d="M16.5 143.5l2.2 2.2 4-4.2" class="ls-tick"/><text x="33" y="147.5" class="ls-t ls-t3">On R2, add both LAN routes</text>
+<rect x="14" y="164" width="11" height="11" rx="2.5" class="ls-box"/><text x="33" y="173.5" class="ls-t">On R3, add a default route</text>
+<rect x="14" y="190" width="11" height="11" rx="2.5" class="ls-box"/><text x="33" y="199.5" class="ls-t">Check each table</text>
+<rect x="14" y="216" width="11" height="11" rx="2.5" class="ls-box"/><text x="33" y="225.5" class="ls-t">Ping PC2 from PC1</text>
+<rect x="14" y="248" width="182" height="58" rx="6" class="ls-panel"/><text x="24" y="266" class="ls-t ls-t3">R1</text>
+<text x="24" y="282" class="ls-m ls-t2">ip route 192.168.3.0</text><text x="24" y="296" class="ls-m ls-t2">255.255.255.0 10.0.12.2</text>
+<line x1="246" y1="92" x2="330" y2="92" class="ls-link"/><line x1="330" y1="92" x2="680" y2="92" class="ls-link ls-hi"/>
+<rect x="234" y="80" width="24" height="18" rx="3" class="ls-node"/><rect x="242" y="99" width="8" height="2" class="ls-stand"/>
+<circle cx="330" cy="92" r="14" class="ls-node ls-sel"/><circle cx="447" cy="92" r="14" class="ls-node"/><circle cx="564" cy="92" r="14" class="ls-node"/>
+<rect x="668" y="80" width="24" height="18" rx="3" class="ls-node"/><rect x="676" y="99" width="8" height="2" class="ls-stand"/>
+<circle cx="505" cy="92" r="4" class="ls-pkt"/>
+<text x="246" y="124" class="ls-t ls-t2" text-anchor="middle">PC1</text><text x="330" y="124" class="ls-t ls-b" text-anchor="middle">R1</text><text x="447" y="124" class="ls-t ls-t2" text-anchor="middle">R2</text><text x="564" y="124" class="ls-t ls-t2" text-anchor="middle">R3</text><text x="680" y="124" class="ls-t ls-t2" text-anchor="middle">PC2</text>
+<line x1="210" y1="148" x2="720" y2="148" class="ls-line"/>
+<circle cx="230" cy="164" r="6" class="ls-okfill"/><path d="M227.3 164l1.9 1.9 3.6-3.8" class="ls-tick"/>
+<text x="244" y="168" class="ls-t ls-okt">Reply received</text><text x="342" y="168" class="ls-t ls-t2">R1 → R2 → R3 → PC2</text>
+<rect x="210" y="182" width="510" height="218" class="ls-console"/><path d="M210 390h510v.5a9.5 9.5 0 0 1-9.5 9.5H210z" class="ls-console"/>
+<text x="224" y="206" class="ls-m ls-c">R1#show ip route static</text>
+<text x="224" y="224" class="ls-m ls-cd">S     10.0.23.0/30 [1/0] via 10.0.12.2</text>
+<text x="224" y="242" class="ls-m ls-cd">S     192.168.3.0/24 [1/0] via 10.0.12.2</text>
+<text x="224" y="266" class="ls-m ls-c">R1#ping 192.168.3.10</text>
+<text x="224" y="284" class="ls-m ls-cd">Sending 5, 100-byte ICMP Echos to 192.168.3.10</text>
+<text x="224" y="302" class="ls-m ls-okt">!!!!!</text>
+<text x="224" y="320" class="ls-m ls-cd">Success rate is 100 percent (5/5)</text>
+<text x="224" y="344" class="ls-m ls-c">R1#</text><rect x="251" y="334" width="7" height="13" class="ls-caret"/>
 </svg></figure>
 <ul class="landing__facts"><li>Free</li><li>No sign-up</li><li>No ads</li><li>Works offline</li><li>Open source</li></ul>
 <div class="landing__features">
@@ -6685,13 +6708,18 @@ const SANDBOX=(function(){
 (function (L4N) {
   'use strict';
   const slug = L4N.slug;
+  const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
 
   function catalogue() {
-    let b = 0, inc = 0, cap = 0;
+    const kindOf = l => l.capstone ? 'capstone' : l.kind === 'incident' ? 'incident' : 'build';
+    const stage = new Map((typeof CAMPAIGN !== 'undefined' ? CAMPAIGN : []).map((c, i) => [c.group, i]));
+    const rank = l => stage.has(l.group) ? stage.get(l.group) : Infinity;
+    const ids = new Map(), next = { build: 0, incident: 0, capstone: 0 }, PRE = { build: 'LAB-', incident: 'INC-', capstone: 'CAP-' };
+    LABS.map((l, i) => i).sort((a, c) => (rank(LABS[a]) - rank(LABS[c])) || a - c)
+      .forEach(i => { const k = kindOf(LABS[i]); ids.set(i, PRE[k] + String(++next[k]).padStart(2, '0')); });
     const labs = LABS.map((l, i) => {
-      const kind = l.capstone ? 'capstone' : l.kind === 'incident' ? 'incident' : 'build';
-      const idText = kind === 'capstone' ? 'CAP-' + String(++cap).padStart(2, '0') : kind === 'incident' ? 'INC-' + String(++inc).padStart(2, '0') : 'LAB-' + String(++b).padStart(2, '0');
-      const short = kind === 'incident' ? l.title.replace(/^Incident \d+:\s*/, '') : l.title;
+      const kind = kindOf(l), idText = ids.get(i);
+      const short = kind === 'incident' ? capFirst(l.title.replace(/^Incident \d+:\s*/, '')) : l.title;
       return { slug: slug(l.title), title: l.title, short, idText, kind, group: l.group, index: i, lab: l };
     });
     const bySlug = new Map(labs.map(x => [x.slug, x]));
@@ -8314,7 +8342,7 @@ const SANDBOX=(function(){
   function createConsole(ws) {
     const st = ws.st;
     if (!st.devs.length) {
-      const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' }, ui.empty({ icon: 'labs', what: 'No devices yet.', todo: 'Add a device from the Build panel and its console opens here.' }));
+      const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' }, ui.empty({ icon: 'labs', what: 'No console yet.', todo: 'Each device you add gets a console here.' }));
       const no = () => {};
       return { el: root, input: el('input'), out: root, run: no, select: no, stop: no, showResult: no, refreshPrompt: no, refreshTabs: no, renderAll: no, clearScreen: no, focus: no, playing: () => false, setMaximised: no, destroy: no };
     }
@@ -8794,6 +8822,7 @@ const SANDBOX=(function(){
     const chip = el('div', { class: 'mapchip', 'aria-hidden': 'true', hidden: true });
     const srList = el('ul', { class: 'sr-only', 'aria-label': 'Links' });
     const body = el('div', { class: 'map__body' }, svgEl, tip, chip, srList);
+    if (opts.empty && !st.devs.length) body.append(el('div', { class: 'map__empty' }, L4N.ui.empty(opts.empty())));
     const nodes = new Map(), links = new Map();
     let W = 0, H = 0, fit = { s: 1, ox: 0, oy: 0, minX: 0, minY: 0 };
     let token = 0, fadeTimer = 0, tipTimer = 0, tipFor = null, lastTrace = null, markers = [];
@@ -10328,13 +10357,23 @@ const SANDBOX=(function(){
       .map(([label, ls]) => ({ label, count: ls.filter(l => rec(l.slug).read).length + '/' + ls.length, rows: ls.map(rowOf) }));
     return L4N.stats.domains().map(d => ({ label: d.id + ' ' + d.name, count: d.lessons.read + '/' + d.lessons.total, rows: d.lessonsIn.map(rowOf) }));
   }
+  function summary(l) {
+    const first = (l.lesson.sections || [])[0];
+    if (!first) return null;
+    const html = trusted(first[1], 'div', {}), p = html.querySelector('p');
+    const text = (p || html).textContent.replace(/\s+/g, ' ').trim();
+    const sentences = text.match(/.+?[.!?](?=\s+["“(]?[A-Z]|\s*$)/g) || [text];
+    let out = '';
+    for (const s of sentences) { const next = (out + ' ' + s.trim()).trim(); if (out && next.length > 300) break; out = next; }
+    return el('p', { class: 'detail__brief', text: out });
+  }
   function detail(box, l) {
     clear(box);
-    const first = (l.lesson.sections || [])[0], r = rec(l.slug);
+    const r = rec(l.slug);
     box.append(el('h2', { class: 'detail__title', text: l.title }),
       el('div', { class: 'hstack' }, ui.chip(l.mins + ' min', '', 'clock'), r.read ? ui.chip('Read', 'chip--done', 'check-circle') : ui.chip('Not read yet', 'chip--todo', 'circle')),
       el('ul', { class: 'detail__objs' }, objs(l).map(o => el('li', {}, ui.objChip(o, objName(o)), el('span', { text: objName(o) })))),
-      first ? trusted(first[1], 'div', { class: 'detail__brief detail__excerpt' }) : null,
+      summary(l),
       el('div', { class: 'hstack' }, ui.button({ label: 'Read', kind: 'primary', kbd: 'enter', href: L4N.router.href('lesson', l.slug) }),
         l.lab ? ui.button({ label: 'Open the lab', href: L4N.router.href('lab', l.lab.slug) }) : null));
   }
@@ -10910,6 +10949,8 @@ const SANDBOX=(function(){
       left: ws => buildPanel(ws),
       mapOpts: ws => ({
         view: viewFull, label: 'Sandbox map', maxScale: 3,
+        empty: () => ({ icon: 'sandbox', what: 'Your network is empty.',
+          todo: window.matchMedia('(max-width: 767px)').matches ? 'Add a device from the Build tab below.' : 'Add a device from the Build panel on the left.' }),
         posOf: n => { const d = def.devs.find(x => x.name === n); return d ? [d.x, d.y] : [100, 100]; },
         notes: () => def.notes,
         onNodeClick: (n, e) => {

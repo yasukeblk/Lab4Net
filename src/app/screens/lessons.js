@@ -25,13 +25,25 @@
       .map(([label, ls]) => ({ label, count: ls.filter(l => rec(l.slug).read).length + '/' + ls.length, rows: ls.map(rowOf) }));
     return L4N.stats.domains().map(d => ({ label: d.id + ' ' + d.name, count: d.lessons.read + '/' + d.lessons.total, rows: d.lessonsIn.map(rowOf) }));
   }
+  // The summary in the side panel: whole sentences from the lesson's first paragraph, up to about 300 characters.
+  // A sentence ends at . ! or ? followed by a capital letter or the end, so 192.168.3.0 never counts as an end.
+  function summary(l) {
+    const first = (l.lesson.sections || [])[0];
+    if (!first) return null;
+    const html = trusted(first[1], 'div', {}), p = html.querySelector('p');
+    const text = (p || html).textContent.replace(/\s+/g, ' ').trim();
+    const sentences = text.match(/.+?[.!?](?=\s+["“(]?[A-Z]|\s*$)/g) || [text];
+    let out = '';
+    for (const s of sentences) { const next = (out + ' ' + s.trim()).trim(); if (out && next.length > 300) break; out = next; }
+    return el('p', { class: 'detail__brief', text: out });
+  }
   function detail(box, l) {
     clear(box);
-    const first = (l.lesson.sections || [])[0], r = rec(l.slug);
+    const r = rec(l.slug);
     box.append(el('h2', { class: 'detail__title', text: l.title }),
       el('div', { class: 'hstack' }, ui.chip(l.mins + ' min', '', 'clock'), r.read ? ui.chip('Read', 'chip--done', 'check-circle') : ui.chip('Not read yet', 'chip--todo', 'circle')),
       el('ul', { class: 'detail__objs' }, objs(l).map(o => el('li', {}, ui.objChip(o, objName(o)), el('span', { text: objName(o) })))),
-      first ? trusted(first[1], 'div', { class: 'detail__brief detail__excerpt' }) : null,
+      summary(l),
       el('div', { class: 'hstack' }, ui.button({ label: 'Read', kind: 'primary', kbd: 'enter', href: L4N.router.href('lesson', l.slug) }),
         l.lab ? ui.button({ label: 'Open the lab', href: L4N.router.href('lab', l.lab.slug) }) : null));
   }

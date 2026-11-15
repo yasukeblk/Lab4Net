@@ -1,6 +1,23 @@
 # Lab4Net changes
 
-## Fixes, phase 2: tests that catch real changes
+## Fixes, phase 3: polish
+
+Small things that made the app look unfinished.
+
+- **Incident titles start with a capital.** 34 of the 37 incidents showed titles like "one branch fell off the map", because the app removed "Incident 07: " and kept what followed as it was. The title shown on its own now starts with a capital ("One branch fell off the map") in the Labs list, the workspace header, the palette, Home, Progress, the stage checks, the exam history and the popped-out Tasks window. The stored title doesn't change, because it feeds the lab's address and saved progress.
+- **Lab numbers follow the Path.** Labs were numbered in the order they were written, so the Path read LAB-01, LAB-17, LAB-38 and looked as if labs were missing. They are now numbered in Path order: LAB-01 to LAB-38 down the eight stages, then INC-01 to INC-37, then CAP-01 and CAP-02. Search by number uses the new numbers. Nothing stores these numbers, so no saved data changes.
+- **The landing page shows the real workspace.** The picture under "Start" was grey bars. It is now a drawing of the Static routing lab:
+  - the breadcrumb and the Grade button;
+  - the tasks, two of them ticked;
+  - the PC1–R1–R2–R3–PC2 map with the working path lit up and the "Reply received" line;
+  - the R1 console with `show ip route static` and a successful ping, copied from what the simulator prints.
+
+  It uses the app's colours, so it matches both themes, and it fits the markup budget (20.7 of 30 KB).
+- **The Lessons side panel shows whole sentences.** It showed the start of the lesson cut off mid-sentence. It now shows whole sentences from the first paragraph, up to about 300 characters. A full stop inside an address such as 192.168.3.0 doesn't count as the end of a sentence. All 66 summaries end on a complete sentence.
+- **An empty sandbox says what to do on the map.** The map was blank, and "No devices yet" sat in the console area. The map now says "Your network is empty. Add a device from the Build panel on the left" ("from the Build tab below" on a phone). The console says "No console yet. Each device you add gets a console here."
+- **Tests.** A new browser test, `titles.spec.js`, checks that every incident row and every incident's workspace header starts with a capital and has no "Incident NN:" prefix, and that the Labs list numbers LAB, INC and CAP in Path order with no gaps. `sandbox.spec.js` checks the new empty-state wording on the map and in the console.
+
+
 
 Nothing changes for learners. The tests now catch the kinds of mistakes that slipped through before.
 
