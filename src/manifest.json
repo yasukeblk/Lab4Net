@@ -22,6 +22,7 @@
     "styles/workspace.css",
     "styles/map.css",
     "styles/console.css",
+    "styles/lessons.css",
     "styles/screens.css",
     "styles/landing.css",
     "styles/phone.css"
@@ -86,6 +87,7 @@
     "app/screens/data.js",
     "app/screens/home.js",
     "app/screens/labs.js",
+    "app/screens/lessons.js",
     "app/screens/landing.js",
     "app/screens/gallery.js",
     "app/main.js"

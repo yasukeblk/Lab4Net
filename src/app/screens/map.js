@@ -252,7 +252,7 @@
       token++; clearTimeout(fadeTimer);
       clear(gFx); clear(gHi); gHi.classList.remove('is-fading');
       for (const n of nodes.values()) clear(n.badge);
-      chip.hidden = true; markers = [];
+      chip.hidden = true; chip.classList.remove('is-ok'); markers = [];
     }
     const wait = ms => new Promise(r => setTimeout(r, ms));
     function moveDot(path, hollow, tok) {
@@ -370,12 +370,25 @@
       fadeTimer = setTimeout(() => { if (tok === token) gHi.classList.add('is-fading'); }, 1500);
     }
 
+    // a lesson story step: the path (a reply as a hollow dot), then a marker and label at s.at
+    async function step(st0) {
+      clearFx();
+      if (!st0 || !Array.isArray(st0.path)) return;
+      const tok = token;
+      const path = st0.path.filter(n => nodes.has(n));
+      await moveDot(path, st0.cls === 'rep', tok);
+      if (tok !== token) return;
+      if (reduced()) for (let i = 0; i < path.length - 1; i++) highlight(path[i], path[i + 1]);
+      const at = nodes.has(st0.at) ? st0.at : path[path.length - 1];
+      if (at) { badge(at, !st0.bad); if (st0.label) { markers.push({ kind: 'chip', at, text: String(st0.label) }); chip.classList.toggle('is-ok', !st0.bad); placeMarkers(); } }
+    }
+
     let ro = null;
     if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => layout()); ro.observe(body); }
     requestAnimationFrame(layout);
 
     return {
-      body, svg: svgEl, play, clearFx, layout, nodes, links,
+      body, svg: svgEl, play, step, clearFx, layout, nodes, links,
       update(res) {
         if (res && res.ran) clearFx();      // markers stay until the next command
         if (W) draw(true);

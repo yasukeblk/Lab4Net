@@ -2,7 +2,8 @@
 //   node tools/build-site.cjs           write lessons/ and sitemap.xml
 //   node tools/build-site.cjs --check   exit 1 if anything written would differ (used by tests/sitepages.cjs)
 // Output: lessons/index.html, lessons/<slug>.html (one per lesson), lessons/site.css, lessons/fonts/*.woff2
-// (the same fonts the app embeds, SIL Open Font License 1.1, see THIRD-PARTY-NOTICES.md) and sitemap.xml.
+// (the same fonts the app embeds, SIL Open Font License 1.1, see THIRD-PARTY-NOTICES.md) and sitemap.xml. The colours are
+// the app's design tokens (src/styles/tokens.css); the theme follows the visitor's system setting.
 // The pages are plain HTML and CSS with no scripts except the visit counter, which follows the app's rules:
 // public site only, cookieless, and nothing when Do Not Track is on.
 const fs = require('node:fs');
@@ -47,43 +48,29 @@ const manifest = JSON.parse(fs.readFileSync(path.join(SRC, 'manifest.json'), 'ut
 const fonts = manifest.fonts.map(f => ({ fam: f.family, w: String(f.weight), st: f.style, file: path.basename(f.file), data: fs.readFileSync(path.join(SRC, f.file)) }));
 const tokensCss = fs.readFileSync(path.join(SRC, 'styles/tokens.css'), 'utf8');
 const darkBlock = /:root, \[data-theme="dark"\] \{([^}]+)\}/.exec(tokensCss)[1];
+const lightBlock = /\[data-theme="light"\] \{([^}]+)\}/.exec(tokensCss)[1];
 const tok = n => { const m = new RegExp('--' + n + ':\\s*([^;]+);').exec(darkBlock); if (!m) throw Error('token --' + n + ' missing from tokens.css'); return m[1].trim(); };
-// Until the lesson pages are redesigned (Phase 6), the old page styles keep their variable names, filled from the new tokens.
-const rootVars = ':root{' + [
-  ['night', tok('bg-app')], ['panel', tok('bg-raised')], ['panel2', tok('bg-overlay')], ['panel3', tok('bg-active')], ['line', tok('border')],
-  ['ink', tok('text')], ['muted', tok('text-2')], ['yel', tok('accent')], ['org', tok('accent')], ['mag', tok('border')], ['vio', tok('accent-solid')],
-  ['cy', tok('accent')], ['go', tok('ok')], ['bad', tok('bad')], ['ph', tok('text-console')],
-  ['ui', '"Inter",system-ui,-apple-system,"Segoe UI",sans-serif'], ['px', '"Inter",system-ui,-apple-system,"Segoe UI",sans-serif'],
-  ['mono', '"JetBrains Mono",ui-monospace,Consolas,Menlo,monospace'], ['lift', '0 0 0 1px ' + tok('border')]
-].map(([k, v]) => '--' + k + ':' + v + ';').join('') + '}';
 
-// ---- topology diagram for a lab, drawn from its real build and map positions ----
+
+const counterJs = COUNTER ? `<script>(function(){if(location.hostname!==${JSON.stringify(HOST)}||navigator.doNotTrack==='1'||window.doNotTrack==='1')return;try{var i=new Image();i.src='https://${COUNTER}.goatcounter.com/count?p='+encodeURIComponent(location.pathname.replace(/^\\/Lab4Net/,''))+'&t='+encodeURIComponent(document.title)+(document.referrer?'&r='+encodeURIComponent(document.referrer):'')+'&rnd='+Math.random().toString(36).slice(2);}catch(e){}})();</script>` : '';
+// ---- topology diagram for a lab, drawn from its real build and map positions, with the app's device icons ----
+const deviceSvg = fs.readFileSync(path.join(SRC, 'icons/devices.svg'), 'utf8');
+const symbolOf = kind => { const m = new RegExp('<symbol id="d-' + kind + '"[\\s\\S]*?</symbol>').exec(deviceSvg); return m ? m[0] : ''; };
+const kindOf = d => d.type === 'router' ? 'router' : d.type === 'switch' ? (d.l3 ? 'l3' : 'switch') : d.phone ? 'phone' : /^AP\d*$/i.test(d.name) ? 'ap' : (Array.isArray(d.services) && d.services.length) ? 'server' : 'pc';
 function diagram(lab) {
   const net = lab.build(), P = lab.pos || {}, devs = Object.values(net.devs).filter(d => P[d.name]);
   if (!devs.length) return '';
   const xs = devs.map(d => P[d.name][0]), ys = devs.map(d => P[d.name][1]);
-  const x0 = Math.min(...xs) - 50, x1 = Math.max(...xs) + 50, y0 = Math.min(...ys) - 40, y1 = Math.max(...ys) + 46;
-  const icon = d => {
-    const [x, y] = P[d.name], n = esc(d.hostname || d.name);
-    const kind = d.type === 'router' ? 'router' : d.type === 'switch' ? (d.l3 ? 'l3' : 'switch') : d.services ? 'server' : d.phone ? 'phone' : 'pc';
-    const shape = {
-      router: `<rect x="${x - 22}" y="${y - 13}" width="44" height="26" rx="13" class="t-router"/>`,
-      switch: `<rect x="${x - 24}" y="${y - 11}" width="48" height="22" rx="5" class="t-switch"/>`,
-      l3: `<rect x="${x - 24}" y="${y - 11}" width="48" height="22" rx="5" class="t-l3"/>`,
-      server: `<rect x="${x - 13}" y="${y - 18}" width="26" height="36" rx="4" class="t-server"/>`,
-      phone: `<rect x="${x - 15}" y="${y - 12}" width="30" height="24" rx="6" class="t-phone"/>`,
-      pc: `<rect x="${x - 18}" y="${y - 14}" width="36" height="26" rx="4" class="t-pc"/><rect x="${x - 8}" y="${y + 13}" width="16" height="4" class="t-pc"/>`
-    }[kind];
-    return `<g>${shape}<text x="${x}" y="${y + 34}">${n}</text></g>`;
-  };
+  const x0 = Math.min(...xs) - 50, x1 = Math.max(...xs) + 50, y0 = Math.min(...ys) - 34, y1 = Math.max(...ys) + 44;
+  const kinds = [...new Set(devs.map(kindOf))];
+  const node = d => { const [x, y] = P[d.name]; return `<g class="dev"><use href="#d-${kindOf(d)}" x="${x - 18}" y="${y - 18}" width="36" height="36"/><text x="${x}" y="${y + 33}">${esc(d.hostname || d.name)}</text></g>`; };
   const wires = net.links.filter(l => P[l.a] && P[l.b]).map(l => `<line x1="${P[l.a][0]}" y1="${P[l.a][1]}" x2="${P[l.b][0]}" y2="${P[l.b][1]}"/>`).join('');
-  return `<figure class="topo"><svg viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" role="img" aria-label="Network diagram for the ${esc(lab.title)} lab: ${devs.map(d => esc(d.name)).join(', ')}"><g class="wires">${wires}</g>${devs.map(icon).join('')}</svg><figcaption>The ${esc(lab.title)} lab's network</figcaption></figure>`;
+  return `<figure class="topo"><svg viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" role="img" aria-label="Network diagram for the ${esc(lab.title)} lab: ${devs.map(d => esc(d.name)).join(', ')}"><defs>${kinds.map(symbolOf).join('')}</defs><g class="wires">${wires}</g>${devs.map(node).join('')}</svg><figcaption>The ${esc(lab.title)} lab's network</figcaption></figure>`;
 }
 
 // ---- shared page parts ----
-const counterJs = COUNTER ? `<script>(function(){if(location.hostname!==${JSON.stringify(HOST)}||navigator.doNotTrack==='1'||window.doNotTrack==='1')return;try{var i=new Image();i.src='https://${COUNTER}.goatcounter.com/count?p='+encodeURIComponent(location.pathname.replace(/^\\/Lab4Net/,''))+'&t='+encodeURIComponent(document.title)+(document.referrer?'&r='+encodeURIComponent(document.referrer):'')+'&rnd='+Math.random().toString(36).slice(2);}catch(e){}})();</script>` : '';
-const logo = `<svg viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path class="w" d="M7 5h2v3H7zM3 8h10v1H3zM3 9h1v2H3zM12 9h1v2h-1zM6 2h4v3H6zM2 11h3v3H2zM11 11h3v3h-3z"/><path class="l" d="M7 3h2v1H7z"/></svg>`;
-const icon = `<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' rx='3' fill='%230b0919'/%3E%3Cpath fill='%23ffd23f' d='M7 5h2v3H7zM3 8h10v1H3zM3 9h1v2H3zM12 9h1v2h-1zM6 2h4v3H6zM2 11h3v3H2zM11 11h3v3h-3z'/%3E%3Cpath fill='%23ff3d81' d='M7 3h2v1H7z'/%3E%3C/svg%3E">`;
+const logo = `<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" class="mark__tile"/><path d="M10 9v9.5a4.5 4.5 0 0 0 4.5 4.5H22" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="10" cy="9" r="3.25" fill="#fff"/><circle cx="22.5" cy="23" r="3.25" fill="#fff"/><circle cx="16.5" cy="23" r="2.4" fill="#fff"/></svg>`;
+const icon = `<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F6BEB'/%3E%3Cpath d='M10 9v9.5a4.5 4.5 0 0 0 4.5 4.5H22' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='10' cy='9' r='3.25' fill='%23fff'/%3E%3Ccircle cx='22.5' cy='23' r='3.25' fill='%23fff'/%3E%3Ccircle cx='16.5' cy='23' r='2.4' fill='%23fff'/%3E%3C/svg%3E">`;
 function head({ title, desc, url, jsonld }) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -93,7 +80,9 @@ function head({ title, desc, url, jsonld }) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${url}">
-<meta name="theme-color" content="#0b0919">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="${tok('bg-app')}" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="${tokLight('bg-app')}" media="(prefers-color-scheme: light)">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Lab4Net">
 <meta property="og:title" content="${esc(title)}">
@@ -109,14 +98,14 @@ ${icon}
 ${counterJs}
 </head>
 <body>
-<header class="bar"><a class="brand" href="../">${logo}Lab4Net</a><nav><a href="./">All lessons</a><a class="go" href="../">Open the lab ▶</a></nav></header>
+<header class="bar"><a class="brand" href="../">${logo}<span>Lab4Net</span></a><nav aria-label="Site"><a href="./">Lessons</a><a class="btn btn--primary" href="../">Open the app</a></nav></header>
 `;
 }
-const foot = `<footer class="foot"><p><a href="../">Lab4Net</a> is a free, open-source CCNA lab simulator that runs in your browser: 77 hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, an exam simulator and a campaign.${DONATE ? ` If it helps you, you can <a href="${esc(DONATE)}" rel="noopener">support it here</a>.` : ''} Source on <a href="https://github.com/yasukeblk/Lab4Net">GitHub</a>, MIT licence.</p><p>Lab4Net is an independent study tool and is not affiliated with, endorsed by or sponsored by Cisco Systems, Inc. Cisco, Cisco IOS and CCNA are trademarks of Cisco Systems, Inc. Lessons describe the CCNA 200-301 v1.1 exam topics as the simulator teaches them; when in doubt, trust Cisco's documentation and real equipment.</p></footer>
+const foot = `<footer class="foot"><p><a href="../">Lab4Net</a> is a free, open-source CCNA lab simulator that runs in your browser: 77 hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, practice exams and a sandbox.${DONATE ? ` If it helps you, you can <a href="${esc(DONATE)}" rel="noopener">support it here</a>.` : ''} Source on <a href="https://github.com/yasukeblk/Lab4Net" rel="noopener">GitHub</a>.</p><p>Lab4Net is an independent study tool. It is not affiliated with, endorsed by or sponsored by Cisco Systems, Inc. Cisco, Cisco IOS, CCNA and Catalyst are trademarks or registered trademarks of Cisco Systems, Inc.</p></footer>
 </body>
 </html>
 `;
-const tags = ids => ids.length ? `<ul class="tags" aria-label="CCNA 200-301 v1.1 objectives">${ids.map(id => `<li><b>${esc(id)}</b>${esc(CCNA_OBJECTIVES[id] || '')}</li>`).join('')}</ul>` : '';
+const tags = ids => ids.length ? `<ul class="tags" aria-label="CCNA 200-301 v1.1 objectives">${ids.map(id => `<li><b>CCNA ${esc(id)}</b>${esc(CCNA_OBJECTIVES[id] || '')}</li>`).join('')}</ul>` : '';
 
 // ---- one lesson page ----
 function lessonPage(p, i) {
@@ -126,98 +115,102 @@ function lessonPage(p, i) {
   const title = `${k} · free CCNA lesson | Lab4Net`;
   const prev = pages[i - 1], next = pages[i + 1];
   const deep = lab ? `../?lab=${p.slug}` : `../?lesson=${p.slug}`;
-  const jsonld = { '@context': 'https://schema.org', '@type': 'LearningResource', name: k, headline: `${k}: ${L.name}`, description: desc, url, inLanguage: 'en', educationalLevel: 'Beginner', learningResourceType: 'Lesson', timeRequired: `PT${L.mins || 8}M`, isAccessibleForFree: true, license: 'https://opensource.org/licenses/MIT', teaches: p.ccna.map(id => `CCNA 200-301 ${id}: ${CCNA_OBJECTIVES[id] || ''}`), isPartOf: { '@type': 'WebSite', name: 'Lab4Net', url: SITE }, provider: { '@type': 'Organization', name: 'Lab4Net', url: SITE } };
+  const jsonld = { '@context': 'https://schema.org', '@type': 'LearningResource', name: k, headline: `${k}: ${L.name}`, description: desc, url, inLanguage: 'en', educationalLevel: 'Beginner', learningResourceType: 'Lesson', timeRequired: `PT${L.mins || 8}M`, isAccessibleForFree: true, license: 'https://opensource.org/licenses/MIT', teaches: p.ccna.map(id => `CCNA 200-301 ${id}: ${CCNA_OBJECTIVES[id] || ''}`), isPartOf: { '@type': 'WebSite', name: 'Lab4Net', url: SITE } };
   let b = head({ title, desc, url, jsonld });
   b += `<main class="lesson">
 <p class="crumbs"><a href="./">CCNA lessons</a> › ${esc(p.group)}</p>
-<p class="eyebrow">${L.topic ? 'Exam topic lesson' : 'Lab lesson'} <span>${L.mins || 8} min read</span></p>
+<p class="meta">${L.topic ? 'Exam topic lesson' : 'Lab lesson'} · ${L.mins || 8} min read</p>
 <h1>${esc(k)}</h1>
 <p class="sub">${esc(L.name)}</p>
 ${tags(p.ccna)}
 ${lab ? diagram(lab) : ''}
 ${L.sections.map(([h, body]) => `<section><h2>${esc(h)}</h2>${body}</section>`).join('\n')}
 ${L.story && L.story.length ? `<section class="story"><h2>See it happen</h2><p>In the app, these steps play out as packets moving across the lab's map.</p><ol>${L.story.map(s => `<li><b>${esc(s.t)}</b> ${s.x}</li>`).join('')}</ol></section>` : ''}
-<section class="cta"><h2>${lab ? 'Practise it' : 'Try it in the lab'}</h2><p>${lab ? `Build it yourself in the <b>${esc(k)}</b> lab: an IOS-style console on every device, a "why" for every step, and grading that checks whether your network actually works.` : 'Open this lesson inside Lab4Net, then put it into practice in the hands-on labs.'}</p><p><a class="btn" href="${deep}">${lab ? `Open the ${esc(k)} lab ▶` : 'Open in Lab4Net ▶'}</a></p></section>
 ${L.terms && L.terms.length ? `<section><h2>Key terms</h2><dl class="terms">${L.terms.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('')}</dl></section>` : ''}
-${L.exam && L.exam.length ? `<section><h2>For the exam</h2><ul>${L.exam.map(x => `<li>${x}</li>`).join('')}</ul></section>` : ''}
-${L.mistakes && L.mistakes.length ? `<section><h2>Common mistakes</h2><ul>${L.mistakes.map(x => `<li>${x}</li>`).join('')}</ul></section>` : ''}
+${L.exam && L.exam.length ? `<section class="note"><h2>For the exam</h2><ul>${L.exam.map(x => `<li>${x}</li>`).join('')}</ul></section>` : ''}
+${L.mistakes && L.mistakes.length ? `<section class="note note--warn"><h2>Common mistakes</h2><ul>${L.mistakes.map(x => `<li>${x}</li>`).join('')}</ul></section>` : ''}
 ${L.quiz && L.quiz.length ? `<section class="quiz"><h2>Quick check</h2>${L.quiz.map(([q, opts, ok, why], n) => `<div class="q"><p><b>${n + 1}.</b> ${q}</p><ol type="A">${opts.map(o => `<li>${o}</li>`).join('')}</ol><details><summary>Show the answer</summary><p><b>${String.fromCharCode(65 + ok)}. ${opts[ok]}</b></p><p>${why}</p></details></div>`).join('')}</section>` : ''}
-<nav class="pn">${prev ? `<a href="${prev.slug}.html">‹ ${esc(prev.k)}</a>` : '<span></span>'}${next ? `<a href="${next.slug}.html">${esc(next.k)} ›</a>` : '<span></span>'}</nav>
+<section class="cta"><h2>Practise it</h2><p>${lab ? `Build it yourself in the <b>${esc(k)}</b> lab: an IOS-style console on every device, a "why" for every step, and grading that checks whether your network actually works.` : 'Open this lesson inside Lab4Net, then put it into practice in the hands-on labs.'}</p><p><a class="btn btn--primary" href="${deep}">${lab ? `Open the ${esc(k)} lab` : 'Open this lesson in Lab4Net'}</a></p></section>
+<nav class="pn" aria-label="Previous and next lesson">${prev ? `<a href="${prev.slug}.html"><small>Previous</small>${esc(prev.k)}</a>` : '<span></span>'}${next ? `<a class="next" href="${next.slug}.html"><small>Next</small>${esc(next.k)}</a>` : '<span></span>'}</nav>
 </main>
 `;
   return b + foot;
 }
 
-// ---- the lessons index ----
+// ---- the lessons index: grouped by CCNA domain, as list rows ----
 function indexPage() {
   const url = `${SITE}lessons/`;
   const desc = `${pages.length} free CCNA 200-301 lessons in plain language: VLANs, OSPF, ACLs, NAT, DHCP, IPv6, STP, wireless and more, with exam notes and a quick check.`;
   const jsonld = { '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'Free CCNA lessons', description: desc, url, isPartOf: { '@type': 'WebSite', name: 'Lab4Net', url: SITE }, hasPart: pages.map(p => ({ '@type': 'LearningResource', name: p.k, url: `${SITE}lessons/${p.slug}.html` })) };
   let b = head({ title: 'Free CCNA lessons: every exam topic in plain language | Lab4Net', desc, url, jsonld });
-  const card = p => `<li><a href="${p.slug}.html"><b>${esc(p.k)}</b><i>${esc(p.L.name)}</i><span>${p.L.topic ? 'Exam topic' : 'Lab lesson'} · ${p.L.mins || 8} min · CCNA ${p.ccna.map(esc).join(', ')}</span></a></li>`;
+  const row = p => `<li><a href="${p.slug}.html"><b>${esc(p.k)}</b><span>${esc(p.L.name)}</span><small>${p.L.topic ? 'Exam topic' : 'Lab lesson'} · ${p.L.mins || 8} min · CCNA ${p.ccna.map(esc).join(', ')}</small></a></li>`;
   b += `<main class="index">
-<p class="eyebrow">Free · no sign-up</p>
+<p class="meta">Free · no sign-up</p>
 <h1>CCNA lessons</h1>
 <p class="lede">${pages.length} lessons that teach each CCNA 200-301 topic in plain language: what problem it solves, how it works, and how to configure and verify it. Every lesson ends with exam notes, common mistakes and a quick check. Lab lessons link to a hands-on lab in <a href="../">Lab4Net</a>, where you type the commands on simulated routers and switches and get graded on whether the network works.</p>
-${CCNA_DOMAINS.map(([id, name]) => { const ps = pages.filter(p => p.ccna.some(c => c.split('.')[0] === id)); return ps.length ? `<section><h2>${esc(id)}. ${esc(name)}</h2><ul class="cards">${ps.map(card).join('')}</ul></section>` : ''; }).join('\n')}
+${CCNA_DOMAINS.map(([id, name]) => { const ps = pages.filter(p => p.ccna.some(c => c.split('.')[0] === id)); return ps.length ? `<section><h2>${esc(id)}. ${esc(name)}</h2><ul class="rows">${ps.map(row).join('')}</ul></section>` : ''; }).join('\n')}
 </main>
 `;
   return b + foot;
 }
 
-// ---- styles ----
+// ---- styles: the app's tokens; the theme follows the visitor's system setting ----
+const tokLight = n => { const m = new RegExp('--' + n + ':\\s*([^;]+);').exec(lightBlock); return m ? m[1].trim() : tok(n); };
+const COLORS = ['bg-app', 'bg-surface', 'bg-raised', 'bg-hover', 'bg-console', 'border-subtle', 'border', 'border-control', 'text', 'text-2', 'text-3', 'text-console', 'accent', 'accent-solid', 'accent-on', 'accent-soft', 'ok', 'bad', 'warn'];
+const vars = get => COLORS.map(n => `--${n}:${get(n)};`).join('');
 const css = `${fonts.map(f => `@font-face{font-family:"${f.fam}";font-weight:${f.w};font-style:${f.st};font-display:swap;src:url(fonts/${f.file}) format("woff2")}`).join('\n')}
-${rootVars}
+:root{${vars(tok)}color-scheme:dark;--ui:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,Menlo,monospace}
+@media (prefers-color-scheme:light){:root{${vars(tokLight)}color-scheme:light}}
 *,*::before,*::after{box-sizing:border-box}
-html{background:var(--night)}
-body{margin:0;color:var(--ink);font:400 17px/1.65 var(--ui);background:radial-gradient(ellipse 70% 40% at 80% 0%,rgba(162,59,255,.22),transparent 70%),var(--night)}
-a{color:var(--cy);text-underline-offset:3px}a:hover{color:#fff}
-:focus-visible{outline:3px solid var(--cy);outline-offset:2px}
-.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 20px;background:linear-gradient(#241b52,#140f30);border-bottom:3px solid var(--line);box-shadow:0 2px 0 var(--mag)}
-.brand{display:flex;align-items:center;gap:8px;font:italic 800 26px/1 var(--px);text-transform:uppercase;color:var(--yel);text-decoration:none}
-.brand svg{width:24px;height:24px}.brand .w{fill:var(--yel)}.brand .l{fill:var(--mag)}
-.bar nav{display:flex;gap:16px;align-items:center;font:italic 800 17px var(--px);text-transform:uppercase;letter-spacing:.04em}
-.bar nav a{color:var(--ink);text-decoration:none}.bar nav a:hover{color:var(--yel)}
-.bar .go,.btn{display:inline-block;color:#1a1000;background:linear-gradient(#ffe27a,var(--yel) 45%,var(--org));border:3px solid var(--line);border-radius:9px;padding:6px 16px;font:italic 800 18px/1.1 var(--px);text-transform:uppercase;letter-spacing:.04em;text-decoration:none;box-shadow:0 3px 0 #7a3b00,0 6px 14px rgba(0,0,0,.4)}
-.bar .go:hover,.btn:hover{color:#1a1000;filter:brightness(1.08)}
-main{max-width:820px;margin:0 auto;padding:28px 20px 10px}
-main.index{max-width:1100px}
-.crumbs{font-size:14px;color:var(--muted);margin:0 0 10px}
-.eyebrow{font:italic 800 17px var(--px);letter-spacing:.08em;text-transform:uppercase;color:var(--yel);margin:0}
-.eyebrow span{margin-left:10px;color:var(--cy)}
-h1{font:italic 800 clamp(34px,5vw,52px)/1.02 var(--px);text-transform:uppercase;letter-spacing:.02em;margin:6px 0 8px;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.5)}
-.sub{font-size:20px;color:var(--ink);margin:0 0 16px}
-h2{font:italic 800 26px/1.1 var(--px);text-transform:uppercase;letter-spacing:.03em;color:var(--cy);margin:34px 0 10px}
-p,li,dd{color:#e2ddf8}
-code{font:400 19px var(--mono);color:var(--ph);background:#120e2b;border:1px solid #2b2260;border-radius:4px;padding:0 5px}
-b{color:#fff}
-.tags{list-style:none;display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0 0 18px}
-.tags li{font-size:13px;font-weight:600;color:#d9d3f5;background:#120e2b;border:2px solid var(--line);border-radius:6px;padding:3px 8px 3px 3px;box-shadow:0 0 0 1px rgba(46,230,255,.35)}
-.tags b{font:italic 800 13px/1 var(--px);color:var(--night);background:var(--cy);border-radius:4px;padding:3px 5px;margin-right:6px}
-.topo{margin:18px 0 6px;background:radial-gradient(ellipse 80% 70% at 50% 120%,rgba(255,61,129,.25),transparent 70%),#100c26;border:3px solid var(--line);border-radius:12px;padding:10px}
-.topo svg{display:block;width:100%;height:auto;max-height:280px}
-.topo figcaption{font-size:13px;color:var(--muted);text-align:center}
-.topo .wires line{stroke:var(--go);stroke-width:3;stroke-dasharray:8 6}
-.topo rect{stroke:var(--line);stroke-width:2.5}.t-router{fill:#2e7dff}.t-switch{fill:#c35dff}.t-l3{fill:#ff8a1f}.t-server{fill:#9aa4c7}.t-pc{fill:#5fd2ff}.t-phone{fill:#5cf08a}
-.topo text{font:italic 800 15px var(--px);fill:#fff;text-anchor:middle}
-.story ol,.quiz ol{padding-left:24px}.story li{margin-bottom:8px}
-.cta{margin:30px 0;padding:6px 20px 16px;background:linear-gradient(var(--panel3),#231c52);border:3px solid var(--line);border-radius:12px;box-shadow:0 0 0 1px var(--yel),0 0 18px rgba(255,210,63,.2)}
-.cta h2{color:var(--yel)}
-.terms dt{font-weight:600;color:#fff;margin-top:10px}.terms dd{margin:2px 0 0 0}
-.q{background:rgba(0,0,0,.22);border:2px solid #2b2260;border-radius:10px;padding:4px 16px 10px;margin:12px 0}
-details summary{cursor:pointer;color:var(--cy);font-weight:600}
-.pn{display:flex;justify-content:space-between;gap:16px;margin:36px 0 10px;flex-wrap:wrap}
-.pn a{font:italic 800 18px var(--px);text-transform:uppercase;letter-spacing:.03em;text-decoration:none}
-.lede{font-size:18px;max-width:820px}
-.cards{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
-.cards a{display:block;height:100%;text-decoration:none;background:linear-gradient(var(--panel2),var(--panel));border:3px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--lift)}
-.cards a:hover{box-shadow:0 0 0 2px var(--yel),var(--lift)}
-.cards b{display:block;font:italic 800 19px/1.15 var(--px);text-transform:uppercase;letter-spacing:.02em;color:var(--yel)}
-.cards i{display:block;font-style:normal;font-size:14px;line-height:1.4;color:#e2ddf8;margin:4px 0}
-.cards span{display:block;font-size:13px;line-height:1.45;color:var(--muted)}
-.foot{max-width:1100px;margin:30px auto 0;padding:20px;border-top:2px solid #2b2260;font-size:13px;color:var(--muted)}
-.foot p{color:var(--muted)}
-@media(max-width:560px){body{font-size:16px}.bar{padding:8px 16px}.brand{font-size:22px}.bar nav{gap:12px;font-size:15px}.bar .go{font-size:15px;padding:4px 10px}main{padding:20px 16px}.topo text{font-size:20px}}
+html{background:var(--bg-app);-webkit-text-size-adjust:100%}
+body{margin:0;color:var(--text);background:var(--bg-surface);font:400 16px/26px var(--ui);-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-underline-offset:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border-subtle);background:var(--bg-app)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px;letter-spacing:-.02em;color:var(--text);text-decoration:none}
+.mark{width:22px;height:22px}.mark__tile{fill:var(--accent-solid)}
+.bar nav{display:flex;gap:16px;align-items:center;font-size:14px;font-weight:500}
+.bar nav a{color:var(--text-2);text-decoration:none}.bar nav a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;height:32px;padding:0 14px;border-radius:6px;font:500 14px/1 var(--ui);text-decoration:none;border:1px solid var(--border-control);color:var(--text)}
+.btn--primary,.bar nav a.btn--primary{background:var(--accent-solid);border-color:var(--accent-solid);color:var(--accent-on)}
+.btn--primary:hover{filter:brightness(1.08)}
+main{max-width:680px;margin:0 auto;padding:32px 20px 16px}
+main.index{max-width:760px}
+.crumbs,.meta{font-size:13px;line-height:20px;color:var(--text-2);margin:0 0 8px}
+h1{font-size:28px;line-height:36px;letter-spacing:-.012em;font-weight:600;margin:4px 0 6px}
+.sub,.lede{font-size:18px;line-height:28px;color:var(--text-2);margin:0 0 16px}
+h2{font-size:18px;line-height:26px;letter-spacing:-.012em;font-weight:600;margin:36px 0 10px}
+p,li,dd{color:var(--text)}
+code{font:400 13px var(--mono);background:var(--bg-hover);border-radius:4px;padding:1px 4px}
+pre{font:400 13px/20px var(--mono);background:var(--bg-console);color:var(--text-console);padding:12px;border-radius:6px;overflow-x:auto}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--border-subtle)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 8px}
+.tags li{font-size:12px;line-height:18px;color:var(--text-2);border:1px solid var(--border);border-radius:4px;padding:1px 8px}
+.tags b{font:500 11px var(--mono);color:var(--text-2);margin-right:6px}
+.topo{margin:20px 0 4px;border:1px solid var(--border-subtle);border-radius:8px;padding:12px;background:var(--bg-surface)}
+.topo svg{display:block;width:100%;height:auto;max-height:260px}
+.topo .wires line{stroke:var(--text-3);stroke-width:1.5}
+.topo .dev use{fill:none;stroke:var(--text-2);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;--node-fill:var(--bg-raised)}
+.topo text{font:500 12px var(--ui);fill:var(--text-2);text-anchor:middle}
+.topo figcaption{font-size:13px;color:var(--text-2);text-align:center;margin-top:4px}
+.story ol{padding-left:22px}.story li+li{margin-top:6px}
+.terms dt{font-weight:600;margin-top:10px}.terms dd{margin:2px 0 0;color:var(--text-2)}
+.note{border:1px solid var(--border);border-left:2px solid var(--accent);border-radius:6px;padding:2px 16px 8px;margin-top:24px}
+.note--warn{border-left-color:var(--warn)}.note h2{margin-top:12px;font-size:16px}
+.q{border:1px solid var(--border-subtle);border-radius:8px;padding:4px 16px 10px;margin:12px 0}
+details summary{cursor:pointer;color:var(--accent);font-weight:500;font-size:14px}
+.cta{margin:36px 0 8px;padding:4px 20px 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg-raised)}
+.pn{display:flex;justify-content:space-between;gap:16px;margin:32px 0 0;padding-top:20px;border-top:1px solid var(--border-subtle)}
+.pn a{font-size:14px;text-decoration:none;max-width:48%}.pn a.next{text-align:right;margin-left:auto}
+.pn small{display:block;font-size:12px;color:var(--text-2)}
+.rows{list-style:none;padding:0;margin:0}
+.rows a{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:6px;text-decoration:none;color:var(--text)}
+.rows a:hover{background:var(--bg-hover)}
+.rows b{font-weight:500}.rows span{font-size:14px;color:var(--text-2)}.rows small{font-size:12px;color:var(--text-2)}
+.foot{max-width:760px;margin:32px auto 0;padding:20px;border-top:1px solid var(--border-subtle);font-size:13px;line-height:20px;color:var(--text-2)}
+.foot p{color:var(--text-2)}
+@media(max-width:560px){.bar{padding:8px 16px}.bar nav{gap:12px}main{padding:20px 16px}h1{font-size:24px;line-height:32px}.sub,.lede{font-size:16px;line-height:24px}}
 `;
 
 // ---- sitemap: the app plus every lesson page; lastmod from the lesson content so it only changes when a page does ----

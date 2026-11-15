@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lab4Net share image</title>
+<!-- The 1200 by 630 share image. tools/build-og.cjs fills in the fonts and the workspace picture, then screenshots it. -->
+<style>
+/*FONTS*/
+html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #0D0E10; }
+body { font-family: "Inter", system-ui, sans-serif; color: #EDEEF0; -webkit-font-smoothing: antialiased; position: relative; }
+.text { position: absolute; left: 72px; top: 76px; width: 470px; }
+.brand { display: flex; align-items: center; gap: 14px; font-weight: 600; font-size: 34px; letter-spacing: -0.02em; }
+.brand svg { width: 46px; height: 46px; }
+h1 { font-weight: 600; font-size: 52px; line-height: 60px; letter-spacing: -0.025em; margin: 84px 0 22px; }
+p { font-size: 22px; line-height: 32px; color: #A3A6AD; margin: 0; }
+.facts { position: absolute; left: 72px; bottom: 64px; display: flex; gap: 22px; font-size: 18px; color: #A3A6AD; }
+.facts span::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #45C08A; margin-right: 9px; vertical-align: 3px; }
+.shot { position: absolute; left: 600px; top: 64px; width: 760px; height: 502px; border-radius: 14px; overflow: hidden; border: 1px solid #2A2C31; box-shadow: 0 24px 64px rgba(0,0,0,.5); background: #131416; }
+.shot img { display: block; width: 100%; }
+</style>
+</head>
+<body>
+<div class="text">
+  <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#2F6BEB"/><path d="M10 9v9.5a4.5 4.5 0 0 0 4.5 4.5H22" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="10" cy="9" r="3.25" fill="#fff"/><circle cx="22.5" cy="23" r="3.25" fill="#fff"/><circle cx="16.5" cy="23" r="2.4" fill="#fff"/></svg>Lab4Net</div>
+  <h1>Learn the CCNA by doing it.</h1>
+  <p>A free CCNA lab simulator in your browser: IOS-style consoles, a live network map, and grading on whether the network works.</p>
+</div>
+<div class="facts"><span>77 labs</span><span>56 lessons</span><span>Free</span><span>Works offline</span></div>
+<div class="shot"><img id="shot" alt=""></div>
+</body>
+</html>

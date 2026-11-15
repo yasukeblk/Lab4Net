@@ -17,8 +17,21 @@ const STATES = [
   { name: 'workspace', route: '#/labs/static-routing', act: async page => { await page.evaluate(() => { for (const l of ['enable', 'configure terminal', 'ip route 192.168.3.0 255.255.255.0 10.0.12.2', 'end', 'show ip route']) L4N.test.exec('R1', l); }); } },
   { name: 'workspace-failed-ping', route: '#/labs/static-routing', act: async page => { await page.evaluate(() => L4N.test.exec('PC1', 'ping 192.168.3.10')); await page.locator('#ws-map .badge__icon.is-bad').waitFor({ state: 'attached' }); const d = page.getByRole('button', { name: 'Details' }); if (await d.isVisible()) await d.click(); } },
   { name: 'workspace-tasks-collapsed', route: '#/labs/static-routing', act: async page => { const b = page.getByRole('button', { name: 'Collapse the Tasks panel' }); if (await b.isVisible()) await b.click(); } },
+  { name: 'lesson-reader', route: '#/lessons/static-routing' },
   { name: 'palette', route: '#/', act: async page => { await page.locator('.sb__search').click({ force: true }).catch(() => {}); if (!(await page.locator('dialog[open]').count())) await page.evaluate(() => L4N.palette.open()); } }
 ];
+
+// The lesson web page follows prefers-color-scheme instead of the app's theme.
+for (const scheme of ['dark', 'light']) for (const [w, h] of SIZES) {
+  test(`lesson-page ${scheme} ${w}x${h}`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+    await page.goto('/lessons/static-routing.html');
+    const name = `lesson-page-${scheme}-${w}x${h}.png`;
+    if (COMPARE) await expect(page).toHaveScreenshot(name);
+    else await page.screenshot({ path: path.join(__dirname, '..', '..', 'test-results', 'shots', name) });
+  });
+}
 
 // Later phases add their states here.
 module.exports.STATES = STATES;

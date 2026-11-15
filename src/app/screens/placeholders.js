@@ -13,7 +13,6 @@
   }
 
   const P = (name, title, o, extra) => L4N.screens.register(name, Object.assign({ title: () => title, mount: page(title, o) }, extra || {}));
-  P('lessons', 'Lessons', { icon: 'lessons', what: 'The lessons list is being rebuilt.', todo: 'The lessons are also on the web.', action: { label: 'Lessons on the web', href: L4N.site.lessonsUrl, target: '_blank', rel: 'noopener noreferrer', icon: 'external' } });
   P('practice', 'Practice', { icon: 'practice', what: 'Practice is being rebuilt.', todo: 'The exam, quiz and subnetting drill come back here.', action: { label: 'Home', href: '#/' } });
   P('exam', 'Exam', { icon: 'clock', what: 'The exam is being rebuilt.', todo: 'Go back to Practice.', action: { label: 'Practice', href: '#/practice' } },
     { nav: 'practice', crumbs: () => [{ label: 'Practice', href: '#/practice' }, { label: 'Exam' }] });
@@ -24,14 +23,4 @@
   P('sandbox', 'Sandbox', { icon: 'sandbox', what: 'The sandbox is being rebuilt.', todo: 'It comes back last, in the same workspace as the labs.', action: { label: 'Home', href: '#/' } });
   P('progress', 'Progress', { icon: 'progress', what: 'Nothing to show yet.', todo: 'Finish a lab and it shows here.', action: { label: 'Labs', href: '#/labs' } });
 
-  const lessonTitle = r => { const l = L4N.data.lesson(r.slug); return l ? l.title : 'Lesson'; };
-  L4N.screens.register('lesson', {
-    nav: 'lessons', title: lessonTitle,
-    crumbs: r => [{ label: 'Lessons', href: '#/lessons' }, { label: lessonTitle(r) }],
-    mount(root, r) {
-      const l = L4N.data.lesson(r.slug);
-      if (!l) { L4N.toast({ text: 'That link is out of date.', kind: 'warn' }); setTimeout(() => L4N.shell.go('#/lessons'), 0); return; }
-      page(l.title, { icon: 'lessons', what: 'The lesson reader is being rebuilt.', todo: 'This lesson is also on the web.', action: { label: 'Read it on the web', href: L4N.site.lessonsUrl + l.slug + '.html', target: '_blank', rel: 'noopener noreferrer', icon: 'external' } })(root);
-    }
-  });
 })(window.L4N = window.L4N || {});

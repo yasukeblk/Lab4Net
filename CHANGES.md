@@ -1,5 +1,28 @@
 # Lab4Net changes
 
+## Redesign, phase 6: lessons, in the app and on the web
+
+- **Lessons list.** The same list-and-detail layout as Labs. It is grouped by exam topic (the six domains) or by type (lab lessons, topic lessons). Each row shows whether you have read it, the minutes, objective chips and your quick-check score ("3/4"). The detail pane shows the minutes, objectives with names, the opening of the first section, "Read" and "Open the lab". The top bar links to "These lessons are also on the web".
+- **Lesson reader.** A 680 px reading column at 16 px, with "On this page" at the right from 1280 px. The top bar shows the minutes, a read chip and "Practise in the lab". The content runs: title and objectives, the sections, "See it happen", key terms, exam notes and common mistakes, the quick check, then previous and next. `N` and `P` move between sections.
+- **See it happen.** The lab's own map, drawn by the same map component as the workspace, steps through the lesson's story with Previous and Next. Each step sends the packet along its path (a hollow dot for a reply) and marks where it ends, with the label in green or red. With reduced motion each step is a still picture.
+- **Quick check.** Four options per question in the same fixed shuffled order as before (the old app's stable shuffle, copied exactly). Picking one shows right or wrong in words and the explanation. Answers are saved by question index, as before.
+- **Read.** A lesson is marked read when you reach the end of its sections, or press "Mark as read". It counts in the sidebar, on Home and in the list.
+- **The lesson banner in labs.** The first time a build lab with a lesson opens, a one-line banner says "Read the lesson first (8 min)", with "Open lesson" and "Skip". It does not block the lab and does not come back.
+- **Palette.** "Open lesson: …" for all 56 lessons.
+- **The lesson web pages** (`lessons/`, made by `tools/build-site.cjs`) are redesigned to match. Each page has a slim header (the mark, "Lab4Net", "Lessons", "Open the app"), a 680 px reading column, and the lab's network drawn with the app's device icons. Then come the sections, the story steps as a numbered list, key terms, exam notes, mistakes, the quick check with answers behind "Show the answer", a "Practise it" button, previous and next, and the footer with the trademark notice. The index groups lessons by CCNA domain as list rows. The theme follows the visitor's system setting through `prefers-color-scheme`. There is no theme button, because the only script is the visit counter. The colours come from `src/styles/tokens.css` and the fonts are the app's own (`lessons/fonts/`). File names, titles, descriptions, canonical links, share tags and structured data are unchanged.
+- **Share image.** A new `og.png` (1200 by 630): dark background, the mark and wordmark, "Learn the CCNA by doing it.", and a real photograph of the lab workspace after a successful ping. It is made by `tools/build-og.cjs` from `tools/og.html` with Playwright, and the PNG is committed. The app's description and share text no longer mention the campaign; they now say "56 lessons, practice exams and a sandbox".
+- **Tests.** `node tests/lessons.cjs` and `node tests/sitepages.cjs` pass unchanged, so no edits to them were needed. The set of file names in `lessons/` is the same as on `main`. New browser tests:
+  - `lessons.spec`: all 56 lessons open in the reader; reaching the end marks one read; Mark as read; quick-check answers saved by index; story steps with and without reduced motion; grouping; `N` and `P`; the lab banner.
+  - `lessonpages.spec`: the same page set as on `main`; one `h1` per page; no script but the counter; no sideways scroll at 390 wide; the right colours in both colour schemes; links into the app open the right lab and lesson.
+  - `visual.spec` gains the lesson reader and a lesson web page in both schemes.
+
+  368 browser tests pass.
+
+Where the build differs from the plan:
+
+- **Lesson titles.** In the app the lesson's own name is its title ("How to tell a router about distant networks"), as the old app showed it. The web pages keep the lab title as the `h1` (with the name under it), as they always had, so their titles and search listings do not change.
+- **The CSS budget is nearly used** (68 of 70 KB). Phases 7 and 8 reuse existing classes; Phase 9 checks the budget.
+
 ## Redesign, phase 5: Home, the Labs list, your old progress, backups and the landing page
 
 A returning user now lands in the new app with their history.
