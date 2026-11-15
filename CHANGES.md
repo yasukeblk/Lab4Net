@@ -1,5 +1,23 @@
 # Lab4Net changes
 
+## Tasks tick when done as asked
+
+A task waited for every `show` or ping in its step-by-step, even ones its own words never asked for. Switch management access, task 3 ("Create interface vlan 99, give it 192.168.99.2/24 and bring it up"), only ticked after `show ip interface brief`, because the step-by-step suggests it as a last step. Now a task waits only for what it asks:
+
+- **A configuration task ticks when the network does it.** Task 3 ticks once VLAN 99's interface is addressed and up.
+- **A `show` is needed only when the task names it.** "Check each table with show ip route" still waits for it. A task may write it shortened or without its port or address: "show lldp interface" names `show lldp interface gi0/1`.
+- **A test is needed when the task asks for one**: ping or traceroute when it says ping, trace or test ("Test: PC1 should still reach the server…"); Telnet or SSH when it names them; `ipconfig` when it says renew, release or ipconfig ("Renew the phone's address").
+- **Asked to check without saying how** ("check both VLANs again", "confirm traffic returns"): the task's own looking commands are how.
+- **A command asked for again** ("Ping again from ADMIN") is needed once more, not once for every time the step-by-step repeats it.
+
+27 tasks no longer wait for commands they never asked for. They include Switch management access tasks 3 and 6 (`show ip interface brief` and `show ip ssh`), the router-ID lab's tasks 3 and 6, and the DHCP lab's renew check.
+
+**Tests.**
+- `tests/task-checks.cjs` works every lab once more, leaving out every looking command a task doesn't ask for, and checks that each task still ticks (218 tasks). Your case is checked by name.
+- The earlier walks still hold: nothing ticks early, and each task ticks on its own steps.
+- `task-ticks.spec.js` has a browser test for task 3.
+- The rule lives in one place, `sim.taskAsks`, used by the app and the tests alike.
+
 ## The Tasks panel: tasks that tick themselves, and help one task at a time
 
 Before this change, task checkboxes were a to-do list you ticked on trust; the grader's checks were a separate list, and you only heard from them when you pressed Grade. Step-by-step was one switch that showed every task's commands at once and took 15 points off the whole lab, without saying so.

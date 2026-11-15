@@ -45,6 +45,16 @@ test('Static routing: each task ticks itself when the network does it, and a loo
   expect(errors()).toEqual([]);
 });
 
+test('a task ticks when done as its words ask, without commands it never asked for', async ({ page }) => {
+  // Switch management access, task 3: "Create interface vlan 99, give it 192.168.99.2/24 and bring it up."
+  // The step-by-step then suggests show ip interface brief, but the task doesn't ask for it.
+  await open(page, '#/labs/switch-management-access', { main: JSON.parse(JSON.stringify(NEW)) });
+  await run(page, 'SW1', ['enable', 'configure terminal', 'vlan 99', 'name MGMT', 'exit', 'interface vlan 99']);
+  await expect(task(page, 2)).not.toHaveClass(/is-ticked/);          // no address yet
+  await run(page, 'SW1', ['ip address 192.168.99.2 255.255.255.0', 'no shutdown']);
+  await expect(task(page, 2)).toHaveClass(/is-ticked/);               // and no show command was needed
+});
+
 test('help for one task: a hint, then its commands, each charged once and shown from then on', async ({ page }) => {
   await open(page, '#/labs/static-routing', { main: JSON.parse(JSON.stringify(NEW)) });
   await run(page, 'R1', ['enable']);                       // starts the run, so the help is counted

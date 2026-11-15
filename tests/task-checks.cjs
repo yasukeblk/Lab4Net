@@ -61,6 +61,31 @@ for (const l of labs) {
   });
   walked++;
 }
+// Only what a task asks for: work each lab again, leaving out every looking command (show, ping…) a task's own words
+// don't ask for. Each task must still tick once its own asked-for steps are done ("bring it up" ticks when it is up).
+let asOnly = 0;
+// only commands that purely look are left out (ipconfig and ipv6config can set an address or renew a lease)
+const LOOKCMD = /^\s*(do\s+)?(sh(o(w)?)?|ping|traceroute|tracert|arp|netstat|telnet|ssh)\b/i;
+for (const l of labs) {
+  const lab = l.lab, steps = L4N.sim.steps(lab), st = L4N.sim.open(l, null), asked = L4N.sim.taskAsks(l);
+  lab.tasks.forEach((_, i) => {
+    for (const g of steps[i] || []) for (const x of g.lines) {
+      if (!x.cmd) continue;
+      if (LOOKCMD.test(x.cmd) && !asked[i].some(([d, c]) => d === g.dev && c === x.cmd)) continue;   // not asked for: skipped
+      L4N.sim.exec(st, g.dev, x.cmd);
+    }
+    const s = L4N.sim.taskStatus(st, l);
+    if (s[i] !== null) { assert.strictEqual(s[i], true, l.slug + ' task ' + (i + 1) + ' does not tick when done as its words ask'); asOnly++; }
+  });
+}
+// the case that found this: Switch management access, task 3, up and addressed with no show command
+{
+  const l = L4N.data.lab('switch-management-access'), st = L4N.sim.open(l, null);
+  for (const c of ['enable', 'configure terminal', 'vlan 99', 'name MGMT', 'exit', 'interface vlan 99', 'ip address 192.168.99.2 255.255.255.0', 'no shutdown']) L4N.sim.exec(st, 'SW1', c);
+  assert.strictEqual(L4N.sim.taskStatus(st, l)[2], true, 'switch-management-access task 3 ticks when VLAN 99 is up and addressed, with no show command');
+}
+console.log('PASS as asked: ' + asOnly + ' tasks tick when done exactly as their words ask, without unasked show or ping commands.');
+
 // Incidents: reproduce needs a test, evidence a show, restore every check, and retest a test after the repair.
 const incidents = L4N.data.labs.filter(l => l.kind === 'incident');
 for (const l of incidents) {
