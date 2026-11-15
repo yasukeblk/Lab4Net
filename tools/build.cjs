@@ -21,14 +21,21 @@ const BUDGET = {
   total: 1900 * KB,
   gzip: 700 * KB
 };
+// The hosted site (node tools/build.cjs --site, FIXES-PLAN.md phase 10): its first load is everything but the lesson
+// text, budgeted at the single file's size when it was split (1,588 KB) less the lesson text (489 KB), plus 10%.
+// Each lesson's text is its own file, loaded when the lesson opens.
+const SITE_BUDGET = { firstLoad: 1210 * KB, lessonText: 25 * KB };
+const SITE = path.join(ROOT, 'site');
 
 const read = rel => fs.readFileSync(path.join(SRC, rel), 'utf8');
 // A data file as the build uses it: data/lessons.js gets the lessons from src/lessons/*.md in place of //@lessons.
-function readData(rel) {
+// With site set (the hosted build), lessons keep only their index and their text goes in files (FIXES-PLAN.md phase 10).
+function readData(rel, site) {
   let t = read(rel);
   if (rel === 'data/lessons.js') {
     if (t.split('//@lessons\n').length !== 2) throw new Error('src/data/lessons.js must hold //@lessons once, where the lesson files go');
-    t = t.replace('//@lessons\n', () => require('./lessons-md.cjs').compile());
+    const md = require('./lessons-md.cjs');
+    t = t.replace('//@lessons\n', () => site ? md.compileSite().code : md.compile());
   }
   return t;
 }
@@ -88,7 +95,8 @@ function srcCounts() {
   return counts(manifest.engine.map(read).join(''), manifest.js.filter(f => f.startsWith('data/')).map(readData).join(''));
 }
 
-function build() {
+function build(opts) {
+  const site = !!(opts && opts.site);
   const manifest = JSON.parse(read('manifest.json'));
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const template = read(manifest.template);
@@ -100,7 +108,7 @@ function build() {
   for (const [k, t] of engineFiles.entries())
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(manifest.engine[k] + ' contains an engine marker');
   const engine = '//ENGINE-START\n' + engineFiles.join('') + '//ENGINE-END\n';
-  const jsFiles = manifest.js.map(f => [f, f.startsWith('data/') ? readData(f) : stripJs(read(f), f)]);
+  const jsFiles = manifest.js.map(f => [f, f.startsWith('data/') ? readData(f, site) : stripJs(read(f), f)]);
   for (const [f, t] of jsFiles)
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(f + ' contains an engine marker');
   const data = jsFiles.filter(([f]) => f.startsWith('data/')).map(([, t]) => t).join('');
@@ -140,9 +148,39 @@ function table(sizes, over) {
     (over.includes(k) ? '  OVER BUDGET' : '')).join('\n');
 }
 
-module.exports = { build, BUDGET, stripJs, stripCss, counts, fillCounts, srcCounts, readData };
+module.exports = { build, BUDGET, SITE_BUDGET, stripJs, stripCss, counts, fillCounts, srcCounts, readData };
 
-if (require.main === module) {
+// site/: what GitHub Pages publishes. The app with lessons as an index and each lesson's text in lesson-data/<slug>.json;
+// the lesson pages, sitemap, share image and licences at the same addresses as before; and the single file as
+// lab4net.html, to download and use offline. Built in CI, never committed.
+function writeSite() {
+  const r = build({ site: true });
+  const { bodies } = require('./lessons-md.cjs').compileSite();
+  fs.rmSync(SITE, { recursive: true, force: true });
+  fs.mkdirSync(path.join(SITE, 'lesson-data'), { recursive: true });
+  fs.writeFileSync(path.join(SITE, 'index.html'), r.html);
+  const big = [];
+  for (const [slug, body] of Object.entries(bodies)) {
+    const t = JSON.stringify(body);
+    if (bytes(t) > SITE_BUDGET.lessonText) big.push(slug + ' (' + (bytes(t) / KB).toFixed(1) + ' KB)');
+    fs.writeFileSync(path.join(SITE, 'lesson-data', slug + '.json'), t);
+  }
+  for (const f of ['og.png', 'sitemap.xml', 'LICENSE', 'THIRD-PARTY-NOTICES.md']) fs.copyFileSync(path.join(ROOT, f), path.join(SITE, f));
+  fs.cpSync(path.join(ROOT, 'lessons'), path.join(SITE, 'lessons'), { recursive: true });
+  fs.copyFileSync(OUT, path.join(SITE, 'lab4net.html'));
+  const kb = n => (n / KB).toFixed(1) + ' KB';
+  console.log('site/ written: first load ' + kb(r.sizes.total) + ' / ' + kb(SITE_BUDGET.firstLoad) + ' (' + kb(r.sizes.gzip) + ' gzipped), ' +
+    Object.keys(bodies).length + ' lesson files up to ' + kb(Math.max(...Object.values(bodies).map(b => bytes(JSON.stringify(b))))) + ' / ' + kb(SITE_BUDGET.lessonText));
+  const errs = [];
+  if (r.sizes.total > SITE_BUDGET.firstLoad) errs.push('the first load is over budget');
+  if (big.length) errs.push('lesson text over budget: ' + big.join(', '));
+  if (r.over.length) errs.push(r.over.join(', ') + ' over budget');
+  if (errs.length) { console.error('Size budget broken: ' + errs.join('; ')); process.exit(1); }
+}
+
+if (require.main === module && process.argv.includes('--site')) {
+  try { writeSite(); } catch (e) { console.error('site build failed: ' + e.message); process.exit(1); }
+} else if (require.main === module) {
   const check = process.argv.includes('--check');
   let r;
   try { r = build(); } catch (e) { console.error('build failed: ' + e.message); process.exit(1); }

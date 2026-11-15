@@ -7,6 +7,24 @@
   const objName = id => (typeof CCNA_OBJECTIVES !== 'undefined' && CCNA_OBJECTIVES[id]) || '';
   const objs = l => L4N.stats.lessonObjs(l);
   const rec = slug => L4N.store.get().lessons[slug] || { read: false, quiz: {} };
+  // A lesson's text. The single file has it inline; the hosted site keeps only the index in the page and loads the text
+  // from lesson-data/<slug>.json the first time the lesson is opened (FIXES-PLAN.md phase 10). The answer is checked
+  // like any other outside data: only the expected fields, of the expected kinds, are kept.
+  const hasText = l => Array.isArray(l.lesson.sections);
+  const loading = new Map();
+  function lessonText(l) {
+    if (hasText(l)) return Promise.resolve(l.lesson);
+    if (!loading.has(l.slug)) loading.set(l.slug, fetch('lesson-data/' + l.slug + '.json', { cache: 'force-cache' })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(b => {
+        if (!b || !Array.isArray(b.sections) || !Array.isArray(b.quiz)) throw new Error('not a lesson');
+        for (const k of ['sections', 'terms', 'exam', 'mistakes', 'quiz', 'story']) if (Array.isArray(b[k])) l.lesson[k] = b[k];
+        return l.lesson;
+      })
+      .catch(e => { loading.delete(l.slug); throw e; }));
+    return loading.get(l.slug);
+  }
+  L4N.lessonText = lessonText;
   const score = l => { const q = rec(l.slug).quiz; return Object.keys(q).filter(k => q[k] === true).length; };
   // the old app's stable shuffle per question, so the right answer is not always in the same place
   const order = (q, n) => { let h = 2166136261; for (const c of q) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; const o = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; const j = h % (i + 1); [o[i], o[j]] = [o[j], o[i]]; } return o; };
@@ -15,7 +33,7 @@
   // ---------------------------------------------------------------- list
   let group = 'topic', lastSel = null;
   function rowOf(l) {
-    const r = rec(l.slug), n = (l.lesson.quiz || []).length, o = objs(l);
+    const r = rec(l.slug), n = l.lesson.quiz ? l.lesson.quiz.length : (l.lesson.quizCount || 0), o = objs(l);
     const meta = [el('span', { class: 'num', text: l.mins + ' min' })].concat(o.slice(0, 2).map(x => ui.objChip(x, objName(x))));
     if (Object.keys(r.quiz).length) meta.push(el('span', { class: 'num', text: score(l) + '/' + n }));
     return { key: l.slug, icon: r.read ? 'check-circle' : 'circle', iconClass: r.read ? 'st--done' : 'st--todo', title: l.title, meta, entry: l, aria: l.title + (r.read ? ', read' : ', not read') };
@@ -28,6 +46,8 @@
   // The summary in the side panel: whole sentences from the lesson's first paragraph, up to about 300 characters.
   // A sentence ends at . ! or ? followed by a capital letter or the end, so 192.168.3.0 never counts as an end.
   function summary(l) {
+    // On the hosted site the text may not be here yet: show an empty line now and fill it when the text arrives.
+    if (!hasText(l)) { const p = el('p', { class: 'detail__brief' }); lessonText(l).then(() => { const s = summary(l); if (s) p.textContent = s.textContent; }).catch(() => {}); return p; }
     const first = (l.lesson.sections || [])[0];
     if (!first) return null;
     const html = trusted(first[1], 'div', {}), p = html.querySelector('p');
@@ -66,6 +86,21 @@
   function mountReader(root, r, ctx) {
     const l = L4N.data.lesson(r.slug);
     if (!l) { L4N.toast({ text: 'That link is out of date.', kind: 'warn' }); setTimeout(() => L4N.shell.go('#/lessons'), 0); return; }
+    // The hosted site loads the lesson's text first. Offline, it says so and points to the single file, which has it all.
+    if (!hasText(l)) {
+      const wait = el('div', { class: 'page reader__wait', role: 'status' }, el('h1', { class: 'reader__title', 'data-heading': '', tabindex: '-1', text: l.title }),
+        el('p', { class: 'muted', text: 'Loading the lesson…' }));
+      root.append(wait);
+      const still = () => wait.isConnected;
+      lessonText(l).then(() => { if (still()) { wait.remove(); mountReader(root, r, ctx); } }).catch(() => {
+        if (!still()) return;
+        clear(wait).append(el('h1', { class: 'reader__title', 'data-heading': '', tabindex: '-1', text: l.title }),
+          ui.empty({ icon: 'lessons', what: 'This lesson needs a connection.', todo: 'The single-file version works fully offline. Download it once and open it from your computer.' }),
+          el('p', {}, el('a', { href: 'lab4net.html', download: 'lab4net.html', class: 'btn btn--secondary' }, icon('download'), ' Download Lab4Net for offline use')),
+          el('p', {}, ui.button({ label: 'Try again', kind: 'ghost', icon: 'reset', onClick: () => { wait.remove(); mountReader(root, r, ctx); } })));
+      });
+      return;
+    }
     const L = l.lesson, all = L4N.data.lessons, i = all.indexOf(l);
     const readChip = el('span');
     const refresh = () => { clear(readChip).append(rec(l.slug).read ? ui.chip('Read', 'chip--done', 'check-circle') : ui.chip('Not read yet', 'chip--todo', 'circle')); };

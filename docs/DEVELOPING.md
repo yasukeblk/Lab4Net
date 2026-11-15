@@ -51,13 +51,19 @@ lessons/, sitemap.xml    generated: never edit by hand
 ```
 node tools/build.cjs           # write index.html and print the size report
 node tools/build.cjs --check   # fail if index.html is not what src/ builds (CI runs this)
+node tools/build.cjs --site    # write site/, the hosted build (CI makes it; never committed)
 ```
+
+There are two outputs from the same source:
+
+- **`index.html`**, the single file: everything inline, including every lesson's text. It works from `file://` with no network, and it is the download.
+- **`site/`**, what GitHub Pages serves. It's the same app, but the page holds only each lesson's index (name, minutes, topic, objectives, number of quiz questions), and each lesson's text is `site/lesson-data/<slug>.json`, fetched when the lesson is opened. Offline, a lesson says it needs a connection and links to `lab4net.html`, the single file, which `site/` also carries. `site/` also has the lesson pages, `sitemap.xml`, `og.png` and the licences, at the same addresses as before.
 
 `build.cjs` uses Node only, no packages. It reads `src/manifest.json` and fills each of the template's markers once: `/*@fonts*/` (the woff2 files as base64 `@font-face` rules), `/*@css*/`, `<!--@icons-->`, `//@js` (engine, then data, then app), `/*@version*/` and `/*@date*/` (from `package.json`). Full-line `//` comments in the app's JavaScript and `/* */` comments in the CSS are left out of the output, so comment freely in `src/`. The engine and the data are copied byte for byte.
 
 The base64 font lines in `index.html` are tens of kilobytes each. Never print or read them in full; use a line range or grep.
 
-**Size budget** (KB = 1,000 bytes; the build fails above it): app JavaScript 300, CSS 70, fonts 170, markup and icons 30, `index.html` 1,550, gzipped 570. The engine and data (about 1,045 KB) have no budget of their own. Today: app JS 297, CSS 68, fonts 93, markup 20, total 1,523, gzipped 498. Content such as stages, kits and goals belongs in `src/data/`, outside the app budget.
+**Size budget** (KB = 1,000 bytes; the build fails above it): app JavaScript 300, CSS 70, fonts 170, markup and icons 30, `index.html` 1,900, gzipped 700. For `site/`: the first load (everything but lesson text) 1,210, and each lesson's text 25. The engine and data (about 1,045 KB) have no budget of their own. Today: app JS 297, CSS 68, fonts 93, markup 20, total 1,523, gzipped 498. Content such as stages, kits and goals belongs in `src/data/`, outside the app budget.
 
 After changing lessons, a lab title, a lab map or the fonts, also run `node tools/build-site.cjs` and commit `lessons/` and `sitemap.xml`. `tests/sitepages.cjs` fails until you do.
 
@@ -188,7 +194,14 @@ For anything visual, open the page in a real browser at 1366 by 768 in both them
 3. Both `labs` and `browser` must pass before the pull request can merge.
 4. After the merge, "Test and deploy" runs the whole suite again on `main`. Only if it passes does its `deploy` job publish the site to GitHub Pages. A failed run leaves the live site as it was.
 
-The deploy publishes exactly these files: `index.html`, `og.png`, `sitemap.xml`, `LICENSE`, `THIRD-PARTY-NOTICES.md` and the `lessons/` folder (the pages, `site.css` and `fonts/`). Nothing else in the repository is on the public site. To publish a new file, add it to the "Collect the files the site serves" step in `deploy.yml`.
+The deploy builds `site/` (`node tools/build.cjs --site`) and publishes exactly that folder:
+
+- the app (`index.html`), with `lesson-data/` for the lessons' text;
+- `lab4net.html`, the single file for offline use;
+- `og.png`, `sitemap.xml`, `LICENSE` and `THIRD-PARTY-NOTICES.md`;
+- the `lessons/` folder (the pages, `site.css` and `fonts/`).
+
+Nothing else in the repository is on the public site. To publish a new file, copy it in `writeSite()` in `tools/build.cjs`. The browser tests run twice, once against the single file and once against `site/` (the Playwright project "site").
 
 To roll back, open a pull request that reverts the bad change. For a merge commit, that's `git revert -m 1 <merge commit>` on a new branch. When it merges, the deploy tests the reverted code and publishes it. A hand run of "Test and deploy" on `main` (Actions › Test and deploy › Run workflow) republishes the current `main`.
 

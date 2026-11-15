@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // A tiny static server for previewing the app and the lesson pages. Node only, no packages.
-//   node tools/serve.cjs [port]      then open http://localhost:<port>/
+//   node tools/serve.cjs [port] [folder]   then open http://localhost:<port>/ (folder: e.g. site, the hosted build)
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path');
-const ROOT = path.join(__dirname, '..');
+const ROOT = path.join(__dirname, '..', process.argv[3] || '');
 const PORT = +process.argv[2] || +process.env.PORT || 8137;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json', '.png': 'image/png', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.woff2': 'font/woff2',

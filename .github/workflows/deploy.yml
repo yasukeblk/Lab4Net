@@ -62,17 +62,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Collect the files the site serves
-        # Exactly what the public site needs: the app, the lesson pages with their stylesheet and fonts,
-        # the sitemap, the share image, and the licences for the code and the fonts.
-        run: |
-          mkdir _site
-          cp index.html og.png sitemap.xml LICENSE THIRD-PARTY-NOTICES.md _site/
-          cp -r lessons _site/lessons
-          find _site -type f | sort
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build the site
+        # site/: the app with each lesson's text in its own file, the lesson pages, sitemap, share image and licences at
+        # the same addresses as before, and the single file as lab4net.html for offline use (tools/build.cjs --site).
+        run: node tools/build.cjs --site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: site
       - id: deployment
         uses: actions/deploy-pages@v4

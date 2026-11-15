@@ -24,13 +24,15 @@ module.exports = defineConfig({
     viewport: { width: 1366, height: 768 },
     trace: 'retain-on-failure'
   },
-  webServer: {
-    command: 'node tools/serve.cjs 8138',
-    url: 'http://127.0.0.1:8138/',
-    reuseExistingServer: !process.env.CI
-  },
+  webServer: [
+    { command: 'node tools/serve.cjs 8138', url: 'http://127.0.0.1:8138/', reuseExistingServer: !process.env.CI },
+    // the hosted build (FIXES-PLAN.md phase 10): lessons load their text when opened
+    { command: 'node tools/build.cjs --site && node tools/serve.cjs 8139 site', url: 'http://127.0.0.1:8139/', reuseExistingServer: !process.env.CI }
+  ],
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },
+    // the whole suite again against site/, the build GitHub Pages serves
+    { name: 'site', use: { browserName: 'chromium', baseURL: 'http://127.0.0.1:8139' } },
     { name: 'firefox', use: { browserName: 'firefox' }, testMatch: /(shell|console|map)\.spec\.js/ },
     { name: 'webkit', use: { browserName: 'webkit' }, testMatch: /(shell|console|map)\.spec\.js/ }
   ]

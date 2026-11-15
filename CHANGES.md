@@ -1,6 +1,26 @@
 # Lab4Net changes
 
-## Fixes, phase 9: lessons as files
+## Fixes, phase 10: a lighter hosted site
+
+Every visitor used to download all 66 lessons' text (about 490 KB) before seeing anything, and it grew with every lesson batch. The public site now loads a lesson's text when the lesson is opened. The single-file download is unchanged.
+
+- **Two outputs from one source.**
+  - `index.html` is still the single file: everything inline, working from `file://` with no network.
+  - `node tools/build.cjs --site` writes `site/`, which GitHub Pages serves. It's the same app, but the page keeps only each lesson's index (name, minutes, topic, objectives and number of quiz questions), so lists, search, progress and the palette work at once. Each lesson's text is its own file, `lesson-data/<slug>.json`.
+- **Smaller first load.** The public site's first load went from 1,588 KB to 1,102 KB (370 KB gzipped, was 524 KB): 486 KB less, where the plan asked for at least 350. Lesson files are 5.7 to 9.1 KB each.
+- **Opening a lesson** fetches just that lesson's file, once. While it loads, the reader shows the title and "Loading the lesson…". The Lessons side panel fills in its summary when the text arrives.
+- **Offline on the public site**, a lesson says "This lesson needs a connection." It offers "Download Lab4Net for offline use" (the single file, published at `lab4net.html`) and "Try again". The rest of the app keeps working. Lesson text that comes back is checked like any outside data: only the expected fields, of the expected kinds, are kept.
+- **Same addresses.** `site/` also carries the lesson pages, `sitemap.xml`, `og.png` and the licences, exactly where they were. The deploy now builds `site/` and publishes that folder. `site/` is never committed.
+- **Budgets.**
+  - The hosted first load has its own budget: 1,210 KB, which is the single file's size when it was split, less the lesson text, plus 10%.
+  - Each lesson file has a 25 KB budget.
+  - The single file keeps its budgets.
+- **Tests.**
+  - Playwright has a new project, "site", which runs the whole browser suite again against `site/` on its own server, built fresh each run. All 379 tests in it pass.
+  - A new test, `site.spec.js`, runs only there. It checks that the page holds only the index and that no lesson file is requested before a lesson opens. It checks that opening Static routing fetches exactly `static-routing.json`, and nothing more on a second visit. Offline, it checks the message, the download (served, and it is the full single file), that labs still work, and that "Try again" loads the lesson once the connection is back. It also checks that the lesson pages, sitemap, share image and licences answer at their old addresses.
+- **Docs.** `docs/DEVELOPING.md` explains the two outputs, the budgets and what the deploy publishes. The README mentions `lab4net.html` and `--site`.
+
+
 
 Nothing changes for learners. Lessons used to be long HTML strings inside JavaScript in `src/data/lessons.js`, which made them hard to write, review and contribute to.
 

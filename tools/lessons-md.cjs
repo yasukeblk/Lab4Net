@@ -107,4 +107,20 @@ function compile(dir) {
   return 'Object.assign(LESSONS,' + JSON.stringify(obj) + ');\n';
 }
 
-module.exports = { DIR, parse, toMd, load, compile };
+// The hosted site (FIXES-PLAN.md phase 10): LESSONS keeps each lesson's index, what lists, search and progress need
+// (name, minutes, topic, objectives, and how many quiz questions it has), and the text goes in a file per lesson,
+// loaded when the lesson is opened. The single-file index.html keeps everything inline, as compile() makes it.
+const BODY = ['sections', 'terms', 'exam', 'mistakes', 'quiz', 'story'];
+const slug = s => String(s).toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+function compileSite(dir) {
+  const obj = {}, bodies = {};
+  for (const x of load(dir)) {
+    const idx = {}, body = {};
+    for (const [k, v] of Object.entries(x.lesson)) (BODY.includes(k) ? body : idx)[k] = v;
+    idx.quizCount = (x.lesson.quiz || []).length;
+    obj[x.key] = idx; bodies[slug(x.key)] = body;
+  }
+  return { code: 'Object.assign(LESSONS,' + JSON.stringify(obj) + ');\n', bodies };
+}
+
+module.exports = { DIR, parse, toMd, load, compile, compileSite, BODY };

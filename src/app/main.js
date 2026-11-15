@@ -6,7 +6,7 @@
   // The catalogue of labs and lessons, and the slugs storage is allowed to name.
   L4N.data = L4N.sim.catalogue();
   for (const l of L4N.data.labs) V.known.labs.add(l.slug);
-  for (const l of L4N.data.lessons) { V.known.lessons.add(l.slug); V.known.lessonQuiz[l.slug] = Array.isArray(l.lesson.quiz) ? l.lesson.quiz.length : 0; }
+  for (const l of L4N.data.lessons) { V.known.lessons.add(l.slug); V.known.lessonQuiz[l.slug] = Array.isArray(l.lesson.quiz) ? l.lesson.quiz.length : (l.lesson.quizCount || 0); }
   V.known.quizCount = typeof QUIZ !== 'undefined' ? QUIZ.length : 0;
   V.known.automationCount = typeof AUTOMATION !== 'undefined' ? AUTOMATION.length : 0;
 
