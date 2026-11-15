@@ -76,6 +76,7 @@
 
   // Hook into every workspace: the menu item, the strip, and sending state when it changes.
   (L4N.workspaceExtras = L4N.workspaceExtras || []).push(w => {
+    if (w.entry.kind === 'sandbox') return;
     ensureChannel();
     w.syncHooks = (w.syncHooks || []).concat(() => { if (w.tasksOut) send(stateMsg()); });
     w.hooks.push(() => { if (w.tasksOut) send(stateMsg()); });

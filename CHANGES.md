@@ -1,5 +1,47 @@
 # Lab4Net changes
 
+## Redesign, phase 8: the sandbox
+
+Free build is back, inside the same workspace as the labs.
+
+- **The Build panel** takes the Tasks panel's place:
+  - add a device (Router, Router with 5 ports, Switch, Switch with 24 ports, Layer 3 switch, PC, Server);
+  - the tools (Select, Cable, Note, Delete);
+  - Undo and Redo;
+  - the four goals (the old "challenges") with a check as each is met;
+  - the four starter kits;
+  - Save to file, Load from file and Clear all.
+- **The map** is a larger canvas (1600 by 660) with zoom (`−`, `+`, Fit) and pan (drag the background, or the arrow keys while the map has focus). Devices can be dragged. Cabling asks which port on each end in a small menu, and ports already in use are marked. Delete removes a device, a cable or a note. Notes are plain text on the map.
+- **The console** is the same component as in the labs, with the "Why" line.
+- **Undo** keeps 80 steps of the build and its commands. `Ctrl+Z` is undo only outside the console. Inside the console it is still IOS `end`, as before. `Ctrl+Shift+Z` redoes. After undo or redo, focus stays on the map.
+- **Limits.** At most 20 devices. Reaching the limit says so in words: "The sandbox holds up to 20 devices. Delete one to add another."
+- **Files.** Save writes `lab4net-sandbox.json`. Load checks a file field by field before use:
+  - names, device types, positions and limits;
+  - cables (both ends real devices, ports in the right form and used once);
+  - notes (`<` and `>` removed);
+  - commands (one line, under 512 characters, on a device that exists).
+
+  It also checks that the network builds and the commands replay. Anything that does not fit is refused, with the reason in a toast. A file carries data only. The old app's sandbox files (`def` and `journal`) still load.
+- **Goals.** Starting a goal loads its starter kit. A goal met shows a check and one toast, nothing more.
+- **Storage.** The build lives in `lab4net:v2:sandbox` and travels in backups. As the plan says, old sandbox builds are not imported. The old key stays where it is.
+- **Data.** The starter kits and the goal checks are content, so they live in `src/data/sandbox.js` beside the quiz and the stages.
+- **Bug fixed while testing.** When the build changed, the closing workspace could save its old command list over the new build. A generation counter now stops that.
+- **Tests.** `sandbox.spec`:
+  - build two PCs and a switch with real clicks (cabling through the port menu), address them, ping across and see the reply and the marker on the map;
+  - undo and redo each step, with buttons and keys;
+  - `Ctrl+Z` in the console is IOS `end`;
+  - save, clear and load give the same network and commands;
+  - doctored files (a markup name, a missing port, 21 devices, the wrong format) are refused, and markup in notes and commands runs nothing;
+  - the 20-device limit;
+  - each of the four goals can be met.
+
+  `visual.spec` adds the sandbox with a small network. 418 browser tests pass.
+
+Where the build differs from the plan:
+
+- **Renaming devices** (in the old right-click menu) is left out. The plan's Build panel does not list it, and a device's name is its console tab and its key on the map.
+- **A structural change** (a device or a cable added or removed, a kit, a file) rebuilds the network, so the workspace redraws for it. Commands, dragging, zoom and pan never redraw.
+
 ## Redesign, phase 7: practice and progress
 
 - **Practice.** One page with three cards and their numbers: Exam (the last result and how many passed), Quiz (correct out of 110) and Subnetting (fields right on the first try).

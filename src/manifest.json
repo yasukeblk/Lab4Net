@@ -53,6 +53,7 @@
     "data/campaign.js",
     "data/lessons.js",
     "data/objectives.js",
+    "data/sandbox.js",
     "app/core/slug.js",
     "app/core/store.js",
     "app/core/validate.js",
@@ -76,7 +77,6 @@
     "app/ui/components/palette.js",
     "app/ui/shortcuts.js",
     "app/ui/shell.js",
-    "app/screens/placeholders.js",
     "app/screens/console.js",
     "app/screens/tasks.js",
     "app/screens/map.js",
@@ -92,6 +92,7 @@
     "app/screens/exam.js",
     "app/screens/practice.js",
     "app/screens/progress.js",
+    "app/screens/sandbox.js",
     "app/screens/landing.js",
     "app/screens/gallery.js",
     "app/main.js"

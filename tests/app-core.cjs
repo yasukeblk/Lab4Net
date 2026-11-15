@@ -11,7 +11,7 @@ module.exports = function load() {
   ctx.window = ctx; ctx.globalThis = ctx;
   vm.createContext(ctx);
   vm.runInContext(html.split('//ENGINE-START')[1].split('//ENGINE-END')[0], ctx, { filename: 'engine' });
-  for (const f of ['quiz', 'campaign', 'lessons', 'objectives']) vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/data', f + '.js'), 'utf8'), ctx, { filename: f });
+  for (const f of ['quiz', 'campaign', 'lessons', 'objectives', 'sandbox']) vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/data', f + '.js'), 'utf8'), ctx, { filename: f });
   for (const f of CORE) {
     const src = require('../tools/build.cjs').stripJs(fs.readFileSync(path.join(ROOT, 'src/app/core', f + '.js'), 'utf8'));
     if (!html.includes(src)) throw Error('index.html does not carry src/app/core/' + f + '.js: run node tools/build.cjs');

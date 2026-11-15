@@ -673,6 +673,10 @@ button.cmd:hover { background: var(--bg-hover); }
 .popout__head { display: flex; align-items: center; gap: var(--space-2); height: var(--topbar-h); padding: 0 var(--space-3); border-bottom: var(--hairline) solid var(--border-subtle); flex: none; }
 .popout__title { font-size: var(--fs-14); font-weight: var(--fw-semi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .popout__body { flex: 1; overflow: auto; }
+.build__devs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1); }
+.build__devs .btn { justify-content: flex-start; }
+.build__goal { display: flex; gap: var(--space-2); align-items: flex-start; justify-content: space-between; }
+.zoom .btn--icon { width: 24px; height: 24px; }
 .map__body { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--bg-surface); }
 .topo { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-select: none; }
 .link__line { stroke: var(--text-3); stroke-width: 1.5; fill: none; transition: stroke var(--dur-3) var(--ease); }
@@ -736,6 +740,8 @@ button.cmd:hover { background: var(--bg-hover); }
 .trace__sw { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .trace__tip { margin-top: 2px; color: var(--text); }
 .mapchip.is-ok { border-color: var(--ok); color: var(--ok); }
+.link__hit { stroke: transparent; stroke-width: 12; cursor: pointer; }
+.note { font: var(--fs-12) var(--font-ui); fill: var(--warn); cursor: default; }
 .console { background: var(--bg-console); color: var(--text-console); }
 .con__tabs { display: flex; align-items: stretch; gap: 1px; flex: none; height: 32px; padding: 0 var(--space-2); overflow-x: auto; overflow-y: hidden; background: var(--bg-surface); border-bottom: var(--hairline) solid var(--border-subtle); scrollbar-width: none; }
 .con__tabs::-webkit-scrollbar { display: none; }
@@ -6115,6 +6121,36 @@ Object.assign(LESSONS,{
 //LESSONS-DATA-END
 Object.assign(CCNA_OBJECTIVES,{'1.1':'Network components','1.2':'Topology architectures','1.3':'Interfaces and cabling','1.4':'Interface and cable issues','1.5':'TCP and UDP','1.7':'Private IPv4 addressing','1.11':'Wireless principles','1.12':'Virtualization','2.6':'Wireless architectures and AP modes','2.7':'WLAN physical connections','2.8':'Device management access','2.9':'WLAN GUI configuration','4.4':'SNMP','4.7':'QoS per-hop behavior','4.9':'TFTP and FTP','5.1':'Security concepts','5.2':'Security programs','5.4':'Password policy and MFA','5.5':'IPsec VPNs','5.8':'AAA','5.9':'Wireless security protocols','5.10':'WLAN with WPA2 PSK','6.1':'Automation and management','6.2':'Controller-based networking','6.3':'Software-defined architecture','6.4':'AI and machine learning','6.5':'REST APIs','6.6':'Ansible and Terraform','6.7':'JSON'});
 for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
+// Sandbox starter kits and goals (the old sandbox's "challenges"), as data. Each goal is checked against the live
+// network with the engine's own functions, so it runs only after the engine.
+const SANDBOX=(function(){
+  const P = (name, type, x, y) => ({ name, type, x, y }), Lk = (a, ai, b, bi) => ({ a, ai: parseIf(ai), b, bi: parseIf(bi) });
+  const kits = [
+    ['Small office', 'A router, a switch, two PCs and a server.', () => ({ devs: [P('R1', 'router', 400, 65), P('SW1', 'switch', 400, 160), P('PC1', 'pc', 240, 255), P('PC2', 'pc', 400, 262), P('SRV1', 'srv', 560, 250)], links: [Lk('R1', 'g0/0', 'SW1', 'g0/1'), Lk('PC1', 'f0', 'SW1', 'f0/1'), Lk('PC2', 'f0', 'SW1', 'f0/2'), Lk('SRV1', 'f0', 'SW1', 'f0/3')] })],
+    ['Two sites', 'Two routers, each with its own switch and PCs.', () => ({ devs: [P('R1', 'router', 300, 75), P('R2', 'router', 500, 75), P('SW1', 'switch', 180, 165), P('SW2', 'switch', 620, 165), P('PC1', 'pc', 90, 258), P('PC2', 'pc', 250, 258), P('PC3', 'pc', 550, 258), P('PC4', 'pc', 710, 258)], links: [Lk('R1', 'g0/1', 'R2', 'g0/1'), Lk('R1', 'g0/0', 'SW1', 'g0/1'), Lk('R2', 'g0/0', 'SW2', 'g0/1'), Lk('PC1', 'f0', 'SW1', 'f0/1'), Lk('PC2', 'f0', 'SW1', 'f0/2'), Lk('PC3', 'f0', 'SW2', 'f0/1'), Lk('PC4', 'f0', 'SW2', 'f0/2')] })],
+    ['Router triangle', 'Three routers in a loop, each with a PC. Good for OSPF.', () => ({ devs: [P('R1', 'router', 400, 70), P('R2', 'router', 250, 200), P('R3', 'router', 550, 200), P('PC1', 'pc', 560, 70), P('PC2', 'pc', 100, 200), P('PC3', 'pc', 700, 200)], links: [Lk('R1', 'g0/1', 'R2', 'g0/1'), Lk('R2', 'g0/2', 'R3', 'g0/2'), Lk('R1', 'g0/2', 'R3', 'g0/1'), Lk('R1', 'g0/0', 'PC1', 'f0'), Lk('R2', 'g0/0', 'PC2', 'f0'), Lk('R3', 'g0/0', 'PC3', 'f0')] })],
+    ['Switch pair', 'Two switches joined by two cables. Good for trunks, EtherChannel and spanning tree.', () => ({ devs: [P('SW1', 'switch', 260, 100), P('SW2', 'switch', 540, 100), P('PC1', 'pc', 260, 235), P('PC2', 'pc', 540, 235)], links: [Lk('SW1', 'g0/1', 'SW2', 'g0/1'), Lk('SW1', 'g0/2', 'SW2', 'g0/2'), Lk('PC1', 'f0', 'SW1', 'f0/1'), Lk('PC2', 'f0', 'SW2', 'f0/1')] })]];
+  const hostIp = (n, h) => n.devs[h] && n.devs[h].ifs.FastEthernet0 ? n.devs[h].ifs.FastEthernet0.ip : null;
+  const pingH = (n, a, b) => { const ip = hostIp(n, b); return ip != null && !!n.devs[a] && canPing(n, n.devs[a], ip); };
+  const goals = [
+    { kit: 0, title: 'Get the office online', desc: 'Address everything, then get the PCs talking to each other, the router and the web server.', goals: [
+      ['PC1, PC2 and SRV1 each have an IP address', n => ['PC1', 'PC2', 'SRV1'].every(h => hostIp(n, h) != null)], ['PC1 can ping PC2', n => pingH(n, 'PC1', 'PC2')],
+      ['R1 Gi0/0 has an address and PC1 can ping it', n => { const i = n.devs.R1.ifs['GigabitEthernet0/0']; return i.ip !== null && canPing(n, n.devs.PC1, i.ip); }],
+      ['PC1 can open the web server on SRV1 (TCP 80)', n => { const ip = hostIp(n, 'SRV1'); return ip != null && reach(n, n.devs.PC1, ip, 'tcp', 80).ok; }]] },
+    { kit: 1, title: 'Connect two sites', desc: 'Two LANs on different subnets, joined by two routers. Make a PC at one site reach a PC at the other.', goals: [
+      ['All four PCs have an address and a default gateway', n => ['PC1', 'PC2', 'PC3', 'PC4'].every(h => hostIp(n, h) != null && n.devs[h].gw != null)],
+      ['The two sites use different subnets', n => { const a = n.devs.PC1.ifs.FastEthernet0, b = n.devs.PC3.ifs.FastEthernet0; return a.ip !== null && b.ip !== null && netOf(a.ip, a.len) !== netOf(b.ip, b.len); }],
+      ['PC1 can ping PC2 at its own site', n => pingH(n, 'PC1', 'PC2')], ['PC1 can ping PC4 at the other site', n => pingH(n, 'PC1', 'PC4')], ['PC3 can ping PC2 the other way', n => pingH(n, 'PC3', 'PC2')]] },
+    { kit: 2, title: 'OSPF, no static routes', desc: 'Three routers in a loop. Let OSPF find every LAN. Static routes are not allowed.', goals: [
+      ['No router has a static route', n => ['R1', 'R2', 'R3'].every(r => n.devs[r].statics.length === 0)], ['Every router has two OSPF neighbors', n => ['R1', 'R2', 'R3'].every(r => ospfNeighbors(n, n.devs[r]).length === 2)],
+      ['PC1 can ping PC2', n => pingH(n, 'PC1', 'PC2')], ['PC1 can ping PC3', n => pingH(n, 'PC1', 'PC3')]] },
+    { kit: 3, title: 'One VLAN over a bundle', desc: 'Put both PCs in VLAN 10 and carry it between the switches over an EtherChannel trunk.', goals: [
+      ['VLAN 10 exists on both switches', n => ['SW1', 'SW2'].every(w => !!n.devs[w].vlans[10])],
+      ['Both PC ports are access ports in VLAN 10', n => ['SW1', 'SW2'].every(w => { const i = n.devs[w].ifs['FastEthernet0/1']; return i.mode === 'access' && i.accessVlan === 10; })],
+      ['Both cables are bundled into one EtherChannel', n => ['SW1', 'SW2'].every(w => ['GigabitEthernet0/1', 'GigabitEthernet0/2'].every(p => bundled(n, n.devs[w], n.devs[w].ifs[p])))],
+      ['PC1 can ping PC2', n => pingH(n, 'PC1', 'PC2')]] }];
+  return { kits, goals };
+})();
 (function (L4N) {
   'use strict';
   const slug=s=>String(s).toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
@@ -6344,9 +6380,34 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     return v;
   }
 
+  const NAME = /^[A-Za-z][A-Za-z0-9-]{0,14}$/, SBX_TYPES = ['router', 'router5', 'switch', 'switch24', 'l3switch', 'pc', 'srv'];
+  function sandbox(p) {
+    if (!isObj(p) || !Array.isArray(p.devs) || !Array.isArray(p.links) || p.devs.length > 20 || p.links.length > 200) return null;
+    const names = new Set(), devs = [], links = [], used = new Set();
+    for (const d of p.devs) {
+      if (!isObj(d) || typeof d.name !== 'string' || !NAME.test(d.name) || names.has(d.name) || !SBX_TYPES.includes(d.type)) return null;
+      names.add(d.name);
+      devs.push({ name: d.name, type: d.type, x: Math.max(34, Math.min(1566, Math.round(+d.x) || 100)), y: Math.max(34, Math.min(620, Math.round(+d.y) || 100)) });
+    }
+    const norm = n => (L4N.sim && L4N.sim.sandbox ? L4N.sim.sandbox.normIf(n) : null);
+    for (const l of p.links) {
+      if (!isObj(l) || !names.has(l.a) || !names.has(l.b) || l.a === l.b || typeof l.ai !== 'string' || typeof l.bi !== 'string' || l.ai.length > 40 || l.bi.length > 40) return null;
+      const ai = norm(l.ai), bi = norm(l.bi);
+      if (!ai || !bi || used.has(l.a + '|' + ai) || used.has(l.b + '|' + bi)) return null;
+      used.add(l.a + '|' + ai); used.add(l.b + '|' + bi);
+      links.push({ a: l.a, ai, b: l.b, bi });
+    }
+    const notes = (Array.isArray(p.notes) ? p.notes : []).filter(n => isObj(n) && typeof n.text === 'string' && n.text.trim()).slice(0, 30)
+      .map(n => ({ text: n.text.slice(0, 60).replace(/[<>]/g, ''), x: Math.max(10, Math.min(1590, Math.round(+n.x) || 100)), y: Math.max(16, Math.min(654, Math.round(+n.y) || 40)) }));
+    const vw = p.view, view = isObj(vw) && [vw.x, vw.y, vw.w].every(x => typeof x === 'number' && isFinite(x)) ? { x: Math.max(0, Math.min(1200, vw.x)), y: Math.max(0, Math.min(500, vw.y)), w: Math.max(400, Math.min(1600, vw.w)) } : null;
+    const w = workEntry({ journal: Array.isArray(p.journal) ? p.journal : [], tasks: [] });
+    const journal = w.corrupt ? [] : w.journal.filter(e => names.has(e.device));
+    return { devs, links, notes, view, goal: int(p.goal, 0, 3, null), goalDone: bool(p.goalDone, false), journal, sel: names.has(p.sel) ? p.sel : null };
+  }
+
   known.lessonQuiz = {};
   known.quizCount = 0;
-  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs, lessons, quiz, subnet, migrated }, lessons, quiz, subnet, migrated, stripTags, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
+  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs, lessons, quiz, subnet, migrated }, lessons, quiz, subnet, migrated, stripTags, sandbox, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
 })(window.L4N = window.L4N || {});
 (function (L4N) {
   'use strict';
@@ -6698,6 +6759,25 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   }
   const CRLINE = typeof CR !== 'undefined' ? CR : '<cr>';
 
+  const SBX_KIND = { router: ['R', 'Router'], router5: ['R', 'Router, 5 ports'], switch: ['SW', 'Switch'], switch24: ['SW', 'Switch, 24 ports'], l3switch: ['DSW', 'Layer 3 switch'], pc: ['PC', 'PC'], srv: ['SRV', 'Server'] };
+  function sbxDevice(d) {
+    if (d.type === 'router' || d.type === 'router5') { const r = mkRouter(d.name); if (d.type === 'router5') { addIf(r, 'GigabitEthernet0/3', { shutdown: true }); addIf(r, 'GigabitEthernet0/4', { shutdown: true }); } return r; }
+    if (d.type === 'l3switch') return mkL3Switch(d.name);
+    if (d.type === 'switch' || d.type === 'switch24') { const w = mkSwitch(d.name); if (d.type === 'switch24') for (let i = 9; i <= 24; i++) addIf(w, 'FastEthernet0/' + i); return w; }
+    const p = mkPC(d.name, null, 24); if (d.type === 'srv') p.services = [80]; return p;
+  }
+  function sandboxLab(def) {
+    return { title: 'Sandbox', group: 'Sandbox', brief: '', addr: [], tasks: [], why: [], checks: [], solution: {}, steps: [], pos: {}, start: null, sandbox: true,
+      build() { const net = mkNet(def().devs.map(sbxDevice)); for (const l of def().links) link(net, l.a, l.ai, l.b, l.bi); return net; } };
+  }
+  const PORT = /^(Fast|Gigabit)Ethernet[\d/]+$/;
+  const portsOf = (st, dev) => { const d = st.net.devs[dev]; return d ? Object.values(d.ifs).filter(i => PORT.test(i.name)).sort((x, y) => x.name.localeCompare(y.name, 'en', { numeric: true })).map(i => ({ name: i.name, short: shortName(i.name), used: i.link ? i.link.dev + ' ' + shortName(i.link.ifn) : '' })) : []; };
+  const normIf = n => { try { return parseIf(String(n)) || null; } catch (e) { return null; } };
+  const SBX_KITS = SANDBOX.kits, SBX_GOALS = SANDBOX.goals;
+  const goalState = (st, g) => SBX_GOALS[g] ? SBX_GOALS[g].goals.map(([t, f]) => { let ok = false; try { ok = !!f(st.net); } catch (e) {} return [t, ok]; }) : [];
+  const sandbox = { KIND: SBX_KIND, KITS: SBX_KITS, GOALS: SBX_GOALS, lab: sandboxLab, ports: portsOf, normIf, goalState };
+
+
   const subnet = {
     make(range) {
       const r = Math.random, len = range === 'warm' ? [24, 25, 26][Math.floor(r() * 3)] : range === 'small' ? [27, 28, 29, 30][Math.floor(r() * 4)] : 8 + Math.floor(r() * 23);
@@ -6729,7 +6809,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const lab = faults ? examLab(base.lab, faults, title) : Object.assign({}, base.lab, { title, group: 'Exam', kind: 'exam', exam: true, baseTitle: base.title, why: [], steps: [] });
     return { base, faults: faults || [], lab };
   }
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, sandbox, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});
 (function (L4N) {
   'use strict';
@@ -8044,22 +8124,6 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 })(window.L4N = window.L4N || {});
 (function (L4N) {
   'use strict';
-  const { el } = L4N.dom;
-  const ui = L4N.ui;
-
-  function page(title, o) {
-    return function mount(root) {
-      root.append(el('div', { class: 'page' }, el('h1', { class: 'page__title', 'data-heading': '', tabindex: '-1', text: title }),
-        el('div', { class: 'placeholder' }, ui.empty(o))));
-    };
-  }
-
-  const P = (name, title, o, extra) => L4N.screens.register(name, Object.assign({ title: () => title, mount: page(title, o) }, extra || {}));
-  P('sandbox', 'Sandbox', { icon: 'sandbox', what: 'The sandbox is being rebuilt.', todo: 'It comes back last, in the same workspace as the labs.', action: { label: 'Home', href: '#/' } });
-
-})(window.L4N = window.L4N || {});
-(function (L4N) {
-  'use strict';
   const { el, icon, svg, clear, id } = L4N.dom;
   const sim = L4N.sim, ui = L4N.ui;
   const PACE = { real: 1, fast: 0.4 };
@@ -8068,6 +8132,11 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
   function createConsole(ws) {
     const st = ws.st;
+    if (!st.devs.length) {
+      const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' }, ui.empty({ icon: 'labs', what: 'No devices yet.', todo: 'Add a device from the Build panel and its console opens here.' }));
+      const no = () => {};
+      return { el: root, input: el('input'), out: root, run: no, select: no, stop: no, showResult: no, refreshPrompt: no, refreshTabs: no, renderAll: no, clearScreen: no, focus: no, playing: () => false, setMaximised: no, destroy: no };
+    }
     const outId = id('con-out'), hintId = id('con-hint');
     let stream = null, announcedEsc = false, tabs = {}, shown = null;
 
@@ -8537,7 +8606,9 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const svgEl = svg('svg', { class: 'topo', role: 'group', 'aria-roledescription': 'network map', width: '100%', height: '100%' });
     const gLinks = svg('g', { class: 'l-links' }), gHi = svg('g', { class: 'l-hi', 'aria-hidden': 'true' }), gPorts = svg('g', { class: 'l-ports', 'aria-hidden': 'true' });
     const gNodes = svg('g', { class: 'l-nodes' }), gFx = svg('g', { class: 'l-fx', 'aria-hidden': 'true' });
-    svgEl.append(gLinks, gHi, gPorts, gNodes, gFx);
+    const gNotes = svg('g', { class: 'l-notes' });
+    svgEl.append(gNotes, gLinks, gHi, gPorts, gNodes, gFx);
+    if (opts.onBgDown) svgEl.addEventListener('pointerdown', e => { if (!e.target.closest('.node, .link, .note')) opts.onBgDown(e); });
     const tip = el('div', { class: 'maptip', 'aria-hidden': 'true', hidden: true });
     const chip = el('div', { class: 'mapchip', 'aria-hidden': 'true', hidden: true });
     const srList = el('ul', { class: 'sr-only', 'aria-label': 'Links' });
@@ -8547,6 +8618,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     let token = 0, fadeTimer = 0, tipTimer = 0, tipFor = null, lastTrace = null, markers = [];
 
     function computeFit() {
+      if (opts.view) { const v = opts.view(), s = W / v.w; fit = { s, minX: v.x, minY: v.y, ox: 0, oy: 0 }; return; }
       const names = st.devs;
       if (!names.length) return;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -8571,7 +8643,8 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
       g.append(hit, ring, use, label, badge);
       if (opts.interactive !== false) {
         g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
-        g.addEventListener('click', () => ws.selectDevice(name, true));
+        g.addEventListener('click', e => { if (opts.onNodeClick && opts.onNodeClick(name, e)) return; ws.selectDevice(name, true); });
+        if (opts.onNodeDown) g.addEventListener('pointerdown', e => opts.onNodeDown(name, e));
         g.addEventListener('keydown', e => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ws.selectDevice(name, true); }
           else if (e.key === 'Escape') { if (tipFor) { e.stopPropagation(); hideTip(true); } }
@@ -8601,14 +8674,17 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
       return best;
     }
 
+    let L0 = null;
     function makeLink(l) {
+      L0 = null;
       const g = svg('g', { class: 'link' });
       const line = svg('line', { class: 'link__line' });
       const ends = [0, 1].map(() => ({ mark: svg('circle', { class: 'link__mark', r: 2.5 }), block: svg('line', { class: 'link__block' }), err: svg('use', { class: 'link__err', href: '#i-alert', width: 12, height: 12 }), port: svg('text', { class: 'link__port' }), bt: svg('title') }));
       g.append(line);
       for (const e of ends) { e.block.append(e.bt); g.append(e.mark, e.block, e.err); gPorts.append(e.port); }
+      if (opts.onLinkClick) { const hit = svg('line', { class: 'link__hit' }); g.prepend(hit); g.addEventListener('click', () => opts.onLinkClick(L.l)); L0 = hit; }
       gLinks.append(g);
-      const L = { l, g, line, ends, up: null };
+      const L = { l, g, line, ends, up: null, hit: L0 };
       links.set(l.key, L);
       return L;
     }
@@ -8670,6 +8746,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
         L.up = up;
         L.g.classList.toggle('is-down', !up);
         set(L.line, { x1: ax, y1: ay, x2: bx, y2: by });
+        if (L.hit) set(L.hit, { x1: ax, y1: ay, x2: bx, y2: by });
         const sides = [[ax, ay, 1], [bx, by, -1]];
         sides.forEach(([x, y, s], i) => {
           const e = L.ends[i], E = l.ends[i];
@@ -8697,6 +8774,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
         const A = st.net.devs[l.a], B = st.net.devs[l.b];
         srItems.push(A.hostname + ' ' + l.ends[0].short + ' to ' + B.hostname + ' ' + l.ends[1].short + ', ' + (up ? 'up' : 'down') + '.');
       }
+      if (opts.notes) { clear(gNotes); opts.notes().forEach((n, i) => { const [x, y] = [fit.ox + (n.x - fit.minX) * fit.s, fit.oy + (n.y - fit.minY) * fit.s]; const t = svg('text', { class: 'note', x: x.toFixed(1), y: y.toFixed(1), 'text-anchor': 'middle' }); t.textContent = n.text; if (opts.onNoteClick) t.addEventListener('click', () => opts.onNoteClick(i)); gNotes.append(t); }); }
       const nDev = st.devs.length, nLink = recs.length;
       svgEl.setAttribute('aria-label', (opts.label || 'Network map') + ': ' + nDev + ' device' + (nDev === 1 ? '' : 's') + ', ' + nLink + ' link' + (nLink === 1 ? '' : 's'));
       if (srList.childNodes.length !== srItems.length || srItems.some((t, i) => srList.childNodes[i].textContent !== t)) { clear(srList); for (const t of srItems) srList.append(el('li', { text: t })); }
@@ -8895,6 +8973,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
     return {
       body, svg: svgEl, play, step, clearFx, layout, nodes, links,
+      toCanvas(cx, cy) { const r = svgEl.getBoundingClientRect(); return [(cx - r.left - fit.ox) / fit.s + fit.minX, (cy - r.top - fit.oy) / fit.s + fit.minY]; }, scale: () => fit.s,
       update(res) {
         if (res && res.ran) clearFx();      // markers stay until the next command
         if (W) draw(true);
@@ -9222,7 +9301,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const ws = {
       st, entry, slug: entry.slug,
       tasks: saved ? saved.tasks.slice(0, entry.lab.tasks.length) : [],
-      graded: null, exam: !!ov,
+      graded: null, exam: !!(ov && ov.exam),
       hooks: [],
       next: () => nextLab(entry)
     };
@@ -9343,8 +9422,8 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
     ws.maximise = () => ws.panes.toggle('map');
     ws.console = L4N.consoleView.create(ws);
-    ws.tasksView = L4N.tasksView.create(ws);
-    ws.map = L4N.mapCore.create(ws);
+    ws.tasksView = ov && ov.left ? ov.left(ws) : L4N.tasksView.create(ws);
+    ws.map = L4N.mapCore.create(ws, ov && ov.mapOpts ? ov.mapOpts(ws) : undefined);
     ws.trace = L4N.traceView.create(ws);
     const mapToggle = ui.button({ icon: 'chevron-up', aria: 'Collapse the map', onClick: () => ws.panes.toggle('map') });
     const mapPane = el('section', { class: 'pane map', id: 'ws-map', 'aria-label': 'Network map' },
@@ -9386,6 +9465,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const gradeBtn = ui.button({ label: 'Grade', kind: 'primary', kbd: 'mod+enter', id: 'gradeBtn', onClick: () => ws.grade() });
     gradeBtn.setAttribute('data-tip', 'Grade the lab'); gradeBtn.setAttribute('data-kbd', 'mod+enter');
     if (ov) { L4N.shell.topbar.setStatus(ov.status()); ws.tasksView.setHelpTabs(false); }
+    if (ov && ov.noGrade) gradeBtn.hidden = true;
     L4N.shell.topbar.setActions(lesson ? ui.button({ label: 'Lesson', kind: 'ghost', icon: 'lessons', href: L4N.router.href('lesson', lesson.slug) }) : null, gradeBtn, moreBtn);
     ws.gradeBtn = gradeBtn;
     function moreItems() {
@@ -9568,6 +9648,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   }
 
   (L4N.workspaceExtras = L4N.workspaceExtras || []).push(w => {
+    if (w.entry.kind === 'sandbox') return;
     ensureChannel();
     w.syncHooks = (w.syncHooks || []).concat(() => { if (w.tasksOut) send(stateMsg()); });
     w.hooks.push(() => { if (w.tasksOut) send(stateMsg()); });
@@ -10269,7 +10350,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     if (!entry) { E().set({ current: null }); L4N.toast({ text: 'That exam could not be rebuilt.', kind: 'bad' }); setTimeout(() => go('#/practice/exam'), 0); return; }
     let ended = false;
     const ov = {
-      entry, journal: c.journal,
+      entry, journal: c.journal, exam: true,
       save: journal => { if (!ended && cur()) E().set({ current: Object.assign({}, cur(), { journal: journal.slice() }) }); },
       count: (res, line) => { const cc = cur(); if (!cc || ended || !line.trim()) return; const run = Object.assign({}, cc.run); run.cmds++; L4N.grade.count(run, line, res.lines); E().set({ current: Object.assign({}, cc, { run }) }); },
       status: () => [ui.chip(E().NAME[c.mode]), clockChip()],
@@ -10508,6 +10589,197 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   }
 
   L4N.screens.register('progress', { title: () => 'Progress', mount });
+})(window.L4N = window.L4N || {});
+(function (L4N) {
+  'use strict';
+  const { el, icon, clear } = L4N.dom;
+  const ui = L4N.ui, V = L4N.validate, SB = () => L4N.sim.sandbox, K = L4N.KEYS;
+  const MAX = 20, W = 1600, H = 660;
+  const blank = () => ({ devs: [], links: [], notes: [], view: null, goal: null, goalDone: false, journal: [], sel: null });
+  let def = null, tool = 'select', pick = null, hist = [], redo = [], gen = 0;
+  const load = () => { if (!def) def = V.sandbox(L4N.storage.read(K.sandbox)) || blank(); return def; };
+  const snap = () => JSON.stringify({ devs: def.devs, links: def.links, notes: def.notes, goal: def.goal, goalDone: def.goalDone, journal: def.journal });
+  function mark() { const s = snap(); if (hist[hist.length - 1] === s) return; hist.push(s); if (hist.length > 80) hist.shift(); redo = []; }
+  function save() { L4N.storage.write(K.sandbox, def); }
+  function rebuild(focusMap) { gen++; save(); mark(); L4N.shell.go('#/sandbox'); if (focusMap) setTimeout(() => { const w = L4N.workspace.current(); if (w) w.map.focus(); }, 0); }
+  function restore(s) { gen++; const p = JSON.parse(s); Object.assign(def, p); pick = null; save(); L4N.shell.go('#/sandbox'); setTimeout(() => { const w = L4N.workspace.current(); if (w) w.map.body.focus(); }, 0); }
+  function undo() { if (hist.length < 2) { L4N.toast({ text: 'Nothing to undo.' }); return; } redo.push(hist.pop()); restore(hist[hist.length - 1]); }
+  function redoIt() { if (!redo.length) { L4N.toast({ text: 'Nothing to redo.' }); return; } const s = redo.pop(); hist.push(s); restore(s); }
+  const view = () => def.view || (def.view = { x: 0, y: 0, w: 800 });
+  const viewFull = () => { const v = view(); return { x: v.x, y: v.y, w: v.w }; };
+  function setView(v) { const w = Math.max(400, Math.min(W, v.w)); def.view = { x: Math.max(-200, Math.min(W - w, v.x)), y: Math.max(-200, Math.min(H - 100, v.y)), w }; save(); const ws = L4N.workspace.current(); if (ws) ws.map.layout(); }
+  function zoom(f) { const v = view(), w = Math.max(400, Math.min(W, v.w * f)); setView({ x: v.x + (v.w - w) / 2, y: v.y + (v.w - w) * 0.2, w }); }
+  function fit() {
+    if (!def.devs.length) { setView({ x: 0, y: 0, w: 800 }); return; }
+    const ws = L4N.workspace.current(), b = ws && ws.map.body, aspect = b && b.clientHeight ? b.clientWidth / b.clientHeight : 2.7;
+    const xs = def.devs.map(d => d.x), ys = def.devs.map(d => d.y), x0 = Math.min(...xs) - 80, x1 = Math.max(...xs) + 80, y0 = Math.min(...ys) - 60, y1 = Math.max(...ys) + 70;
+    const w = Math.max(x1 - x0, (y1 - y0) * aspect, 400);
+    setView({ x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - w / aspect / 2, w });
+  }
+
+  function addDevice(type) {
+    if (def.devs.length >= MAX) { L4N.toast({ text: 'The sandbox holds up to 20 devices. Delete one to add another.', kind: 'warn' }); return; }
+    const pre = SB().KIND[type][0], v = view(); let n = 1;
+    while (def.devs.some(d => d.name === pre + n)) n++;
+    let spot = null;
+    for (let y = v.y + 80; !spot && y <= v.y + v.w * 0.4; y += 90) for (let x = v.x + 80; x <= v.x + v.w - 70; x += 100) if (!def.devs.some(d => Math.hypot(d.x - x, d.y - y) < 70)) { spot = [x, y]; break; }
+    spot = spot || [v.x + 80, v.y + 80];
+    def.devs.push({ name: pre + n, type, x: Math.round(spot[0]), y: Math.round(spot[1]) });
+    def.sel = pre + n;
+    rebuild();
+  }
+  function del(name) {
+    def.devs = def.devs.filter(d => d.name !== name); def.links = def.links.filter(l => l.a !== name && l.b !== name);
+    def.journal = def.journal.filter(e => e.device !== name); if (def.sel === name) def.sel = null;
+    rebuild(true); L4N.toast({ text: name + ' deleted.' });
+  }
+  function portMenu(ws, name, anchorEvt, then) {
+    const ports = SB().ports(ws.st, name), free = ports.filter(p => !p.used);
+    if (!free.length) { L4N.toast({ text: 'Every port on ' + name + ' is in use.', kind: 'warn' }); return; }
+    if (ports.length === 1) { then(free[0].name); return; }
+    const a = anchorEvt.currentTarget || anchorEvt.target;
+    L4N.menu.open(a, ports.map(p => ({ label: p.short + (p.used ? ' · to ' + p.used : ''), icon: p.used ? 'lock' : 'cable', disabled: !!p.used, run: () => { if (!p.used) then(p.name); } })), { label: name + ': choose a port' });
+  }
+  function cableClick(ws, name, e) {
+    if (!pick) { portMenu(ws, name, e, p => { pick = { dev: name, port: p }; L4N.toast({ text: name + ' ' + L4N.sim.shortName(p) + ' chosen. Now choose the device at the other end.' }); }); return; }
+    if (pick.dev === name) { L4N.toast({ text: 'Choose a different device for the other end.', kind: 'warn' }); return; }
+    portMenu(ws, name, e, p => { def.links.push({ a: pick.dev, ai: pick.port, b: name, bi: p }); const msg = 'Connected ' + pick.dev + ' ' + L4N.sim.shortName(pick.port) + ' to ' + name + ' ' + L4N.sim.shortName(p) + '.'; pick = null; rebuild(true); L4N.toast({ text: msg, kind: 'ok' }); });
+  }
+  async function addNote(x, y) {
+    let text = '';
+    const inp = ui.input({ label: 'Note text', maxlength: 60 });
+    const ok = await new Promise(res => L4N.dialog.open({ title: 'Add a note', body: [inp], focus: 'input', actions: [{ label: 'Cancel' }, { label: 'Add note', kind: 'primary', run: () => { text = inp.value; res(true); } }], onClose: () => res(false) }));
+    if (!ok || !text.trim()) return;
+    def.notes.push({ text: text.trim().slice(0, 60), x: Math.round(x), y: Math.round(y) }); save(); mark();
+    const ws = L4N.workspace.current(); if (ws) ws.map.redraw();
+  }
+
+  function buildPanel(ws) {
+    const body = el('div', { class: 'tasks__body build' });
+    const head = el('div', { class: 'pane__head' }, el('h2', { class: 'pane__title' }, icon('sandbox'), 'Build'), el('span', { class: 'spacer' }), el('span', { class: 'tasks__count num', text: def.devs.length + ' of ' + MAX + ' devices' }));
+    const root = el('section', { class: 'pane tasks', 'aria-label': 'Build', id: 'ws-tasks' }, head, el('div', { class: 'pane__body', tabindex: '-1' }, body));
+    const toolBtn = (id, label, ic) => el('button', { class: 'seg__opt', type: 'button', role: 'radio', 'aria-checked': String(tool === id), onClick: () => { tool = id; pick = null; draw(); } }, icon(ic), el('span', { text: label }));
+    function draw() {
+      clear(body);
+      body.append(el('h3', { class: 'label-caps', text: 'Add a device' }),
+        el('div', { class: 'build__devs' }, Object.keys(SB().KIND).map(t => ui.button({ label: SB().KIND[t][1], icon: 'plus', onClick: () => addDevice(t) }))),
+        el('h3', { class: 'label-caps', text: 'Tool' }),
+        el('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Tool' }, toolBtn('select', 'Select', 'arrow-right'), toolBtn('cable', 'Cable', 'cable'), toolBtn('note', 'Note', 'note'), toolBtn('delete', 'Delete', 'trash')),
+        el('p', { class: 'hint', text: { select: 'Click a device to open its console. Drag it to move it. Drag the background to pan.', cable: pick ? 'Now choose the device at the other end.' : 'Click a device, choose a port, then the other device and its port.', note: 'Click the map where the note goes.', delete: 'Click a device, a cable or a note to delete it.' }[tool] }),
+        el('div', { class: 'hstack' }, ui.button({ label: 'Undo', icon: 'undo', kbd: 'mod+z', disabled: hist.length < 2, onClick: undo }), ui.button({ label: 'Redo', icon: 'redo', disabled: !redo.length, onClick: redoIt })));
+      body.append(el('h3', { class: 'label-caps', text: 'Goals' }));
+      if (def.goal == null) body.append(el('div', { class: 'stack' }, SB().GOALS.map((g, i) => el('div', { class: 'build__goal' }, el('div', {}, el('b', { text: g.title }), el('p', { class: 'hint', text: g.desc })), ui.button({ label: 'Start', onClick: () => startGoal(i) })))));
+      else {
+        const G = SB().GOALS[def.goal], state = SB().goalState(ws.st, def.goal);
+        body.append(el('div', { class: 'stack' }, el('b', { text: G.title + (def.goalDone ? ' · met' : '') }), el('p', { class: 'hint', text: G.desc }),
+          el('ul', { class: 'results__list' }, state.map(([t, ok]) => el('li', { class: ['check-row', ok ? 'is-ok' : 'is-bad'] }, icon(ok ? 'check' : 'circle'), el('span', { class: 'sr-only', text: ok ? 'Met: ' : 'Not yet: ' }), el('span', { text: t })))),
+          ui.button({ label: 'Leave this goal', kind: 'ghost', onClick: () => { def.goal = null; def.goalDone = false; save(); mark(); draw(); } })));
+      }
+      body.append(el('h3', { class: 'label-caps', text: 'Starter kits' }), el('div', { class: 'stack' }, SB().KITS.map(([t, d], i) => el('div', { class: 'build__goal' }, el('div', {}, el('b', { text: t }), el('p', { class: 'hint', text: d })), ui.button({ label: 'Load', onClick: () => loadKit(i) })))),
+        el('h3', { class: 'label-caps', text: 'File' }),
+        el('div', { class: 'hstack' }, ui.button({ label: 'Save to file', icon: 'download', onClick: saveFile }), ui.button({ label: 'Load from file', icon: 'upload', onClick: () => file.click() }), file,
+          ui.button({ label: 'Clear all', kind: 'danger', icon: 'trash', onClick: async () => { if (await L4N.dialog.confirm({ title: 'Clear the sandbox?', body: 'Every device, cable, note and command goes. Undo can bring it back.', ok: 'Clear', danger: true })) { replace(blank()); } } })));
+    }
+    const file = el('input', { type: 'file', accept: 'application/json,.json', hidden: true });
+    file.addEventListener('change', async () => {
+      const f = file.files && file.files[0]; file.value = '';
+      if (!f) return;
+      try {
+        if (f.size > 2 * 1024 * 1024) throw Error('the file is larger than 2 MB');
+        let p; try { p = JSON.parse(await f.text()); } catch (e) { throw Error('it is not a Lab4Net sandbox file'); }
+        if (!V.isObj(p) || p.format !== 'lab4net-sandbox') throw Error('it is not a Lab4Net sandbox file');
+        const c = V.sandbox(V.isObj(p.sandbox) ? p.sandbox : (V.isObj(p.def) ? Object.assign({}, p.def, { journal: p.journal }) : null));
+        if (!c) throw Error('something in it does not fit a sandbox');
+        const test = Object.assign(blank(), c);
+        try { L4N.sim.open(entryFor(() => test), { journal: test.journal }); } catch (e) { throw Error('its network could not be built'); }
+        replace(c); L4N.toast({ text: 'Sandbox loaded from ' + f.name + '.', kind: 'ok' });
+      } catch (e) { L4N.toast({ text: 'That file could not be loaded: ' + e.message + '.', kind: 'bad' }); }
+    });
+    draw();
+    return { el: root, rebuild: draw, renderResults: draw, refreshCommands() {}, setHelpTabs() {}, results: body, focus() { root.querySelector('.pane__body').focus(); } };
+  }
+  function replace(next) { Object.assign(def, blank(), next); fit(); rebuild(); }
+  function loadKit(i) { const k = SB().KITS[i][2](); replace({ devs: k.devs, links: k.links, notes: [], goal: def.goal, goalDone: false }); }
+  function startGoal(i) { const k = SB().KITS[SB().GOALS[i].kit][2](); replace({ devs: k.devs, links: k.links, notes: [], goal: i, goalDone: false }); }
+  function saveFile() {
+    const blob = new Blob([JSON.stringify({ format: 'lab4net-sandbox', version: 2, sandbox: def }, null, 1)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob), a = el('a', { href: url, download: 'lab4net-sandbox.json' });
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    L4N.toast({ text: 'Sandbox saved to lab4net-sandbox.json.', kind: 'ok' });
+  }
+
+  const entryFor = getDef => ({ slug: 'sandbox', title: 'Sandbox', short: 'Sandbox', kind: 'sandbox', idText: 'SBX', lab: Object.assign(L4N.sim.sandbox.lab(getDef), { pos: {} }) });
+
+  function mount(root, r, ctx) {
+    load();
+    if (!hist.length) mark();
+    const entry = entryFor(() => def), myGen = gen;
+    entry.lab.start = def.sel;
+    let drag = null;
+    const ov = {
+      entry, journal: def.journal, noGrade: true,
+      save: journal => { if (myGen !== gen) return; def.journal = journal.slice(); save(); },
+      count: () => { mark(); checkGoal(); },
+      status: () => [], menu: () => [],
+      grade: () => { checkGoal(true); return []; },
+      left: ws => buildPanel(ws),
+      mapOpts: ws => ({
+        view: viewFull, label: 'Sandbox map', maxScale: 3,
+        posOf: n => { const d = def.devs.find(x => x.name === n); return d ? [d.x, d.y] : [100, 100]; },
+        notes: () => def.notes,
+        onNodeClick: (n, e) => {
+          if (drag && drag.moved) return true;
+          if (tool === 'cable') { cableClick(ws, n, e); return true; }
+          if (tool === 'delete') { del(n); return true; }
+          def.sel = n; save(); return false;
+        },
+        onNodeDown: (n, e) => {
+          if (tool !== 'select' || e.button !== 0) return;
+          const d = def.devs.find(x => x.name === n), [x0, y0] = ws.map.toCanvas(e.clientX, e.clientY);
+          drag = { d, dx: d.x - x0, dy: d.y - y0, moved: false };
+          const move = ev => { const [x, y] = ws.map.toCanvas(ev.clientX, ev.clientY); const nx = Math.round(Math.max(34, Math.min(W - 34, x + drag.dx))), ny = Math.round(Math.max(34, Math.min(H - 40, y + drag.dy))); if (Math.abs(nx - d.x) + Math.abs(ny - d.y) > 2) drag.moved = true; d.x = nx; d.y = ny; ws.map.redraw(); };
+          const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (drag.moved) { save(); mark(); } setTimeout(() => { drag = null; }, 0); };
+          window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+        },
+        onBgDown: e => {
+          if (tool === 'note') { const [x, y] = ws.map.toCanvas(e.clientX, e.clientY); addNote(x, y); return; }
+          if (e.button !== 0) return;
+          const v0 = viewFull(), s = ws.map.scale(), x0 = e.clientX, y0 = e.clientY;
+          const move = ev => setView({ x: v0.x - (ev.clientX - x0) / s, y: v0.y - (ev.clientY - y0) / s, w: v0.w });
+          const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+          window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+        },
+        onLinkClick: l => { if (tool !== 'delete') return; def.links = def.links.filter(x => !(x.a === l.a && x.ai === l.ai && x.b === l.b && x.bi === l.bi)); rebuild(true); L4N.toast({ text: 'Cable removed.' }); },
+        onNoteClick: i => { if (tool !== 'delete') return; def.notes.splice(i, 1); save(); mark(); const ws2 = L4N.workspace.current(); if (ws2) ws2.map.redraw(); }
+      })
+    };
+    function checkGoal(say) {
+      const ws = L4N.workspace.current();
+      if (!ws || def.goal == null) return;
+      const st = SB().goalState(ws.st, def.goal);
+      ws.tasksView.rebuild();
+      if (!def.goalDone && st.length && st.every(x => x[1])) { def.goalDone = true; save(); ws.tasksView.rebuild(); L4N.toast({ text: 'Goal met: ' + SB().GOALS[def.goal].title + '.', kind: 'ok' }); }
+      else if (say) L4N.toast({ text: st.filter(x => x[1]).length + ' of ' + st.length + ' goals met.' });
+    }
+    const cleanup = L4N.workspace.mount(root, r, ctx, ov);
+    const ws = L4N.workspace.current();
+    const head = ws.map.body.parentElement.querySelector('.pane__head');
+    head.insertBefore(el('div', { class: 'hstack zoom' }, ui.button({ icon: 'minus', aria: 'Zoom out', onClick: () => zoom(1.25) }), ui.button({ icon: 'plus', aria: 'Zoom in', onClick: () => zoom(0.8) }), ui.button({ label: 'Fit', kind: 'ghost', onClick: fit })), head.querySelector('.spacer').nextSibling);
+    ws.map.body.setAttribute('tabindex', '0'); ws.map.body.setAttribute('aria-label', 'Sandbox map. Arrow keys pan.');
+    ws.map.body.addEventListener('keydown', e => { if (e.target !== ws.map.body) return; const v = viewFull(), step = v.w / 10, d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key]; if (!d) return; e.preventDefault(); setView({ x: v.x + d[0], y: v.y + d[1], w: v.w }); });
+    return cleanup;
+  }
+
+  const inSbx = () => L4N.route && L4N.route.screen === 'sandbox';
+  L4N.keys.add({ keys: 'mod+shift+z', label: 'Redo', group: 'Sandbox', when: inSbx, run: redoIt });
+  L4N.keys.add({ keys: 'mod+z', label: 'Undo (outside the console)', group: 'Sandbox', when: inSbx, run: undo });
+  L4N.keys.add({ keys: 'mod+y', label: 'Redo', hidden: true, when: inSbx, run: redoIt });
+  L4N.commands.add(() => !inSbx() ? [] : [
+    { id: 'sbx-undo', group: 'In the sandbox', title: 'Undo', icon: 'undo', kbd: 'mod+z', run: undo }, { id: 'sbx-redo', group: 'In the sandbox', title: 'Redo', icon: 'redo', run: redoIt },
+    { id: 'sbx-fit', group: 'In the sandbox', title: 'Fit the map', icon: 'maximize', run: fit }, { id: 'sbx-save', group: 'In the sandbox', title: 'Save to file', icon: 'download', run: saveFile }]
+    .concat(Object.keys(SB().KIND).map(t => ({ id: 'sbx-add-' + t, group: 'In the sandbox', title: 'Add ' + SB().KIND[t][1].toLowerCase(), icon: 'plus', run: () => addDevice(t) }))));
+  L4N.screens.register('sandbox', { title: () => 'Sandbox', mount });
+  L4N.sandbox = { def: () => load(), undo, redo: redoIt, hist: () => hist.length };
 })(window.L4N = window.L4N || {});
 (function (L4N) {
   'use strict';

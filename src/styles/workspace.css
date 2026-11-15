@@ -130,3 +130,7 @@
 .popout__head { display: flex; align-items: center; gap: var(--space-2); height: var(--topbar-h); padding: 0 var(--space-3); border-bottom: var(--hairline) solid var(--border-subtle); flex: none; }
 .popout__title { font-size: var(--fs-14); font-weight: var(--fw-semi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .popout__body { flex: 1; overflow: auto; }
+.build__devs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1); }
+.build__devs .btn { justify-content: flex-start; }
+.build__goal { display: flex; gap: var(--space-2); align-items: flex-start; justify-content: space-between; }
+.zoom .btn--icon { width: 24px; height: 24px; }

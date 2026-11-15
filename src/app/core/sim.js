@@ -280,6 +280,27 @@
   }
   const CRLINE = typeof CR !== 'undefined' ? CR : '<cr>';
 
+  // ---- the sandbox: device models, starter kits and goals (from the old sandbox) ----
+  const SBX_KIND = { router: ['R', 'Router'], router5: ['R', 'Router, 5 ports'], switch: ['SW', 'Switch'], switch24: ['SW', 'Switch, 24 ports'], l3switch: ['DSW', 'Layer 3 switch'], pc: ['PC', 'PC'], srv: ['SRV', 'Server'] };
+  function sbxDevice(d) {
+    if (d.type === 'router' || d.type === 'router5') { const r = mkRouter(d.name); if (d.type === 'router5') { addIf(r, 'GigabitEthernet0/3', { shutdown: true }); addIf(r, 'GigabitEthernet0/4', { shutdown: true }); } return r; }
+    if (d.type === 'l3switch') return mkL3Switch(d.name);
+    if (d.type === 'switch' || d.type === 'switch24') { const w = mkSwitch(d.name); if (d.type === 'switch24') for (let i = 9; i <= 24; i++) addIf(w, 'FastEthernet0/' + i); return w; }
+    const p = mkPC(d.name, null, 24); if (d.type === 'srv') p.services = [80]; return p;
+  }
+  // the sandbox as a lab, built from its definition
+  function sandboxLab(def) {
+    return { title: 'Sandbox', group: 'Sandbox', brief: '', addr: [], tasks: [], why: [], checks: [], solution: {}, steps: [], pos: {}, start: null, sandbox: true,
+      build() { const net = mkNet(def().devs.map(sbxDevice)); for (const l of def().links) link(net, l.a, l.ai, l.b, l.bi); return net; } };
+  }
+  const PORT = /^(Fast|Gigabit)Ethernet[\d/]+$/;
+  const portsOf = (st, dev) => { const d = st.net.devs[dev]; return d ? Object.values(d.ifs).filter(i => PORT.test(i.name)).sort((x, y) => x.name.localeCompare(y.name, 'en', { numeric: true })).map(i => ({ name: i.name, short: shortName(i.name), used: i.link ? i.link.dev + ' ' + shortName(i.link.ifn) : '' })) : []; };
+  const normIf = n => { try { return parseIf(String(n)) || null; } catch (e) { return null; } };
+  const SBX_KITS = SANDBOX.kits, SBX_GOALS = SANDBOX.goals;
+  const goalState = (st, g) => SBX_GOALS[g] ? SBX_GOALS[g].goals.map(([t, f]) => { let ok = false; try { ok = !!f(st.net); } catch (e) {} return [t, ok]; }) : [];
+  const sandbox = { KIND: SBX_KIND, KITS: SBX_KITS, GOALS: SBX_GOALS, lab: sandboxLab, ports: portsOf, normIf, goalState };
+
+
   // ---- the subnetting drill ----
   const subnet = {
     make(range) {
@@ -315,5 +336,5 @@
     const lab = faults ? examLab(base.lab, faults, title) : Object.assign({}, base.lab, { title, group: 'Exam', kind: 'exam', exam: true, baseTitle: base.title, why: [], steps: [] });
     return { base, faults: faults || [], lab };
   }
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, sandbox, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});

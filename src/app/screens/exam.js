@@ -65,7 +65,7 @@
     if (!entry) { E().set({ current: null }); L4N.toast({ text: 'That exam could not be rebuilt.', kind: 'bad' }); setTimeout(() => go('#/practice/exam'), 0); return; }
     let ended = false;
     const ov = {
-      entry, journal: c.journal,
+      entry, journal: c.journal, exam: true,
       save: journal => { if (!ended && cur()) E().set({ current: Object.assign({}, cur(), { journal: journal.slice() }) }); },
       count: (res, line) => { const cc = cur(); if (!cc || ended || !line.trim()) return; const run = Object.assign({}, cc.run); run.cmds++; L4N.grade.count(run, line, res.lines); E().set({ current: Object.assign({}, cc, { run }) }); },
       status: () => [ui.chip(E().NAME[c.mode]), clockChip()],

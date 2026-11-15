@@ -48,7 +48,7 @@
     const ws = {
       st, entry, slug: entry.slug,
       tasks: saved ? saved.tasks.slice(0, entry.lab.tasks.length) : [],
-      graded: null, exam: !!ov,
+      graded: null, exam: !!(ov && ov.exam),
       hooks: [],
       next: () => nextLab(entry)
     };
@@ -172,8 +172,8 @@
     // ---- the frame ----
     ws.maximise = () => ws.panes.toggle('map');
     ws.console = L4N.consoleView.create(ws);
-    ws.tasksView = L4N.tasksView.create(ws);
-    ws.map = L4N.mapCore.create(ws);
+    ws.tasksView = ov && ov.left ? ov.left(ws) : L4N.tasksView.create(ws);
+    ws.map = L4N.mapCore.create(ws, ov && ov.mapOpts ? ov.mapOpts(ws) : undefined);
     ws.trace = L4N.traceView.create(ws);
     const mapToggle = ui.button({ icon: 'chevron-up', aria: 'Collapse the map', onClick: () => ws.panes.toggle('map') });
     const mapPane = el('section', { class: 'pane map', id: 'ws-map', 'aria-label': 'Network map' },
@@ -216,6 +216,7 @@
     const gradeBtn = ui.button({ label: 'Grade', kind: 'primary', kbd: 'mod+enter', id: 'gradeBtn', onClick: () => ws.grade() });
     gradeBtn.setAttribute('data-tip', 'Grade the lab'); gradeBtn.setAttribute('data-kbd', 'mod+enter');
     if (ov) { L4N.shell.topbar.setStatus(ov.status()); ws.tasksView.setHelpTabs(false); }
+    if (ov && ov.noGrade) gradeBtn.hidden = true;
     L4N.shell.topbar.setActions(lesson ? ui.button({ label: 'Lesson', kind: 'ghost', icon: 'lessons', href: L4N.router.href('lesson', lesson.slug) }) : null, gradeBtn, moreBtn);
     ws.gradeBtn = gradeBtn;
     function moreItems() {

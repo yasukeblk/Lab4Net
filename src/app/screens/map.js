@@ -16,7 +16,9 @@
     const svgEl = svg('svg', { class: 'topo', role: 'group', 'aria-roledescription': 'network map', width: '100%', height: '100%' });
     const gLinks = svg('g', { class: 'l-links' }), gHi = svg('g', { class: 'l-hi', 'aria-hidden': 'true' }), gPorts = svg('g', { class: 'l-ports', 'aria-hidden': 'true' });
     const gNodes = svg('g', { class: 'l-nodes' }), gFx = svg('g', { class: 'l-fx', 'aria-hidden': 'true' });
-    svgEl.append(gLinks, gHi, gPorts, gNodes, gFx);
+    const gNotes = svg('g', { class: 'l-notes' });
+    svgEl.append(gNotes, gLinks, gHi, gPorts, gNodes, gFx);
+    if (opts.onBgDown) svgEl.addEventListener('pointerdown', e => { if (!e.target.closest('.node, .link, .note')) opts.onBgDown(e); });
     const tip = el('div', { class: 'maptip', 'aria-hidden': 'true', hidden: true });
     const chip = el('div', { class: 'mapchip', 'aria-hidden': 'true', hidden: true });
     const srList = el('ul', { class: 'sr-only', 'aria-label': 'Links' });
@@ -27,6 +29,7 @@
 
     // ---- geometry: lab coordinates fitted into the pane, icons always 36 px ----
     function computeFit() {
+      if (opts.view) { const v = opts.view(), s = W / v.w; fit = { s, minX: v.x, minY: v.y, ox: 0, oy: 0 }; return; }
       const names = st.devs;
       if (!names.length) return;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -52,7 +55,8 @@
       g.append(hit, ring, use, label, badge);
       if (opts.interactive !== false) {
         g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
-        g.addEventListener('click', () => ws.selectDevice(name, true));
+        g.addEventListener('click', e => { if (opts.onNodeClick && opts.onNodeClick(name, e)) return; ws.selectDevice(name, true); });
+        if (opts.onNodeDown) g.addEventListener('pointerdown', e => opts.onNodeDown(name, e));
         g.addEventListener('keydown', e => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ws.selectDevice(name, true); }
           else if (e.key === 'Escape') { if (tipFor) { e.stopPropagation(); hideTip(true); } }
@@ -84,14 +88,17 @@
     }
 
     // ---- links ----
+    let L0 = null;
     function makeLink(l) {
+      L0 = null;
       const g = svg('g', { class: 'link' });
       const line = svg('line', { class: 'link__line' });
       const ends = [0, 1].map(() => ({ mark: svg('circle', { class: 'link__mark', r: 2.5 }), block: svg('line', { class: 'link__block' }), err: svg('use', { class: 'link__err', href: '#i-alert', width: 12, height: 12 }), port: svg('text', { class: 'link__port' }), bt: svg('title') }));
       g.append(line);
       for (const e of ends) { e.block.append(e.bt); g.append(e.mark, e.block, e.err); gPorts.append(e.port); }
+      if (opts.onLinkClick) { const hit = svg('line', { class: 'link__hit' }); g.prepend(hit); g.addEventListener('click', () => opts.onLinkClick(L.l)); L0 = hit; }
       gLinks.append(g);
-      const L = { l, g, line, ends, up: null };
+      const L = { l, g, line, ends, up: null, hit: L0 };
       links.set(l.key, L);
       return L;
     }
@@ -155,6 +162,7 @@
         L.up = up;
         L.g.classList.toggle('is-down', !up);
         set(L.line, { x1: ax, y1: ay, x2: bx, y2: by });
+        if (L.hit) set(L.hit, { x1: ax, y1: ay, x2: bx, y2: by });
         const sides = [[ax, ay, 1], [bx, by, -1]];
         sides.forEach(([x, y, s], i) => {
           const e = L.ends[i], E = l.ends[i];
@@ -183,6 +191,7 @@
         const A = st.net.devs[l.a], B = st.net.devs[l.b];
         srItems.push(A.hostname + ' ' + l.ends[0].short + ' to ' + B.hostname + ' ' + l.ends[1].short + ', ' + (up ? 'up' : 'down') + '.');
       }
+      if (opts.notes) { clear(gNotes); opts.notes().forEach((n, i) => { const [x, y] = [fit.ox + (n.x - fit.minX) * fit.s, fit.oy + (n.y - fit.minY) * fit.s]; const t = svg('text', { class: 'note', x: x.toFixed(1), y: y.toFixed(1), 'text-anchor': 'middle' }); t.textContent = n.text; if (opts.onNoteClick) t.addEventListener('click', () => opts.onNoteClick(i)); gNotes.append(t); }); }
       // screen-reader text: one line per link, updated when a link changes
       const nDev = st.devs.length, nLink = recs.length;
       svgEl.setAttribute('aria-label', (opts.label || 'Network map') + ': ' + nDev + ' device' + (nDev === 1 ? '' : 's') + ', ' + nLink + ' link' + (nLink === 1 ? '' : 's'));
@@ -389,6 +398,7 @@
 
     return {
       body, svg: svgEl, play, step, clearFx, layout, nodes, links,
+      toCanvas(cx, cy) { const r = svgEl.getBoundingClientRect(); return [(cx - r.left - fit.ox) / fit.s + fit.minX, (cy - r.top - fit.oy) / fit.s + fit.minY]; }, scale: () => fit.s,
       update(res) {
         if (res && res.ran) clearFx();      // markers stay until the next command
         if (W) draw(true);

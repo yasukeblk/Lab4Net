@@ -166,7 +166,33 @@
     return v;
   }
 
+  // the sandbox build: checked field by field; anything that does not fit is refused (null)
+  const NAME = /^[A-Za-z][A-Za-z0-9-]{0,14}$/, SBX_TYPES = ['router', 'router5', 'switch', 'switch24', 'l3switch', 'pc', 'srv'];
+  function sandbox(p) {
+    if (!isObj(p) || !Array.isArray(p.devs) || !Array.isArray(p.links) || p.devs.length > 20 || p.links.length > 200) return null;
+    const names = new Set(), devs = [], links = [], used = new Set();
+    for (const d of p.devs) {
+      if (!isObj(d) || typeof d.name !== 'string' || !NAME.test(d.name) || names.has(d.name) || !SBX_TYPES.includes(d.type)) return null;
+      names.add(d.name);
+      devs.push({ name: d.name, type: d.type, x: Math.max(34, Math.min(1566, Math.round(+d.x) || 100)), y: Math.max(34, Math.min(620, Math.round(+d.y) || 100)) });
+    }
+    const norm = n => (L4N.sim && L4N.sim.sandbox ? L4N.sim.sandbox.normIf(n) : null);
+    for (const l of p.links) {
+      if (!isObj(l) || !names.has(l.a) || !names.has(l.b) || l.a === l.b || typeof l.ai !== 'string' || typeof l.bi !== 'string' || l.ai.length > 40 || l.bi.length > 40) return null;
+      const ai = norm(l.ai), bi = norm(l.bi);
+      if (!ai || !bi || used.has(l.a + '|' + ai) || used.has(l.b + '|' + bi)) return null;
+      used.add(l.a + '|' + ai); used.add(l.b + '|' + bi);
+      links.push({ a: l.a, ai, b: l.b, bi });
+    }
+    const notes = (Array.isArray(p.notes) ? p.notes : []).filter(n => isObj(n) && typeof n.text === 'string' && n.text.trim()).slice(0, 30)
+      .map(n => ({ text: n.text.slice(0, 60).replace(/[<>]/g, ''), x: Math.max(10, Math.min(1590, Math.round(+n.x) || 100)), y: Math.max(16, Math.min(654, Math.round(+n.y) || 40)) }));
+    const vw = p.view, view = isObj(vw) && [vw.x, vw.y, vw.w].every(x => typeof x === 'number' && isFinite(x)) ? { x: Math.max(0, Math.min(1200, vw.x)), y: Math.max(0, Math.min(500, vw.y)), w: Math.max(400, Math.min(1600, vw.w)) } : null;
+    const w = workEntry({ journal: Array.isArray(p.journal) ? p.journal : [], tasks: [] });
+    const journal = w.corrupt ? [] : w.journal.filter(e => names.has(e.device));
+    return { devs, links, notes, view, goal: int(p.goal, 0, 3, null), goalDone: bool(p.goalDone, false), journal, sel: names.has(p.sel) ? p.sel : null };
+  }
+
   known.lessonQuiz = {};
   known.quizCount = 0;
-  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs, lessons, quiz, subnet, migrated }, lessons, quiz, subnet, migrated, stripTags, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
+  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs, lessons, quiz, subnet, migrated }, lessons, quiz, subnet, migrated, stripTags, sandbox, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
 })(window.L4N = window.L4N || {});
