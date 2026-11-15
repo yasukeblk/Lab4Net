@@ -1,6 +1,26 @@
 # Lab4Net changes
 
-## Fixes, phase 1: safe deploys
+## Fixes, phase 2: tests that catch real changes
+
+Nothing changes for learners. The tests now catch the kinds of mistakes that slipped through before.
+
+- **Screenshots are strict.** Before, a screenshot passed if up to 1% of its pixels differed. Changing "56 lessons" to "66 lessons" on almost every screen passed all 102 screenshots. A measurement showed why: at the default colour threshold, a changed digit alters only 3 to 9 pixels. Now:
+  - at most 2 pixels may differ;
+  - the exam clock is masked, the one thing that changes on purpose between runs;
+  - a screenshot with no baseline fails in CI. Before, it was written fresh and passed.
+
+  The "Update screenshot baselines" workflow refreshed 69 baselines with the new settings. They are the screens that show a lesson count (the desktop sidebar, Home, Progress, the landing page and the component gallery) and the exam screens, where the clock is now masked.
+- **No automatic retries.** CI used to rerun a failed browser test once, so a flaky test passed quietly. Now a failure is a failure.
+- **Totals are checked against the data.** A new browser test, `counts.spec.js`, reads the number of labs (and of builds, incidents and capstones), lessons and quiz questions from the page's own data. It checks every place that shows them: the sidebar, Home, Progress, Practice, the quiz, the lesson groups, the landing page, and the page description and share tags (which are still typed by hand until phase 8). It has no numbers typed in. A scratch build with "56 lessons" back in the page description fails it with a clear message.
+- **The lesson checker rejects Markdown.** `tests/lessons.cjs` now fails a lesson containing a Markdown link `[text](url)`, bold `**` or a backtick, anywhere in its text, terms, exam notes, mistakes, quiz or story. The message names the field and says what to use instead. A new test, `tests/lessons-markdown.cjs`, proves it. It rebuilds the DNS lesson as it was first pasted (with the two links), adds bold and a backtick, and checks for exactly those four errors. It also checks that a clean copy passes. None of the 66 lessons had any of these.
+- **The flaky console test is fixed.** "Fast pace finishes on its own; another command finishes it at once" failed once in Firefox during a full run. It couldn't be reproduced in 100 runs under heavy load. The cause is in the test: it had to catch the "Running…" state during the roughly 1.5 seconds a fast-paced ping lasts, against the real clock, and a slow moment could miss it. The test now freezes the page's clock while the ping plays (Playwright's `page.clock`), so the state can't end before it is checked. It then moves time on by hand to prove the ping also finishes by itself. It passed 30 of 30 in Firefox with the whole suite running alongside. The app was not changed.
+
+Where this differs from the plan:
+
+- The plan suggested starting from `maxDiffPixels: 40`. The measurement showed a changed digit alters only 3 to 9 pixels, so 40 would still let it through. The limit is 2.
+- The plan didn't mention retries or the "write missing baselines" setting. Both hid failures, so both are gone.
+
+
 
 Nothing changes for learners. This phase changes how a change reaches the live site.
 
