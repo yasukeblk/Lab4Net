@@ -26,7 +26,7 @@ The last phase: a phone and accessibility pass on every screen, the remaining te
 
 Where the build differs from the plan:
 
-- **Visual baselines.** The plan asks for final baselines. Baselines are made on Linux, so they are made in GitHub Actions by the "Update screenshot baselines" workflow, run on this branch after this commit.
+- **Visual baselines.** The plan asks for final baselines. They are made on Linux, so GitHub Actions makes them with the "Update screenshot baselines" workflow and commits them to the branch. GitHub only lets a workflow be started by hand once it is on `main`, so a push to any other branch whose commit message contains `[baselines]` now starts it too.
 - **Dialogs and Tab.** Dialogs use the browser's own modal dialog. The page behind it is inert, so Tab never reaches it, but after the last control Tab can move to the browser's own toolbar, as it does on any site. The test allows that.
 - **The demo GIF** is 4.1 MB, against 3.2 MB for the old one. It is longer, because it shows the cause (`show ip ospf interface brief`) as well as the fix.
 
