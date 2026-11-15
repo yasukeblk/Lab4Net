@@ -21,7 +21,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Lab4Net","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","url":"https://yasukeblk.github.io/Lab4Net/","description":"A free CCNA lab simulator in your browser: 77 hands-on labs with IOS-style consoles, live packet animations, troubleshooting incidents, lessons, an exam simulator and a campaign. No sign-up, no ads.","isAccessibleForFree":true,"license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
 <script>
 /* Theme, console colours and motion before the first paint, so there is no flash. Storage is untrusted: only known values are used. */
-(function(){var d=document.documentElement,s={};try{var v=JSON.parse(localStorage.getItem('lab4net:v2')||'{}');if(v&&typeof v.settings==='object'&&v.settings)s=v.settings;}catch(e){}
+(function(){var d=document.documentElement,s={};if(/[?&]panel=tasks(&|$)/.test(location.search))return;try{var v=JSON.parse(localStorage.getItem('lab4net:v2')||'{}');if(v&&typeof v.settings==='object'&&v.settings)s=v.settings;}catch(e){}
 var t=s.theme==='light'||s.theme==='dark'?s.theme:s.theme==='system'?(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):'dark';
 d.setAttribute('data-theme',t);if(s.consoleTheme==='dark')d.setAttribute('data-console','dark');if(s.motion==='reduce')d.setAttribute('data-motion','reduce');})();
 </script>
@@ -685,6 +685,41 @@ button.cmd:hover { background: var(--bg-hover); }
 
 /* small device icons (console tabs, device buttons) */
 .dev-ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; --node-fill: transparent; }
+
+/* ---- steps, clues, walkthrough ---- */
+.steps { display: flex; flex-direction: column; gap: 1px; margin-top: var(--space-2); padding: var(--space-2); border: var(--hairline) solid var(--border-subtle); border-radius: var(--radius-2); background: var(--bg-raised); }
+.steps__dev { padding: var(--space-1) var(--space-1) 2px; }
+.steps__dev:not(:first-child) { margin-top: var(--space-2); }
+.steps__note { font-size: var(--fs-12); color: var(--text-2); padding: 2px var(--space-2); }
+.step { font-size: var(--fs-12); min-height: 26px; }
+.step__prompt { color: var(--text-2); }
+.clues { gap: var(--space-2); }
+.walk { gap: var(--space-2); border-top: var(--hairline) solid var(--border-subtle); padding-top: var(--space-3); }
+.walk__row { display: flex; flex-direction: column; gap: 2px; padding: 2px 0 var(--space-1); }
+.walk__cmd { font-size: var(--fs-12); color: var(--text); align-self: flex-start; }
+.walk__why { font-size: var(--fs-12); color: var(--text-2); }
+
+/* ---- Commands tab ---- */
+.cmds { gap: var(--space-3); }
+.cmds .search { flex: 1; min-width: 160px; }
+.cmdlist { display: flex; flex-direction: column; gap: 1px; }
+.cmdcard { display: flex; flex-direction: column; gap: 2px; padding: var(--space-2); border-radius: var(--radius-2); text-align: left; }
+.cmdcard:hover { background: var(--bg-hover); }
+.cmdcard code { font-size: var(--fs-12); color: var(--text); background: none; padding: 0; }
+.cmdcard__modes { font-size: var(--fs-11); color: var(--text-2); }
+.cmdcard__why { font-size: var(--fs-12); color: var(--text-2); }
+
+/* ---- tasks out in the other window ---- */
+.tasks-strip__out { display: none; flex-direction: column; align-items: center; gap: var(--space-2); }
+.tasks-strip.is-out > .btn:first-child { display: none; }
+.tasks-strip.is-out .tasks-strip__out { display: flex; }
+.tasks-strip__text { writing-mode: vertical-rl; transform: rotate(180deg); font-size: var(--fs-12); color: var(--text-2); white-space: nowrap; }
+
+/* ---- the pop-out window ---- */
+.popout { display: flex; flex-direction: column; height: 100vh; background: var(--bg-surface); }
+.popout__head { display: flex; align-items: center; gap: var(--space-2); height: var(--topbar-h); padding: 0 var(--space-3); border-bottom: var(--hairline) solid var(--border-subtle); flex: none; }
+.popout__title { font-size: var(--fs-14); font-weight: var(--fw-semi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.popout__body { flex: 1; overflow: auto; }
 /* Network map and trace strip (section 5.5) */
 .map__body { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--bg-surface); }
 .topo { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-select: none; }
@@ -6482,7 +6517,38 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   }
 
   const ip = n => n2ip(n);
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+
+  // ---- help content: steps, explanations, the command list ----
+  const stepCache = new Map();
+  // steps(lab) → per task: [{dev, lines: [{prompt, cmd} | {note}]}], with the prompt each command runs at
+  function steps(lab) {
+    if (!lab || !Array.isArray(lab.steps)) return [];
+    if (!stepCache.has(lab)) {
+      const keep = TRACE;
+      let out;
+      try { out = guideFor(lab); } catch (e) { out = lab.steps.map(t => t.map(g => ({ dev: g.dev, lines: g.cmds.map(c => c[0] === '#' ? { note: c.slice(1).trim() } : { prompt: '', cmd: c }) }))); }
+      TRACE = keep;
+      stepCache.set(lab, out);
+    }
+    return stepCache.get(lab);
+  }
+  // the explanation for one command (repo content; may hold <code>)
+  function why(cmd) { try { return whyOf(String(cmd)) || ''; } catch (e) { return ''; } }
+  // the commands a device supports, in its current mode (or all modes), each with its explanation
+  function commands(st, dev, allModes) {
+    const [d, s] = effPair(st.net.devs[dev], st.sess[dev]);
+    const out = [], seen = new Set();
+    for (const c of CMDS) {
+      if (c.types && !c.types.includes(d.type)) continue;
+      if (!allModes && !c.modes.includes(s.mode)) continue;
+      const pat = c.pat.join(' ');
+      if (seen.has(pat)) continue; seen.add(pat);
+      out.push({ pat, modes: c.modes.map(m => MODE[m] || m), why: (typeof WHYC !== 'undefined' && WHYC[pat]) || '' });
+    }
+    return out;
+  }
+  const CRLINE = typeof CR !== 'undefined' ? CR : '<cr>';
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});
 // grade.js: the grade rules (section 2), copied exactly from the old rank rules. No DOM.
 //  - A lab is done when every check passes.
@@ -7918,71 +7984,139 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
   L4N.consoleView = { create: createConsole, devIcon };
 })(window.L4N = window.L4N || {});
-// tasks.js: the Tasks panel (section 5.4). Lab task text, briefs and "why" text are repo content (dom.trusted);
-// everything else is text.
+// tasks.js: the Tasks panel (section 5.4): Tasks and Commands tabs. Lab task text, briefs, "why" text and command
+// explanations are repo content (dom.trusted); everything else is text.
 (function (L4N) {
   'use strict';
   const { el, icon, clear, trusted, id } = L4N.dom;
-  const ui = L4N.ui;
+  const ui = L4N.ui, sim = L4N.sim;
+  const CLUE_NAMES = ['Direction', 'Evidence', 'Repair'];
 
   function objChips(lab) {
     return (lab.ccna || []).slice(0, 4).map(o => ui.objChip(o, (typeof CCNA_OBJECTIVES !== 'undefined' && CCNA_OBJECTIVES[o]) || ''));
   }
+  const cmdText = c => (c === sim.CRLINE ? '↵ Enter' : c);
 
-  // createTasks(ws): ws = {st, entry, tasks: [bool], onTick(i, v), graded, gradeNow(), extras}
+  // ws: {st, entry, tasks, graded, guide, walk, clues, hideHelp(), onTick, setGuide(v), revealClue(), stepTo(dev, cmd), hints}
   function createTasks(ws) {
     const st = ws.st, lab = st.lab, entry = st.entry;
-    const body = el('div', { class: 'tasks__body' });
+    const help = () => !(ws.hideHelp && ws.hideHelp());
+    const tasksBody = el('div', { class: 'tasks__body' });
+    const cmdsBody = el('div', { class: 'tasks__body cmds' });
     const countEl = el('span', { class: 'tasks__count num' });
-    const head = el('div', { class: 'pane__head' }, el('h2', { class: 'pane__title' }, icon('list-checks'), 'Tasks'), el('span', { class: 'spacer' }), countEl);
-    const root = el('section', { class: 'pane tasks', 'aria-label': 'Tasks', id: 'ws-tasks' }, head, el('div', { class: 'pane__body', tabindex: '-1' }, body));
+    const panelTasks = el('div', { class: 'pane__body', tabindex: '-1', role: 'tabpanel', id: id('tp') }, tasksBody);
+    const panelCmds = el('div', { class: 'pane__body', tabindex: '-1', role: 'tabpanel', id: id('tp'), hidden: true }, cmdsBody);
+    let tab = 'tasks';
+    const tabs = ui.tabs({ label: 'Tasks panel', selected: 'tasks', items: [{ id: 'tasks', label: 'Tasks', panel: panelTasks.id }, { id: 'commands', label: 'Commands', panel: panelCmds.id }],
+      onSelect: v => { tab = v; panelTasks.hidden = v !== 'tasks'; panelCmds.hidden = v !== 'commands'; if (v === 'commands') renderCommands(); } });
+    panelTasks.setAttribute('aria-labelledby', tabs.tab('tasks').id); panelCmds.setAttribute('aria-labelledby', tabs.tab('commands').id);
+    const head = el('div', { class: 'pane__head' }, tabs.el, el('span', { class: 'spacer' }), countEl);
+    const root = el('section', { class: 'pane tasks', 'aria-label': 'Tasks', id: 'ws-tasks' }, head, panelTasks, panelCmds);
     const results = el('section', { class: 'results', 'aria-label': 'Results', 'aria-live': 'polite', id: id('results') });
-    const taskNodes = [];
 
     function updateCount() {
       const n = ws.tasks.filter(Boolean).length;
       countEl.textContent = n + ' of ' + lab.tasks.length + ' done';
     }
 
+    // ---- steps for one task: command rows grouped by device ----
+    function stepRows(i) {
+      const groups = sim.steps(lab)[i] || [];
+      if (!groups.length) return null;
+      const box = el('div', { class: 'steps', role: 'group', 'aria-label': 'Steps for task ' + (i + 1) });
+      for (const g of groups) {
+        const dev = st.net.devs[g.dev];
+        box.append(el('div', { class: 'steps__dev label-caps', text: 'On ' + (dev ? dev.hostname : g.dev) }));
+        for (const x of g.lines) {
+          if (x.note) { box.append(el('div', { class: 'steps__note', text: x.note })); continue; }
+          box.append(el('button', { class: 'cmd step', type: 'button', 'data-dev': g.dev, 'data-cmd': x.cmd, 'data-tip': 'Put this command in the ' + (dev ? dev.hostname : g.dev) + ' console',
+            onClick: () => ws.stepTo(g.dev, x.cmd) }, el('span', { class: 'step__prompt', text: x.prompt || '' }), el('span', { text: cmdText(x.cmd) })));
+        }
+      }
+      return box;
+    }
+
+    function stepRow() {
+      const sw = ui.toggle({ label: 'Step-by-step', checked: !!ws.guide, onChange: v => ws.setGuide(v) });
+      return el('div', { class: 'tasks__row' }, sw, el('span', { class: 'tasks__count num', text: ws.tasks.filter(Boolean).length + ' of ' + lab.tasks.length + ' done' }));
+    }
+
+    function clues() {
+      if (entry.kind !== 'incident' || !Array.isArray(lab.hints) || !help()) return null;
+      const n = Math.max(0, Math.min(3, ws.clues || 0));
+      const box = el('section', { class: 'sect clues', 'aria-label': 'Clues' }, el('h3', { class: 'label-caps', text: 'Clues' }));
+      lab.hints.slice(0, n).forEach((c, i) => box.append(ui.callout({ icon: 'bulb', title: CLUE_NAMES[i] || 'Clue', body: [el('span', { text: c })] })));
+      if (n < 3) box.append(el('div', { class: 'hstack' }, ui.button({ label: 'Reveal clue ' + (n + 1) + ' of 3', icon: 'bulb', onClick: () => ws.revealClue() }),
+        el('span', { class: 'hint', text: 'Each clue costs 5 points.' })));
+      else box.append(el('p', { class: 'hint', text: 'All three clues revealed.' }));
+      return box;
+    }
+
+    function walkthrough() {
+      if (!ws.walk || !help()) return null;
+      const box = el('section', { class: 'sect walk', 'aria-label': 'Walkthrough' },
+        el('div', { class: 'hstack' }, el('h3', { class: 'label-caps', text: 'Walkthrough' }), el('span', { class: 'spacer' }), ui.button({ label: 'Hide', kind: 'ghost', onClick: () => ws.setWalk(false) })),
+        el('p', { class: 'hint', text: 'One working answer. Read one device at a time, predict what each command changes, then type it yourself.' }));
+      for (const [dev, cmds] of Object.entries(lab.solution || {})) {
+        const d = st.net.devs[dev];
+        box.append(el('div', { class: 'steps__dev label-caps', text: 'On ' + (d ? d.hostname : dev) }));
+        for (const c of cmds) {
+          const w = sim.why(c);
+          box.append(el('div', { class: 'walk__row' }, el('code', { class: 'walk__cmd', text: cmdText(c) }), w ? trusted(w, 'div', { class: 'walk__why' }) : null));
+        }
+      }
+      return box;
+    }
+
+    function firstRunTip() {
+      if (!help() || ws.guide || (ws.hints && ws.hints.stepTip)) return null;
+      const box = ui.callout({ icon: 'info', body: [el('span', { text: 'New here? Turn on step-by-step to see the commands for each task.' }),
+        el('div', {}, ui.button({ label: 'Got it', kind: 'secondary', onClick: () => { ws.dismissHint('stepTip'); box.remove(); } }))] });
+      return box;
+    }
+
     function build() {
-      clear(body);
+      const keepScroll = panelTasks.scrollTop;
+      clear(tasksBody);
       // 1. the brief, with objective chips
-      body.append(el('div', {}, trusted(lab.brief || '', 'p', { class: 'tasks__brief' }), el('div', { class: 'tasks__chips' }, objChips(lab))));
+      tasksBody.append(el('div', {}, trusted(lab.brief || '', 'p', { class: 'tasks__brief' }), el('div', { class: 'tasks__chips' }, objChips(lab))));
       // 2. incidents
-      if (entry.kind === 'incident') body.append(ui.callout({ kind: 'warn', icon: 'alert', body: ['This network worked until something changed. Find it, make the smallest repair, keep everything else working.'] }));
-      if (ws.extras && ws.extras.top) body.append(ws.extras.top());
+      if (entry.kind === 'incident') tasksBody.append(ui.callout({ kind: 'warn', icon: 'alert', body: ['This network worked until something changed. Find it, make the smallest repair, keep everything else working.'] }));
+      for (const fn of ws.topExtras || []) { const x = fn(); if (x) tasksBody.append(x); }
+      const tip = firstRunTip(); if (tip) tasksBody.append(tip);
       // 3. address plan
       if (lab.addr && lab.addr.length) {
-        body.append(el('details', { class: 'sect', open: true },
+        tasksBody.append(el('details', { class: 'sect', open: true },
           el('summary', {}, icon('chevron-down', 'icon--chev'), el('span', { class: 'label-caps', text: 'Address plan' })),
           el('div', { class: 'table-wrap' }, el('table', { class: 'table addr' },
             el('thead', {}, el('tr', {}, el('th', { text: 'Device', scope: 'col' }), el('th', { text: 'Interface', scope: 'col' }), el('th', { text: 'Address', scope: 'col' }))),
             el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) }))))))));
       }
-      // 4. step-by-step row (Phase 4 adds the switch)
-      if (ws.extras && ws.extras.stepRow) body.append(ws.extras.stepRow());
+      // 4. step-by-step switch and the count
+      if (help()) tasksBody.append(stepRow());
       // 5. the tasks
       const list = el('ol', { class: 'tasklist', 'aria-label': 'Tasks' });
-      taskNodes.length = 0;
       lab.tasks.forEach((t, i) => {
         const textId = id('task');
+        const li = el('li', { class: ['task', ws.tasks[i] && 'is-ticked'] });
         const cb = ui.checkbox({ checked: !!ws.tasks[i], aria: 'Task ' + (i + 1) + ' done', onChange: v => { ws.tasks[i] = v; li.classList.toggle('is-ticked', v); updateCount(); if (ws.onTick) ws.onTick(i, v); } });
         const more = el('div', { class: 'task__more' });
-        if (lab.why && lab.why[i] && !(ws.hideHelp && ws.hideHelp())) {
-          more.append(el('details', { class: 'why' }, el('summary', {}, icon('chevron-right'), 'Why'), trusted(lab.why[i], 'div', { class: 'why__text' })));
-        }
-        if (ws.extras && ws.extras.taskExtra) { const x = ws.extras.taskExtra(i); if (x) more.append(x); }
-        const li = el('li', { class: ['task', ws.tasks[i] && 'is-ticked'] }, cb, trusted(t, 'div', { class: 'task__text', id: textId }), more);
+        if (lab.why && lab.why[i] && help()) more.append(el('details', { class: 'why' }, el('summary', {}, icon('chevron-right'), 'Why'), trusted(lab.why[i], 'div', { class: 'why__text' })));
+        if (ws.guide && help()) { const s = stepRows(i); if (s) more.append(s); }
+        li.append(cb, trusted(t, 'div', { class: 'task__text', id: textId }), more);
         cb.querySelector('input').setAttribute('aria-describedby', textId);
-        taskNodes.push(li); list.append(li);
+        list.append(li);
       });
-      body.append(list);
-      if (ws.extras && ws.extras.afterTasks) body.append(ws.extras.afterTasks());
+      tasksBody.append(list);
+      // 6. clues
+      const c = clues(); if (c) tasksBody.append(c);
       // 7. results
-      body.append(results);
-      if (ws.extras && ws.extras.bottom) body.append(ws.extras.bottom());
+      tasksBody.append(results);
       renderResults();
+      // 8. walkthrough
+      const w = walkthrough(); if (w) tasksBody.append(w);
       updateCount();
+      panelTasks.scrollTop = keepScroll;
     }
 
     function renderResults() {
@@ -7994,21 +8128,52 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
       results.classList.toggle('is-stale', !!g.stale);
       results.append(el('h3', { class: 'label-caps', text: 'Results' }));
       if (g.stale) results.append(el('p', { class: 'results__stale' }, icon('alert'), 'Commands run since grading. Grade again.'));
-      const sum = done ? 'Lab complete' + (g.grade ? ' · Grade ' + g.grade : '') : pass + ' of ' + all + ' checks pass';
+      const sum = g.summary || (done ? 'Lab complete' + (g.grade ? ' · Grade ' + g.grade : '') : pass + ' of ' + all + ' checks pass');
       results.append(el('p', { class: ['results__sum', done ? 'is-ok' : 'is-bad'] }, icon(done ? 'check-circle' : 'x-circle'), sum));
       if (!g.hideList) {
         results.append(el('ul', { class: 'results__list' }, g.results.map(([t, ok]) => el('li', { class: ['check-row', ok ? 'is-ok' : 'is-bad'] },
           icon(ok ? 'check' : 'x'), el('span', { class: 'sr-only', text: ok ? 'Passes: ' : 'Fails: ' }), el('span', { text: t })))));
       }
       if (done && entry.kind === 'incident' && lab.lesson && !g.hideList) results.append(ui.callout({ title: 'Root cause', body: [trusted(lab.lesson, 'div')] }));
-      if (done && ws.next && ws.next()) {
+      for (const fn of ws.resultExtras || []) { const x = fn(g); if (x) results.append(x); }
+      if (done && ws.next && ws.next() && !g.noNext) {
         const n = ws.next();
         results.append(el('div', {}, ui.button({ label: 'Next lab: ' + n.short, icon: 'arrow-right', kind: 'secondary', href: L4N.router.href('lab', n.slug) })));
       }
     }
 
+    // ---- Commands tab: what the selected device supports in its current mode ----
+    let cmdQuery = '', cmdAll = false;
+    const cmdSearch = ui.searchInput({ placeholder: 'Search commands or explanations', label: 'Search commands', onInput: v => { cmdQuery = v; renderCmdList(); } });
+    const cmdList = el('div', { class: 'cmdlist', role: 'list' });
+    const cmdNote = el('p', { class: 'hint' });
+    function renderCommands() {
+      if (cmdsBody.childNodes.length === 0) {
+        cmdsBody.append(cmdNote, el('div', { class: 'hstack' }, cmdSearch, ui.toggle({ label: 'All modes', checked: cmdAll, onChange: v => { cmdAll = v; renderCmdList(); } })), cmdList);
+      }
+      renderCmdList();
+    }
+    function renderCmdList() {
+      if (tab !== 'commands') return;
+      const d = st.net.devs[st.sel], p = sim.prompt(st, st.sel);
+      cmdNote.textContent = 'Commands for ' + d.hostname + (cmdAll ? ' in every mode.' : ' in ' + p.modeName + '.') + ' Choose one to put it in the console, then fill in the parts in angle brackets.';
+      const q = cmdQuery.trim().toLowerCase();
+      const items = sim.commands(st, st.sel, cmdAll).filter(c => !q || (c.pat + ' ' + c.why.replace(/<[^>]+>/g, '')).toLowerCase().includes(q));
+      clear(cmdList);
+      if (!items.length) { cmdList.append(ui.empty({ icon: 'search', what: 'No commands match.', todo: cmdAll ? 'Try another word.' : 'Try “All modes”.' })); return; }
+      for (const c of items.slice(0, 200)) {
+        cmdList.append(el('button', { class: 'cmdcard', type: 'button', role: 'listitem', onClick: () => ws.stepTo(st.sel, c.pat) },
+          el('code', { text: c.pat }), el('span', { class: 'cmdcard__modes', text: c.modes.join(' · ') }),
+          c.why ? trusted(c.why, 'span', { class: 'cmdcard__why' }) : el('span', { class: 'cmdcard__why', text: 'Use ? in the console to explore its arguments.' })));
+      }
+    }
+
     build();
-    return { el: root, rebuild: build, renderResults, focus() { root.querySelector('.pane__body').focus(); }, results };
+    return {
+      el: root, rebuild: build, renderResults, results, refreshCommands: renderCmdList,
+      setHelpTabs(on) { tabs.tab('commands').hidden = !on; if (!on && tab === 'commands') tabs.select('tasks', true); },
+      focus() { (tab === 'tasks' ? panelTasks : panelCmds).focus(); }
+    };
   }
 
   L4N.tasksView = { create: createTasks };
@@ -8142,6 +8307,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
         if (x.label.textContent !== name) x.label.textContent = name;
         let tw = 0; try { tw = x.label.getComputedTextLength(); } catch (e) {}
         const w = Math.max(48, (tw || name.length * 7) + 12);
+        x.w = w;
         x.hit.setAttribute('x', -w / 2); x.hit.setAttribute('width', w); x.hit.setAttribute('y', -24); x.hit.setAttribute('height', 66);
         const on = n === sel;
         x.g.classList.toggle('is-selected', on);
@@ -8172,12 +8338,16 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
         const sides = [[ax, ay, 1], [bx, by, -1]];
         sides.forEach(([x, y, s], i) => {
           const e = L.ends[i], E = l.ends[i];
-          const mx = x + ux * 27 * s, my = y + uy * 27 * s;
+          // how far along the link a point must be to clear this device's icon and label
+          const nd = nodes.get(E.dev), hw = Math.max(22, ((nd && nd.w) || 48) / 2 + 3);
+          const clear = (d, px, top, bottom) => { for (; d < 140; d += 2) { const qx = ux * s * d + nx * px, qy = uy * s * d + ny * px; if (Math.abs(qx) > hw || qy < top || qy > bottom) return d; } return d; };
+          const dMark = Math.max(26, clear(22, 0, -23, 41) + 4);
+          const mx = x + ux * dMark * s, my = y + uy * dMark * s;
           set(e.mark, { cx: mx, cy: my });
           e.mark.setAttribute('class', 'link__mark ' + (up ? 'is-up' : 'is-down'));
           const bv = E.blocked;
           e.block.style.display = bv ? '' : 'none';
-          if (bv) { const bx2 = x + ux * 35 * s, by2 = y + uy * 35 * s; set(e.block, { x1: bx2 + nx * 6, y1: by2 + ny * 6, x2: bx2 - nx * 6, y2: by2 - ny * 6 }); e.bt.textContent = 'Blocked by spanning tree' + (bv.length ? ' (VLAN ' + bv.join(', ') + ')' : ''); }
+          if (bv) { const bx2 = x + ux * (dMark + 8) * s, by2 = y + uy * (dMark + 8) * s; set(e.block, { x1: bx2 + nx * 6, y1: by2 + ny * 6, x2: bx2 - nx * 6, y2: by2 - ny * 6 }); e.bt.textContent = 'Blocked by spanning tree' + (bv.length ? ' (VLAN ' + bv.join(', ') + ')' : ''); }
           e.err.style.display = E.errdis ? '' : 'none';
           if (E.errdis) set(e.err, { x: mx + nx * 8 - 6, y: my + ny * 8 - 6 });
           const showPort = !hide && !E.host;
@@ -8186,7 +8356,8 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
             const t = E.short;
             if (e.port.textContent !== t) e.port.textContent = t;
             const side = off < 0 ? -1 : 1;
-            set(e.port, { x: x + ux * 44 * s + nx * 9 * side, y: y + uy * 44 * s + ny * 9 * side + 3.5, 'text-anchor': 'middle' });
+            const dPort = Math.max(dMark + 16, clear(dMark + 10, 9 * side * s, -30, 48) + 14);
+            set(e.port, { x: x + ux * dPort * s + nx * 9 * side, y: y + uy * dPort * s + ny * 9 * side + 3.5, 'text-anchor': 'middle' });
           }
         });
         const A = st.net.devs[l.a], B = st.net.devs[l.b];
@@ -8739,15 +8910,67 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     touch(entry.slug);
 
     ws.save = () => L4N.work.put(entry.slug, { journal: st.journal, tasks: ws.tasks });
-    ws.onTick = () => { ws.save(); if (ws.onLayout) ws.onLayout(); };
+
+    // ---- help: step-by-step, walkthrough, clues (each one marks the run, as the old rank rules did) ----
+    const capstone = entry.kind === 'capstone';
+    const rec0 = labRec(entry.slug) || {};
+    ws.guide = capstone ? rec0.guide === true : !!L4N.store.get().settings.guideDefault;
+    ws.walk = false;
+    ws.clues = rec0.clues || 0;
+    ws.hints = Object.assign({}, L4N.store.get().ui.hints);
+    ws.hideHelp = () => !!(ws.exam);
+    function markRun(patch) {
+      const rec = labRec(entry.slug), run = rec && rec.run ? Object.assign({}, rec.run) : null;
+      if (!run || !run.valid || run.done) return;
+      let changed = false;
+      for (const k in patch) if (!run[k]) { run[k] = patch[k]; changed = true; }
+      if (changed) setLab(entry.slug, { run });
+    }
+    ws.markRun = markRun;
+    ws.setGuide = v => {
+      ws.guide = !!v;
+      if (capstone) setLab(entry.slug, { guide: ws.guide });
+      else L4N.setSetting({ guideDefault: ws.guide });
+      if (ws.guide) markRun({ help: true });
+      ws.tasksView.rebuild();
+      ws.sync();
+    };
+    ws.setWalk = v => {
+      ws.walk = !!v;
+      if (ws.walk) markRun({ walk: true });
+      ws.tasksView.rebuild();
+      ws.sync();
+      if (ws.walk) { const w = ws.tasksView.el.querySelector('.walk'); if (w) w.scrollIntoView({ block: 'start' }); }
+    };
+    ws.revealClue = () => {
+      if (entry.kind !== 'incident' || ws.clues >= 3) return;
+      ws.clues++;
+      setLab(entry.slug, { clues: ws.clues });
+      ws.tasksView.rebuild();
+      ws.sync();
+    };
+    ws.stepTo = (dev, cmd) => {
+      if (!st.net.devs[dev]) return;
+      if (dev !== st.sel) ws.console.select(dev);
+      ws.console.input.value = cmd;
+      if (ws.panes && ws.panes.isPhone()) ws.panes.showPhone('console');
+      ws.console.focus();
+      const n = ws.console.input.value.length; ws.console.input.setSelectionRange(n, n);
+    };
+    ws.dismissHint = k => { ws.hints[k] = true; L4N.store.set(s => ({ ui: Object.assign({}, s.ui, { hints: Object.assign({}, s.ui.hints, { [k]: true }) }) })); };
+    ws.sync = () => { for (const f of ws.syncHooks || []) f(); };
+    if (ws.guide) markRun({ help: true });
+    ws.onTick = () => { ws.save(); if (ws.onLayout) ws.onLayout(); ws.sync(); };
     ws.selectDevice = (dev, focus) => { ws.console.select(dev); if (focus) ws.console.focus(); };
-    ws.onSelect = () => { if (ws.map) ws.map.redraw(); };
+    ws.onSelect = () => { if (ws.map) ws.map.redraw(); if (ws.tasksView) ws.tasksView.refreshCommands(); };
     ws.onCommand = (res, line, dev) => {
       if (res.ran) {
         const rec = labRec(entry.slug), run = rec && rec.run ? Object.assign({}, rec.run) : null;
         if (run && run.valid && !run.done && line.trim()) { run.cmds = (run.cmds || 0) + 1; G.count(run, line, res.lines); setLab(entry.slug, { run }); }
       }
-      if (ws.graded && !ws.graded.stale) { ws.graded.stale = true; ws.tasksView.renderResults(); }
+      if (ws.guide) markRun({ help: true });
+      if (ws.graded && !ws.graded.stale) { ws.graded.stale = true; ws.tasksView.renderResults(); ws.sync(); }
+      ws.tasksView.refreshCommands();
       ws.save();
       refreshStatus();
       if (ws.map) ws.map.update(res, dev);
@@ -8776,6 +8999,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
       ws.graded = { results, stale: false, grade: letter };
       ws.tasksView.renderResults();
       refreshStatus();
+      ws.sync();
       const pass = results.filter(x => x[1]).length;
       const n = done && ws.next();
       if (done) L4N.toast({ text: 'Lab complete' + (letter ? ' · Grade ' + letter : ''), kind: 'ok', action: n ? { label: 'Next lab', run: () => L4N.shell.go(L4N.router.href('lab', n.slug)) } : null });
@@ -8846,6 +9070,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
       for (const h of ws.menuHooks || []) items.push(...h());
       if (window.innerWidth >= 1600) items.push({ label: ws.panes.layout() === 'side' ? 'Layout: stacked' : 'Layout: side by side', icon: ws.panes.layout() === 'side' ? 'panel-bottom' : 'sidebar', run: () => ws.panes.setLayout(ws.panes.layout() === 'side' ? 'stacked' : 'side') });
       items.push({ label: 'Reset panel sizes', icon: 'maximize', run: () => ws.panes.resetSizes() });
+      if (!ws.hideHelp()) items.unshift({ label: ws.walk ? 'Hide walkthrough' : 'Show walkthrough', icon: 'eye', run: () => ws.setWalk(!ws.walk) });
       items.push({ label: 'Reset lab', icon: 'reset', danger: true, run: () => ws.reset() });
       return items;
     }
@@ -8901,6 +9126,11 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const lesson = L4N.data.lessonFor(ws.entry);
     if (lesson && !(ws.hideHelp && ws.hideHelp())) out.push({ id: 'lab-lesson', group: 'In a lab', title: "Open this lab's lesson", icon: 'lessons', subtitle: lesson.title, run: () => L4N.shell.go(L4N.router.href('lesson', lesson.slug)) });
     for (const dv of sim.devices(ws.st)) out.push({ id: 'lab-dev-' + dv.name, group: 'In a lab', title: 'Switch to device ' + dv.hostname, icon: 'labs', subtitle: dv.kindName, keywords: dv.name, run: () => ws.selectDevice(dv.name, true) });
+    if (!(ws.hideHelp && ws.hideHelp())) {
+      out.push({ id: 'lab-guide', group: 'In a lab', title: 'Toggle step-by-step', icon: 'list-checks', subtitle: ws.guide ? 'On' : 'Off', run: () => ws.setGuide(!ws.guide) },
+        { id: 'lab-walk', group: 'In a lab', title: ws.walk ? 'Hide walkthrough' : 'Show walkthrough', icon: 'eye', subtitle: 'Lowers the grade', run: () => ws.setWalk(!ws.walk) });
+      if (ws.entry.kind === 'incident' && ws.clues < 3) out.push({ id: 'lab-clue', group: 'In a lab', title: 'Reveal next clue', icon: 'bulb', subtitle: 'Clue ' + (ws.clues + 1) + ' of 3 · costs 5 points', run: () => ws.revealClue() });
+    }
     out.push(
       { id: 'lab-replay', group: 'In a lab', title: 'Replay last packet', icon: 'replay', run: () => ws.map.replay() },
       { id: 'lab-tasks-panel', group: 'In a lab', title: ws.panes.collapsed('tasks') ? 'Expand the Tasks panel' : 'Collapse the Tasks panel', icon: 'panel-left', run: () => ws.panes.toggle('tasks') },
@@ -8945,6 +9175,189 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     crumbs: r => { const l = L4N.data.lab(r.slug); return l ? [{ label: 'Labs', href: '#/labs' }, { label: l.lab.group, href: '#/labs' }, { label: l.short }] : [{ label: 'Labs', href: '#/labs' }]; },
     mount
   });
+})(window.L4N = window.L4N || {});
+// popout.js: the Tasks panel in its own window (section 5.4, "Pop out").
+// The main window owns all state and storage. The pop-out (index.html?panel=tasks) stores nothing and only draws
+// what it is sent. The two talk over a BroadcastChannel. Every message is checked: same origin, known type, the
+// right shape. Messages carry data only; the pop-out renders lab text from its own copy of the lab data, by slug.
+(function (L4N) {
+  'use strict';
+  const { el, icon, clear, trusted } = L4N.dom;
+  const CHANNEL = 'lab4net-tasks';
+  const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const okStr = (v, max) => typeof v === 'string' && v.length <= max;
+  const boolArr = (v, max) => Array.isArray(v) && v.length <= max && v.every(x => typeof x === 'boolean');
+  const offered = () => location.protocol !== 'file:' && typeof BroadcastChannel !== 'undefined' && window.innerWidth >= 768;
+
+  // ---------------------------------------------------------------- main window side
+  let chan = null, win = null, alive = 0, watch = 0;
+  const ws = () => (L4N.workspace && L4N.workspace.current()) || null;
+
+  function send(msg) { if (chan) try { chan.postMessage(msg); } catch (e) {} }
+  function stateMsg() {
+    const w = ws();
+    if (!w) return { type: 'state', slug: null, theme: L4N.theme.resolved() };
+    const g = w.graded;
+    return {
+      type: 'state', slug: w.slug, theme: L4N.theme.resolved(), tasks: Array.from({ length: w.st.lab.tasks.length }, (_, i) => !!w.tasks[i]),
+      guide: !!w.guide, clues: w.clues || 0, walk: !!w.walk, exam: !!(w.hideHelp && w.hideHelp()),
+      graded: g ? { pass: g.results.map(r => !!r[1]), stale: !!g.stale, grade: g.grade || null, hideList: !!g.hideList } : null
+    };
+  }
+  function onMain(e) {
+    if (e.origin && e.origin !== location.origin) return;
+    const m = e.data;
+    if (!isObj(m) || !okStr(m.type, 16)) return;
+    const w = ws();
+    if (m.type === 'hello') {
+      alive = Date.now();
+      if (w && !w.tasksOut && !(w.hideHelp && w.hideHelp())) { w.tasksOut = true; w.panes.apply(); }
+      if (w && w.hideHelp && w.hideHelp()) { send({ type: 'close' }); return; }
+      send(stateMsg());
+      return;
+    }
+    if (m.type === 'bye' || m.type === 'dock') { dock(m.type === 'dock'); return; }
+    if (!w || !w.tasksOut) return;
+    alive = Date.now();
+    if (m.type === 'step' && okStr(m.device, 32) && okStr(m.command, 512)) {
+      // only a command that really is one of this lab's steps for that device
+      const ok = L4N.sim.steps(w.st.lab).some(task => task.some(g => g.dev === m.device && g.lines.some(x => x.cmd === m.command)));
+      if (ok && w.guide && !(w.hideHelp && w.hideHelp())) w.stepTo(m.device, m.command);
+    } else if (m.type === 'tick' && Number.isInteger(m.i) && m.i >= 0 && m.i < w.st.lab.tasks.length && typeof m.v === 'boolean') {
+      w.tasks[m.i] = m.v; w.tasksView.rebuild(); w.onTick(m.i, m.v);
+    } else if (m.type === 'guide' && typeof m.on === 'boolean') { if (!(w.hideHelp && w.hideHelp())) w.setGuide(m.on); }
+    else if (m.type === 'clue') { if (!(w.hideHelp && w.hideHelp())) w.revealClue(); }
+  }
+  function ensureChannel() {
+    if (chan || typeof BroadcastChannel === 'undefined') return;
+    chan = new BroadcastChannel(CHANNEL);
+    chan.addEventListener('message', onMain);
+    watch = setInterval(() => { const w = ws(); if (w && w.tasksOut && Date.now() - alive > 9000) dock(true); }, 1000);
+  }
+  function open() {
+    const w = ws();
+    if (!w || !offered() || (w.hideHelp && w.hideHelp())) return;
+    ensureChannel();
+    alive = Date.now();
+    w.tasksOut = true; w.panes.apply();
+    const url = location.pathname + '?panel=tasks';
+    win = window.open(url, 'lab4net-tasks', 'popup,width=420,height=760');
+    if (!win) { w.tasksOut = false; w.panes.apply(); L4N.toast({ text: 'The window could not open. Allow pop-ups for this site and try again.', kind: 'warn' }); }
+  }
+  function dock(closeIt) {
+    const w = ws();
+    if (closeIt !== false) send({ type: 'close' });
+    try { if (win && !win.closed && closeIt !== false) win.close(); } catch (e) {}
+    win = null;
+    if (w && w.tasksOut) { w.tasksOut = false; w.panes.apply(); }
+  }
+
+  // Hook into every workspace: the menu item, the strip, and sending state when it changes.
+  (L4N.workspaceExtras = L4N.workspaceExtras || []).push(w => {
+    ensureChannel();
+    w.syncHooks = (w.syncHooks || []).concat(() => { if (w.tasksOut) send(stateMsg()); });
+    w.hooks.push(() => { if (w.tasksOut) send(stateMsg()); });
+    w.menuHooks = (w.menuHooks || []).concat(() => offered() && !(w.hideHelp && w.hideHelp()) ? [w.tasksOut ? { label: 'Dock tasks', icon: 'panel-left', run: () => dock(true) } : { label: 'Pop out tasks', icon: 'pop-out', run: open }] : []);
+    w.commandHooks = (w.commandHooks || []).concat(() => offered() && !(w.hideHelp && w.hideHelp()) ? [w.tasksOut ? { id: 'lab-dock', group: 'In a lab', title: 'Dock tasks', icon: 'panel-left', run: () => dock(true) } : { id: 'lab-pop', group: 'In a lab', title: 'Pop out tasks', icon: 'pop-out', subtitle: 'A second window, for two monitors', run: open }] : []);
+    // the strip says where the tasks are, with a Dock button
+    const strip = w.panes.el.querySelector('.tasks-strip');
+    const out = el('div', { class: 'tasks-strip__out' }, el('span', { class: 'tasks-strip__text', text: 'Open in the other window' }),
+      L4N.ui.button({ icon: 'panel-left', aria: 'Dock the Tasks panel', onClick: () => dock(true) }));
+    strip.append(out);
+    const prevLayout = w.onLayout;
+    w.onLayout = () => { if (prevLayout) prevLayout(); strip.classList.toggle('is-out', !!w.tasksOut); };
+    // a pop-out that is already open (for example after a reload of this window) reconnects on its next hello
+    if (Date.now() - alive < 9000) { w.tasksOut = true; send(stateMsg()); }
+    else send(stateMsg());
+    w.cleanup = (w.cleanup || []).concat(() => { setTimeout(() => send(stateMsg()), 0); });
+  });
+
+  // ---------------------------------------------------------------- pop-out window side
+  function boot() {
+    document.title = 'Tasks · Lab4Net';
+    const root = document.getElementById('app');
+    root.className = 'popout';
+    const title = el('h1', { class: 'popout__title', text: 'Tasks' });
+    const body = el('div', { class: 'tasks__body' });
+    const ch = new BroadcastChannel(CHANNEL);
+    const post = m => { try { ch.postMessage(m); } catch (e) {} };
+    root.append(el('header', { class: 'popout__head' }, L4N.logo(), title, el('span', { class: 'spacer' }),
+      L4N.ui.button({ label: 'Dock', icon: 'panel-left', onClick: () => { post({ type: 'dock' }); window.close(); } })), el('main', { class: 'popout__body' }, body));
+    let lastSlug, data = L4N.sim.catalogue();
+
+    function waiting(text) { clear(body); body.append(L4N.ui.empty({ icon: 'labs', what: text, todo: 'This window shows the tasks of the lab open in the main window.' })); }
+    function render(m) {
+      document.documentElement.setAttribute('data-theme', m.theme === 'light' ? 'light' : 'dark');
+      if (!m.slug) { title.textContent = 'Tasks'; waiting('No lab is open.'); return; }
+      const entry = data.lab(m.slug);
+      if (!entry) { waiting('No lab is open.'); return; }
+      const lab = entry.lab;
+      title.textContent = entry.short;
+      document.title = entry.short + ' · Tasks · Lab4Net';
+      const keep = lastSlug === m.slug ? document.querySelector('.popout__body').scrollTop : 0;
+      lastSlug = m.slug;
+      clear(body);
+      body.append(trusted(lab.brief || '', 'p', { class: 'tasks__brief' }));
+      if (lab.addr && lab.addr.length) body.append(el('details', { class: 'sect', open: true }, el('summary', {}, icon('chevron-down', 'icon--chev'), el('span', { class: 'label-caps', text: 'Address plan' })),
+        el('div', { class: 'table-wrap' }, el('table', { class: 'table addr' }, el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) }))))))));
+      if (!m.exam) body.append(el('div', { class: 'tasks__row' }, L4N.ui.toggle({ label: 'Step-by-step', checked: !!m.guide, onChange: v => post({ type: 'guide', on: v }) })));
+      const steps = m.guide && !m.exam ? L4N.sim.steps(lab) : [];
+      const list = el('ol', { class: 'tasklist', 'aria-label': 'Tasks' });
+      lab.tasks.forEach((t, i) => {
+        const more = el('div', { class: 'task__more' });
+        if (lab.why && lab.why[i] && !m.exam) more.append(el('details', { class: 'why' }, el('summary', {}, icon('chevron-right'), 'Why'), trusted(lab.why[i], 'div', { class: 'why__text' })));
+        if (steps[i] && steps[i].length) {
+          const box = el('div', { class: 'steps' });
+          for (const g of steps[i]) {
+            box.append(el('div', { class: 'steps__dev label-caps', text: 'On ' + g.dev }));
+            for (const x of g.lines) box.append(x.note ? el('div', { class: 'steps__note', text: x.note }) :
+              el('button', { class: 'cmd step', type: 'button', onClick: () => post({ type: 'step', device: g.dev, command: x.cmd }) }, el('span', { class: 'step__prompt', text: x.prompt || '' }), el('span', { text: x.cmd === L4N.sim.CRLINE ? '↵ Enter' : x.cmd })));
+          }
+          more.append(box);
+        }
+        const cb = L4N.ui.checkbox({ checked: !!(m.tasks && m.tasks[i]), aria: 'Task ' + (i + 1) + ' done', onChange: v => post({ type: 'tick', i, v }) });
+        list.append(el('li', { class: ['task', m.tasks && m.tasks[i] && 'is-ticked'] }, cb, trusted(t, 'div', { class: 'task__text' }), more));
+      });
+      body.append(list);
+      if (entry.kind === 'incident' && Array.isArray(lab.hints) && !m.exam) {
+        const n = Math.max(0, Math.min(3, m.clues | 0));
+        const box = el('section', { class: 'sect clues' }, el('h2', { class: 'label-caps', text: 'Clues' }));
+        lab.hints.slice(0, n).forEach((c, i) => box.append(L4N.ui.callout({ icon: 'bulb', title: ['Direction', 'Evidence', 'Repair'][i], body: [el('span', { text: c })] })));
+        if (n < 3) box.append(L4N.ui.button({ label: 'Reveal clue ' + (n + 1) + ' of 3', icon: 'bulb', onClick: () => post({ type: 'clue' }) }));
+        body.append(box);
+      }
+      const g = m.graded;
+      if (g && Array.isArray(g.pass) && g.pass.length === lab.checks.length) {
+        const pass = g.pass.filter(Boolean).length, done = pass === g.pass.length;
+        const res = el('section', { class: ['results', g.stale && 'is-stale'], 'aria-label': 'Results' }, el('h2', { class: 'label-caps', text: 'Results' }));
+        if (g.stale) res.append(el('p', { class: 'results__stale' }, icon('alert'), 'Commands run since grading. Grade again.'));
+        res.append(el('p', { class: ['results__sum', done ? 'is-ok' : 'is-bad'] }, icon(done ? 'check-circle' : 'x-circle'),
+          done ? 'Lab complete' + (g.grade && /^[SABCD]$/.test(g.grade) ? ' · Grade ' + g.grade : '') : pass + ' of ' + g.pass.length + ' checks pass'));
+        if (!g.hideList) res.append(el('ul', { class: 'results__list' }, lab.checks.map(([t], i) => el('li', { class: ['check-row', g.pass[i] ? 'is-ok' : 'is-bad'] }, icon(g.pass[i] ? 'check' : 'x'), el('span', { text: t })))));
+        body.append(res);
+      }
+      document.querySelector('.popout__body').scrollTop = keep;
+    }
+
+    ch.addEventListener('message', e => {
+      if (e.origin && e.origin !== location.origin) return;
+      const m = e.data;
+      if (!isObj(m) || !okStr(m.type, 16)) return;
+      if (m.type === 'close') { window.close(); return; }
+      if (m.type !== 'state') return;
+      if (m.slug !== null && !L4N.isSlug(m.slug)) return;
+      if (m.tasks != null && !boolArr(m.tasks, 64)) return;
+      if (m.graded != null && !(isObj(m.graded) && boolArr(m.graded.pass, 200))) return;
+      render({ slug: m.slug, theme: m.theme, tasks: m.tasks || [], guide: m.guide === true, clues: Number.isInteger(m.clues) ? m.clues : 0, exam: m.exam === true,
+        graded: m.graded ? { pass: m.graded.pass, stale: m.graded.stale === true, grade: typeof m.graded.grade === 'string' ? m.graded.grade : null, hideList: m.graded.hideList === true } : null });
+    });
+    waiting('Connecting to the main window…');
+    post({ type: 'hello' });
+    setInterval(() => post({ type: 'hello' }), 3000);
+    window.addEventListener('pagehide', () => post({ type: 'bye' }));
+  }
+
+  L4N.popout = { boot, open, dock, offered, isPopout: () => new URLSearchParams(location.search).get('panel') === 'tasks' };
 })(window.L4N = window.L4N || {});
 // settings.js: Appearance, Console, Data and About (section 5.11).
 (function (L4N) {
@@ -9112,6 +9525,9 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   L4N.data = L4N.sim.catalogue();
   for (const l of L4N.data.labs) V.known.labs.add(l.slug);
   for (const l of L4N.data.lessons) V.known.lessons.add(l.slug);
+
+  // index.html?panel=tasks is the pop-out Tasks window: it never touches storage and never runs the app.
+  if (L4N.popout && L4N.popout.isPopout()) { L4N.popout.boot(); return; }
 
   // One-time import from the old keys runs before the first read (core/migrate.js, Phase 5).
   if (L4N.migrate && L4N.migrate.boot) { try { L4N.migrate.boot(); } catch (e) { console.error(e); } }

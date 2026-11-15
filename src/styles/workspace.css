@@ -95,3 +95,38 @@
 
 /* small device icons (console tabs, device buttons) */
 .dev-ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; --node-fill: transparent; }
+
+/* ---- steps, clues, walkthrough ---- */
+.steps { display: flex; flex-direction: column; gap: 1px; margin-top: var(--space-2); padding: var(--space-2); border: var(--hairline) solid var(--border-subtle); border-radius: var(--radius-2); background: var(--bg-raised); }
+.steps__dev { padding: var(--space-1) var(--space-1) 2px; }
+.steps__dev:not(:first-child) { margin-top: var(--space-2); }
+.steps__note { font-size: var(--fs-12); color: var(--text-2); padding: 2px var(--space-2); }
+.step { font-size: var(--fs-12); min-height: 26px; }
+.step__prompt { color: var(--text-2); }
+.clues { gap: var(--space-2); }
+.walk { gap: var(--space-2); border-top: var(--hairline) solid var(--border-subtle); padding-top: var(--space-3); }
+.walk__row { display: flex; flex-direction: column; gap: 2px; padding: 2px 0 var(--space-1); }
+.walk__cmd { font-size: var(--fs-12); color: var(--text); align-self: flex-start; }
+.walk__why { font-size: var(--fs-12); color: var(--text-2); }
+
+/* ---- Commands tab ---- */
+.cmds { gap: var(--space-3); }
+.cmds .search { flex: 1; min-width: 160px; }
+.cmdlist { display: flex; flex-direction: column; gap: 1px; }
+.cmdcard { display: flex; flex-direction: column; gap: 2px; padding: var(--space-2); border-radius: var(--radius-2); text-align: left; }
+.cmdcard:hover { background: var(--bg-hover); }
+.cmdcard code { font-size: var(--fs-12); color: var(--text); background: none; padding: 0; }
+.cmdcard__modes { font-size: var(--fs-11); color: var(--text-2); }
+.cmdcard__why { font-size: var(--fs-12); color: var(--text-2); }
+
+/* ---- tasks out in the other window ---- */
+.tasks-strip__out { display: none; flex-direction: column; align-items: center; gap: var(--space-2); }
+.tasks-strip.is-out > .btn:first-child { display: none; }
+.tasks-strip.is-out .tasks-strip__out { display: flex; }
+.tasks-strip__text { writing-mode: vertical-rl; transform: rotate(180deg); font-size: var(--fs-12); color: var(--text-2); white-space: nowrap; }
+
+/* ---- the pop-out window ---- */
+.popout { display: flex; flex-direction: column; height: 100vh; background: var(--bg-surface); }
+.popout__head { display: flex; align-items: center; gap: var(--space-2); height: var(--topbar-h); padding: 0 var(--space-3); border-bottom: var(--hairline) solid var(--border-subtle); flex: none; }
+.popout__title { font-size: var(--fs-14); font-weight: var(--fw-semi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.popout__body { flex: 1; overflow: auto; }

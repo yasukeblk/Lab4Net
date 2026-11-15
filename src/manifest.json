@@ -78,6 +78,7 @@
     "app/screens/trace.js",
     "app/screens/panes.js",
     "app/screens/workspace.js",
+    "app/screens/popout.js",
     "app/screens/settings.js",
     "app/screens/gallery.js",
     "app/main.js"

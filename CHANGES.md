@@ -1,5 +1,25 @@
 # Lab4Net changes
 
+## Redesign, phase 4: step-by-step, clues, grades and the pop-out
+
+The workspace is complete.
+
+- **Step-by-step.** A switch in the Tasks panel (and "Toggle step-by-step" in the palette). With it on, each task shows its commands grouped by device ("On R1"), each with the prompt it runs at. Clicking a step selects that device's console and puts the command in the input; it does not run it. A step starting with `#` is a note, shown as text. Capstones open with step-by-step off, and the choice is remembered per capstone. For other labs the switch also sets "Start labs with step-by-step on" in Settings, as the old guide switch was remembered.
+- **Walkthrough.** "Show walkthrough" in the lab menu (and the palette) adds every device's commands with the reason for each at the end of the Tasks panel. It lowers the grade, as before.
+- **Clues** (incidents). "Reveal clue 1 of 3", with a note that each costs 5 points. Clues are labelled Direction, Evidence and Repair, as before. Resetting the lab hides them again.
+- **Commands tab.** Beside Tasks: a search box, an "All modes" switch, and every command the selected device supports in its current mode, each with its explanation. A click puts it in the console input. It follows the device and mode as you work.
+- **Grades.** The grade is worked out exactly as in section 2 and the old rank rules, and stored per lab (the best is kept). As before, a grade is only awarded for a run that started from a fresh lab. Turning on step-by-step, opening the walkthrough and revealing clues are counted the moment they happen.
+- **First run.** The first time a lab opens, the Tasks panel shows one callout: "New here? Turn on step-by-step to see the commands for each task." It has a "Got it" button and never comes back.
+- **Pop out.** "Pop out tasks" in the lab menu (and the palette) opens the Tasks panel in its own 420 by 760 window (`index.html?panel=tasks`), for two monitors. The workspace then shows a strip saying "Open in the other window", with a Dock button. The pop-out shows the brief, address plan, step-by-step, tasks, steps, clues and results, and follows the main window when you change labs. A step clicked in the pop-out goes into the main console's input. Ticks, the step-by-step switch and clues work from either window. If the pop-out closes or goes quiet for 9 seconds, the panel docks itself. After the main window reloads, an open pop-out reconnects within 3 seconds. The pop-out is not offered from a local file or on phones.
+- **Pop-out security.** The main window owns all state and storage. The pop-out stores nothing (a test checks its storage stays empty) and draws only what it is sent. The two talk over a `BroadcastChannel`. Every message is checked on its first line for the same origin, then for a known type and the right shape. Messages carry data only: the pop-out renders lab text from its own copy of the lab data, looked up by slug, so it never receives HTML. A step from the pop-out is accepted only if it is one of that lab's steps. Nothing listens for `postMessage` at all.
+- **Map labels.** Link marks and port names are now pushed along each link until they clear the device's icon and label, so a switch with many links fanning out no longer has port names over its hostname.
+- **New tests.** `guide.spec` finishes five labs (two build labs, OSPF, an incident and a capstone) by clicking every step row and pressing Enter. It also checks the capstone memory and the grade table: a clean run with a check command gives S; none gives A; extra show and ping commands never lower it; the guide, the walkthrough, clues and typos each lower it by the right amount; the best grade is kept. `popout.spec` covers opening, stepping to the console, ticking, changing lab, reconnecting after a reload, closing (it docks) and the Dock button, and that a local file does not offer it. `security.spec` gains its message part: a hostile site that opens the app or the pop-out and posts messages cannot inject markup, type into the console or pose as the pop-out; channel messages with wrong types, huge strings, extra fields or commands that are not steps are ignored. 308 browser tests pass.
+
+Where the build differs from the plan:
+
+- **`Alt+S`** for step-by-step was dropped in Phase 1 (Firefox's History menu). The switch and the palette command remain.
+- **A hostile site can open the real pop-out page.** Being our own same-origin page, it can connect to an open lab, as a pop-out opened after a reload must. It still shows only what the main window sends, and the hostile site can neither script it nor send it anything.
+
 ## Redesign, phase 3: the network map and the panes
 
 The map is real again, and the workspace panes resize, collapse and remember their sizes.

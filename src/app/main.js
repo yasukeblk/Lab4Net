@@ -8,6 +8,9 @@
   for (const l of L4N.data.labs) V.known.labs.add(l.slug);
   for (const l of L4N.data.lessons) V.known.lessons.add(l.slug);
 
+  // index.html?panel=tasks is the pop-out Tasks window: it never touches storage and never runs the app.
+  if (L4N.popout && L4N.popout.isPopout()) { L4N.popout.boot(); return; }
+
   // One-time import from the old keys runs before the first read (core/migrate.js, Phase 5).
   if (L4N.migrate && L4N.migrate.boot) { try { L4N.migrate.boot(); } catch (e) { console.error(e); } }
 

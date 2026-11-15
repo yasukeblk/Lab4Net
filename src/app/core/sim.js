@@ -248,5 +248,36 @@
   }
 
   const ip = n => n2ip(n);
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+
+  // ---- help content: steps, explanations, the command list ----
+  const stepCache = new Map();
+  // steps(lab) → per task: [{dev, lines: [{prompt, cmd} | {note}]}], with the prompt each command runs at
+  function steps(lab) {
+    if (!lab || !Array.isArray(lab.steps)) return [];
+    if (!stepCache.has(lab)) {
+      const keep = TRACE;
+      let out;
+      try { out = guideFor(lab); } catch (e) { out = lab.steps.map(t => t.map(g => ({ dev: g.dev, lines: g.cmds.map(c => c[0] === '#' ? { note: c.slice(1).trim() } : { prompt: '', cmd: c }) }))); }
+      TRACE = keep;
+      stepCache.set(lab, out);
+    }
+    return stepCache.get(lab);
+  }
+  // the explanation for one command (repo content; may hold <code>)
+  function why(cmd) { try { return whyOf(String(cmd)) || ''; } catch (e) { return ''; } }
+  // the commands a device supports, in its current mode (or all modes), each with its explanation
+  function commands(st, dev, allModes) {
+    const [d, s] = effPair(st.net.devs[dev], st.sess[dev]);
+    const out = [], seen = new Set();
+    for (const c of CMDS) {
+      if (c.types && !c.types.includes(d.type)) continue;
+      if (!allModes && !c.modes.includes(s.mode)) continue;
+      const pat = c.pat.join(' ');
+      if (seen.has(pat)) continue; seen.add(pat);
+      out.push({ pat, modes: c.modes.map(m => MODE[m] || m), why: (typeof WHYC !== 'undefined' && WHYC[pat]) || '' });
+    }
+    return out;
+  }
+  const CRLINE = typeof CR !== 'undefined' ? CR : '<cr>';
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});

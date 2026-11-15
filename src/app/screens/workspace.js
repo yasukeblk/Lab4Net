@@ -59,15 +59,67 @@
     touch(entry.slug);
 
     ws.save = () => L4N.work.put(entry.slug, { journal: st.journal, tasks: ws.tasks });
-    ws.onTick = () => { ws.save(); if (ws.onLayout) ws.onLayout(); };
+
+    // ---- help: step-by-step, walkthrough, clues (each one marks the run, as the old rank rules did) ----
+    const capstone = entry.kind === 'capstone';
+    const rec0 = labRec(entry.slug) || {};
+    ws.guide = capstone ? rec0.guide === true : !!L4N.store.get().settings.guideDefault;
+    ws.walk = false;
+    ws.clues = rec0.clues || 0;
+    ws.hints = Object.assign({}, L4N.store.get().ui.hints);
+    ws.hideHelp = () => !!(ws.exam);
+    function markRun(patch) {
+      const rec = labRec(entry.slug), run = rec && rec.run ? Object.assign({}, rec.run) : null;
+      if (!run || !run.valid || run.done) return;
+      let changed = false;
+      for (const k in patch) if (!run[k]) { run[k] = patch[k]; changed = true; }
+      if (changed) setLab(entry.slug, { run });
+    }
+    ws.markRun = markRun;
+    ws.setGuide = v => {
+      ws.guide = !!v;
+      if (capstone) setLab(entry.slug, { guide: ws.guide });
+      else L4N.setSetting({ guideDefault: ws.guide });
+      if (ws.guide) markRun({ help: true });
+      ws.tasksView.rebuild();
+      ws.sync();
+    };
+    ws.setWalk = v => {
+      ws.walk = !!v;
+      if (ws.walk) markRun({ walk: true });
+      ws.tasksView.rebuild();
+      ws.sync();
+      if (ws.walk) { const w = ws.tasksView.el.querySelector('.walk'); if (w) w.scrollIntoView({ block: 'start' }); }
+    };
+    ws.revealClue = () => {
+      if (entry.kind !== 'incident' || ws.clues >= 3) return;
+      ws.clues++;
+      setLab(entry.slug, { clues: ws.clues });
+      ws.tasksView.rebuild();
+      ws.sync();
+    };
+    ws.stepTo = (dev, cmd) => {
+      if (!st.net.devs[dev]) return;
+      if (dev !== st.sel) ws.console.select(dev);
+      ws.console.input.value = cmd;
+      if (ws.panes && ws.panes.isPhone()) ws.panes.showPhone('console');
+      ws.console.focus();
+      const n = ws.console.input.value.length; ws.console.input.setSelectionRange(n, n);
+    };
+    ws.dismissHint = k => { ws.hints[k] = true; L4N.store.set(s => ({ ui: Object.assign({}, s.ui, { hints: Object.assign({}, s.ui.hints, { [k]: true }) }) })); };
+    ws.sync = () => { for (const f of ws.syncHooks || []) f(); };
+    if (ws.guide) markRun({ help: true });
+    ws.onTick = () => { ws.save(); if (ws.onLayout) ws.onLayout(); ws.sync(); };
     ws.selectDevice = (dev, focus) => { ws.console.select(dev); if (focus) ws.console.focus(); };
-    ws.onSelect = () => { if (ws.map) ws.map.redraw(); };
+    ws.onSelect = () => { if (ws.map) ws.map.redraw(); if (ws.tasksView) ws.tasksView.refreshCommands(); };
     ws.onCommand = (res, line, dev) => {
       if (res.ran) {
         const rec = labRec(entry.slug), run = rec && rec.run ? Object.assign({}, rec.run) : null;
         if (run && run.valid && !run.done && line.trim()) { run.cmds = (run.cmds || 0) + 1; G.count(run, line, res.lines); setLab(entry.slug, { run }); }
       }
-      if (ws.graded && !ws.graded.stale) { ws.graded.stale = true; ws.tasksView.renderResults(); }
+      if (ws.guide) markRun({ help: true });
+      if (ws.graded && !ws.graded.stale) { ws.graded.stale = true; ws.tasksView.renderResults(); ws.sync(); }
+      ws.tasksView.refreshCommands();
       ws.save();
       refreshStatus();
       if (ws.map) ws.map.update(res, dev);
@@ -96,6 +148,7 @@
       ws.graded = { results, stale: false, grade: letter };
       ws.tasksView.renderResults();
       refreshStatus();
+      ws.sync();
       const pass = results.filter(x => x[1]).length;
       const n = done && ws.next();
       if (done) L4N.toast({ text: 'Lab complete' + (letter ? ' · Grade ' + letter : ''), kind: 'ok', action: n ? { label: 'Next lab', run: () => L4N.shell.go(L4N.router.href('lab', n.slug)) } : null });
@@ -166,6 +219,7 @@
       for (const h of ws.menuHooks || []) items.push(...h());
       if (window.innerWidth >= 1600) items.push({ label: ws.panes.layout() === 'side' ? 'Layout: stacked' : 'Layout: side by side', icon: ws.panes.layout() === 'side' ? 'panel-bottom' : 'sidebar', run: () => ws.panes.setLayout(ws.panes.layout() === 'side' ? 'stacked' : 'side') });
       items.push({ label: 'Reset panel sizes', icon: 'maximize', run: () => ws.panes.resetSizes() });
+      if (!ws.hideHelp()) items.unshift({ label: ws.walk ? 'Hide walkthrough' : 'Show walkthrough', icon: 'eye', run: () => ws.setWalk(!ws.walk) });
       items.push({ label: 'Reset lab', icon: 'reset', danger: true, run: () => ws.reset() });
       return items;
     }
@@ -221,6 +275,11 @@
     const lesson = L4N.data.lessonFor(ws.entry);
     if (lesson && !(ws.hideHelp && ws.hideHelp())) out.push({ id: 'lab-lesson', group: 'In a lab', title: "Open this lab's lesson", icon: 'lessons', subtitle: lesson.title, run: () => L4N.shell.go(L4N.router.href('lesson', lesson.slug)) });
     for (const dv of sim.devices(ws.st)) out.push({ id: 'lab-dev-' + dv.name, group: 'In a lab', title: 'Switch to device ' + dv.hostname, icon: 'labs', subtitle: dv.kindName, keywords: dv.name, run: () => ws.selectDevice(dv.name, true) });
+    if (!(ws.hideHelp && ws.hideHelp())) {
+      out.push({ id: 'lab-guide', group: 'In a lab', title: 'Toggle step-by-step', icon: 'list-checks', subtitle: ws.guide ? 'On' : 'Off', run: () => ws.setGuide(!ws.guide) },
+        { id: 'lab-walk', group: 'In a lab', title: ws.walk ? 'Hide walkthrough' : 'Show walkthrough', icon: 'eye', subtitle: 'Lowers the grade', run: () => ws.setWalk(!ws.walk) });
+      if (ws.entry.kind === 'incident' && ws.clues < 3) out.push({ id: 'lab-clue', group: 'In a lab', title: 'Reveal next clue', icon: 'bulb', subtitle: 'Clue ' + (ws.clues + 1) + ' of 3 · costs 5 points', run: () => ws.revealClue() });
+    }
     out.push(
       { id: 'lab-replay', group: 'In a lab', title: 'Replay last packet', icon: 'replay', run: () => ws.map.replay() },
       { id: 'lab-tasks-panel', group: 'In a lab', title: ws.panes.collapsed('tasks') ? 'Expand the Tasks panel' : 'Collapse the Tasks panel', icon: 'panel-left', run: () => ws.panes.toggle('tasks') },

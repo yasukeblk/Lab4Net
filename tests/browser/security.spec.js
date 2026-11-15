@@ -38,3 +38,93 @@ test.describe('console', () => {
     await clean(page, errors);
   });
 });
+
+test.describe('messages', () => {
+  const SEED = () => {
+    if (sessionStorage.getItem('__seeded')) return;
+    sessionStorage.setItem('__seeded', '1');
+    localStorage.setItem('lab4net:v2', JSON.stringify({ v: 2, settings: { pace: 'instant', guideDefault: true }, ui: { landingSeen: true, hints: { stepTip: true } } }));
+  };
+
+  const HOSTILE = (baseURL, which) => `<!doctype html><title>evil</title><script>
+      const P = ${JSON.stringify(PROBE)};
+      const w = window.open(${JSON.stringify(baseURL)} + ${JSON.stringify(which)}, 'target');
+      const bc = new BroadcastChannel('lab4net-tasks');
+      let n = 0;
+      const t = setInterval(() => {
+        try {
+          w.postMessage({ type: 'hello' }, '*');
+          w.postMessage({ type: 'state', slug: 'static-routing', theme: P, tasks: [true], graded: { pass: [true], grade: P } }, '*');
+          w.postMessage({ type: 'step', device: 'R1', command: P }, '*');
+          w.postMessage({ type: 'show', html: P, title: P }, '*');
+          w.postMessage(P, '*');
+        } catch (e) {}
+        bc.postMessage({ type: 'hello' }); bc.postMessage({ type: 'step', device: 'R1', command: 'enable' });
+        if (++n > 15) clearInterval(t);
+      }, 150);
+    </script>`;
+
+  test('a hostile site that opens the app cannot inject markup, type into the console, or pose as the pop-out', async ({ page, context, baseURL }) => {
+    await context.addInitScript(SEED);
+    const errors = [];
+    context.on('page', p => p.on('pageerror', e => errors.push(e.message)));
+    await context.route('http://evil.test/**', r => r.fulfill({ contentType: 'text/html', body: HOSTILE(baseURL, '/#/labs/static-routing') }));
+    const [app] = await Promise.all([context.waitForEvent('page'), page.goto('http://evil.test/')]);
+    await app.waitForLoadState();
+    await page.waitForTimeout(3000);
+    expect(await app.evaluate(() => window.__pwn)).toBeUndefined();
+    expect(await app.evaluate(() => document.querySelectorAll('#app img').length)).toBe(0);
+    await expect(app.locator('.con__input')).toHaveValue('');
+    expect(await app.evaluate(() => L4N.test.state().journal)).toBe(0);
+    await expect(app.locator('#ws-tasks')).toBeVisible();          // never taken for a pop-out
+    expect(errors).toEqual([]);
+  });
+
+  test('a hostile site that opens the pop-out cannot make it render anything', async ({ page, context, baseURL }) => {
+    const errors = [];
+    context.on('page', p => p.on('pageerror', e => errors.push(e.message)));
+    await context.route('http://evil.test/**', r => r.fulfill({ contentType: 'text/html', body: HOSTILE(baseURL, '/index.html?panel=tasks') }));
+    const [pop] = await Promise.all([context.waitForEvent('page'), page.goto('http://evil.test/')]);
+    await pop.waitForLoadState();
+    await page.waitForTimeout(3000);
+    expect(await pop.evaluate(() => window.__pwn)).toBeUndefined();
+    expect(await pop.evaluate(() => document.querySelectorAll('#app img').length)).toBe(0);
+    await expect(pop.locator('.popout__body')).toContainText('Connecting to the main window');
+    expect(await pop.evaluate(() => Object.keys(localStorage).length)).toBe(0);   // the pop-out never touches storage
+    expect(errors).toEqual([]);
+  });
+
+  test('channel messages with wrong types, huge strings, extra fields or commands that are not steps are ignored', async ({ page, context }) => {
+    await context.addInitScript(SEED);
+    const errors = watch(page);
+    await page.goto('/#/labs/static-routing');
+    await expect(page.locator('.con__input')).toBeVisible();
+    await page.evaluate(P => {
+      const bc = new BroadcastChannel('lab4net-tasks');
+      const huge = 'x'.repeat(200000);
+      bc.postMessage({ type: 'hello' });
+      for (const m of [null, 42, P, [], { type: P }, { type: huge }, { type: 'step', device: 'R1', command: P }, { type: 'step', device: P, command: 'enable' },
+        { type: 'step', device: 'R1', command: huge }, { type: 'step', device: 'R1', command: 'reload', extra: P }, { type: 'tick', i: -1, v: true },
+        { type: 'tick', i: 999, v: true }, { type: 'tick', i: 0, v: P }, { type: 'guide', on: P }, { type: '__proto__' }, { type: 'constructor' }]) bc.postMessage(m);
+    }, PROBE);
+    await page.waitForTimeout(500);
+    await expect(page.locator('.con__input')).toHaveValue('');
+    expect(await page.evaluate(() => L4N.test.state().journal)).toBe(0);
+    expect(await page.evaluate(() => L4N.workspace.current().tasks.filter(Boolean).length)).toBe(0);
+    await clean(page, errors);
+    // and the pop-out ignores bad state messages
+    const pop = await context.newPage();
+    const perr = watch(pop);
+    await pop.goto('/index.html?panel=tasks');
+    await pop.evaluate(P => {
+      const bc = new BroadcastChannel('lab4net-tasks');
+      for (const m of [{ type: 'state', slug: P }, { type: 'state', slug: 'static-routing', tasks: [P] }, { type: 'state', slug: 'static-routing', graded: { pass: P } },
+        { type: 'state', slug: '../../x' }, { type: 'state', slug: 'static-routing', theme: P, graded: { pass: [true, true, true, true, true, true], grade: P } }]) bc.postMessage(m);
+    }, PROBE);
+    await pop.waitForTimeout(500);
+    expect(await pop.evaluate(() => window.__pwn)).toBeUndefined();
+    expect(await pop.evaluate(() => document.querySelectorAll('#app img').length)).toBe(0);
+    await expect(pop.locator('.results__sum')).not.toContainText('<img');
+    expect(perr()).toEqual([]);
+  });
+});

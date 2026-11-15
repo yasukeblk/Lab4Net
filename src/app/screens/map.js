@@ -127,6 +127,7 @@
         if (x.label.textContent !== name) x.label.textContent = name;
         let tw = 0; try { tw = x.label.getComputedTextLength(); } catch (e) {}
         const w = Math.max(48, (tw || name.length * 7) + 12);
+        x.w = w;
         x.hit.setAttribute('x', -w / 2); x.hit.setAttribute('width', w); x.hit.setAttribute('y', -24); x.hit.setAttribute('height', 66);
         const on = n === sel;
         x.g.classList.toggle('is-selected', on);
@@ -157,12 +158,16 @@
         const sides = [[ax, ay, 1], [bx, by, -1]];
         sides.forEach(([x, y, s], i) => {
           const e = L.ends[i], E = l.ends[i];
-          const mx = x + ux * 27 * s, my = y + uy * 27 * s;
+          // how far along the link a point must be to clear this device's icon and label
+          const nd = nodes.get(E.dev), hw = Math.max(22, ((nd && nd.w) || 48) / 2 + 3);
+          const clear = (d, px, top, bottom) => { for (; d < 140; d += 2) { const qx = ux * s * d + nx * px, qy = uy * s * d + ny * px; if (Math.abs(qx) > hw || qy < top || qy > bottom) return d; } return d; };
+          const dMark = Math.max(26, clear(22, 0, -23, 41) + 4);
+          const mx = x + ux * dMark * s, my = y + uy * dMark * s;
           set(e.mark, { cx: mx, cy: my });
           e.mark.setAttribute('class', 'link__mark ' + (up ? 'is-up' : 'is-down'));
           const bv = E.blocked;
           e.block.style.display = bv ? '' : 'none';
-          if (bv) { const bx2 = x + ux * 35 * s, by2 = y + uy * 35 * s; set(e.block, { x1: bx2 + nx * 6, y1: by2 + ny * 6, x2: bx2 - nx * 6, y2: by2 - ny * 6 }); e.bt.textContent = 'Blocked by spanning tree' + (bv.length ? ' (VLAN ' + bv.join(', ') + ')' : ''); }
+          if (bv) { const bx2 = x + ux * (dMark + 8) * s, by2 = y + uy * (dMark + 8) * s; set(e.block, { x1: bx2 + nx * 6, y1: by2 + ny * 6, x2: bx2 - nx * 6, y2: by2 - ny * 6 }); e.bt.textContent = 'Blocked by spanning tree' + (bv.length ? ' (VLAN ' + bv.join(', ') + ')' : ''); }
           e.err.style.display = E.errdis ? '' : 'none';
           if (E.errdis) set(e.err, { x: mx + nx * 8 - 6, y: my + ny * 8 - 6 });
           const showPort = !hide && !E.host;
@@ -171,7 +176,8 @@
             const t = E.short;
             if (e.port.textContent !== t) e.port.textContent = t;
             const side = off < 0 ? -1 : 1;
-            set(e.port, { x: x + ux * 44 * s + nx * 9 * side, y: y + uy * 44 * s + ny * 9 * side + 3.5, 'text-anchor': 'middle' });
+            const dPort = Math.max(dMark + 16, clear(dMark + 10, 9 * side * s, -30, 48) + 14);
+            set(e.port, { x: x + ux * dPort * s + nx * 9 * side, y: y + uy * dPort * s + ny * 9 * side + 3.5, 'text-anchor': 'middle' });
           }
         });
         const A = st.net.devs[l.a], B = st.net.devs[l.b];
