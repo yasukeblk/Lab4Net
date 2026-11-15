@@ -202,5 +202,51 @@
     });
   }
 
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+  // ---- what the map needs ----
+  const shortName = n => (typeof shortIf === 'function' ? shortIf(n) : n);
+  const linkKey = l => l.a + '|' + l.ai + '|' + l.b + '|' + l.bi;
+  function up(net, d, i) { try { return !!(i && ifUp(net, d, i)); } catch (e) { return false; } }
+
+  // Spanning tree: every switch port blocked in some VLAN → [vlans]
+  function blockedPorts(net) {
+    const out = new Map();
+    try {
+      const vl = new Set();
+      for (const d of Object.values(net.devs)) if (d.type === 'switch' && d.vlans) for (const v of Object.keys(d.vlans)) vl.add(+v);
+      for (const v of vl) for (const k of stpBlocked(net, v)) { if (!out.has(k)) out.set(k, []); out.get(k).push(v); }
+    } catch (e) {}
+    return out;
+  }
+
+  // links(net) → [{key, a, ai, b, bi, up, ends: [{dev, ifn, short, errdis, blocked: [vlans] | null}]}]
+  function links(net) {
+    const blocked = blockedPorts(net);
+    return net.links.map(l => {
+      const A = net.devs[l.a], B = net.devs[l.b], u = up(net, A, A.ifs[l.ai]) && up(net, B, B.ifs[l.bi]);
+      const end = (dev, ifn) => { const I = net.devs[dev].ifs[ifn]; return { dev, ifn, short: shortName(ifn), errdis: !!(I && I.errdis), blocked: blocked.get(dev + '|' + ifn) || null, host: net.devs[dev].type === 'pc' }; };
+      return { key: linkKey(l), a: l.a, ai: l.ai, b: l.b, bi: l.bi, up: u, ends: [end(l.a, l.ai), end(l.b, l.bi)] };
+    });
+  }
+
+  // describe(net, dev) → the device tooltip: hostname and kind, interfaces with state and address, one extra line
+  function describe(net, dev) {
+    const d = net.devs[dev];
+    if (!d) return null;
+    const kind = devKind(d);
+    const ifs = Object.values(d.ifs).filter(i => i.link || i.ip != null).slice(0, 10).map(i => {
+      const u = up(net, d, i);
+      return { name: i.name, short: shortName(i.name), up: u, linked: !!i.link, addr: i.ip != null ? n2ip(i.ip) + '/' + i.len : '' };
+    });
+    let extra = '';
+    try {
+      if (isL3(d)) { const r = routes(net, d); extra = r.length + ' route' + (r.length === 1 ? '' : 's'); }
+      else if (d.type === 'switch') { const v = Object.keys(d.vlans || {}).length; extra = v + ' VLAN' + (v === 1 ? '' : 's'); }
+      else extra = 'Default gateway ' + (d.gw != null ? n2ip(d.gw) : 'not set');
+    } catch (e) {}
+    const linked = ifs.filter(i => i.linked);
+    return { name: dev, hostname: d.hostname, kind, kindName: KIND_NAME[kind], ifs, extra, up: linked.filter(i => i.up).length, linked: linked.length, host: d.type === 'pc' };
+  }
+
+  const ip = n => n2ip(n);
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});

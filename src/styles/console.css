@@ -47,3 +47,23 @@
 .con__why .kbd { margin: 0 1px; }
 .con__keys { display: flex; flex-wrap: wrap; gap: 2px var(--space-3); align-items: center; }
 .con__keys span { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
+
+/* phones: helper keys and the ping result bar */
+.con__helpers { display: none; }
+.con__result { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) 0 var(--space-3); min-height: 32px; border-top: var(--hairline) solid var(--border-subtle); background: var(--bg-surface); font-size: var(--fs-12); }
+.con__result[hidden] { display: none; }
+.con__result .icon.ok { color: var(--ok); } .con__result .icon.bad { color: var(--bad); }
+.con__result-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+@media (min-width: 768px) { .con__result { display: none !important; } }
+@media (max-width: 767px) {
+  .con__helpers { display: flex; gap: var(--space-1); padding: var(--space-1) var(--space-2); overflow-x: auto; background: var(--bg-surface); border-top: var(--hairline) solid var(--border-subtle); }
+  .con__helpers .btn { flex: 1 0 auto; height: 40px; min-width: 44px; padding: 0 var(--space-2); font-family: var(--font-mono); font-size: var(--fs-12); }
+  .con__out { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .con__why { display: none; }
+  .con__line { padding-top: var(--space-1); padding-bottom: var(--space-2); }
+  .con__input { font-size: 16px; height: 28px; }
+  .con__tab { padding: 0 var(--space-3); font-size: var(--fs-13); }
+  .con__tabs { height: 41px; }
+  .con__tools { height: 40px; }
+  .con__tools .btn { height: 36px; }
+}

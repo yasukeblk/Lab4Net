@@ -1,6 +1,8 @@
 /* Phones (up to 767 px): the sidebar becomes a drawer, controls grow to 40 px */
 @media (max-width: 767px) {
-  :root { --row-h: 40px; --control-h: 36px; --topbar-h: 48px; }
+  :root { --row-h: 40px; --control-h: 40px; --topbar-h: 52px; }
+  .topbar .btn .kbds { display: none; }
+  .topbar__status .chip--grade { display: none; }
   .app, .app[data-sidebar="rail"] { grid-template-columns: minmax(0, 1fr); }
   .sidebar {
     position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: min(288px, 86vw);
@@ -23,6 +25,11 @@
   .keys { columns: 1; }
   .setrow { flex-wrap: wrap; }
   .toasts { left: var(--space-4); right: var(--space-4); width: auto; }
-  .crumbs > :not(:last-child) { display: none; }
+  .crumbs li:not(:last-child) { display: none !important; }
+  .crumbs li .icon { display: none; }
+  .crumbs li span { font-weight: var(--fw-medium); color: var(--text); }
+  .topbar__actions .btn--ghost > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .topbar__actions .btn--ghost { width: 40px; padding: 0; }
+  .topbar__actions { gap: var(--space-1); }
 }
 @media (min-width: 768px) { .drawer-scrim { display: none; } }

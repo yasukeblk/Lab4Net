@@ -591,10 +591,45 @@ button.cmd:hover { background: var(--bg-hover); }
 /* Lab workspace: panes and the Tasks panel (section 5.4) */
 .screen[data-screen="lab"], .screen[data-screen="sandbox"] { overflow: hidden; }
 .ws {
-  --tasks-w: 340px; --map-h: 290px;
-  display: grid; grid-template-columns: var(--tasks-w) 1px minmax(0, 1fr); height: 100%; min-height: 0; background: var(--bg-surface);
+  --tasks-w: 340px; --map-h: 290px; --map-w: 480px;
+  display: grid; height: 100%; min-height: 0; background: var(--bg-surface); position: relative;
+  grid-template-columns: var(--tasks-w) 1px minmax(0, 1fr);
+  grid-template-rows: var(--map-h) auto 1px minmax(0, 1fr);
+  grid-template-areas: "tasks h1 map" "tasks h1 trace" "tasks h1 h2" "tasks h1 console";
 }
-.ws__right { display: grid; grid-template-rows: var(--map-h) auto 1px minmax(0, 1fr); min-width: 0; min-height: 0; }
+.ws[data-layout="side"] {
+  grid-template-columns: var(--tasks-w) 1px var(--map-w) 1px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "tasks h1 map h2 console" "tasks h1 trace h2 console";
+}
+.ws > #ws-tasks, .ws > .tasks-strip { grid-area: tasks; }
+.ws > .ws__h1 { grid-area: h1; }
+.ws > #ws-map { grid-area: map; }
+.ws > #ws-trace { grid-area: trace; }
+.ws > .ws__h2 { grid-area: h2; }
+.ws > #ws-console { grid-area: console; }
+.ws > .handle[hidden] { display: block !important; visibility: hidden; }
+.ws__phonebar { display: none; }
+.tasks-strip { display: none; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-right: var(--hairline) solid var(--border-subtle); background: var(--bg-surface); }
+.tasks-strip .btn { width: 28px; height: auto; min-height: 28px; flex-direction: column; padding: 6px 0; gap: 6px; }
+.tasks-strip .num { font-size: var(--fs-11); writing-mode: vertical-rl; transform: rotate(180deg); color: var(--text-2); }
+.ws.is-tasks-collapsed > #ws-tasks { display: none; }
+.ws.is-tasks-collapsed > .tasks-strip { display: flex; }
+.ws.is-map-collapsed #ws-map .map__body { display: none; }
+.ws[data-layout="side"].is-map-collapsed #ws-map .pane__title span { display: none; }
+.con__measure { position: absolute; visibility: hidden; white-space: pre; font: var(--fs-console)/var(--lh-console) var(--font-mono); }
+
+/* phones: one pane at a time, a bottom bar switches */
+.ws[data-layout="phone"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; grid-template-areas: "main" "trace" "bar"; }
+.ws[data-layout="phone"] > .handle, .ws[data-layout="phone"] > .tasks-strip { display: none !important; }
+.ws[data-layout="phone"] > #ws-tasks, .ws[data-layout="phone"] > #ws-map, .ws[data-layout="phone"] > #ws-console { grid-area: main; display: none; }
+.ws[data-layout="phone"][data-pane="tasks"] > #ws-tasks, .ws[data-layout="phone"][data-pane="map"] > #ws-map, .ws[data-layout="phone"][data-pane="console"] > #ws-console { display: flex; }
+.ws[data-layout="phone"] > #ws-trace { display: none; }
+.ws[data-layout="phone"][data-pane="map"] > #ws-trace { display: block; }
+.ws[data-layout="phone"] #ws-map .map__body { display: block; }
+.ws[data-layout="phone"] > .ws__phonebar { grid-area: bar; display: flex; border-top: var(--hairline) solid var(--border-subtle); background: var(--bg-app); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.ws__pb { flex: 1; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: var(--fs-11); color: var(--text-2); }
+.ws__pb[aria-pressed="true"] { color: var(--text); background: var(--bg-active); }
 .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg-surface); position: relative; }
 .pane__head {
   display: flex; align-items: center; gap: var(--space-2); flex: none; height: 32px; padding: 0 var(--space-2) 0 var(--space-3);
@@ -606,7 +641,6 @@ button.cmd:hover { background: var(--bg-hover); }
 .pane__head .tabs { border-bottom: 0; min-height: 31px; gap: var(--space-3); }
 .pane__head .tab { height: 31px; }
 .pane__body { flex: 1; min-height: 0; overflow: auto; }
-.ws__divider { background: var(--border-subtle); }
 
 /* ---- tasks panel ---- */
 .tasks__body { padding: var(--space-3) var(--space-4) var(--space-8); display: flex; flex-direction: column; gap: var(--space-4); }
@@ -649,17 +683,71 @@ button.cmd:hover { background: var(--bg-hover); }
 .results.is-stale .results__list, .results.is-stale .results__sum { opacity: .5; }
 .results__stale { font-size: var(--fs-12); color: var(--warn); display: flex; gap: var(--space-1); align-items: center; }
 
-/* ---- map placeholder (Phase 2) ---- */
-.devlist { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3); }
-.devbtn { display: inline-flex; align-items: center; gap: var(--space-2); }
-.devbtn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
-
-/* ---- trace strip ---- */
-.trace { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; padding: 0 var(--space-3); border-top: var(--hairline) solid var(--border-subtle); font-size: var(--fs-12); color: var(--text-2); min-width: 0; }
-.trace__msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
 /* small device icons (console tabs, device buttons) */
 .dev-ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; --node-fill: transparent; }
+/* Network map and trace strip (section 5.5) */
+.map__body { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--bg-surface); }
+.topo { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-select: none; }
+.link__line { stroke: var(--text-3); stroke-width: 1.5; fill: none; transition: stroke var(--dur-3) var(--ease); }
+.link.is-down .link__line { stroke: var(--bad); stroke-dasharray: 5 4; opacity: .7; }
+.link.is-flash .link__line { stroke: var(--text); }
+.link__mark.is-up { fill: var(--ok); stroke: none; }
+.link__mark.is-down { fill: var(--bg-surface); stroke: var(--bad); stroke-width: 1.5; }
+.link__block { stroke: var(--warn); stroke-width: 2.5; stroke-linecap: round; }
+.link__err { color: var(--warn); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.link__port { font: 10px var(--font-mono); fill: var(--text-3); paint-order: stroke; stroke: var(--bg-surface); stroke-width: 3px; stroke-linejoin: round; }
+.node { cursor: pointer; outline: none; --node-fill: var(--bg-raised); }
+.node__hit { fill: transparent; stroke: none; }
+.node__icon { fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: stroke var(--dur-1) var(--ease); }
+.node:hover, .node:focus-visible { --node-fill: var(--bg-hover); }
+.node:hover .node__icon, .node:focus-visible .node__icon { stroke: var(--text); }
+.node__ring { fill: none; stroke: none; stroke-width: 1.5; }
+.node.is-selected .node__ring { stroke: var(--accent); }
+.node.is-selected .node__icon { stroke: var(--text); }
+.node:focus-visible { box-shadow: none; }
+.node:focus-visible .node__ring { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 3 2; }
+.node.is-selected:focus-visible .node__ring { stroke-dasharray: none; stroke-width: 2.5; }
+.node__label { font: var(--fw-medium) 12px var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--bg-surface); stroke-width: 3px; stroke-linejoin: round; }
+.node.is-selected .node__label { fill: var(--text); }
+.badge__bg { fill: var(--bg-surface); }
+.badge__icon { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.badge__icon.is-ok { stroke: var(--ok); } .badge__icon.is-bad { stroke: var(--bad); }
+.hi { stroke: var(--accent); stroke-width: 2; stroke-linecap: round; opacity: .9; }
+.hi--flood { stroke-width: 1.5; opacity: .55; }
+.l-hi { transition: opacity 600ms var(--ease); }
+.l-hi.is-fading { opacity: 0; }
+.pkt { fill: var(--accent); }
+.pkt--reply { fill: var(--bg-surface); stroke: var(--accent); stroke-width: 1.5; }
+.pkt--flood { fill: var(--accent); opacity: .8; }
+.pkt-stop { stroke: var(--warn); stroke-width: 2.5; stroke-linecap: round; }
+.maptip {
+  position: absolute; z-index: 5; max-width: 260px; padding: var(--space-2) var(--space-3); pointer-events: none;
+  background: var(--bg-overlay); color: var(--text); border-radius: var(--radius-2); box-shadow: var(--shadow-2); font-size: var(--fs-12); line-height: var(--lh-12);
+}
+.maptip__head { display: flex; gap: var(--space-2); align-items: baseline; margin-bottom: 4px; }
+.maptip__head span { color: var(--text-2); }
+.maptip__ifs { display: grid; grid-template-columns: 6px auto auto; gap: 3px var(--space-2); align-items: center; }
+.maptip__ifs .mono { font-family: var(--font-mono); font-size: var(--fs-11); color: var(--text-2); white-space: nowrap; }
+.maptip__extra { margin-top: 4px; color: var(--text-2); }
+.mapchip {
+  position: absolute; z-index: 4; pointer-events: none; display: inline-flex; align-items: center; height: 20px; padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--bad); border-radius: var(--radius-1); background: var(--bg-overlay); color: var(--bad); font-size: var(--fs-12); white-space: nowrap;
+}
+.trace { border-top: var(--hairline) solid var(--border-subtle); background: var(--bg-surface); min-width: 0; }
+.trace__line { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; padding: 0 var(--space-2) 0 var(--space-3); font-size: var(--fs-12); color: var(--text-2); min-width: 0; }
+.trace__line > .icon { width: 14px; height: 14px; color: var(--text-2); }
+.trace__line > .icon.ok { color: var(--ok); } .trace__line > .icon.bad { color: var(--bad); }
+.trace__res { font-weight: var(--fw-semi); white-space: nowrap; }
+.trace__res.ok { color: var(--ok); } .trace__res.bad { color: var(--bad); }
+.trace__msg, .trace__path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.trace__path .bad { color: var(--bad); }
+.trace__line .btn { height: 24px; padding: 0 var(--space-2); font-size: var(--fs-12); flex: none; }
+.trace__more { padding: var(--space-1) var(--space-3) var(--space-3); font-size: var(--fs-12); color: var(--text-2); display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow: auto; }
+.trace__row b { color: var(--text); font-weight: var(--fw-medium); }
+.trace__row .bad { color: var(--bad); }
+.trace__advice { color: var(--text); }
+.trace__sw { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.trace__tip { margin-top: 2px; color: var(--text); }
 /* Console (section 5.6) */
 .console { background: var(--bg-console); color: var(--text-console); }
 .con__tabs { display: flex; align-items: stretch; gap: 1px; flex: none; height: 32px; padding: 0 var(--space-2); overflow-x: auto; overflow-y: hidden; background: var(--bg-surface); border-bottom: var(--hairline) solid var(--border-subtle); scrollbar-width: none; }
@@ -709,6 +797,26 @@ button.cmd:hover { background: var(--bg-hover); }
 .con__why .kbd { margin: 0 1px; }
 .con__keys { display: flex; flex-wrap: wrap; gap: 2px var(--space-3); align-items: center; }
 .con__keys span { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
+
+/* phones: helper keys and the ping result bar */
+.con__helpers { display: none; }
+.con__result { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) 0 var(--space-3); min-height: 32px; border-top: var(--hairline) solid var(--border-subtle); background: var(--bg-surface); font-size: var(--fs-12); }
+.con__result[hidden] { display: none; }
+.con__result .icon.ok { color: var(--ok); } .con__result .icon.bad { color: var(--bad); }
+.con__result-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+@media (min-width: 768px) { .con__result { display: none !important; } }
+@media (max-width: 767px) {
+  .con__helpers { display: flex; gap: var(--space-1); padding: var(--space-1) var(--space-2); overflow-x: auto; background: var(--bg-surface); border-top: var(--hairline) solid var(--border-subtle); }
+  .con__helpers .btn { flex: 1 0 auto; height: 40px; min-width: 44px; padding: 0 var(--space-2); font-family: var(--font-mono); font-size: var(--fs-12); }
+  .con__out { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .con__why { display: none; }
+  .con__line { padding-top: var(--space-1); padding-bottom: var(--space-2); }
+  .con__input { font-size: 16px; height: 28px; }
+  .con__tab { padding: 0 var(--space-3); font-size: var(--fs-13); }
+  .con__tabs { height: 41px; }
+  .con__tools { height: 40px; }
+  .con__tools .btn { height: 36px; }
+}
 /* Screens: placeholders, gallery, settings, home, progress */
 .gal { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 .gal__col { background: var(--bg-surface); color: var(--text); border: var(--hairline) solid var(--border); border-radius: var(--radius-3); padding: var(--space-5); min-width: 0; display: flex; flex-direction: column; gap: var(--space-6); }
@@ -725,7 +833,9 @@ button.cmd:hover { background: var(--bg-hover); }
 .placeholder { min-height: 60vh; display: flex; align-items: center; justify-content: center; }
 /* Phones (up to 767 px): the sidebar becomes a drawer, controls grow to 40 px */
 @media (max-width: 767px) {
-  :root { --row-h: 40px; --control-h: 36px; --topbar-h: 48px; }
+  :root { --row-h: 40px; --control-h: 40px; --topbar-h: 52px; }
+  .topbar .btn .kbds { display: none; }
+  .topbar__status .chip--grade { display: none; }
   .app, .app[data-sidebar="rail"] { grid-template-columns: minmax(0, 1fr); }
   .sidebar {
     position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: min(288px, 86vw);
@@ -748,7 +858,12 @@ button.cmd:hover { background: var(--bg-hover); }
   .keys { columns: 1; }
   .setrow { flex-wrap: wrap; }
   .toasts { left: var(--space-4); right: var(--space-4); width: auto; }
-  .crumbs > :not(:last-child) { display: none; }
+  .crumbs li:not(:last-child) { display: none !important; }
+  .crumbs li .icon { display: none; }
+  .crumbs li span { font-weight: var(--fw-medium); color: var(--text); }
+  .topbar__actions .btn--ghost > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .topbar__actions .btn--ghost { width: 40px; padding: 0; }
+  .topbar__actions { gap: var(--space-1); }
 }
 @media (min-width: 768px) { .drawer-scrim { display: none; } }
 </style>
@@ -6321,7 +6436,53 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     });
   }
 
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+  // ---- what the map needs ----
+  const shortName = n => (typeof shortIf === 'function' ? shortIf(n) : n);
+  const linkKey = l => l.a + '|' + l.ai + '|' + l.b + '|' + l.bi;
+  function up(net, d, i) { try { return !!(i && ifUp(net, d, i)); } catch (e) { return false; } }
+
+  // Spanning tree: every switch port blocked in some VLAN → [vlans]
+  function blockedPorts(net) {
+    const out = new Map();
+    try {
+      const vl = new Set();
+      for (const d of Object.values(net.devs)) if (d.type === 'switch' && d.vlans) for (const v of Object.keys(d.vlans)) vl.add(+v);
+      for (const v of vl) for (const k of stpBlocked(net, v)) { if (!out.has(k)) out.set(k, []); out.get(k).push(v); }
+    } catch (e) {}
+    return out;
+  }
+
+  // links(net) → [{key, a, ai, b, bi, up, ends: [{dev, ifn, short, errdis, blocked: [vlans] | null}]}]
+  function links(net) {
+    const blocked = blockedPorts(net);
+    return net.links.map(l => {
+      const A = net.devs[l.a], B = net.devs[l.b], u = up(net, A, A.ifs[l.ai]) && up(net, B, B.ifs[l.bi]);
+      const end = (dev, ifn) => { const I = net.devs[dev].ifs[ifn]; return { dev, ifn, short: shortName(ifn), errdis: !!(I && I.errdis), blocked: blocked.get(dev + '|' + ifn) || null, host: net.devs[dev].type === 'pc' }; };
+      return { key: linkKey(l), a: l.a, ai: l.ai, b: l.b, bi: l.bi, up: u, ends: [end(l.a, l.ai), end(l.b, l.bi)] };
+    });
+  }
+
+  // describe(net, dev) → the device tooltip: hostname and kind, interfaces with state and address, one extra line
+  function describe(net, dev) {
+    const d = net.devs[dev];
+    if (!d) return null;
+    const kind = devKind(d);
+    const ifs = Object.values(d.ifs).filter(i => i.link || i.ip != null).slice(0, 10).map(i => {
+      const u = up(net, d, i);
+      return { name: i.name, short: shortName(i.name), up: u, linked: !!i.link, addr: i.ip != null ? n2ip(i.ip) + '/' + i.len : '' };
+    });
+    let extra = '';
+    try {
+      if (isL3(d)) { const r = routes(net, d); extra = r.length + ' route' + (r.length === 1 ? '' : 's'); }
+      else if (d.type === 'switch') { const v = Object.keys(d.vlans || {}).length; extra = v + ' VLAN' + (v === 1 ? '' : 's'); }
+      else extra = 'Default gateway ' + (d.gw != null ? n2ip(d.gw) : 'not set');
+    } catch (e) {}
+    const linked = ifs.filter(i => i.linked);
+    return { name: dev, hostname: d.hostname, kind, kindName: KIND_NAME[kind], ifs, extra, up: linked.filter(i => i.up).length, linked: linked.length, host: d.type === 'pc' };
+  }
+
+  const ip = n => n2ip(n);
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});
 // grade.js: the grade rules (section 2), copied exactly from the old rank rules. No DOM.
 //  - A lab is done when every check passes.
@@ -7492,8 +7653,30 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
       maxlength: '512', 'aria-describedby': hintId, enterkeyhint: 'send' });
     const why = el('div', { class: 'con__why', id: hintId });
     const log = el('div', { class: 'sr-only', role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' });
+    // phones: a one-line ping result above the input, and helper keys under it
+    const resultBar = el('div', { class: 'con__result', hidden: true });
+    const helpers = el('div', { class: 'con__helpers', role: 'toolbar', 'aria-label': 'Console keys' },
+      [['Tab', 'tab', 'Complete the word'], ['?', 'help', 'Help'], ['↑', 'up', 'Previous command'], ['↓', 'down', 'Next command'], ['Ctrl+C', 'stop', 'Stop the output'], ['Ctrl+Z', 'end', 'End configuration']]
+        .map(([t, k, a]) => el('button', { class: 'btn btn--secondary', type: 'button', 'aria-label': a, onPointerdown: e => e.preventDefault(), onClick: () => helperKey(k) }, t)));
     const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' },
-      tabsEl, tools, el('div', { class: 'con__view' }, out, jump), el('div', { class: 'con__line' }, promptEl, input), why, log);
+      tabsEl, tools, el('div', { class: 'con__view' }, out, jump), resultBar, el('div', { class: 'con__line' }, promptEl, input), helpers, why, log);
+    function helperKey(k) {
+      if (k === 'tab') { const c = sim.complete(st, st.sel, input.value); if (c) input.value = c; }
+      else if (k === 'help') { input.value += '?'; input.dispatchEvent(new Event('input')); }
+      else if (k === 'up') history(-1);
+      else if (k === 'down') history(1);
+      else if (k === 'stop') { if (stream) stop(true); }
+      else if (k === 'end') { if (sim.canEnd(st, st.sel)) run('end'); }
+      input.focus({ preventScroll: true });
+    }
+    function showResult(T, onView) {
+      clear(resultBar);
+      if (!T) { resultBar.hidden = true; return; }
+      resultBar.hidden = false;
+      const ok = !!T.ok;
+      resultBar.append(icon(ok ? 'check-circle' : 'x-circle', ok ? 'ok' : 'bad'), el('span', { class: 'con__result-text', text: L4N.traceView.result(T) }),
+        ui.button({ label: 'View on map', kind: 'ghost', onClick: onView }));
+    }
 
     function keyHints() {
       clear(why);
@@ -7725,7 +7908,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
     renderTabs(); renderAll(); refreshPrompt(); keyHints();
     return {
-      el: root, input, out, run, select, stop, refreshPrompt, refreshTabs, renderAll, clearScreen,
+      el: root, input, out, run, select, stop, showResult, refreshPrompt, refreshTabs, renderAll, clearScreen,
       focus() { input.focus({ preventScroll: true }); },
       playing: () => !!stream,
       setMaximised(on) { maxBtn.setAttribute('aria-label', on ? 'Restore the map' : 'Maximise the console'); maxBtn.setAttribute('data-tip', on ? 'Restore the map' : 'Maximise the console'); clear(maxBtn).append(icon(on ? 'minimize' : 'maximize')); },
@@ -7830,32 +8013,670 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
   L4N.tasksView = { create: createTasks };
 })(window.L4N = window.L4N || {});
-// map.js: the network map pane. Phase 2 placeholder: the devices as buttons, so a console can be chosen.
+// map.js: the network map (section 5.5). One SVG; every device and link element is created once and kept by key.
+// Updates only change attributes and classes, so hover and focus are never lost. All text goes in as text.
+(function (L4N) {
+  'use strict';
+  const { el, svg, icon, clear } = L4N.dom;
+  const sim = L4N.sim;
+  const SPEED = 0.42, MIN_HOP = 180, ICON = 36;
+
+  const reduced = () => L4N.motion.reduced();
+
+  // createMap(ws, {posOf(name) → [x, y], interactive: true, still: false, label})
+  function createMap(ws, opts) {
+    opts = opts || {};
+    const st = ws.st;
+    const posOf = opts.posOf || (n => (st.lab.pos && st.lab.pos[n]) || [300, 120]);
+    const svgEl = svg('svg', { class: 'topo', role: 'group', 'aria-roledescription': 'network map', width: '100%', height: '100%' });
+    const gLinks = svg('g', { class: 'l-links' }), gHi = svg('g', { class: 'l-hi', 'aria-hidden': 'true' }), gPorts = svg('g', { class: 'l-ports', 'aria-hidden': 'true' });
+    const gNodes = svg('g', { class: 'l-nodes' }), gFx = svg('g', { class: 'l-fx', 'aria-hidden': 'true' });
+    svgEl.append(gLinks, gHi, gPorts, gNodes, gFx);
+    const tip = el('div', { class: 'maptip', 'aria-hidden': 'true', hidden: true });
+    const chip = el('div', { class: 'mapchip', 'aria-hidden': 'true', hidden: true });
+    const srList = el('ul', { class: 'sr-only', 'aria-label': 'Links' });
+    const body = el('div', { class: 'map__body' }, svgEl, tip, chip, srList);
+    const nodes = new Map(), links = new Map();
+    let W = 0, H = 0, fit = { s: 1, ox: 0, oy: 0, minX: 0, minY: 0 };
+    let token = 0, fadeTimer = 0, tipTimer = 0, tipFor = null, lastTrace = null, markers = [];
+
+    // ---- geometry: lab coordinates fitted into the pane, icons always 36 px ----
+    function computeFit() {
+      const names = st.devs;
+      if (!names.length) return;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const n of names) { const [x, y] = posOf(n); minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+      const padX = 56, padT = 34, padB = 44;
+      const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+      let s = Math.min((W - 2 * padX) / bw, (H - padT - padB) / bh);
+      if (!isFinite(s) || s <= 0) s = 1;
+      s = Math.max(0.25, Math.min(s, opts.maxScale || 2));
+      fit = { s, minX, minY, ox: (W - bw * s) / 2, oy: padT + (H - padT - padB - bh * s) / 2 };
+    }
+    const P = n => { const [x, y] = posOf(n); return [fit.ox + (x - fit.minX) * fit.s, fit.oy + (y - fit.minY) * fit.s]; };
+
+    // ---- devices ----
+    function makeNode(name) {
+      const d = st.net.devs[name], kind = sim.devKind(d);
+      const g = svg('g', { class: 'node node--' + kind, 'data-dev': name });
+      const hit = svg('rect', { class: 'node__hit' });
+      const ring = svg('rect', { class: 'node__ring', x: -23, y: -23, width: 46, height: 46, rx: 10 });
+      const use = svg('use', { class: 'node__icon', href: '#d-' + kind, x: -ICON / 2, y: -ICON / 2, width: ICON, height: ICON });
+      const label = svg('text', { class: 'node__label', y: 33, 'text-anchor': 'middle' });
+      const badge = svg('g', { class: 'node__badge', transform: 'translate(15,-20)' });
+      g.append(hit, ring, use, label, badge);
+      if (opts.interactive !== false) {
+        g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
+        g.addEventListener('click', () => ws.selectDevice(name, true));
+        g.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ws.selectDevice(name, true); }
+          else if (e.key === 'Escape') { if (tipFor) { e.stopPropagation(); hideTip(true); } }
+          else if (/^Arrow/.test(e.key)) { e.preventDefault(); const n = neighbour(name, e.key); if (n) nodes.get(n).g.focus(); }
+        });
+        // pointerenter/pointerleave on the whole group: moving between icon and label never fires them
+        g.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') wantTip(name, 120); });
+        g.addEventListener('pointerleave', () => leaveTip(name));
+        g.addEventListener('focus', () => { if (g.matches(':focus-visible')) showTip(name); });
+        g.addEventListener('blur', () => leaveTip(name, 0));
+      } else g.setAttribute('aria-hidden', 'true');
+      const n = { g, hit, ring, use, label, badge, kind };
+      nodes.set(name, n);
+      gNodes.append(g);
+      return n;
+    }
+
+    function neighbour(from, key) {
+      const [x0, y0] = P(from), dir = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] }[key];
+      let best = null, bs = Infinity;
+      for (const n of st.devs) {
+        if (n === from) continue;
+        const [x, y] = P(n), dx = x - x0, dy = y - y0, along = dx * dir[0] + dy * dir[1];
+        if (along <= 4) continue;
+        const across = Math.abs(dx * dir[1] - dy * dir[0]), sc = along + across * 2;
+        if (sc < bs) { bs = sc; best = n; }
+      }
+      return best;
+    }
+
+    // ---- links ----
+    function makeLink(l) {
+      const g = svg('g', { class: 'link' });
+      const line = svg('line', { class: 'link__line' });
+      const ends = [0, 1].map(() => ({ mark: svg('circle', { class: 'link__mark', r: 2.5 }), block: svg('line', { class: 'link__block' }), err: svg('use', { class: 'link__err', href: '#i-alert', width: 12, height: 12 }), port: svg('text', { class: 'link__port' }), bt: svg('title') }));
+      g.append(line);
+      for (const e of ends) { e.block.append(e.bt); g.append(e.mark, e.block, e.err); gPorts.append(e.port); }
+      gLinks.append(g);
+      const L = { l, g, line, ends, up: null };
+      links.set(l.key, L);
+      return L;
+    }
+
+    // ---- draw: create what is missing (kept by key), then set attributes ----
+    function sync(recs) {
+      for (const n of st.devs) if (!nodes.has(n)) makeNode(n);
+      for (const [n, x] of nodes) if (!st.net.devs[n]) { x.g.remove(); nodes.delete(n); }
+      const want = new Set(recs.map(l => l.key));
+      for (const l of recs) if (!links.has(l.key)) makeLink(l);
+      for (const [k, L] of links) if (!want.has(k)) { L.g.remove(); for (const e of L.ends) e.port.remove(); links.delete(k); }
+    }
+
+    function layout() {
+      const r = body.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      W = r.width; H = r.height;
+      svgEl.setAttribute('viewBox', '0 0 ' + Math.round(W) + ' ' + Math.round(H));
+      computeFit();
+      draw(false);
+      if (lastTrace && markers.length) placeMarkers();
+    }
+
+    function draw(animate) {
+      const recs = sim.links(st.net);
+      sync(recs);
+      const hide = !!st.lab.hidePorts;
+      const sel = st.sel;
+      for (const [n, x] of nodes) {
+        const d = st.net.devs[n], [px, py] = P(n);
+        x.g.setAttribute('transform', 'translate(' + px.toFixed(1) + ',' + py.toFixed(1) + ')');
+        const name = d.hostname;
+        if (x.label.textContent !== name) x.label.textContent = name;
+        let tw = 0; try { tw = x.label.getComputedTextLength(); } catch (e) {}
+        const w = Math.max(48, (tw || name.length * 7) + 12);
+        x.hit.setAttribute('x', -w / 2); x.hit.setAttribute('width', w); x.hit.setAttribute('y', -24); x.hit.setAttribute('height', 66);
+        const on = n === sel;
+        x.g.classList.toggle('is-selected', on);
+        if (opts.interactive !== false) {
+          x.g.setAttribute('aria-pressed', String(on));
+          const D = sim.describe(st.net, n);
+          x.g.setAttribute('aria-label', name + ', ' + D.kindName + (D.linked ? ', ' + D.up + ' of ' + D.linked + ' interfaces up' : '') + '. Open console.');
+        }
+      }
+      // parallel links between the same two devices are drawn 12 px apart
+      const pairs = {}, seen = {};
+      const pk = l => [l.a, l.b].sort().join('|');
+      for (const l of recs) pairs[pk(l)] = (pairs[pk(l)] || 0) + 1;
+      const srItems = [];
+      for (const l of recs) {
+        const L = links.get(l.key), k = pk(l), idx = seen[k] = (seen[k] == null ? -1 : seen[k]) + 1;
+        const off = (idx - (pairs[k] - 1) / 2) * 12;
+        let [ax, ay] = P(l.a), [bx, by] = P(l.b);
+        const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+        ax += nx * off; ay += ny * off; bx += nx * off; by += ny * off;
+        L.geom = { ax, ay, bx, by, ux, uy, nx, ny, len };
+        const up = l.up;
+        L.l = l;
+        if (L.up !== null && L.up !== up && animate && !reduced()) { L.g.classList.add('is-flash'); setTimeout(() => L.g.classList.remove('is-flash'), 150); }
+        L.up = up;
+        L.g.classList.toggle('is-down', !up);
+        set(L.line, { x1: ax, y1: ay, x2: bx, y2: by });
+        const sides = [[ax, ay, 1], [bx, by, -1]];
+        sides.forEach(([x, y, s], i) => {
+          const e = L.ends[i], E = l.ends[i];
+          const mx = x + ux * 27 * s, my = y + uy * 27 * s;
+          set(e.mark, { cx: mx, cy: my });
+          e.mark.setAttribute('class', 'link__mark ' + (up ? 'is-up' : 'is-down'));
+          const bv = E.blocked;
+          e.block.style.display = bv ? '' : 'none';
+          if (bv) { const bx2 = x + ux * 35 * s, by2 = y + uy * 35 * s; set(e.block, { x1: bx2 + nx * 6, y1: by2 + ny * 6, x2: bx2 - nx * 6, y2: by2 - ny * 6 }); e.bt.textContent = 'Blocked by spanning tree' + (bv.length ? ' (VLAN ' + bv.join(', ') + ')' : ''); }
+          e.err.style.display = E.errdis ? '' : 'none';
+          if (E.errdis) set(e.err, { x: mx + nx * 8 - 6, y: my + ny * 8 - 6 });
+          const showPort = !hide && !E.host;
+          e.port.style.display = showPort ? '' : 'none';
+          if (showPort) {
+            const t = E.short;
+            if (e.port.textContent !== t) e.port.textContent = t;
+            const side = off < 0 ? -1 : 1;
+            set(e.port, { x: x + ux * 44 * s + nx * 9 * side, y: y + uy * 44 * s + ny * 9 * side + 3.5, 'text-anchor': 'middle' });
+          }
+        });
+        const A = st.net.devs[l.a], B = st.net.devs[l.b];
+        srItems.push(A.hostname + ' ' + l.ends[0].short + ' to ' + B.hostname + ' ' + l.ends[1].short + ', ' + (up ? 'up' : 'down') + '.');
+      }
+      // screen-reader text: one line per link, updated when a link changes
+      const nDev = st.devs.length, nLink = recs.length;
+      svgEl.setAttribute('aria-label', (opts.label || 'Network map') + ': ' + nDev + ' device' + (nDev === 1 ? '' : 's') + ', ' + nLink + ' link' + (nLink === 1 ? '' : 's'));
+      if (srList.childNodes.length !== srItems.length || srItems.some((t, i) => srList.childNodes[i].textContent !== t)) { clear(srList); for (const t of srItems) srList.append(el('li', { text: t })); }
+      if (tipFor) fillTip(tipFor);
+    }
+    function set(n, a) { for (const k in a) n.setAttribute(k, typeof a[k] === 'number' ? a[k].toFixed(1) : a[k]); }
+
+    // ---- tooltip: HTML outside the SVG, pointer-events none, never over its device ----
+    function wantTip(name, ms) {
+      clearTimeout(tipTimer);
+      if (tipFor && tipFor !== name) { showTip(name); return; }
+      if (tipFor === name) return;
+      tipTimer = setTimeout(() => showTip(name), ms);
+    }
+    function leaveTip(name, ms) {
+      clearTimeout(tipTimer);
+      tipTimer = setTimeout(() => { if (tipFor === name || !tipFor) hideTip(); }, ms == null ? 80 : ms);
+    }
+    function hideTip() { clearTimeout(tipTimer); tip.hidden = true; tipFor = null; }
+    function fillTip(name) {
+      const D = sim.describe(st.net, name);
+      if (!D) return;
+      clear(tip);
+      tip.append(el('div', { class: 'maptip__head' }, el('b', { text: D.hostname }), el('span', { text: D.kindName })));
+      if (D.ifs.length) {
+        const t = el('div', { class: 'maptip__ifs' });
+        for (const i of D.ifs) t.append(el('span', { class: 'dot ' + (i.up ? 'dot--up' : 'dot--down') }), el('span', { class: 'mono', text: i.short }),
+          el('span', { class: 'mono', text: i.addr || (i.linked ? (i.up ? 'up' : 'down') : '') }));
+        tip.append(t);
+      }
+      if (D.extra) tip.append(el('div', { class: 'maptip__extra', text: D.extra }));
+    }
+    function showTip(name) {
+      clearTimeout(tipTimer);
+      if (!nodes.has(name)) return;
+      fillTip(name);
+      tip.hidden = false;
+      tipFor = name;
+      const [x, y] = P(name), tw = tip.offsetWidth, th = tip.offsetHeight;
+      let top = y - 26 - th - 6;                      // above the icon
+      if (top < 4) top = y + 44;                      // below the label when there is no room
+      if (top + th > H - 4) top = Math.max(4, H - th - 4);
+      let left = Math.max(4, Math.min(x - tw / 2, W - tw - 4));
+      // never cover the device it describes
+      if (top < y + 44 && top + th > y - 26 && left < x + 30 && left + tw > x - 30) left = x + 34 + tw < W ? x + 34 : Math.max(4, x - 34 - tw);
+      tip.style.left = Math.round(left) + 'px'; tip.style.top = Math.round(top) + 'px';
+    }
+
+    // ---- packets ----
+    function linkBetween(a, b) {
+      let best = null;
+      for (const L of links.values()) if ((L.l.a === a && L.l.b === b) || (L.l.a === b && L.l.b === a)) { if (!best || (L.up && !best.up)) best = L; }
+      return best;
+    }
+    function seg(a, b) {
+      const L = linkBetween(a, b);
+      if (!L || !L.geom) { const [ax, ay] = P(a), [bx, by] = P(b); return [ax, ay, bx, by]; }
+      const g = L.geom, fwd = L.l.a === a;
+      return fwd ? [g.ax, g.ay, g.bx, g.by] : [g.bx, g.by, g.ax, g.ay];
+    }
+    function highlight(a, b, cls) {
+      const [x1, y1, x2, y2] = seg(a, b);
+      gHi.append(svg('line', { class: 'hi ' + (cls || ''), x1, y1, x2, y2 }));
+    }
+    function clearFx() {
+      token++; clearTimeout(fadeTimer);
+      clear(gFx); clear(gHi); gHi.classList.remove('is-fading');
+      for (const n of nodes.values()) clear(n.badge);
+      chip.hidden = true; markers = [];
+    }
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    function moveDot(path, hollow, tok) {
+      return new Promise(res => {
+        if (path.length < 2) return res();
+        if (reduced()) { for (let i = 0; i < path.length - 1; i++) highlight(path[i], path[i + 1]); return res(); }
+        const dot = svg('circle', { class: 'pkt' + (hollow ? ' pkt--reply' : ''), r: hollow ? 3 : 2.5 });
+        gFx.append(dot);
+        let i = 0, t0 = null;
+        const stepFn = ts => {
+          if (tok !== token) { dot.remove(); return res(); }
+          if (t0 === null) t0 = ts;
+          const [x1, y1, x2, y2] = seg(path[i], path[i + 1]);
+          const dur = Math.max(MIN_HOP, Math.hypot(x2 - x1, y2 - y1) / SPEED), k = Math.min(1, (ts - t0) / dur);
+          dot.setAttribute('cx', (x1 + (x2 - x1) * k).toFixed(1)); dot.setAttribute('cy', (y1 + (y2 - y1) * k).toFixed(1));
+          if (k >= 1) { highlight(path[i], path[i + 1]); i++; t0 = null; if (i >= path.length - 1) { dot.remove(); return res(); } }
+          requestAnimationFrame(stepFn);
+        };
+        requestAnimationFrame(stepFn);
+      });
+    }
+    // ARP broadcasts and unknown-unicast floods: small dots fan out along every edge; a blocked edge stops at a bar
+    function flood(edges, tok) {
+      if (!edges || !edges.length) return Promise.resolve();
+      if (reduced()) { for (const [a, b, blk] of edges) if (!blk) highlight(a, b, 'hi--flood'); return Promise.resolve(); }
+      return Promise.all(edges.map(([a, b, blk]) => new Promise(res => {
+        const [x1, y1, x2, y2] = seg(a, b), stop = blk ? 0.55 : 1;
+        const dot = svg('circle', { class: 'pkt pkt--flood', r: 2 }); gFx.append(dot);
+        let t0 = null; const dur = Math.max(MIN_HOP, Math.hypot(x2 - x1, y2 - y1) / SPEED);
+        const f = ts => {
+          if (tok !== token) { dot.remove(); return res(); }
+          if (t0 === null) t0 = ts;
+          const k = Math.min(stop, (ts - t0) / dur);
+          dot.setAttribute('cx', (x1 + (x2 - x1) * k).toFixed(1)); dot.setAttribute('cy', (y1 + (y2 - y1) * k).toFixed(1));
+          if (k >= stop) {
+            if (blk) { const mx = x1 + (x2 - x1) * stop, my = y1 + (y2 - y1) * stop, len = Math.hypot(x2 - x1, y2 - y1) || 1, nx = -(y2 - y1) / len * 6, ny = (x2 - x1) / len * 6;
+              gFx.append(svg('line', { class: 'pkt-stop', x1: mx + nx, y1: my + ny, x2: mx - nx, y2: my - ny })); }
+            else highlight(a, b, 'hi--flood');
+            setTimeout(() => dot.remove(), 120); return res();
+          }
+          requestAnimationFrame(f);
+        };
+        requestAnimationFrame(f);
+      })));
+    }
+    async function way(res, hollow, tok) {
+      const path = res.hops.path, evs = res.hops.l2;
+      if (!evs || !evs.length) return moveDot(path, hollow, tok);
+      let pos = 0;
+      for (const ev of evs) {
+        if (tok !== token) return;
+        if (ev.at > pos) await moveDot(path.slice(pos, ev.at + 1), hollow, tok);
+        const s = ev.seg;
+        if (ev.arp) { await flood(ev.edges, tok); if (tok !== token) return; await moveDot(s.slice().reverse(), true, tok); if (tok !== token) return; await moveDot(s, hollow, tok); }
+        else if (ev.flood) { const k = Math.max(0, s.indexOf(ev.flood)); if (k > 0) await moveDot(s.slice(0, k + 1), hollow, tok); if (tok !== token) return; await flood(ev.edges, tok); if (tok !== token) return; if (k < s.length - 1) await moveDot(s.slice(k), hollow, tok); }
+        else await moveDot(s, hollow, tok);
+        pos = ev.at + s.length - 1;
+      }
+      if (pos < path.length - 1) await moveDot(path.slice(pos), hollow, tok);
+    }
+
+    // ---- markers: stay until the next command ----
+    function badge(name, ok) {
+      const n = nodes.get(name); if (!n) return;
+      clear(n.badge);
+      n.badge.append(svg('circle', { class: 'badge__bg', r: 8 }), svg('use', { class: 'badge__icon ' + (ok ? 'is-ok' : 'is-bad'), href: ok ? '#i-check-circle' : '#i-x-circle', x: -8, y: -8, width: 16, height: 16 }));
+    }
+    function placeMarkers() {
+      for (const m of markers) {
+        if (m.kind !== 'chip') continue;
+        chip.hidden = false; chip.textContent = m.text;
+        const [x, y] = P(m.at), cw = chip.offsetWidth, ch = chip.offsetHeight;
+        const others = st.devs.filter(n => n !== m.at).map(P);
+        const cand = [[x + 30, y - 32], [x - 30 - cw, y - 32], [x + 30, y + 8], [x - 30 - cw, y + 8], [x - cw / 2, y + 46], [x - cw / 2, y - 60 - ch]];
+        let best = cand[0], bs = Infinity;
+        for (const [cx, cy] of cand) {
+          const lx = Math.max(4, Math.min(cx, W - cw - 4)), ly = Math.max(4, Math.min(cy, H - ch - 4));
+          let pen = Math.abs(lx - cx) + Math.abs(ly - cy);
+          for (const [ox, oy] of others) if (lx < ox + 26 && lx + cw > ox - 26 && ly < oy + 42 && ly + ch > oy - 24) pen += 1000;
+          if (lx < x + 24 && lx + cw > x - 24 && ly < y + 40 && ly + ch > y - 24) pen += 500;
+          if (pen < bs) { bs = pen; best = [lx, ly]; }
+        }
+        chip.style.left = Math.round(best[0]) + 'px'; chip.style.top = Math.round(best[1]) + 'px';
+      }
+    }
+    function reason(T) {
+      if (!T.f.ok) return T.f.blocked ? 'Blocked by ACL' : 'No route from here';
+      if (T.refused) return 'Port closed';
+      if (T.r && !T.ok) return T.r.blocked ? 'Reply blocked by ACL' : 'Reply has no route back';
+      return '';
+    }
+    function mark(T) {
+      const fp = T.f.hops.path, src = fp[0];
+      if (T.f.hops.storm) { for (const n of T.f.hops.storm.sws) badge(n, false); markers.push({ kind: 'chip', at: T.f.hops.storm.sws[0], text: 'Broadcast storm' }); }
+      else if (T.ok || (!T.r && T.f.ok && !T.refused)) badge(src, true);
+      else {
+        const at = !T.f.ok || T.refused ? fp[fp.length - 1] : (T.r.hops.path[T.r.hops.path.length - 1]);
+        badge(at, false);
+        markers.push({ kind: 'chip', at, text: reason(T) });
+      }
+      placeMarkers();
+    }
+
+    // Play a trace: request, then reply. A new command cancels it at once. Reduced motion: no moving dots.
+    async function play(T) {
+      clearFx();
+      if (!T) return;
+      lastTrace = T;
+      const tok = token;
+      if (T.f.hops.storm && !reduced()) { const loop = T.f.hops.storm.sws.concat(T.f.hops.storm.sws[0]); await moveDot(loop, false, tok); }
+      else await way(T.f, false, tok);
+      if (tok !== token) return;
+      if (T.f.ok && !T.refused && T.r) { await way(T.r, true, tok); if (tok !== token) return; }
+      mark(T);
+      fadeTimer = setTimeout(() => { if (tok === token) gHi.classList.add('is-fading'); }, 1500);
+    }
+
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => layout()); ro.observe(body); }
+    requestAnimationFrame(layout);
+
+    return {
+      body, svg: svgEl, play, clearFx, layout, nodes, links,
+      update(res) {
+        if (res && res.ran) clearFx();      // markers stay until the next command
+        if (W) draw(true);
+        if (res && res.trace) play(res.trace);
+      },
+      redraw: () => { if (W) draw(false); },
+      replay: () => { if (lastTrace) play(lastTrace); },
+      lastTrace: () => lastTrace,
+      focus() { const n = nodes.get(st.sel) || nodes.values().next().value; if (n) n.g.focus(); },
+      hideTip,
+      destroy() { token++; clearTimeout(fadeTimer); clearTimeout(tipTimer); if (ro) ro.disconnect(); }
+    };
+  }
+
+  L4N.mapCore = { create: createMap };
+})(window.L4N = window.L4N || {});
+// trace.js: the one-line trace strip under the map (section 5.5): result, path, Details and Replay.
+// aria-live, so the result of a ping is read out. Everything is text.
 (function (L4N) {
   'use strict';
   const { el, icon, clear } = L4N.dom;
+  const ui = L4N.ui;
 
-  function createMap(ws) {
-    const st = ws.st;
-    const list = el('div', { class: 'devlist', role: 'group', 'aria-label': 'Devices' });
-    const root = el('section', { class: 'pane map', 'aria-label': 'Network map', id: 'ws-map' },
-      el('div', { class: 'pane__head' }, el('h2', { class: 'pane__title' }, icon('route'), 'Network map')),
-      el('div', { class: 'pane__body', tabindex: '-1' }, list));
-    function render() {
-      clear(list);
-      for (const dv of L4N.sim.devices(st)) {
-        list.append(el('button', {
-          class: 'btn btn--secondary devbtn', type: 'button', 'aria-pressed': String(dv.name === st.sel), 'data-dev': dv.name,
-          'aria-label': dv.hostname + ', ' + dv.kindName + (dv.linked ? ', ' + dv.up + ' of ' + dv.linked + ' links up' : '') + '. Open console.',
-          onClick: () => ws.selectDevice(dv.name, true)
-        }, L4N.consoleView.devIcon(dv.kind), el('span', { text: dv.hostname })));
-      }
-    }
-    render();
-    return { el: root, render, update: render, focus() { const b = list.querySelector('[aria-pressed="true"]') || list.firstChild; if (b) b.focus(); }, destroy() {} };
+  function result(T) {
+    if (T.ok) return 'Reply received';
+    if (T.refused) return 'Destination port closed';
+    if (!T.f.ok) return T.f.hops.storm ? 'Broadcast storm' : (T.f.reason || 'No route from here');
+    if (T.r) return 'Reply failed: ' + (T.r.reason || 'did not return to source');
+    return 'No reply';
+  }
+  function advice(T) {
+    if (T.ok) return 'Both directions succeeded. A request reaching the destination alone is not enough.';
+    if (T.refused) return 'The network path works, but the destination is not listening on that port.';
+    if (T.f.blocked || (T.r && T.r.blocked)) return 'Read the ACL in order. The first matching rule wins; unmatched traffic is denied.';
+    return 'Check interface state and addressing first, then the next hop and the return route.';
   }
 
-  L4N.mapView = { create: createMap };
+  // createTrace(ws): ws.st, ws.map.replay()
+  function createTrace(ws) {
+    const st = ws.st;
+    let open = false, T = null;
+    const line = el('div', { class: 'trace__line' });
+    const more = el('div', { class: 'trace__more', id: L4N.dom.id('trace-more'), hidden: true });
+    const root = el('div', { class: 'trace', id: 'ws-trace' }, el('div', { class: 'trace__live', 'aria-live': 'polite', 'aria-atomic': 'true' }, line), more);
+    const who = n => { const d = st.net.devs[n]; return d ? (d.type === 'pc' ? n : d.hostname) : String(n); };
+
+    function idle() {
+      clear(line);
+      line.append(icon('route'), el('span', { class: 'trace__msg', text: 'Ping, traceroute, Telnet or SSH from a console shows the path here.' }));
+      more.hidden = true;
+    }
+
+    function render(trace) {
+      T = trace;
+      if (!T) { idle(); return; }
+      clear(line);
+      const path = T.f.hops.path.map(who), stopped = !T.f.ok ? who(T.f.hops.path[T.f.hops.path.length - 1]) : null;
+      const okRes = !!T.ok;
+      line.append(icon(okRes ? 'check-circle' : 'x-circle', okRes ? 'ok' : 'bad'),
+        el('b', { class: 'trace__res ' + (okRes ? 'ok' : 'bad'), text: result(T) }),
+        el('span', { class: 'trace__path', title: path.join(' → ') }, path.join(' → '), stopped ? el('span', { class: 'bad', text: ' · stopped at ' + stopped }) : null),
+        el('span', { class: 'spacer' }));
+      const detailsBtn = ui.button({ label: open ? 'Hide details' : 'Details', kind: 'ghost', onClick: () => { open = !open; render(T); } });
+      detailsBtn.setAttribute('aria-expanded', String(open)); detailsBtn.setAttribute('aria-controls', more.id);
+      line.append(detailsBtn, ui.button({ label: 'Replay', kind: 'ghost', icon: 'replay', onClick: () => ws.map.replay() }));
+      // details: request and reply paths, a plain explanation, then what each switch did
+      clear(more);
+      more.hidden = !open;
+      more.append(el('div', { class: 'trace__row' }, el('b', { text: 'Request ' }), path.join(' → '), stopped ? el('span', { class: 'bad', text: ' · stopped at ' + stopped }) : null));
+      if (T.r) more.append(el('div', { class: 'trace__row' }, el('b', { text: 'Reply ' }), T.r.hops.path.map(who).join(' → ')));
+      more.append(el('p', { class: 'trace__advice', text: advice(T) }));
+      const sw = switching(T);
+      if (sw.length) more.append(el('div', { class: 'trace__sw' }, el('div', { class: 'label-caps', text: 'Switching' }), sw));
+    }
+
+    // One line per switch per direction, and a show mac address-table tip after a flood (the old switching wrapper).
+    function switching(T) {
+      const L = [];
+      let flooded = null;
+      const short = n => L4N.sim.shortName(n || '?');
+      if (T.f.hops.storm) {
+        const s = T.f.hops.storm;
+        L.push(el('div', { class: 'trace__row' }, el('b', { text: 'Storm ' }), 'VLAN ' + s.vlan + ' · ' + s.sws.map(who).join(' → ') + ' → ' + who(s.sws[0]) +
+          ' · no spanning tree, so the frame circles for ever. Every switch logs %SW_MATM-4-MACFLAP_NOTIF. Put spanning tree back (spanning-tree vlan ' + s.vlan + ') or break the loop.'));
+      }
+      for (const [res, dir] of [[T.f, 'Request'], [T.r, 'Reply']]) {
+        if (!res || !res.hops.l2) continue;
+        for (const ev of res.hops.l2) for (const x of ev.sw) {
+          let what;
+          const nh = ev.nhText || (ev.nh != null ? n2ipSafe(ev.nh) : '');
+          if (ev.arp && ev.lost) what = who(ev.from) + "'s ARP broadcast for " + nh + ' flooded every port · nobody answered · learned ' + who(ev.from) + ' on ' + short(x.inp);
+          else if (ev.arp) what = who(ev.from) + "'s " + (ev.nd ? 'neighbor solicitation' : 'ARP broadcast') + ' for ' + nh + ' flooded every port · ' + who(ev.to) + "'s reply learned on " + short(x.out);
+          else if (x.known) what = x.out === 'CPU' ? 'for the switch itself (' + ev.dstMac + ')' : ev.dstMac + ' known · out ' + short(x.out);
+          else { what = ev.dstMac + ' unknown · flooded out every port'; flooded = flooded || x.sw; }
+          L.push(el('div', { class: 'trace__row' }, el('b', { text: dir + ' ' }), who(x.sw) + ' · VLAN ' + x.vlan + ' · ' + what));
+        }
+      }
+      if (flooded) L.push(el('div', { class: 'trace__tip' }, 'Run ', el('code', { text: 'show mac address-table' }), ' on ' + who(flooded) + ': it has learned the addresses now, so the next frame goes out one port.'));
+      return L;
+    }
+    function n2ipSafe(n) { try { return L4N.sim.ip(n); } catch (e) { return ''; } }
+
+    idle();
+    return { el: root, render, last: () => T };
+  }
+
+  L4N.traceView = { create: createTrace, result };
+})(window.L4N = window.L4N || {});
+// panes.js: the workspace layout (section 5.4): fixed panes with draggable dividers, collapse, maximise,
+// stacked or side by side, sizes saved as fractions per layout, and one pane at a time on phones.
+(function (L4N) {
+  'use strict';
+  const { el, icon, clear } = L4N.dom;
+  const ui = L4N.ui;
+  const LIM = { tasksMin: 280, tasksMax: 520, mapMin: 160, consoleMin: 200, mapWMin: 260 };
+  const DEF = { stacked: { tasks: null, map: null }, side: { tasks: null, map: null } };
+  const PHONE = 768;
+
+  // createPanes(ws, parts: {tasks, map, trace, console, strip}) → {el, apply(), ...}
+  function createPanes(ws, parts) {
+    const frame = el('div', { class: 'ws' });
+    const h1 = el('div', { class: 'handle handle--v ws__h1', role: 'separator', tabindex: '0', 'aria-orientation': 'vertical', 'aria-label': 'Resize the Tasks panel', 'aria-controls': 'ws-tasks', 'data-tip': 'Drag, or use the arrow keys. Double-click resets.' });
+    const h2 = el('div', { class: 'handle ws__h2', role: 'separator', tabindex: '0', 'aria-controls': 'ws-map' });
+    const bar = el('nav', { class: 'ws__phonebar', 'aria-label': 'Workspace panes' });
+    frame.append(parts.tasks, parts.strip, h1, parts.map, parts.trace, h2, parts.console, bar);
+    let phonePane = 'tasks', charW = 0;
+    const phoneBtns = {};
+    for (const [k, label, ic] of [['tasks', 'Tasks', 'list-checks'], ['map', 'Map', 'route'], ['console', 'Console', 'labs']]) {
+      phoneBtns[k] = el('button', { class: 'ws__pb', type: 'button', 'aria-pressed': 'false', onClick: () => showPhone(k) }, icon(ic), el('span', { text: label }));
+      bar.append(phoneBtns[k]);
+    }
+
+    const S = () => L4N.store.get().ui;
+    const layout = () => (window.innerWidth >= 1600 && S().layout === 'side' ? 'side' : 'stacked');
+    const isPhone = () => window.innerWidth < PHONE;
+    const collapsed = () => S().collapsed || {};
+    function saveUi(patch) { L4N.store.set(s => ({ ui: Object.assign({}, s.ui, typeof patch === 'function' ? patch(s.ui) : patch) })); }
+
+    // the console must fit 80 monospace characters at every desktop size
+    function consoleMinW() {
+      if (!charW) { const m = el('span', { class: 'con__measure', text: '0'.repeat(80) }); parts.console.append(m); charW = m.getBoundingClientRect().width / 80 || 7.8; m.remove(); }
+      return Math.ceil(charW * 80) + 24 + 12;
+    }
+
+    function sizes() {
+      const W = frame.clientWidth, H = frame.clientHeight, lay = layout(), saved = (S().panes || {})[lay] || {};
+      const c = collapsed();
+      // Tasks width
+      const consoleW = consoleMinW();
+      let tasksMax = LIM.tasksMax;
+      if (lay === 'stacked') tasksMax = Math.min(tasksMax, W - consoleW - 1);
+      else tasksMax = Math.min(tasksMax, W - consoleW - LIM.mapWMin - 2);
+      tasksMax = Math.max(LIM.tasksMin, tasksMax);
+      let tasks = saved.tasks != null ? Math.round(saved.tasks * W) : 340;
+      tasks = Math.max(LIM.tasksMin, Math.min(tasks, tasksMax));
+      const tasksShown = c.tasks || ws.tasksOut ? 36 : tasks;
+      // Map height (stacked) or width (side)
+      let map, mapMin, mapMax;
+      const traceH = parts.trace.offsetHeight || 33;
+      if (lay === 'stacked') {
+        mapMin = LIM.mapMin; mapMax = Math.max(mapMin, H - traceH - LIM.consoleMin - 1);
+        map = saved.map != null ? Math.round(saved.map * H) : Math.round(Math.min(290, Math.max(mapMin, H * 0.4)));
+      } else {
+        const rest = W - tasksShown - 2;
+        mapMin = LIM.mapWMin; mapMax = Math.max(mapMin, rest - consoleW);
+        map = saved.map != null ? Math.round(saved.map * W) : Math.round(rest * 0.45);
+      }
+      map = Math.max(mapMin, Math.min(map, mapMax));
+      return { W, H, lay, tasks, tasksShown, tasksMax, map, mapMin, mapMax, c };
+    }
+
+    function apply() {
+      if (!frame.isConnected) return;
+      const phone = isPhone();
+      frame.setAttribute('data-phone', String(phone));
+      if (phone) {
+        frame.setAttribute('data-layout', 'phone');
+        frame.setAttribute('data-pane', phonePane);
+        for (const k in phoneBtns) phoneBtns[k].setAttribute('aria-pressed', String(k === phonePane));
+        if (ws.map) ws.map.layout();
+        return;
+      }
+      const z = sizes();
+      frame.setAttribute('data-layout', z.lay);
+      frame.removeAttribute('data-pane');
+      frame.classList.toggle('is-tasks-collapsed', !!(z.c.tasks || ws.tasksOut));
+      frame.classList.toggle('is-map-collapsed', !!z.c.map);
+      frame.style.setProperty('--tasks-w', z.tasksShown + 'px');
+      if (z.lay === 'stacked') { frame.style.setProperty('--map-h', (z.c.map ? 32 : z.map) + 'px'); frame.style.removeProperty('--map-w'); }
+      else { frame.style.setProperty('--map-w', (z.c.map ? 36 : z.map) + 'px'); frame.style.removeProperty('--map-h'); }
+      // separators
+      h1.hidden = !!(z.c.tasks || ws.tasksOut);
+      h1.setAttribute('aria-valuemin', String(LIM.tasksMin)); h1.setAttribute('aria-valuemax', String(z.tasksMax)); h1.setAttribute('aria-valuenow', String(z.tasks));
+      h1.setAttribute('aria-valuetext', z.tasks + ' pixels wide');
+      h2.hidden = !!z.c.map;
+      h2.className = 'handle ws__h2 ' + (z.lay === 'stacked' ? 'handle--h' : 'handle--v');
+      h2.setAttribute('aria-orientation', z.lay === 'stacked' ? 'horizontal' : 'vertical');
+      h2.setAttribute('aria-label', z.lay === 'stacked' ? 'Resize the map and the console' : 'Resize the map');
+      h2.setAttribute('aria-valuemin', String(z.mapMin)); h2.setAttribute('aria-valuemax', String(z.mapMax)); h2.setAttribute('aria-valuenow', String(z.map));
+      h2.setAttribute('aria-valuetext', z.map + (z.lay === 'stacked' ? ' pixels tall' : ' pixels wide'));
+      h2.setAttribute('data-tip', 'Drag, or use the arrow keys. Double-click resets.');
+      if (ws.console) ws.console.setMaximised(!!z.c.map);
+      if (ws.onLayout) ws.onLayout();
+    }
+
+    function store(which, px) {
+      const z = sizes(), lay = z.lay;
+      const frac = which === 'tasks' ? px / z.W : (lay === 'stacked' ? px / z.H : px / z.W);
+      saveUi(u => { const panes = Object.assign({}, u.panes); panes[lay] = Object.assign({}, panes[lay], { [which]: Math.round(frac * 100000) / 100000 }); return { panes }; });
+    }
+    function setSize(which, px) {
+      const z = sizes();
+      const v = which === 'tasks' ? Math.max(LIM.tasksMin, Math.min(px, z.tasksMax)) : Math.max(z.mapMin, Math.min(px, z.mapMax));
+      store(which, v);
+      apply();
+    }
+    function resetSizes(which) {
+      saveUi(u => { const panes = Object.assign({}, u.panes); const p = Object.assign({}, panes[layout()]); if (which) delete p[which]; else { delete p.tasks; delete p.map; } panes[layout()] = p; return { panes }; });
+      apply();
+    }
+
+    function drag(handle, which) {
+      handle.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        handle.setPointerCapture(e.pointerId);
+        handle.classList.add('is-dragging');
+        const z = sizes(), r = frame.getBoundingClientRect();
+        const vertical = which === 'tasks' || z.lay === 'side';
+        const move = ev => {
+          let px;
+          if (which === 'tasks') px = ev.clientX - r.left;
+          else if (vertical) px = ev.clientX - r.left - z.tasksShown - 1;
+          else px = ev.clientY - r.top;
+          const v = which === 'tasks' ? Math.max(LIM.tasksMin, Math.min(px, z.tasksMax)) : Math.max(z.mapMin, Math.min(px, z.mapMax));
+          if (which === 'tasks') frame.style.setProperty('--tasks-w', v + 'px');
+          else frame.style.setProperty(z.lay === 'stacked' ? '--map-h' : '--map-w', v + 'px');
+          handle.setAttribute('aria-valuenow', String(Math.round(v)));
+          handle._v = v;
+          if (ws.map) ws.map.layout();
+        };
+        const up = () => {
+          handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up);
+          handle.classList.remove('is-dragging');
+          if (handle._v != null) { store(which, handle._v); handle._v = null; }
+          apply();
+        };
+        handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up); handle.addEventListener('pointercancel', up);
+      });
+      handle.addEventListener('dblclick', () => resetSizes(which));
+      handle.addEventListener('keydown', e => {
+        const z = sizes(), cur = which === 'tasks' ? z.tasks : z.map;
+        const vertical = which === 'tasks' || z.lay === 'side';
+        const dec = vertical ? 'ArrowLeft' : 'ArrowUp', inc = vertical ? 'ArrowRight' : 'ArrowDown';
+        let v = null;
+        if (e.key === dec) v = cur - 16; else if (e.key === inc) v = cur + 16;
+        else if (e.key === 'Home') v = which === 'tasks' ? LIM.tasksMin : z.mapMin;
+        else if (e.key === 'End') v = which === 'tasks' ? z.tasksMax : z.mapMax;
+        else if (e.key === 'Enter') { e.preventDefault(); resetSizes(which); return; }
+        if (v == null) return;
+        e.preventDefault();
+        setSize(which, v);
+      });
+    }
+    drag(h1, 'tasks');
+    drag(h2, 'map');
+
+    function toggle(which, force) {
+      saveUi(u => { const c = Object.assign({}, u.collapsed); const v = force != null ? force : !c[which]; if (v) c[which] = true; else delete c[which]; return { collapsed: c }; });
+      apply();
+    }
+    function showPhone(k) {
+      phonePane = k; apply();
+      if (k === 'console' && ws.console) ws.console.focus();
+      else if (k === 'map' && ws.map) ws.map.layout();
+    }
+
+    const onResize = () => apply();
+    window.addEventListener('resize', onResize);
+    const unsub = L4N.store.subscribe((s, p) => { if (s.ui.layout !== p.ui.layout) apply(); });
+    requestAnimationFrame(apply);
+
+    return {
+      el: frame, apply, toggle, resetSizes, showPhone, setSize,
+      layout, isPhone, phonePane: () => phonePane,
+      setLayout(l) { saveUi({ layout: l }); apply(); },
+      collapsed: k => !!collapsed()[k],
+      destroy() { window.removeEventListener('resize', onResize); unsub(); }
+    };
+  }
+
+  L4N.panes = { create: createPanes, LIM };
 })(window.L4N = window.L4N || {});
 // workspace.js: the lab workspace (section 5.4): Tasks, Map and Console, the top bar, grading and saved work.
 (function (L4N) {
@@ -7918,9 +8739,9 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     touch(entry.slug);
 
     ws.save = () => L4N.work.put(entry.slug, { journal: st.journal, tasks: ws.tasks });
-    ws.onTick = () => ws.save();
+    ws.onTick = () => { ws.save(); if (ws.onLayout) ws.onLayout(); };
     ws.selectDevice = (dev, focus) => { ws.console.select(dev); if (focus) ws.console.focus(); };
-    ws.onSelect = () => { if (ws.map) ws.map.update(); };
+    ws.onSelect = () => { if (ws.map) ws.map.redraw(); };
     ws.onCommand = (res, line, dev) => {
       if (res.ran) {
         const rec = labRec(entry.slug), run = rec && rec.run ? Object.assign({}, rec.run) : null;
@@ -7930,6 +8751,8 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
       ws.save();
       refreshStatus();
       if (ws.map) ws.map.update(res, dev);
+      if (res.trace) { ws.trace.render(res.trace); if (ws.panes && ws.panes.isPhone()) ws.console.showResult(res.trace, () => ws.panes.showPhone('map')); }
+      else if (res.ran) ws.console.showResult(null);
       for (const h of ws.hooks) h(res, line, dev);
     };
 
@@ -7971,13 +8794,33 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     };
 
     // ---- the frame ----
+    ws.maximise = () => ws.panes.toggle('map');
     ws.console = L4N.consoleView.create(ws);
     ws.tasksView = L4N.tasksView.create(ws);
-    ws.map = L4N.mapView.create(ws);
-    ws.trace = el('div', { class: 'trace', 'aria-live': 'polite', id: 'ws-trace' }, el('span', { class: 'trace__msg hint', text: 'Ping, traceroute, Telnet or SSH from a console shows the path here.' }));
-    const frame = el('div', { class: 'ws', 'data-layout': 'stacked' },
-      ws.tasksView.el, el('div', { class: 'ws__divider', 'aria-hidden': 'true' }),
-      el('div', { class: 'ws__right' }, ws.map.el, ws.trace, el('div', { class: 'ws__divider', 'aria-hidden': 'true' }), ws.console.el));
+    ws.map = L4N.mapCore.create(ws);
+    ws.trace = L4N.traceView.create(ws);
+    const mapToggle = ui.button({ icon: 'chevron-up', aria: 'Collapse the map', onClick: () => ws.panes.toggle('map') });
+    const mapPane = el('section', { class: 'pane map', id: 'ws-map', 'aria-label': 'Network map' },
+      el('div', { class: 'pane__head' }, el('h2', { class: 'pane__title' }, icon('route'), el('span', { text: 'Network map' })), el('span', { class: 'spacer' }), mapToggle),
+      ws.map.body);
+    const tasksToggle = ui.button({ icon: 'panel-left', aria: 'Collapse the Tasks panel', onClick: () => ws.panes.toggle('tasks', true) });
+    ws.tasksView.el.querySelector('.pane__head').append(tasksToggle);
+    const stripCount = el('span', { class: 'num' });
+    const stripBtn = ui.button({ icon: 'list-checks', aria: 'Expand the Tasks panel', onClick: () => { if (ws.tasksOut) return; ws.panes.toggle('tasks', false); ws.tasksView.focus(); } });
+    stripBtn.append(stripCount);
+    const strip = el('div', { class: 'tasks-strip' }, stripBtn);
+    ws.panes = L4N.panes.create(ws, { tasks: ws.tasksView.el, strip, map: mapPane, trace: ws.trace.el, console: ws.console.el });
+    ws.onLayout = () => {
+      const mc = ws.panes.collapsed('map');
+      mapToggle.setAttribute('aria-label', mc ? 'Expand the map' : 'Collapse the map'); mapToggle.setAttribute('data-tip', mc ? 'Expand the map' : 'Collapse the map');
+      mapToggle.setAttribute('aria-expanded', String(!mc));
+      clear(mapToggle).append(icon(mc ? 'chevron-down' : 'chevron-up'));
+      const n = ws.tasks.filter(Boolean).length;
+      stripCount.textContent = n + '/' + entry.lab.tasks.length;
+      stripBtn.setAttribute('aria-label', (ws.tasksOut ? 'Tasks are open in the other window, ' : 'Expand the Tasks panel, ') + n + ' of ' + entry.lab.tasks.length + ' done');
+      if (ws.map) ws.map.layout();
+    };
+    const frame = ws.panes.el;
     ws.frame = frame;
     root.append(el('h1', { class: 'sr-only', 'data-heading': '', tabindex: '-1', text: entry.title }), frame);
 
@@ -8001,6 +8844,8 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     function moreItems() {
       const items = [];
       for (const h of ws.menuHooks || []) items.push(...h());
+      if (window.innerWidth >= 1600) items.push({ label: ws.panes.layout() === 'side' ? 'Layout: stacked' : 'Layout: side by side', icon: ws.panes.layout() === 'side' ? 'panel-bottom' : 'sidebar', run: () => ws.panes.setLayout(ws.panes.layout() === 'side' ? 'stacked' : 'side') });
+      items.push({ label: 'Reset panel sizes', icon: 'maximize', run: () => ws.panes.resetSizes() });
       items.push({ label: 'Reset lab', icon: 'reset', danger: true, run: () => ws.reset() });
       return items;
     }
@@ -8014,7 +8859,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     return () => {
       ws.console.stop(false);
       ws.save(); L4N.work.flush();
-      ws.console.destroy(); ws.map.destroy();
+      ws.console.destroy(); ws.map.destroy(); ws.panes.destroy();
       if (ws.cleanup) for (const f of ws.cleanup) f();
       if (current === ws) current = null;
     };
@@ -8022,7 +8867,8 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
   // ---- shortcuts and palette commands while a lab is open ----
   const inLab = () => !!current;
-  const panes = () => current ? [['tasks', () => current.tasksView.focus()], ['map', () => current.map.focus()], ['console', () => current.console.focus()]] : [];
+  const panes = () => current ? [['tasks', () => { if (current.panes.collapsed('tasks')) current.panes.toggle('tasks', false); current.tasksView.focus(); }],
+    ['map', () => { if (current.panes.collapsed('map')) current.panes.toggle('map', false); current.map.focus(); }], ['console', () => current.console.focus()]] : [];
   function cyclePane(dir) {
     const P = panes(); if (!P.length) return;
     const a = document.activeElement;
@@ -8055,6 +8901,13 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const lesson = L4N.data.lessonFor(ws.entry);
     if (lesson && !(ws.hideHelp && ws.hideHelp())) out.push({ id: 'lab-lesson', group: 'In a lab', title: "Open this lab's lesson", icon: 'lessons', subtitle: lesson.title, run: () => L4N.shell.go(L4N.router.href('lesson', lesson.slug)) });
     for (const dv of sim.devices(ws.st)) out.push({ id: 'lab-dev-' + dv.name, group: 'In a lab', title: 'Switch to device ' + dv.hostname, icon: 'labs', subtitle: dv.kindName, keywords: dv.name, run: () => ws.selectDevice(dv.name, true) });
+    out.push(
+      { id: 'lab-replay', group: 'In a lab', title: 'Replay last packet', icon: 'replay', run: () => ws.map.replay() },
+      { id: 'lab-tasks-panel', group: 'In a lab', title: ws.panes.collapsed('tasks') ? 'Expand the Tasks panel' : 'Collapse the Tasks panel', icon: 'panel-left', run: () => ws.panes.toggle('tasks') },
+      { id: 'lab-map-panel', group: 'In a lab', title: ws.panes.collapsed('map') ? 'Expand the map' : 'Collapse the map', icon: 'route', run: () => ws.panes.toggle('map') },
+      { id: 'lab-max', group: 'In a lab', title: ws.panes.collapsed('map') ? 'Restore the map' : 'Maximise the console', icon: 'maximize', run: () => ws.panes.toggle('map') },
+      { id: 'lab-reset-panes', group: 'In a lab', title: 'Reset panel sizes', icon: 'maximize', run: () => ws.panes.resetSizes() });
+    if (window.innerWidth >= 1600) out.push({ id: 'lab-layout', group: 'In a lab', title: ws.panes.layout() === 'side' ? 'Layout: stacked' : 'Layout: side by side', icon: 'sidebar', run: () => ws.panes.setLayout(ws.panes.layout() === 'side' ? 'stacked' : 'side') });
     for (const h of ws.commandHooks || []) out.push(...h());
     return out;
   });

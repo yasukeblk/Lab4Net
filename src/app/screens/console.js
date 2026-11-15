@@ -26,8 +26,30 @@
       maxlength: '512', 'aria-describedby': hintId, enterkeyhint: 'send' });
     const why = el('div', { class: 'con__why', id: hintId });
     const log = el('div', { class: 'sr-only', role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' });
+    // phones: a one-line ping result above the input, and helper keys under it
+    const resultBar = el('div', { class: 'con__result', hidden: true });
+    const helpers = el('div', { class: 'con__helpers', role: 'toolbar', 'aria-label': 'Console keys' },
+      [['Tab', 'tab', 'Complete the word'], ['?', 'help', 'Help'], ['↑', 'up', 'Previous command'], ['↓', 'down', 'Next command'], ['Ctrl+C', 'stop', 'Stop the output'], ['Ctrl+Z', 'end', 'End configuration']]
+        .map(([t, k, a]) => el('button', { class: 'btn btn--secondary', type: 'button', 'aria-label': a, onPointerdown: e => e.preventDefault(), onClick: () => helperKey(k) }, t)));
     const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' },
-      tabsEl, tools, el('div', { class: 'con__view' }, out, jump), el('div', { class: 'con__line' }, promptEl, input), why, log);
+      tabsEl, tools, el('div', { class: 'con__view' }, out, jump), resultBar, el('div', { class: 'con__line' }, promptEl, input), helpers, why, log);
+    function helperKey(k) {
+      if (k === 'tab') { const c = sim.complete(st, st.sel, input.value); if (c) input.value = c; }
+      else if (k === 'help') { input.value += '?'; input.dispatchEvent(new Event('input')); }
+      else if (k === 'up') history(-1);
+      else if (k === 'down') history(1);
+      else if (k === 'stop') { if (stream) stop(true); }
+      else if (k === 'end') { if (sim.canEnd(st, st.sel)) run('end'); }
+      input.focus({ preventScroll: true });
+    }
+    function showResult(T, onView) {
+      clear(resultBar);
+      if (!T) { resultBar.hidden = true; return; }
+      resultBar.hidden = false;
+      const ok = !!T.ok;
+      resultBar.append(icon(ok ? 'check-circle' : 'x-circle', ok ? 'ok' : 'bad'), el('span', { class: 'con__result-text', text: L4N.traceView.result(T) }),
+        ui.button({ label: 'View on map', kind: 'ghost', onClick: onView }));
+    }
 
     function keyHints() {
       clear(why);
@@ -259,7 +281,7 @@
 
     renderTabs(); renderAll(); refreshPrompt(); keyHints();
     return {
-      el: root, input, out, run, select, stop, refreshPrompt, refreshTabs, renderAll, clearScreen,
+      el: root, input, out, run, select, stop, showResult, refreshPrompt, refreshTabs, renderAll, clearScreen,
       focus() { input.focus({ preventScroll: true }); },
       playing: () => !!stream,
       setMaximised(on) { maxBtn.setAttribute('aria-label', on ? 'Restore the map' : 'Maximise the console'); maxBtn.setAttribute('data-tip', on ? 'Restore the map' : 'Maximise the console'); clear(maxBtn).append(icon(on ? 'minimize' : 'maximize')); },

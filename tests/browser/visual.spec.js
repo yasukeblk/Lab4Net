@@ -12,6 +12,8 @@ const STATES = [
   { name: 'home-new', route: '#/' },
   { name: 'settings', route: '#/settings' },
   { name: 'workspace', route: '#/labs/static-routing', act: async page => { await page.evaluate(() => { for (const l of ['enable', 'configure terminal', 'ip route 192.168.3.0 255.255.255.0 10.0.12.2', 'end', 'show ip route']) L4N.test.exec('R1', l); }); } },
+  { name: 'workspace-failed-ping', route: '#/labs/static-routing', act: async page => { await page.evaluate(() => L4N.test.exec('PC1', 'ping 192.168.3.10')); await page.locator('#ws-map .badge__icon.is-bad').waitFor({ state: 'attached' }); const d = page.getByRole('button', { name: 'Details' }); if (await d.isVisible()) await d.click(); } },
+  { name: 'workspace-tasks-collapsed', route: '#/labs/static-routing', act: async page => { const b = page.getByRole('button', { name: 'Collapse the Tasks panel' }); if (await b.isVisible()) await b.click(); } },
   { name: 'palette', route: '#/', act: async page => { await page.locator('.sb__search').click({ force: true }).catch(() => {}); if (!(await page.locator('dialog[open]').count())) await page.evaluate(() => L4N.palette.open()); } }
 ];
 

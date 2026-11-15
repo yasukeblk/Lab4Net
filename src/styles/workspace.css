@@ -1,10 +1,45 @@
 /* Lab workspace: panes and the Tasks panel (section 5.4) */
 .screen[data-screen="lab"], .screen[data-screen="sandbox"] { overflow: hidden; }
 .ws {
-  --tasks-w: 340px; --map-h: 290px;
-  display: grid; grid-template-columns: var(--tasks-w) 1px minmax(0, 1fr); height: 100%; min-height: 0; background: var(--bg-surface);
+  --tasks-w: 340px; --map-h: 290px; --map-w: 480px;
+  display: grid; height: 100%; min-height: 0; background: var(--bg-surface); position: relative;
+  grid-template-columns: var(--tasks-w) 1px minmax(0, 1fr);
+  grid-template-rows: var(--map-h) auto 1px minmax(0, 1fr);
+  grid-template-areas: "tasks h1 map" "tasks h1 trace" "tasks h1 h2" "tasks h1 console";
 }
-.ws__right { display: grid; grid-template-rows: var(--map-h) auto 1px minmax(0, 1fr); min-width: 0; min-height: 0; }
+.ws[data-layout="side"] {
+  grid-template-columns: var(--tasks-w) 1px var(--map-w) 1px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "tasks h1 map h2 console" "tasks h1 trace h2 console";
+}
+.ws > #ws-tasks, .ws > .tasks-strip { grid-area: tasks; }
+.ws > .ws__h1 { grid-area: h1; }
+.ws > #ws-map { grid-area: map; }
+.ws > #ws-trace { grid-area: trace; }
+.ws > .ws__h2 { grid-area: h2; }
+.ws > #ws-console { grid-area: console; }
+.ws > .handle[hidden] { display: block !important; visibility: hidden; }
+.ws__phonebar { display: none; }
+.tasks-strip { display: none; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-right: var(--hairline) solid var(--border-subtle); background: var(--bg-surface); }
+.tasks-strip .btn { width: 28px; height: auto; min-height: 28px; flex-direction: column; padding: 6px 0; gap: 6px; }
+.tasks-strip .num { font-size: var(--fs-11); writing-mode: vertical-rl; transform: rotate(180deg); color: var(--text-2); }
+.ws.is-tasks-collapsed > #ws-tasks { display: none; }
+.ws.is-tasks-collapsed > .tasks-strip { display: flex; }
+.ws.is-map-collapsed #ws-map .map__body { display: none; }
+.ws[data-layout="side"].is-map-collapsed #ws-map .pane__title span { display: none; }
+.con__measure { position: absolute; visibility: hidden; white-space: pre; font: var(--fs-console)/var(--lh-console) var(--font-mono); }
+
+/* phones: one pane at a time, a bottom bar switches */
+.ws[data-layout="phone"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; grid-template-areas: "main" "trace" "bar"; }
+.ws[data-layout="phone"] > .handle, .ws[data-layout="phone"] > .tasks-strip { display: none !important; }
+.ws[data-layout="phone"] > #ws-tasks, .ws[data-layout="phone"] > #ws-map, .ws[data-layout="phone"] > #ws-console { grid-area: main; display: none; }
+.ws[data-layout="phone"][data-pane="tasks"] > #ws-tasks, .ws[data-layout="phone"][data-pane="map"] > #ws-map, .ws[data-layout="phone"][data-pane="console"] > #ws-console { display: flex; }
+.ws[data-layout="phone"] > #ws-trace { display: none; }
+.ws[data-layout="phone"][data-pane="map"] > #ws-trace { display: block; }
+.ws[data-layout="phone"] #ws-map .map__body { display: block; }
+.ws[data-layout="phone"] > .ws__phonebar { grid-area: bar; display: flex; border-top: var(--hairline) solid var(--border-subtle); background: var(--bg-app); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.ws__pb { flex: 1; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: var(--fs-11); color: var(--text-2); }
+.ws__pb[aria-pressed="true"] { color: var(--text); background: var(--bg-active); }
 .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg-surface); position: relative; }
 .pane__head {
   display: flex; align-items: center; gap: var(--space-2); flex: none; height: 32px; padding: 0 var(--space-2) 0 var(--space-3);
@@ -16,7 +51,6 @@
 .pane__head .tabs { border-bottom: 0; min-height: 31px; gap: var(--space-3); }
 .pane__head .tab { height: 31px; }
 .pane__body { flex: 1; min-height: 0; overflow: auto; }
-.ws__divider { background: var(--border-subtle); }
 
 /* ---- tasks panel ---- */
 .tasks__body { padding: var(--space-3) var(--space-4) var(--space-8); display: flex; flex-direction: column; gap: var(--space-4); }
@@ -58,15 +92,6 @@
 .check-row.is-ok .icon { color: var(--ok); } .check-row.is-bad .icon { color: var(--bad); }
 .results.is-stale .results__list, .results.is-stale .results__sum { opacity: .5; }
 .results__stale { font-size: var(--fs-12); color: var(--warn); display: flex; gap: var(--space-1); align-items: center; }
-
-/* ---- map placeholder (Phase 2) ---- */
-.devlist { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3); }
-.devbtn { display: inline-flex; align-items: center; gap: var(--space-2); }
-.devbtn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
-
-/* ---- trace strip ---- */
-.trace { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; padding: 0 var(--space-3); border-top: var(--hairline) solid var(--border-subtle); font-size: var(--fs-12); color: var(--text-2); min-width: 0; }
-.trace__msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* small device icons (console tabs, device buttons) */
 .dev-ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; --node-fill: transparent; }

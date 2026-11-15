@@ -1,5 +1,31 @@
 # Lab4Net changes
 
+## Redesign, phase 3: the network map and the panes
+
+The map is real again, and the workspace panes resize, collapse and remember their sizes.
+
+- **The map.** One SVG, built once per lab. Every device and link is created once and kept by key, and a command only changes attributes and classes. That removes the old hover flicker and lost focus (a test checks the elements are the same after 20 commands).
+- **Devices.** The new device icons at 36 px, with the hostname under each. The selected device has an accent ring. Click, `Enter` or `Space` opens its console, and the arrow keys move between devices by position.
+- **Links.** Up links are a thin line with a green dot at each end. Down links are dashed red with hollow rings, so shape changes as well as colour. Port names sit beside each end, unless the lab hides them. An err-disabled port shows a warning glyph. A port spanning tree blocks shows a short bar ("Blocked by spanning tree", with the VLANs). Parallel links are drawn 12 px apart.
+- **Tooltips.** Hovering anywhere on a device (icon, label or the space between) shows its hostname and kind, each interface with its state and address, and one more line (routes, VLANs or default gateway). It appears after 120 ms and hides 80 ms after you leave. It never sits under the pointer or over its device. Keyboard focus shows it too, and `Esc` hides it. Every value is text.
+- **Packets.** Ping, traceroute, Telnet and SSH animate along the real path: a solid dot for the request, a hollow dot for the reply, and each link highlighted as it is crossed. ARP broadcasts and unknown-address floods fan out along every edge, stopping at a bar on a blocked port. Highlights fade 1.5 s after the run. A new command cancels the animation at once. With reduced motion no dot moves: the path lights up in one step.
+- **Markers.** Success puts a green check on the source device. Failure puts a red cross on the device where the packet stopped, with the reason in words beside it ("Blocked by ACL", "No route from here", "Reply has no route back", "Port closed"). Markers stay until the next command.
+- **Trace strip.** One line under the map: the result, the path ("stopped at R1" for a failure), Details and Replay. Details shows the request and reply paths, a plain explanation and, for switched networks, what each switch did, with the `show mac address-table` tip after a flood. It is read out to screen readers.
+- **Screen readers.** The map is labelled ("Network map: 5 devices, 4 links"), each device is a button with its state, and a hidden list describes every link ("R1 Gi0/1 to R2 Gi0/0, down.") and updates when one changes.
+- **Panes.** Two dividers you can drag, or focus and move with the arrow keys (16 px a step; `Home` and `End` for the limits; double-click or `Enter` resets). Tasks stays between 280 and 520 px and never squeezes the console under 80 columns. The map stays at least 160 px tall and the console at least 200. Sizes are saved as fractions, per layout.
+- **Collapse and maximise.** Tasks collapses to a 36 px strip with its count ("0/5"). The map collapses to its header and the trace strip stays. "Maximise" on the console collapses the map, and again restores it. All of this is saved.
+- **Side by side.** From 1600 px wide, the lab menu offers "Layout: side by side" (Tasks, Map and Console as three columns). Stacked stays the default.
+- **Phones.** One pane at a time, switched by a bottom bar (Tasks, Map, Console). The console has helper keys under the input (`Tab`, `?`, `↑`, `↓`, `Ctrl+C`, `Ctrl+Z`) and output wraps. A ping shows a one-line result above the input with "View on map". Buttons and tabs are 40 px tall. Nothing scrolls sideways.
+- **Palette.** New lab commands: Replay last packet, Collapse or expand the Tasks panel or the map, Maximise the console, Reset panel sizes, and the layout switch.
+- **Tests.** `map.spec` (Chromium, Firefox and WebKit) covers clicking and `Enter` on devices; the hover test (icon to label and back in 2 px steps: the tooltip shows once, never hides and is never under the pointer); the same DOM nodes after 20 commands; success and failure markers; a link shut at both ends; reduced motion; dividers with the pointer and the keyboard, their limits and surviving a reload; collapse and maximise; 80 console columns at 1366 by 768; and the side-by-side layout. `phone.spec` covers no sideways scroll on every route, the drawer, the pane bar, the helper keys, the ping result bar and 40 px targets. `visual.spec` adds the workspace default, after a failed ping, and with Tasks collapsed. 285 browser tests pass.
+
+Where the build differs from the plan:
+
+- **Map scaling.** The plan fits the map with `viewBox` and `preserveAspectRatio`. The map instead fits the lab's positions into the pane's own pixels, so icons stay exactly 36 px and labels 12 px at every pane size, as the plan asks. A resize only moves elements; nothing is rebuilt.
+- **Port names** use the simulator's own short form (`Gi0/1`, `Fa0/2`), the same as `show` output, rather than `G0/1`.
+- **`Alt+1` to `Alt+3`** were dropped in Phase 1. A collapsed Tasks panel opens from its strip, `F6`, or the palette.
+- **Map tooltip and pane data** come from two new bridge functions, `sim.links` and `sim.describe`. Screens still never call the simulator directly.
+
 ## Redesign, phase 2: the console and the lab workspace
 
 Labs open again: `#/labs/<lab>` shows the new workspace with the Tasks panel on the left and the map and console on the right. Every lab can be finished and graded from the console.

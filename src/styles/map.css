@@ -1,0 +1,63 @@
+/* Network map and trace strip (section 5.5) */
+.map__body { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--bg-surface); }
+.topo { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-select: none; }
+.link__line { stroke: var(--text-3); stroke-width: 1.5; fill: none; transition: stroke var(--dur-3) var(--ease); }
+.link.is-down .link__line { stroke: var(--bad); stroke-dasharray: 5 4; opacity: .7; }
+.link.is-flash .link__line { stroke: var(--text); }
+.link__mark.is-up { fill: var(--ok); stroke: none; }
+.link__mark.is-down { fill: var(--bg-surface); stroke: var(--bad); stroke-width: 1.5; }
+.link__block { stroke: var(--warn); stroke-width: 2.5; stroke-linecap: round; }
+.link__err { color: var(--warn); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.link__port { font: 10px var(--font-mono); fill: var(--text-3); paint-order: stroke; stroke: var(--bg-surface); stroke-width: 3px; stroke-linejoin: round; }
+.node { cursor: pointer; outline: none; --node-fill: var(--bg-raised); }
+.node__hit { fill: transparent; stroke: none; }
+.node__icon { fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: stroke var(--dur-1) var(--ease); }
+.node:hover, .node:focus-visible { --node-fill: var(--bg-hover); }
+.node:hover .node__icon, .node:focus-visible .node__icon { stroke: var(--text); }
+.node__ring { fill: none; stroke: none; stroke-width: 1.5; }
+.node.is-selected .node__ring { stroke: var(--accent); }
+.node.is-selected .node__icon { stroke: var(--text); }
+.node:focus-visible { box-shadow: none; }
+.node:focus-visible .node__ring { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 3 2; }
+.node.is-selected:focus-visible .node__ring { stroke-dasharray: none; stroke-width: 2.5; }
+.node__label { font: var(--fw-medium) 12px var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--bg-surface); stroke-width: 3px; stroke-linejoin: round; }
+.node.is-selected .node__label { fill: var(--text); }
+.badge__bg { fill: var(--bg-surface); }
+.badge__icon { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.badge__icon.is-ok { stroke: var(--ok); } .badge__icon.is-bad { stroke: var(--bad); }
+.hi { stroke: var(--accent); stroke-width: 2; stroke-linecap: round; opacity: .9; }
+.hi--flood { stroke-width: 1.5; opacity: .55; }
+.l-hi { transition: opacity 600ms var(--ease); }
+.l-hi.is-fading { opacity: 0; }
+.pkt { fill: var(--accent); }
+.pkt--reply { fill: var(--bg-surface); stroke: var(--accent); stroke-width: 1.5; }
+.pkt--flood { fill: var(--accent); opacity: .8; }
+.pkt-stop { stroke: var(--warn); stroke-width: 2.5; stroke-linecap: round; }
+.maptip {
+  position: absolute; z-index: 5; max-width: 260px; padding: var(--space-2) var(--space-3); pointer-events: none;
+  background: var(--bg-overlay); color: var(--text); border-radius: var(--radius-2); box-shadow: var(--shadow-2); font-size: var(--fs-12); line-height: var(--lh-12);
+}
+.maptip__head { display: flex; gap: var(--space-2); align-items: baseline; margin-bottom: 4px; }
+.maptip__head span { color: var(--text-2); }
+.maptip__ifs { display: grid; grid-template-columns: 6px auto auto; gap: 3px var(--space-2); align-items: center; }
+.maptip__ifs .mono { font-family: var(--font-mono); font-size: var(--fs-11); color: var(--text-2); white-space: nowrap; }
+.maptip__extra { margin-top: 4px; color: var(--text-2); }
+.mapchip {
+  position: absolute; z-index: 4; pointer-events: none; display: inline-flex; align-items: center; height: 20px; padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--bad); border-radius: var(--radius-1); background: var(--bg-overlay); color: var(--bad); font-size: var(--fs-12); white-space: nowrap;
+}
+.trace { border-top: var(--hairline) solid var(--border-subtle); background: var(--bg-surface); min-width: 0; }
+.trace__line { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; padding: 0 var(--space-2) 0 var(--space-3); font-size: var(--fs-12); color: var(--text-2); min-width: 0; }
+.trace__line > .icon { width: 14px; height: 14px; color: var(--text-2); }
+.trace__line > .icon.ok { color: var(--ok); } .trace__line > .icon.bad { color: var(--bad); }
+.trace__res { font-weight: var(--fw-semi); white-space: nowrap; }
+.trace__res.ok { color: var(--ok); } .trace__res.bad { color: var(--bad); }
+.trace__msg, .trace__path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.trace__path .bad { color: var(--bad); }
+.trace__line .btn { height: 24px; padding: 0 var(--space-2); font-size: var(--fs-12); flex: none; }
+.trace__more { padding: var(--space-1) var(--space-3) var(--space-3); font-size: var(--fs-12); color: var(--text-2); display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow: auto; }
+.trace__row b { color: var(--text); font-weight: var(--fw-medium); }
+.trace__row .bad { color: var(--bad); }
+.trace__advice { color: var(--text); }
+.trace__sw { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.trace__tip { margin-top: 2px; color: var(--text); }

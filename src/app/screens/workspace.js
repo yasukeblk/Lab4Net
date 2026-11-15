@@ -59,9 +59,9 @@
     touch(entry.slug);
 
     ws.save = () => L4N.work.put(entry.slug, { journal: st.journal, tasks: ws.tasks });
-    ws.onTick = () => ws.save();
+    ws.onTick = () => { ws.save(); if (ws.onLayout) ws.onLayout(); };
     ws.selectDevice = (dev, focus) => { ws.console.select(dev); if (focus) ws.console.focus(); };
-    ws.onSelect = () => { if (ws.map) ws.map.update(); };
+    ws.onSelect = () => { if (ws.map) ws.map.redraw(); };
     ws.onCommand = (res, line, dev) => {
       if (res.ran) {
         const rec = labRec(entry.slug), run = rec && rec.run ? Object.assign({}, rec.run) : null;
@@ -71,6 +71,8 @@
       ws.save();
       refreshStatus();
       if (ws.map) ws.map.update(res, dev);
+      if (res.trace) { ws.trace.render(res.trace); if (ws.panes && ws.panes.isPhone()) ws.console.showResult(res.trace, () => ws.panes.showPhone('map')); }
+      else if (res.ran) ws.console.showResult(null);
       for (const h of ws.hooks) h(res, line, dev);
     };
 
@@ -112,13 +114,33 @@
     };
 
     // ---- the frame ----
+    ws.maximise = () => ws.panes.toggle('map');
     ws.console = L4N.consoleView.create(ws);
     ws.tasksView = L4N.tasksView.create(ws);
-    ws.map = L4N.mapView.create(ws);
-    ws.trace = el('div', { class: 'trace', 'aria-live': 'polite', id: 'ws-trace' }, el('span', { class: 'trace__msg hint', text: 'Ping, traceroute, Telnet or SSH from a console shows the path here.' }));
-    const frame = el('div', { class: 'ws', 'data-layout': 'stacked' },
-      ws.tasksView.el, el('div', { class: 'ws__divider', 'aria-hidden': 'true' }),
-      el('div', { class: 'ws__right' }, ws.map.el, ws.trace, el('div', { class: 'ws__divider', 'aria-hidden': 'true' }), ws.console.el));
+    ws.map = L4N.mapCore.create(ws);
+    ws.trace = L4N.traceView.create(ws);
+    const mapToggle = ui.button({ icon: 'chevron-up', aria: 'Collapse the map', onClick: () => ws.panes.toggle('map') });
+    const mapPane = el('section', { class: 'pane map', id: 'ws-map', 'aria-label': 'Network map' },
+      el('div', { class: 'pane__head' }, el('h2', { class: 'pane__title' }, icon('route'), el('span', { text: 'Network map' })), el('span', { class: 'spacer' }), mapToggle),
+      ws.map.body);
+    const tasksToggle = ui.button({ icon: 'panel-left', aria: 'Collapse the Tasks panel', onClick: () => ws.panes.toggle('tasks', true) });
+    ws.tasksView.el.querySelector('.pane__head').append(tasksToggle);
+    const stripCount = el('span', { class: 'num' });
+    const stripBtn = ui.button({ icon: 'list-checks', aria: 'Expand the Tasks panel', onClick: () => { if (ws.tasksOut) return; ws.panes.toggle('tasks', false); ws.tasksView.focus(); } });
+    stripBtn.append(stripCount);
+    const strip = el('div', { class: 'tasks-strip' }, stripBtn);
+    ws.panes = L4N.panes.create(ws, { tasks: ws.tasksView.el, strip, map: mapPane, trace: ws.trace.el, console: ws.console.el });
+    ws.onLayout = () => {
+      const mc = ws.panes.collapsed('map');
+      mapToggle.setAttribute('aria-label', mc ? 'Expand the map' : 'Collapse the map'); mapToggle.setAttribute('data-tip', mc ? 'Expand the map' : 'Collapse the map');
+      mapToggle.setAttribute('aria-expanded', String(!mc));
+      clear(mapToggle).append(icon(mc ? 'chevron-down' : 'chevron-up'));
+      const n = ws.tasks.filter(Boolean).length;
+      stripCount.textContent = n + '/' + entry.lab.tasks.length;
+      stripBtn.setAttribute('aria-label', (ws.tasksOut ? 'Tasks are open in the other window, ' : 'Expand the Tasks panel, ') + n + ' of ' + entry.lab.tasks.length + ' done');
+      if (ws.map) ws.map.layout();
+    };
+    const frame = ws.panes.el;
     ws.frame = frame;
     root.append(el('h1', { class: 'sr-only', 'data-heading': '', tabindex: '-1', text: entry.title }), frame);
 
@@ -142,6 +164,8 @@
     function moreItems() {
       const items = [];
       for (const h of ws.menuHooks || []) items.push(...h());
+      if (window.innerWidth >= 1600) items.push({ label: ws.panes.layout() === 'side' ? 'Layout: stacked' : 'Layout: side by side', icon: ws.panes.layout() === 'side' ? 'panel-bottom' : 'sidebar', run: () => ws.panes.setLayout(ws.panes.layout() === 'side' ? 'stacked' : 'side') });
+      items.push({ label: 'Reset panel sizes', icon: 'maximize', run: () => ws.panes.resetSizes() });
       items.push({ label: 'Reset lab', icon: 'reset', danger: true, run: () => ws.reset() });
       return items;
     }
@@ -155,7 +179,7 @@
     return () => {
       ws.console.stop(false);
       ws.save(); L4N.work.flush();
-      ws.console.destroy(); ws.map.destroy();
+      ws.console.destroy(); ws.map.destroy(); ws.panes.destroy();
       if (ws.cleanup) for (const f of ws.cleanup) f();
       if (current === ws) current = null;
     };
@@ -163,7 +187,8 @@
 
   // ---- shortcuts and palette commands while a lab is open ----
   const inLab = () => !!current;
-  const panes = () => current ? [['tasks', () => current.tasksView.focus()], ['map', () => current.map.focus()], ['console', () => current.console.focus()]] : [];
+  const panes = () => current ? [['tasks', () => { if (current.panes.collapsed('tasks')) current.panes.toggle('tasks', false); current.tasksView.focus(); }],
+    ['map', () => { if (current.panes.collapsed('map')) current.panes.toggle('map', false); current.map.focus(); }], ['console', () => current.console.focus()]] : [];
   function cyclePane(dir) {
     const P = panes(); if (!P.length) return;
     const a = document.activeElement;
@@ -196,6 +221,13 @@
     const lesson = L4N.data.lessonFor(ws.entry);
     if (lesson && !(ws.hideHelp && ws.hideHelp())) out.push({ id: 'lab-lesson', group: 'In a lab', title: "Open this lab's lesson", icon: 'lessons', subtitle: lesson.title, run: () => L4N.shell.go(L4N.router.href('lesson', lesson.slug)) });
     for (const dv of sim.devices(ws.st)) out.push({ id: 'lab-dev-' + dv.name, group: 'In a lab', title: 'Switch to device ' + dv.hostname, icon: 'labs', subtitle: dv.kindName, keywords: dv.name, run: () => ws.selectDevice(dv.name, true) });
+    out.push(
+      { id: 'lab-replay', group: 'In a lab', title: 'Replay last packet', icon: 'replay', run: () => ws.map.replay() },
+      { id: 'lab-tasks-panel', group: 'In a lab', title: ws.panes.collapsed('tasks') ? 'Expand the Tasks panel' : 'Collapse the Tasks panel', icon: 'panel-left', run: () => ws.panes.toggle('tasks') },
+      { id: 'lab-map-panel', group: 'In a lab', title: ws.panes.collapsed('map') ? 'Expand the map' : 'Collapse the map', icon: 'route', run: () => ws.panes.toggle('map') },
+      { id: 'lab-max', group: 'In a lab', title: ws.panes.collapsed('map') ? 'Restore the map' : 'Maximise the console', icon: 'maximize', run: () => ws.panes.toggle('map') },
+      { id: 'lab-reset-panes', group: 'In a lab', title: 'Reset panel sizes', icon: 'maximize', run: () => ws.panes.resetSizes() });
+    if (window.innerWidth >= 1600) out.push({ id: 'lab-layout', group: 'In a lab', title: ws.panes.layout() === 'side' ? 'Layout: stacked' : 'Layout: side by side', icon: 'sidebar', run: () => ws.panes.setLayout(ws.panes.layout() === 'side' ? 'stacked' : 'side') });
     for (const h of ws.commandHooks || []) out.push(...h());
     return out;
   });

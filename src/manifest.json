@@ -20,6 +20,7 @@
     "styles/components.css",
     "styles/shell.css",
     "styles/workspace.css",
+    "styles/map.css",
     "styles/console.css",
     "styles/screens.css",
     "styles/phone.css"
@@ -74,6 +75,8 @@
     "app/screens/console.js",
     "app/screens/tasks.js",
     "app/screens/map.js",
+    "app/screens/trace.js",
+    "app/screens/panes.js",
     "app/screens/workspace.js",
     "app/screens/settings.js",
     "app/screens/gallery.js",
