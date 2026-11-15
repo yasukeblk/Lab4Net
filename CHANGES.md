@@ -1,5 +1,300 @@
 # Lab4Net changes
 
+## Redesign, phase 9: polish and release
+
+The last phase: a phone and accessibility pass on every screen, the remaining tests, new docs, a new demo and screenshots.
+
+- **Phones.** Every control on every screen is now at least 40 px tall on a phone: the panel tabs, the segmented choices (exam mode and time, tools, settings), the large buttons, the switches and the panel header buttons. No route scrolls sideways at 390 wide, including a running exam.
+- **The sandbox on a phone.** The bottom bar now says "Build" (not "Tasks"), and the divider is called "Resize the Build panel".
+- **Map bug fixed.** On a link too short for both port names, the two names were pushed past each other and ended up at the wrong ends. Router-on-a-stick and Incident 04 showed R1's port as `Gi0/1` and the switch's as `Gi0/0`. Such a name is now hidden until there is room (zoom in, in the sandbox). Hovering a device still lists its ports, and the screen-reader list still names both ends. Of the 77 lab maps, only that one link in those two labs is affected.
+- **New tests.**
+  - `themes.spec`: dark, light and system (with the computer set to either) on every route, each checked against the colours in `tokens.css`; "Console: always dark" in the light theme; the first paint already has the theme, its colours and Inter.
+  - `motion.spec`: with reduced motion from the system or from Settings, no animation or transition runs in menus, dialogs, toasts or the palette; a real-time ping prints at once; no packet moves on the map and the result is still shown; a lesson story step is a still picture.
+  - `a11y.spec` adds:
+    - the keyboard-only run: open the palette, find a lab, finish it in the console, grade it with `Ctrl+Enter`, open its lesson and mark it read, answer a quiz question with the number keys, and change the theme, all from the keyboard;
+    - the keyboard patterns of the pane divider, the tabs, a menu and a dialog;
+    - the live regions for the trace line and the console output;
+    - axe on a running exam, in both themes.
+  - `phone.spec` adds the running exam to the sideways-scroll check, and a 40 px check of every control on every screen.
+- **Docs.**
+  - `README.md` is rewritten for the new app, with six screenshots in `docs/screens/`, the font credits and the new test commands.
+  - `docs/DEVELOPING.md` is rewritten: file layout, build, size budget, the interface, storage and migration, testing, and the rules. The engine reference, the known limits and the roadmap are kept, because the engine has not changed.
+  - `docs/LESSON-WRITING.md` now points at `src/data/lessons.js` and the lesson reader, and says 56 lessons.
+  - The references to `docs/REVIEW-FIXES.md` that no longer apply (the old browser tests) are gone from the developer guide. The file itself and the history entries below stay as a record. Comments in the engine tests still mention it, because those tests are not edited.
+- **Demo.** A new `docs/demo.gif` from the new app: Incident 07, where PC1's ping fails, R3's OSPF networks are moved from area 1 to area 0, the neighbours come up, the ping works and the grade is S. `tools/build-demo.cjs` records it with Playwright and ffmpeg, so it can be made again.
+- **Size.** `index.html` is 1,524 KB of the 1,550 KB budget, 498 KB gzipped of 570.
+- **Baselines.** The 102 screenshot baselines (17 screens, both themes, 1366, 1920 and 390 wide) were made by GitHub Actions on this branch and are committed in `tests/browser/__screenshots__/`. From now on CI compares against them.
+
+Where the build differs from the plan:
+
+- **Visual baselines.** The plan asks for final baselines. They are made on Linux, so GitHub Actions makes them with the "Update screenshot baselines" workflow and commits them to the branch. GitHub only lets a workflow be started by hand once it is on `main`, so a push to any other branch whose commit message contains `[baselines]` now starts it too.
+- **Dialogs and Tab.** Dialogs use the browser's own modal dialog. The page behind it is inert, so Tab never reaches it, but after the last control Tab can move to the browser's own toolbar, as it does on any site. The test allows that.
+- **The demo GIF** is 4.1 MB, against 3.2 MB for the old one. It is longer, because it shows the cause (`show ip ospf interface brief`) as well as the fix.
+
+### How to roll back
+
+If the redesign has to come off the live site after the merge:
+
+1. Revert the merge commit on `main` (`git revert -m 1 <merge commit>`) and push. GitHub Pages serves the old app again within a few minutes. The tag `v1-arcade` marks the same code.
+2. Nobody loses progress. The new app wrote only its own keys (`lab4net:v2` and the keys under it). It never changed or deleted the old app's keys, so the old app finds everything as it was before the redesign. Progress made in the new app stays in its keys, ready for when the redesign comes back.
+3. The lesson pages (`lessons/`) and `sitemap.xml` come back with the revert, and their addresses never changed, so shared links keep working.
+
+## Redesign, phase 8: the sandbox
+
+Free build is back, inside the same workspace as the labs.
+
+- **The Build panel** takes the Tasks panel's place:
+  - add a device (Router, Router with 5 ports, Switch, Switch with 24 ports, Layer 3 switch, PC, Server);
+  - the tools (Select, Cable, Note, Delete);
+  - Undo and Redo;
+  - the four goals (the old "challenges") with a check as each is met;
+  - the four starter kits;
+  - Save to file, Load from file and Clear all.
+- **The map** is a larger canvas (1600 by 660) with zoom (`−`, `+`, Fit) and pan (drag the background, or the arrow keys while the map has focus). Devices can be dragged. Cabling asks which port on each end in a small menu, and ports already in use are marked. Delete removes a device, a cable or a note. Notes are plain text on the map.
+- **The console** is the same component as in the labs, with the "Why" line.
+- **Undo** keeps 80 steps of the build and its commands. `Ctrl+Z` is undo only outside the console. Inside the console it is still IOS `end`, as before. `Ctrl+Shift+Z` redoes. After undo or redo, focus stays on the map.
+- **Limits.** At most 20 devices. Reaching the limit says so in words: "The sandbox holds up to 20 devices. Delete one to add another."
+- **Files.** Save writes `lab4net-sandbox.json`. Load checks a file field by field before use:
+  - names, device types, positions and limits;
+  - cables (both ends real devices, ports in the right form and used once);
+  - notes (`<` and `>` removed);
+  - commands (one line, under 512 characters, on a device that exists).
+
+  It also checks that the network builds and the commands replay. Anything that does not fit is refused, with the reason in a toast. A file carries data only. The old app's sandbox files (`def` and `journal`) still load.
+- **Goals.** Starting a goal loads its starter kit. A goal met shows a check and one toast, nothing more.
+- **Storage.** The build lives in `lab4net:v2:sandbox` and travels in backups. As the plan says, old sandbox builds are not imported. The old key stays where it is.
+- **Data.** The starter kits and the goal checks are content, so they live in `src/data/sandbox.js` beside the quiz and the stages.
+- **Bug fixed while testing.** When the build changed, the closing workspace could save its old command list over the new build. A generation counter now stops that.
+- **Tests.** `sandbox.spec`:
+  - build two PCs and a switch with real clicks (cabling through the port menu), address them, ping across and see the reply and the marker on the map;
+  - undo and redo each step, with buttons and keys;
+  - `Ctrl+Z` in the console is IOS `end`;
+  - save, clear and load give the same network and commands;
+  - doctored files (a markup name, a missing port, 21 devices, the wrong format) are refused, and markup in notes and commands runs nothing;
+  - the 20-device limit;
+  - each of the four goals can be met.
+
+  `visual.spec` adds the sandbox with a small network. 418 browser tests pass.
+
+Where the build differs from the plan:
+
+- **Renaming devices** (in the old right-click menu) is left out. The plan's Build panel does not list it, and a device's name is its console tab and its key on the map.
+- **A structural change** (a device or a cable added or removed, a kit, a file) rebuilds the network, so the workspace redraws for it. Commands, dragging, zoom and pan never redraw.
+
+## Redesign, phase 7: practice and progress
+
+- **Practice.** One page with three cards and their numbers: Exam (the last result and how many passed), Quiz (correct out of 110) and Subnetting (fields right on the first try).
+- **Exam.** A setup page with the mode (Fault-find, Build, Incident or Today's) and the time (10, 20 or 30 minutes), then "Start exam". The exam runs in the lab workspace with the mode and a clock in the top bar. Under two minutes the clock turns amber and gains a clock icon. There is no help: step-by-step, "why", the walkthrough, clues, the Commands tab, the lesson link and the "Why" line under the console are not in the page at all. Grade shows only "2 of 5 checks pass" until the exam ends. The end shows, in the Tasks panel, passed or not, the grade, the time used, every check and the faults that were hidden. The menu has "Give up". History keeps the last 40 exams (date, mode, lab, result, grade, time).
+- **Exam rules, carried over from the old app.**
+  - Faults come from the simulator's own fault generators: one or two for fault-find, two for Today's, three (or two) for a stage check.
+  - Today's exam is seeded by the date, so it is the same for everyone that day.
+  - The clock is the wall clock. An exam whose time ran out while it was not open is graded from its saved commands, on the next load or as soon as the time is up.
+  - Only one exam runs at a time.
+  - An exam never changes a lab's own progress, grade or saved work.
+- **The lock.** While an exam runs, other labs, lessons, the quiz, the subnetting drill and the sandbox wait. Trying one shows a toast with "Resume exam" and "Give up", not a dialog. Home's Continue card becomes the exam, with its clock.
+- **Stage checks.** On the Labs list, a stage's check starts here: a fault-find exam on that stage's labs (or three faults for the last stage), with the stage's own time. A passed check shows on the list and on Progress.
+- **Exam storage.** An exam is rebuilt from its seed, so storage keeps only the mode, seed, clock and the commands typed. No fault commands are ever stored or imported. Exam history travels in backups and is merged by date.
+- **Quiz.** A topic filter (the eight quiz domains) and "Only missed or unanswered". One question at a time, with the four options in the old order. Keys `1` to `4` pick and `Enter` checks, then goes to the next. A thin bar shows your place, and the score per topic is at the side. Answers are saved by question index, as before.
+- **Subnetting.** Three ranges (Mixed /8 to /30, Warm-up /24 to /26, Small networks /27 to /30). A large address and prefix, then six fields. "Check" marks each with an icon and gives the right answer for wrong ones, then the worked reason by the block method (the old drill's words). Only the first check of each question counts.
+- **Progress.** The summary (labs, lessons, quiz, exams passed). Exam topics, as a table of the six domains (weight, labs done, lessons read, coverage), where each row expands to its objectives with their labs and lessons as links. The Path, with each stage's bar and stage-check result. Grades as five small numbers. Exam history. The last ten labs and lessons finished, with dates (lessons now record when they were read). No streaks, points or badges.
+- **Palette.** Practice: Start exam…, Today's exam, Resume exam (while one runs), Start quiz, Subnetting drill.
+- **Size.** The budget broke here (CSS 70.3 of 70 KB, app JavaScript 296 of 300 KB). As the plan's risk 12 allows, the build now leaves out the app's own full-line comments and CSS comments. The code itself is unchanged and readable; the comments stay in `src/`. The simulator and data are never touched (the engine hash still matches). The file is now 1,495 KB (490 KB gzipped).
+- **Bug fixed.** The exam clock ran in the pop-out window, which has no store, and threw an error every second there. Found by the security test.
+- **Tests.** `node tests/exam.cjs`, `node tests/quiz.cjs` and `node tests/campaign.cjs` pass untouched. New browser tests:
+  - `exam.spec`: each mode starts, with help absent from the page; the same seed gives the same faults; Today's is the same on two fresh profiles; fixing the faults passes and leaves the base lab untouched; a reload resumes; a second exam cannot start; labs, lessons and practice are locked with the toast; time running out grades and records, open or not; a stage check starts from the Labs list and shows as passed.
+  - `quiz.spec`: answers saved by index; keys; filters; Progress numbers equal the store for a seeded profile.
+  - `subnet.spec`: marks, the first check counting once, ranges.
+  - `visual.spec`: Practice, a quiz answered, an exam running and Progress.
+
+  404 browser tests pass.
+
+Where the build differs from the plan:
+
+- **A running exam has its own address**, `#/practice/exam/run`, so a reload comes back to it. `#/practice/exam` shows Resume and Give up while one runs.
+- **Help during an exam is removed from the page, not hidden** (the plan's acceptance asks for it to be absent from the DOM).
+
+## Redesign, phase 6: lessons, in the app and on the web
+
+- **Lessons list.** The same list-and-detail layout as Labs. It is grouped by exam topic (the six domains) or by type (lab lessons, topic lessons). Each row shows whether you have read it, the minutes, objective chips and your quick-check score ("3/4"). The detail pane shows the minutes, objectives with names, the opening of the first section, "Read" and "Open the lab". The top bar links to "These lessons are also on the web".
+- **Lesson reader.** A 680 px reading column at 16 px, with "On this page" at the right from 1280 px. The top bar shows the minutes, a read chip and "Practise in the lab". The content runs: title and objectives, the sections, "See it happen", key terms, exam notes and common mistakes, the quick check, then previous and next. `N` and `P` move between sections.
+- **See it happen.** The lab's own map, drawn by the same map component as the workspace, steps through the lesson's story with Previous and Next. Each step sends the packet along its path (a hollow dot for a reply) and marks where it ends, with the label in green or red. With reduced motion each step is a still picture.
+- **Quick check.** Four options per question in the same fixed shuffled order as before (the old app's stable shuffle, copied exactly). Picking one shows right or wrong in words and the explanation. Answers are saved by question index, as before.
+- **Read.** A lesson is marked read when you reach the end of its sections, or press "Mark as read". It counts in the sidebar, on Home and in the list.
+- **The lesson banner in labs.** The first time a build lab with a lesson opens, a one-line banner says "Read the lesson first (8 min)", with "Open lesson" and "Skip". It does not block the lab and does not come back.
+- **Palette.** "Open lesson: …" for all 56 lessons.
+- **The lesson web pages** (`lessons/`, made by `tools/build-site.cjs`) are redesigned to match. Each page has a slim header (the mark, "Lab4Net", "Lessons", "Open the app"), a 680 px reading column, and the lab's network drawn with the app's device icons. Then come the sections, the story steps as a numbered list, key terms, exam notes, mistakes, the quick check with answers behind "Show the answer", a "Practise it" button, previous and next, and the footer with the trademark notice. The index groups lessons by CCNA domain as list rows. The theme follows the visitor's system setting through `prefers-color-scheme`. There is no theme button, because the only script is the visit counter. The colours come from `src/styles/tokens.css` and the fonts are the app's own (`lessons/fonts/`). File names, titles, descriptions, canonical links, share tags and structured data are unchanged.
+- **Share image.** A new `og.png` (1200 by 630): dark background, the mark and wordmark, "Learn the CCNA by doing it.", and a real photograph of the lab workspace after a successful ping. It is made by `tools/build-og.cjs` from `tools/og.html` with Playwright, and the PNG is committed. The app's description and share text no longer mention the campaign; they now say "56 lessons, practice exams and a sandbox".
+- **Tests.** `node tests/lessons.cjs` and `node tests/sitepages.cjs` pass unchanged, so no edits to them were needed. The set of file names in `lessons/` is the same as on `main`. New browser tests:
+  - `lessons.spec`: all 56 lessons open in the reader; reaching the end marks one read; Mark as read; quick-check answers saved by index; story steps with and without reduced motion; grouping; `N` and `P`; the lab banner.
+  - `lessonpages.spec`: the same page set as on `main`; one `h1` per page; no script but the counter; no sideways scroll at 390 wide; the right colours in both colour schemes; links into the app open the right lab and lesson.
+  - `visual.spec` gains the lesson reader and a lesson web page in both schemes.
+
+  368 browser tests pass.
+
+Where the build differs from the plan:
+
+- **Lesson titles.** In the app the lesson's own name is its title ("How to tell a router about distant networks"), as the old app showed it. The web pages keep the lab title as the `h1` (with the name under it), as they always had, so their titles and search listings do not change.
+- **The CSS budget is nearly used** (68 of 70 KB). Phases 7 and 8 reuse existing classes; Phase 9 checks the budget.
+
+## Redesign, phase 5: Home, the Labs list, your old progress, backups and the landing page
+
+A returning user now lands in the new app with their history.
+
+- **Home.** One column: Continue (the lab you touched last, with "4 of 9 tasks" and Resume), or for a new user a "Start here" card with the first lab and three lines (read the tasks, type commands, press Grade). Then Next up (the next three labs on the Path that are not done), Progress (labs, lessons and quiz, with thin bars), Exam topics (the six CCNA domains with their exam weight and a coverage bar) and Practice (Today's exam, Quiz, Subnetting).
+- **Labs list.** Grouped by Path (the default: the eight stages in order, each with its count and a thin bar, ending in a "Stage check" row), by Type, or by Exam topic. Filters for text (`/`), status and type combine. The text matches titles, IDs, briefs, groups, objective numbers (such as `3.4`) and objective names. Rows show a status icon, an ID (`LAB-01`, `INC-07`, `CAP-01`), the title (incidents without their "Incident 07:" prefix), up to two objective chips, the grade and the ticked tasks. From 1280 px wide a detail pane shows the brief, objectives with their names, the task and device count, a small still map, the grade, the lesson link, "Open lab" and "Reset". Narrower, a row opens the lab directly. `J`/`K` or the arrows move and `Enter` opens. An empty result says "No labs match." with "Clear filters".
+- **Stage checks.** The Path shows each stage's check with its story in the detail pane (the outro once complete). An incident check opens that incident and counts as passed when it is done. A stage with `need` says how many labs unlock it. Exam-based checks start with the exam in Phase 7.
+- **Palette.** "Open lab: …" for all 77 labs, matching group, objective number and name. Data: "Export backup" and "Import backup".
+- **Your old progress.** On the first load of the new app (when `lab4net:v2` does not exist), `core/migrate.js` reads the old keys once:
+  - finished labs (`ccna-bench-v2` and `cleared`);
+  - grades;
+  - quiz answers, dropping the nine rewritten questions for old answer sets;
+  - the subnetting score;
+  - lessons read with their quick-check answers;
+  - saved work (kept only if it still replays on the lab);
+  - the last lab;
+  - revealed clues;
+  - the capstone guide choice;
+  - whether the old title screen was seen.
+
+  Old data is checked exactly like a backup. `Exam · …` titles are skipped. **The old keys are never deleted**, so a rollback still finds them. One toast says what was carried over ("Your progress was carried over: 23 labs and 12 lessons."), once.
+- **Plain matching.** Search and filters only match loosely on titles. Keywords and briefs need the word itself, so "ospf" no longer matches a lab whose brief happens to contain those letters in order.
+- **Settings › Data.** Export backup downloads `lab4net-backup.json` (version 2: the main key, saved work and the sandbox). Import backup reads version 2 files and the old app's version 1 files, says what it will add in a confirm dialog, and merges: finished labs and the better grade are kept, and saved work is replaced only for labs in the file. The checked result waits in `lab4net:v2:pending` until you press "Reload now". It never reloads by itself. As a second line of defence, `<` and `>` are stripped from every imported string that is not a console command. Files over 5 MB are refused. Reset everything asks first.
+- **Old links.** `?lab=<slug>` and `?lesson=<slug>` go to the new routes, skip the landing section and are removed from the address bar. An unknown slug lands on the list with "That link is out of date."
+- **Landing section.** Static HTML at the top of the page, so search engines and link previews can read it. It has the mark, "Learn the CCNA by doing it.", one paragraph, Start with links to the free lessons and the source, a drawn still of the workspace, five facts, three feature blocks with live counts, and the footer (storage, the counter sentence on the public site only, the Cisco notice, the licence). It shows only on a first visit with no deep link, or with `?welcome`, decided before the first paint. Start (or `Esc`) remembers it and goes Home. Settings › About has "Show the landing page again".
+- **Counter and donate link.** `site.js` sends one cookieless page view on the public site only, never with Do Not Track, and a `start` event when Start is pressed. The donate link is a normal link opened in a new tab.
+- **Focus rings.** Headings that take focus when a screen opens no longer show a ring.
+- **New tests.** Node: `tests/migrate.cjs` (old storage becomes the expected new state; bad values dropped; `Exam · …` skipped; old keys untouched; version 1 and 2 backups; merging) and `tests/validate.cjs` (every stored shape, good and bad, no prototype pollution). Both are in GitHub Actions. Browser:
+  - `deeplinks.spec`;
+  - `firstrun.spec` (a browser seeded with the old keys shows the same finished labs, grades, read lessons and saved work, the toast once, and keeps the old keys);
+  - `offline.spec` (no requests from a file, none to other hosts from a server, exactly one count on the public host name and none with Do Not Track);
+  - `labs.spec` (the list keyboard, combined filters, the empty state, grouping, the palette);
+  - `security.spec`'s backup and storage part (doctored version 1 and 2 backups and doctored storage, then every screen);
+  - visual states for the landing page, Home with progress, and the Labs list.
+
+  All 344 browser tests and 20 Node tests pass.
+
+Where the build differs from the plan:
+
+- **The old `lastLab`** was a list position, not a title. It is mapped to the lab at that position.
+- **A fresh browser** (no old keys) records `migrated: {from: 'none'}`. "Reset everything" records `from: 'reset'`, so the old keys are not imported again after a reset.
+- **Stage checks that are exams** show in the list now but start in Phase 7, with the exam.
+- **The paste test** uses a paste event in Chromium and WebKit and a real clipboard only in Firefox. The real clipboard is shared by test runs going in parallel.
+- **Size.** The file is 1,462 KB (485 KB gzipped) against the 1,550 KB budget, with three phases to go. The remaining screens are written compactly. Phase 9 checks the budget.
+
+## Redesign, phase 4: step-by-step, clues, grades and the pop-out
+
+The workspace is complete.
+
+- **Step-by-step.** A switch in the Tasks panel (and "Toggle step-by-step" in the palette). With it on, each task shows its commands grouped by device ("On R1"), each with the prompt it runs at. Clicking a step selects that device's console and puts the command in the input; it does not run it. A step starting with `#` is a note, shown as text. Capstones open with step-by-step off, and the choice is remembered per capstone. For other labs the switch also sets "Start labs with step-by-step on" in Settings, as the old guide switch was remembered.
+- **Walkthrough.** "Show walkthrough" in the lab menu (and the palette) adds every device's commands with the reason for each at the end of the Tasks panel. It lowers the grade, as before.
+- **Clues** (incidents). "Reveal clue 1 of 3", with a note that each costs 5 points. Clues are labelled Direction, Evidence and Repair, as before. Resetting the lab hides them again.
+- **Commands tab.** Beside Tasks: a search box, an "All modes" switch, and every command the selected device supports in its current mode, each with its explanation. A click puts it in the console input. It follows the device and mode as you work.
+- **Grades.** The grade is worked out exactly as in section 2 and the old rank rules, and stored per lab (the best is kept). As before, a grade is only awarded for a run that started from a fresh lab. Turning on step-by-step, opening the walkthrough and revealing clues are counted the moment they happen.
+- **First run.** The first time a lab opens, the Tasks panel shows one callout: "New here? Turn on step-by-step to see the commands for each task." It has a "Got it" button and never comes back.
+- **Pop out.** "Pop out tasks" in the lab menu (and the palette) opens the Tasks panel in its own 420 by 760 window (`index.html?panel=tasks`), for two monitors. The workspace then shows a strip saying "Open in the other window", with a Dock button. The pop-out shows the brief, address plan, step-by-step, tasks, steps, clues and results, and follows the main window when you change labs. A step clicked in the pop-out goes into the main console's input. Ticks, the step-by-step switch and clues work from either window. If the pop-out closes or goes quiet for 9 seconds, the panel docks itself. After the main window reloads, an open pop-out reconnects within 3 seconds. The pop-out is not offered from a local file or on phones.
+- **Pop-out security.** The main window owns all state and storage. The pop-out stores nothing (a test checks its storage stays empty) and draws only what it is sent. The two talk over a `BroadcastChannel`. Every message is checked on its first line for the same origin, then for a known type and the right shape. Messages carry data only: the pop-out renders lab text from its own copy of the lab data, looked up by slug, so it never receives HTML. A step from the pop-out is accepted only if it is one of that lab's steps. Nothing listens for `postMessage` at all.
+- **Map labels.** Link marks and port names are now pushed along each link until they clear the device's icon and label, so a switch with many links fanning out no longer has port names over its hostname.
+- **New tests.** `guide.spec` finishes five labs (two build labs, OSPF, an incident and a capstone) by clicking every step row and pressing Enter. It also checks the capstone memory and the grade table: a clean run with a check command gives S; none gives A; extra show and ping commands never lower it; the guide, the walkthrough, clues and typos each lower it by the right amount; the best grade is kept. `popout.spec` covers opening, stepping to the console, ticking, changing lab, reconnecting after a reload, closing (it docks) and the Dock button, and that a local file does not offer it. `security.spec` gains its message part: a hostile site that opens the app or the pop-out and posts messages cannot inject markup, type into the console or pose as the pop-out; channel messages with wrong types, huge strings, extra fields or commands that are not steps are ignored. 308 browser tests pass.
+
+Where the build differs from the plan:
+
+- **`Alt+S`** for step-by-step was dropped in Phase 1 (Firefox's History menu). The switch and the palette command remain.
+- **A hostile site can open the real pop-out page.** Being our own same-origin page, it can connect to an open lab, as a pop-out opened after a reload must. It still shows only what the main window sends, and the hostile site can neither script it nor send it anything.
+
+## Redesign, phase 3: the network map and the panes
+
+The map is real again, and the workspace panes resize, collapse and remember their sizes.
+
+- **The map.** One SVG, built once per lab. Every device and link is created once and kept by key, and a command only changes attributes and classes. That removes the old hover flicker and lost focus (a test checks the elements are the same after 20 commands).
+- **Devices.** The new device icons at 36 px, with the hostname under each. The selected device has an accent ring. Click, `Enter` or `Space` opens its console, and the arrow keys move between devices by position.
+- **Links.** Up links are a thin line with a green dot at each end. Down links are dashed red with hollow rings, so shape changes as well as colour. Port names sit beside each end, unless the lab hides them. An err-disabled port shows a warning glyph. A port spanning tree blocks shows a short bar ("Blocked by spanning tree", with the VLANs). Parallel links are drawn 12 px apart.
+- **Tooltips.** Hovering anywhere on a device (icon, label or the space between) shows its hostname and kind, each interface with its state and address, and one more line (routes, VLANs or default gateway). It appears after 120 ms and hides 80 ms after you leave. It never sits under the pointer or over its device. Keyboard focus shows it too, and `Esc` hides it. Every value is text.
+- **Packets.** Ping, traceroute, Telnet and SSH animate along the real path: a solid dot for the request, a hollow dot for the reply, and each link highlighted as it is crossed. ARP broadcasts and unknown-address floods fan out along every edge, stopping at a bar on a blocked port. Highlights fade 1.5 s after the run. A new command cancels the animation at once. With reduced motion no dot moves: the path lights up in one step.
+- **Markers.** Success puts a green check on the source device. Failure puts a red cross on the device where the packet stopped, with the reason in words beside it ("Blocked by ACL", "No route from here", "Reply has no route back", "Port closed"). Markers stay until the next command.
+- **Trace strip.** One line under the map: the result, the path ("stopped at R1" for a failure), Details and Replay. Details shows the request and reply paths, a plain explanation and, for switched networks, what each switch did, with the `show mac address-table` tip after a flood. It is read out to screen readers.
+- **Screen readers.** The map is labelled ("Network map: 5 devices, 4 links"), each device is a button with its state, and a hidden list describes every link ("R1 Gi0/1 to R2 Gi0/0, down.") and updates when one changes.
+- **Panes.** Two dividers you can drag, or focus and move with the arrow keys (16 px a step; `Home` and `End` for the limits; double-click or `Enter` resets). Tasks stays between 280 and 520 px and never squeezes the console under 80 columns. The map stays at least 160 px tall and the console at least 200. Sizes are saved as fractions, per layout.
+- **Collapse and maximise.** Tasks collapses to a 36 px strip with its count ("0/5"). The map collapses to its header and the trace strip stays. "Maximise" on the console collapses the map, and again restores it. All of this is saved.
+- **Side by side.** From 1600 px wide, the lab menu offers "Layout: side by side" (Tasks, Map and Console as three columns). Stacked stays the default.
+- **Phones.** One pane at a time, switched by a bottom bar (Tasks, Map, Console). The console has helper keys under the input (`Tab`, `?`, `↑`, `↓`, `Ctrl+C`, `Ctrl+Z`) and output wraps. A ping shows a one-line result above the input with "View on map". Buttons and tabs are 40 px tall. Nothing scrolls sideways.
+- **Palette.** New lab commands: Replay last packet, Collapse or expand the Tasks panel or the map, Maximise the console, Reset panel sizes, and the layout switch.
+- **Tests.** `map.spec` (Chromium, Firefox and WebKit) covers clicking and `Enter` on devices; the hover test (icon to label and back in 2 px steps: the tooltip shows once, never hides and is never under the pointer); the same DOM nodes after 20 commands; success and failure markers; a link shut at both ends; reduced motion; dividers with the pointer and the keyboard, their limits and surviving a reload; collapse and maximise; 80 console columns at 1366 by 768; and the side-by-side layout. `phone.spec` covers no sideways scroll on every route, the drawer, the pane bar, the helper keys, the ping result bar and 40 px targets. `visual.spec` adds the workspace default, after a failed ping, and with Tasks collapsed. 285 browser tests pass.
+
+Where the build differs from the plan:
+
+- **Map scaling.** The plan fits the map with `viewBox` and `preserveAspectRatio`. The map instead fits the lab's positions into the pane's own pixels, so icons stay exactly 36 px and labels 12 px at every pane size, as the plan asks. A resize only moves elements; nothing is rebuilt.
+- **Port names** use the simulator's own short form (`Gi0/1`, `Fa0/2`), the same as `show` output, rather than `G0/1`.
+- **`Alt+1` to `Alt+3`** were dropped in Phase 1. A collapsed Tasks panel opens from its strip, `F6`, or the palette.
+- **Map tooltip and pane data** come from two new bridge functions, `sim.links` and `sim.describe`. Screens still never call the simulator directly.
+
+## Redesign, phase 2: the console and the lab workspace
+
+Labs open again: `#/labs/<lab>` shows the new workspace with the Tasks panel on the left and the map and console on the right. Every lab can be finished and graded from the console.
+
+- **The bridge to the simulator.** All engine calls go through `src/app/core/sim.js`. Screens never call the simulator directly. The engine itself is unchanged (its hash still matches).
+- **The console.** One tab per device with its icon and a link-state dot. A mode chip ("Privileged EXEC", "Interface configuration", "Host console", "Answer"), Clear, and the prompt and input on one line, as on a real terminal. Output keeps the last 2,000 lines per device, and every line is plain text. Colours: errors and the `^` marker red, warnings amber, success green, log messages dim. Under the console, the "Why" line explains the last command. Otherwise it shows the key hints.
+- **Console keys.** `?` lists the choices at once, without Enter. `Tab` completes a word when exactly one fits and never leaves the input. `Esc` leaves the input, and screen readers are told this once. `↑`/`↓` and `Ctrl+P` walk the history per device. `Ctrl+A`/`Ctrl+E` jump to the start or end, `Ctrl+U` clears the line, `Ctrl+L` clears the screen and `Ctrl+Z` is IOS `end`. `Ctrl+C` or `Ctrl+Shift+6` stops a running ping or traceroute.
+- **Live output.** Ping and traceroute play at the speed set in Settings: Real time, Fast (the old 40%, the default) or Instant. Reduce motion makes it instant. Running another command finishes the current output at once, so nothing is lost or reordered.
+- **Pasting** several lines runs them one at a time, in order, up to 200 lines. The old app asked first in a dialog; the plan says run them.
+- **Passwords** are typed into a password field, never echoed, and kept out of the history, both live and on replay.
+- **Saved work** lives in its own key, `lab4net:v2:work`, and is replayed onto a fresh network at the times it was typed. A saved lab that does not fit opens fresh with a toast. Leaving a lab saves it first.
+- **Grade.** The Grade button (and `Ctrl/Cmd+Enter` from anywhere in the lab) runs every check. Results show in the Tasks panel with a pass or fail icon and word for each check, plus one toast. A finished incident shows its root cause, and there is a "Next lab" button. Typing after grading greys the results with "Commands run since grading. Grade again."
+- **Grades.** `src/app/core/grade.js` holds the old rank rules exactly. As in the old app, a grade is awarded only for a run that started from a fresh lab. The new Node test `tests/grade.cjs` checks a table of runs.
+- **Tasks panel (first part).** The brief with objective chips, the incident note, the address plan, the task list with your own tick boxes (grading ignores them) and "Why" for each task, then the results.
+- **Map (placeholder).** The devices as buttons, so a console can be picked. Phase 3 draws the real map.
+- **Lab shortcuts.** `Alt+.` and `Alt+,` switch device consoles, and `F6`/`Shift+F6` move between the panes. The palette gains "In a lab" commands: Grade, Reset, Focus console/map/tasks, Clear console, Open this lab's lesson, and Switch to each device.
+- **The test hook** `window.L4N.test` (`openLab`, `exec`, `grade`, `state`) goes through the same code as pressing Enter and clicking Grade.
+- **New browser tests.** `labs-all.spec` opens all 77 labs, runs each solution through the console path, presses the real Grade button, checks every check passes and the lab is marked done, then reloads and checks again. `console.spec` covers the console list from the plan in Chromium, Firefox and WebKit. `security.spec` covers its console part: markup typed into router and PC consoles (banner, description, `ip host`, username, raw commands, ping, tracert, telnet and ssh targets) stays text. 233 browser tests pass.
+- **Build.** `tools/build.cjs` retries for a moment if Windows is holding `index.html` open.
+
+Where the build differs from the plan:
+
+- **`Ctrl+N`** is bound for "next command", but Chrome and Edge keep `Ctrl+N` for a new window and never pass it to a page. `↓` always works.
+- **Pasting** in tests uses a real keyboard copy and paste. Firefox empties the clipboard data of a pasted event made by a script.
+- **A hostname with spaces** (such as the security probe) is refused by the simulator, as IOS refuses it. The probe still reaches the console through banners, descriptions and raw commands.
+
+## Redesign, phase 1: the new look and the app shell
+
+The branch is now the new app. The old interface is gone; the simulator, labs, lessons and data are unchanged (the engine hash still matches).
+
+- **Design system.** Every colour, size, radius, shadow and duration is a token in `src/styles/tokens.css`, from the plan. Dark is the default; light is a full theme of its own. One blue accent, green for works, red for failed, amber for warning.
+- **Fonts.** Inter (the variable latin file, 48 KB, under the plan's 90 KB limit, so one file covers every weight) and JetBrains Mono Regular, taken once from the Fontsource npm packages (5.3.0) and committed to `src/fonts/`. Both are SIL OFL 1.1; `THIRD-PARTY-NOTICES.md` now lists them instead of Barlow Condensed, VT323 and IBM Plex Sans. Tabular numbers survive the subset (checked in a browser: with them on, "1111" and "8888" are the same width) and are used for counts and tables.
+- **Icons.** Two sprites drawn for Lab4Net: 57 interface icons (16 px, 1.5 px stroke) and 7 map devices (router, switch, Layer 3 switch, PC, server, IP phone, access point). New logo mark and favicon: a blue tile with a cable between two devices and a packet on it.
+- **Components.** Buttons, inputs, switches, checkboxes, segmented controls, chips, key chips, tabs, lists, tables, dialogs, toasts, tooltips, menus, empty states, progress bars, divider handles, callouts and command rows. All of them are on `#/dev/components` in both themes side by side.
+- **App shell.** The sidebar (collapses to an icon rail with `[`; a drawer on phones), the top bar with breadcrumbs, the hash router, the command palette (`Ctrl/Cmd+K`: navigation, theme, console colours, sidebar, help), the shortcut list (`?`), `G` then a letter to move between screens, toasts and a screen-name announcement for screen readers.
+- **Settings.** Appearance (theme, reduce motion, sidebar in labs), Console (colours, output speed, step-by-step default) and About. Settings are saved in the new `lab4net:v2` key, checked field by field when read. The theme is applied before the first paint, so there is no flash.
+- **Placeholders.** Every other route shows a proper empty state until its phase rebuilds it.
+- **Lesson pages.** `tools/build-site.cjs` now takes its fonts from `src/fonts/` and its colours from `src/styles/tokens.css` (the smallest change, so the pages keep working until Phase 6 redesigns them). The old font files in `lessons/fonts/` are replaced.
+- **Browser tests.** Playwright 1.64.1 and axe-core are pinned as test-only dev dependencies. New `tests/browser/`: `shell.spec` (routes from a server and from a file, titles, sidebar, palette, every shortcut, keyboard-only use with visible focus, theme, reduced motion; Chromium, Firefox and WebKit), `a11y.spec` (axe on every route and the palette in both themes: zero violations) and `visual.spec` (gallery, Home, Settings and the palette at 1366×768, 1920×1080 and 390×844 in both themes). GitHub Actions runs them on the `redesign` branch and on pull requests. Screenshot baselines are compared on Linux in CI only; the new manual workflow "Update screenshot baselines" makes and commits them.
+- **Old browser tests removed.** `ui.cjs`, `guidewin.cjs`, `pageflows.cjs`, `landing.cjs` and `security.cjs` drove the old interface. Their scenarios come back as Playwright specs in Phases 2 to 5, as the plan says.
+- **`tests/build.cjs`** also checks that no old font, colour or class name (`VT323`, `Barlow`, `Plex`, `--yel`, `--mag`, `skewX`) is left in the app.
+
+Where the build differs from the plan:
+
+- **Alt shortcuts (risk 14).** `Alt+1`, `Alt+2` and `Alt+3` switch tabs in Chrome and Firefox on Linux, and `Alt+S` opens Firefox's History menu on Windows and Linux. Those are dropped; their actions stay in the palette, and `F6` moves between lab panes. `Alt+.` and `Alt+,` have no known clash and stay. Shortcuts match the physical key, so they work on a Mac, where Option changes the typed character. A test checks that all three engines report them correctly. A browser's own menu shortcuts cannot be seen from a test, so the clash list comes from the browsers' documented shortcuts.
+- **The lesson pages still use their old class and variable names** (`--yel`, `--mag` and so on) inside `tools/build-site.cjs`, now filled with the new colours. Phase 6 rewrites them. The app itself has none of the old names.
+- **Settings › Console and Reduce motion** arrive now rather than later, because they are only settings.
+- **Sidebar in labs** is stored as `auto` (collapse below 1600 px, the default) or `open`.
+
+
+## Redesign, phase 0: the source is split into files, with a build
+
+Nothing you can see has changed. The built `index.html` is byte-for-byte the same as `main`'s (tag `v1-arcade`, commit `3f158d6`).
+
+- **Source files.** The app is now edited in `src/` and built into the one `index.html` by `node tools/build.cjs`. The simulator is in `src/engine/` (15 files, cut at its own section comments, order kept). The quiz, the stages, the lessons and the extra objective names are in `src/data/`. The old interface, stylesheet, fonts and page markup are in `src/legacy/` until the new design replaces them.
+- **Fonts are files now.** The five fonts are `.woff2` files in `src/legacy/fonts/`. The build turns them back into the embedded font lines, so no source file holds base64 font data any more.
+- **The build.** `src/manifest.json` lists the files in order. `node tools/build.cjs --check` fails if the committed `index.html` is not what `src/` builds. The build prints a size table and fails if the size budget is broken. It uses Node only, no packages, and gives the same bytes every time.
+- **New tests.** `tests/build.cjs` checks the build is up to date, every marker the other tests rely on is there once, the simulator block is unchanged (its SHA-256 is in `tests/fixtures/engine.sha256`), and the size budget holds. `tests/slugs.cjs` checks every lab and lesson slug is unique and matches the frozen list in `tests/fixtures/slugs.json`. Both run in GitHub Actions, with the build check. `npm test` (or `node tests/run-node.cjs`) runs every Node test.
+- **Line endings.** A new `.gitattributes` keeps text files LF on every system, so the build gives the same bytes on Windows too.
+- **Old name fixed.** `install-lxc.sh` and `docker-compose.yml` said "CCNA Lab Bench"; they now say "Lab4Net". The Docker service and container are now called `lab4net`, so an existing `docker compose` setup starts a new container under the new name (stop the old `ccna-lab-bench` container by hand).
+- **Baseline.** Before anything changed, all 15 Node tests in the workflow passed on `main`.
+
+Where the repo and the redesign plan differ (the repo wins):
+
+- The plan says the interface JavaScript is 215 KB. Measured by the build, the old interface is 172 KB and the engine plus data is 1,040 KB (the plan says 996 KB). The plan's split counted the quiz and stages with the interface. The total (1,435 KB) and gzipped size (518 KB) match.
+- The plan puts the template at `src/index.template.html`. In Phase 0 the old page markup lives with the rest of the old interface, at `src/legacy/index.template.html`, so deleting `src/legacy/` in Phase 1 removes all of it. Phase 1 adds the new `src/index.template.html`.
+- The old interface has data in the middle of it (the quiz, the lessons and the stages sit between interface blocks). To keep the file identical, Phase 0's manifest interleaves `src/legacy/ui-*.js` with the data files. From Phase 1 the order is the plan's: engine, data, app.
+
 ## Security fixes
 
 - **Guide window.** Another website could open Lab4Net's guide page (`?guide`) and send it HTML through `postMessage`, which ran as code on the Lab4Net site. Both the guide page and the app now only accept messages from Lab4Net itself (same origin), so other sites can no longer drive either one.

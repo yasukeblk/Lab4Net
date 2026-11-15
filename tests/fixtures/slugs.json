@@ -1,0 +1,748 @@
+{
+ "labs": [
+  {
+   "slug": "basic-device-setup",
+   "title": "Basic device setup",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "vlans-and-access-ports",
+   "title": "VLANs and access ports",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "802-1q-trunking",
+   "title": "802.1Q trunking",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "router-on-a-stick",
+   "title": "Router-on-a-stick",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "static-routing",
+   "title": "Static routing",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "single-area-ospf",
+   "title": "Single-area OSPF",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "spanning-tree-root-bridge-and-edge-ports",
+   "title": "Spanning tree: root bridge and edge ports",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "etherchannel-with-lacp",
+   "title": "EtherChannel with LACP",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "dhcp-server-and-relay",
+   "title": "DHCP server and relay",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "nat-overload-pat",
+   "title": "NAT overload (PAT)",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "standard-acl",
+   "title": "Standard ACL",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "extended-named-acl",
+   "title": "Extended named ACL",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "port-security",
+   "title": "Port security",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "ssh-remote-access",
+   "title": "SSH remote access",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "static-nat-publish-a-server",
+   "title": "Static NAT: publish a server",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "incident-01-one-sales-pc-is-isolated",
+   "title": "Incident 01: one Sales PC is isolated",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-02-engineering-cannot-cross-floors",
+   "title": "Incident 02: Engineering cannot cross floors",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-03-the-request-arrives-the-reply-disappears",
+   "title": "Incident 03: the request arrives, the reply disappears",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-04-one-vlan-lost-its-gateway",
+   "title": "Incident 04: one VLAN lost its gateway",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-05-the-remote-client-has-no-lease",
+   "title": "Incident 05: the remote client has no lease",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-06-ping-works-ssh-does-not",
+   "title": "Incident 06: ping works, SSH does not",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "native-vlan-and-allowed-vlans-on-trunks",
+   "title": "Native VLAN and allowed VLANs on trunks",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "switch-management-access",
+   "title": "Switch management access",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "locking-down-device-access",
+   "title": "Locking down device access",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "ospf-router-ids-and-passive-interfaces",
+   "title": "OSPF router IDs and passive interfaces",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "per-vlan-root-bridges",
+   "title": "Per-VLAN root bridges",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "map-an-unknown-network-with-cdp",
+   "title": "Map an unknown network with CDP",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "small-office-build",
+   "title": "Small office build",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "floating-static-route",
+   "title": "Floating static route",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "how-a-router-chooses-a-route",
+   "title": "How a router chooses a route",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "ospf-on-a-shared-segment",
+   "title": "OSPF on a shared segment",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "lldp",
+   "title": "LLDP",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "voice-vlan",
+   "title": "Voice VLAN",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "dynamic-nat-with-a-pool",
+   "title": "Dynamic NAT with a pool",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "named-acls-and-sequence-numbers",
+   "title": "Named ACLs and sequence numbers",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "ntp-and-syslog",
+   "title": "NTP and syslog",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "inter-vlan-routing-on-a-layer-3-switch",
+   "title": "Inter-VLAN routing on a Layer 3 switch",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "dhcp-snooping",
+   "title": "DHCP snooping",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "dynamic-arp-inspection",
+   "title": "Dynamic ARP Inspection",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "ipv6-addressing",
+   "title": "IPv6 addressing",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "ipv6-static-and-default-routes",
+   "title": "IPv6 static and default routes",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "first-hop-redundancy-with-hsrp",
+   "title": "First-hop redundancy with HSRP",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "incident-07-one-branch-fell-off-the-map",
+   "title": "Incident 07: one branch fell off the map",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-08-the-far-switch-went-dark",
+   "title": "Incident 08: the far switch went dark",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-09-the-bundle-that-took-both-links",
+   "title": "Incident 09: the bundle that took both links",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-10-the-router-can-the-hosts-cannot",
+   "title": "Incident 10: the router can, the hosts cannot",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-11-the-guests-lost-more-than-the-server",
+   "title": "Incident 11: the guests lost more than the server",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-12-the-web-went-quiet",
+   "title": "Incident 12: the web went quiet",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-13-the-new-laptop-is-locked-out",
+   "title": "Incident 13: the new laptop is locked out",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-14-published-but-to-the-wrong-address",
+   "title": "Incident 14: published, but to the wrong address",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-15-the-switches-cannot-manage-each-other",
+   "title": "Incident 15: the switches cannot manage each other",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-16-the-switch-answers-only-locally",
+   "title": "Incident 16: the switch answers only locally",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-17-the-admins-are-locked-out",
+   "title": "Incident 17: the admins are locked out",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-18-passive-by-default-silent-by-mistake",
+   "title": "Incident 18: passive by default, silent by mistake",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-19-a-whole-vlan-fell-off-one-switch",
+   "title": "Incident 19: a whole VLAN fell off one switch",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-20-cdp-went-dark-at-the-edge",
+   "title": "Incident 20: CDP went dark at the edge",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-21-addresses-but-no-internet",
+   "title": "Incident 21: addresses, but no internet",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-22-the-branch-crawls-home-on-the-backup",
+   "title": "Incident 22: the branch crawls home on the backup",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-23-the-inspection-path-took-the-wrong-server",
+   "title": "Incident 23: the inspection path took the wrong server",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-24-the-branch-lost-its-only-neighbor",
+   "title": "Incident 24: the branch lost its only neighbor",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-25-the-contractor-s-server-vanished-from-discovery",
+   "title": "Incident 25: the contractor's server vanished from discovery",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-26-the-phone-cannot-get-an-address",
+   "title": "Incident 26: the phone cannot get an address",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-27-translated-but-nobody-answers",
+   "title": "Incident 27: translated, but nobody answers",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-28-the-exception-that-came-too-late",
+   "title": "Incident 28: the exception that came too late",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-29-one-clock-has-drifted-off",
+   "title": "Incident 29: one clock has drifted off",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-30-the-core-stopped-routing",
+   "title": "Incident 30: the core stopped routing",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-31-snooping-shut-out-the-real-server",
+   "title": "Incident 31: snooping shut out the real server",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-32-the-printer-fell-off-again",
+   "title": "Incident 32: the printer fell off again",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-33-ipv6-stopped-at-the-router",
+   "title": "Incident 33: IPv6 stopped at the router",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-34-the-branch-answers-over-the-backup",
+   "title": "Incident 34: the branch answers over the backup",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-35-the-gateway-nobody-owns",
+   "title": "Incident 35: the gateway nobody owns",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "incident-36-the-network-that-ate-itself",
+   "title": "Incident 36: the network that ate itself",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "multi-area-ospf",
+   "title": "Multi-area OSPF",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "incident-37-the-area-that-lost-its-backbone",
+   "title": "Incident 37: the area that lost its backbone",
+   "kind": "incident",
+   "capstone": false
+  },
+  {
+   "slug": "wiring-a-wireless-lan",
+   "title": "Wiring a wireless LAN",
+   "kind": "build",
+   "capstone": false
+  },
+  {
+   "slug": "capstone-branch-office-from-scratch",
+   "title": "Capstone: branch office from scratch",
+   "kind": "build",
+   "capstone": true
+  },
+  {
+   "slug": "capstone-campus-core",
+   "title": "Capstone: campus core",
+   "kind": "build",
+   "capstone": true
+  }
+ ],
+ "lessons": [
+  {
+   "slug": "dhcp-server-and-relay",
+   "title": "DHCP server and relay",
+   "topic": false
+  },
+  {
+   "slug": "basic-device-setup",
+   "title": "Basic device setup",
+   "topic": false
+  },
+  {
+   "slug": "vlans-and-access-ports",
+   "title": "VLANs and access ports",
+   "topic": false
+  },
+  {
+   "slug": "802-1q-trunking",
+   "title": "802.1Q trunking",
+   "topic": false
+  },
+  {
+   "slug": "router-on-a-stick",
+   "title": "Router-on-a-stick",
+   "topic": false
+  },
+  {
+   "slug": "static-routing",
+   "title": "Static routing",
+   "topic": false
+  },
+  {
+   "slug": "single-area-ospf",
+   "title": "Single-area OSPF",
+   "topic": false
+  },
+  {
+   "slug": "spanning-tree-root-bridge-and-edge-ports",
+   "title": "Spanning tree: root bridge and edge ports",
+   "topic": false
+  },
+  {
+   "slug": "etherchannel-with-lacp",
+   "title": "EtherChannel with LACP",
+   "topic": false
+  },
+  {
+   "slug": "nat-overload-pat",
+   "title": "NAT overload (PAT)",
+   "topic": false
+  },
+  {
+   "slug": "standard-acl",
+   "title": "Standard ACL",
+   "topic": false
+  },
+  {
+   "slug": "extended-named-acl",
+   "title": "Extended named ACL",
+   "topic": false
+  },
+  {
+   "slug": "port-security",
+   "title": "Port security",
+   "topic": false
+  },
+  {
+   "slug": "ssh-remote-access",
+   "title": "SSH remote access",
+   "topic": false
+  },
+  {
+   "slug": "static-nat-publish-a-server",
+   "title": "Static NAT: publish a server",
+   "topic": false
+  },
+  {
+   "slug": "native-vlan-and-allowed-vlans-on-trunks",
+   "title": "Native VLAN and allowed VLANs on trunks",
+   "topic": false
+  },
+  {
+   "slug": "switch-management-access",
+   "title": "Switch management access",
+   "topic": false
+  },
+  {
+   "slug": "locking-down-device-access",
+   "title": "Locking down device access",
+   "topic": false
+  },
+  {
+   "slug": "ospf-router-ids-and-passive-interfaces",
+   "title": "OSPF router IDs and passive interfaces",
+   "topic": false
+  },
+  {
+   "slug": "per-vlan-root-bridges",
+   "title": "Per-VLAN root bridges",
+   "topic": false
+  },
+  {
+   "slug": "map-an-unknown-network-with-cdp",
+   "title": "Map an unknown network with CDP",
+   "topic": false
+  },
+  {
+   "slug": "small-office-build",
+   "title": "Small office build",
+   "topic": false
+  },
+  {
+   "slug": "floating-static-route",
+   "title": "Floating static route",
+   "topic": false
+  },
+  {
+   "slug": "how-a-router-chooses-a-route",
+   "title": "How a router chooses a route",
+   "topic": false
+  },
+  {
+   "slug": "ospf-on-a-shared-segment",
+   "title": "OSPF on a shared segment",
+   "topic": false
+  },
+  {
+   "slug": "lldp",
+   "title": "LLDP",
+   "topic": false
+  },
+  {
+   "slug": "voice-vlan",
+   "title": "Voice VLAN",
+   "topic": false
+  },
+  {
+   "slug": "dynamic-nat-with-a-pool",
+   "title": "Dynamic NAT with a pool",
+   "topic": false
+  },
+  {
+   "slug": "named-acls-and-sequence-numbers",
+   "title": "Named ACLs and sequence numbers",
+   "topic": false
+  },
+  {
+   "slug": "ntp-and-syslog",
+   "title": "NTP and syslog",
+   "topic": false
+  },
+  {
+   "slug": "inter-vlan-routing-on-a-layer-3-switch",
+   "title": "Inter-VLAN routing on a Layer 3 switch",
+   "topic": false
+  },
+  {
+   "slug": "dhcp-snooping",
+   "title": "DHCP snooping",
+   "topic": false
+  },
+  {
+   "slug": "dynamic-arp-inspection",
+   "title": "Dynamic ARP Inspection",
+   "topic": false
+  },
+  {
+   "slug": "ipv6-addressing",
+   "title": "IPv6 addressing",
+   "topic": false
+  },
+  {
+   "slug": "ipv6-static-and-default-routes",
+   "title": "IPv6 static and default routes",
+   "topic": false
+  },
+  {
+   "slug": "first-hop-redundancy-with-hsrp",
+   "title": "First-hop redundancy with HSRP",
+   "topic": false
+  },
+  {
+   "slug": "network-components-and-topologies",
+   "title": "Network components and topologies",
+   "topic": true
+  },
+  {
+   "slug": "cables-interfaces-and-their-faults",
+   "title": "Cables, interfaces and their faults",
+   "topic": true
+  },
+  {
+   "slug": "tcp-and-udp",
+   "title": "TCP and UDP",
+   "topic": true
+  },
+  {
+   "slug": "ipv4-addresses-subnets-and-private-ranges",
+   "title": "IPv4 addresses, subnets and private ranges",
+   "topic": true
+  },
+  {
+   "slug": "how-a-switch-forwards-frames",
+   "title": "How a switch forwards frames",
+   "topic": true
+  },
+  {
+   "slug": "virtualization-and-the-cloud",
+   "title": "Virtualization and the cloud",
+   "topic": true
+  },
+  {
+   "slug": "wireless-principles",
+   "title": "Wireless principles",
+   "topic": true
+  },
+  {
+   "slug": "wireless-architectures-and-ap-modes",
+   "title": "Wireless architectures and AP modes",
+   "topic": true
+  },
+  {
+   "slug": "securing-and-configuring-a-wlan",
+   "title": "Securing and configuring a WLAN",
+   "topic": true
+  },
+  {
+   "slug": "managing-devices-and-aaa",
+   "title": "Managing devices and AAA",
+   "topic": true
+  },
+  {
+   "slug": "security-concepts-and-programs",
+   "title": "Security concepts and programs",
+   "topic": true
+  },
+  {
+   "slug": "passwords-mfa-and-vpns",
+   "title": "Passwords, MFA and VPNs",
+   "topic": true
+  },
+  {
+   "slug": "snmp-tftp-and-ftp",
+   "title": "SNMP, TFTP and FTP",
+   "topic": true
+  },
+  {
+   "slug": "quality-of-service",
+   "title": "Quality of service",
+   "topic": true
+  },
+  {
+   "slug": "automation-and-controller-based-networking",
+   "title": "Automation and controller-based networking",
+   "topic": true
+  },
+  {
+   "slug": "rest-apis-and-json",
+   "title": "REST APIs and JSON",
+   "topic": true
+  },
+  {
+   "slug": "ansible-and-terraform",
+   "title": "Ansible and Terraform",
+   "topic": true
+  },
+  {
+   "slug": "ai-and-machine-learning-in-network-operations",
+   "title": "AI and machine learning in network operations",
+   "topic": true
+  },
+  {
+   "slug": "multi-area-ospf",
+   "title": "Multi-area OSPF",
+   "topic": false
+  },
+  {
+   "slug": "wiring-a-wireless-lan",
+   "title": "Wiring a wireless LAN",
+   "topic": false
+  }
+ ]
+}

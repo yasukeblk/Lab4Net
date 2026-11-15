@@ -1,10 +1,10 @@
 # Writing Lab4Net lessons
 
-This is the brief the current 54 lessons were written to. Use it for any new lesson, so they stay consistent.
+This is the brief the current 56 lessons were written to. Use it for any new lesson, so they stay consistent.
 
 Lab4Net is a browser CCNA 200-301 v1.1 lab simulator. Its owner is studying for the CCNA. The labs teach which commands to type; the lessons teach the networking behind them, so he understands what he is doing and can answer exam questions. He asked for this because he "is not learning stuff, like what is DHCP pooling".
 
-A lesson is read in a small window before the lab, takes about 6 to 10 minutes, and ends with a short quick check. The DHCP server and relay lesson (in `index.html`, between `//LESSONS-DATA-START` and `//LESSONS-DATA-END`) is the model for length, tone, structure and depth. Read it first, and match it.
+A lesson is read in the lesson reader (the Lessons screen, and the lesson card a build lab shows before you start), takes about 6 to 10 minutes, and ends with a short quick check. The DHCP server and relay lesson (in `src/data/lessons.js`, between `//LESSONS-DATA-START` and `//LESSONS-DATA-END`) is the model for length, tone, structure and depth. Read it first, and match it.
 
 ## Two kinds of lesson
 
@@ -33,7 +33,7 @@ Rules `tests/lessons.cjs` enforces. Check a draft before adding it, and fix ever
 node tests/lessons.cjs path/to/draft.js
 ```
 
-Then paste the draft's entries into `index.html` inside the lesson data block (before `//LESSONS-DATA-END`) and run `node tests/lessons.cjs` again with no arguments.
+Then paste the draft's entries into `src/data/lessons.js` inside the lesson data block (before `//LESSONS-DATA-END`), run `node tools/build.cjs` to rebuild `index.html`, and run `node tests/lessons.cjs` again with no arguments. Then run `node tools/build-site.cjs` so the lesson gets its web page.
 
 - `name` at most 48 characters, written as what you will learn ("How devices get their addresses", "Why VLANs split a switch"). `mins` 4 to 12.
 - 4 to 8 `sections`, each `[heading, html]`. The html starts with `<p>`, `<ol>` or `<ul>`. Allowed tags only: `p b i code ol ul li small kbd br`. No links, images, SVG or `${`.
@@ -47,7 +47,7 @@ Then paste the draft's entries into `index.html` inside the lesson data block (b
 
 - **Accurate for CCNA 200-301 v1.1 and real Cisco IOS behaviour.** If you are not sure of a detail, leave it out rather than guess. Defaults (timers, administrative distances, priorities, port numbers, ranges) must be right.
 - Teach the concept first: what problem it solves, how it works, then how it is configured and verified in this lab. Name the commands in `<code>`, but the lesson explains ideas; the lab's own tasks and step-by-step guide already list every command.
-- Use the lab's own devices and addresses as the worked example (from its definition in `index.html`: brief, build, addr, tasks, why, solution). Read the lab's tasks and why text so the lesson prepares for exactly what the lab does, without contradicting it.
+- Use the lab's own devices and addresses as the worked example (from its definition in `src/engine/`: brief, build, addr, tasks, why, solution). Read the lab's tasks and why text so the lesson prepares for exactly what the lab does, without contradicting it.
 - Plain language. Short sentences. Define a term the first time you use it. Write for a motivated beginner, not an expert. No marketing tone, no exclamation marks, no emoji, no "Let's dive in", no "In this lesson we will".
 - Sections typically: the problem it solves; how it works (2 to 3 sections); how it is configured here; how to check it worked. Use `<ol>` for sequences and `<ul>` sparingly.
 - `exam`: start with the objective numbers and what they ask (for example "2.2: configure and verify interswitch connectivity: trunk ports, 802.1Q, native VLAN."), then the facts the exam likes to test.

@@ -1,0 +1,5 @@
+# Keep text files LF on every system, so tools/build.cjs gives the same bytes everywhere.
+* text=auto eol=lf
+*.woff2 binary
+*.png binary
+*.gif binary

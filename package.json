@@ -1,0 +1,20 @@
+{
+  "name": "lab4net",
+  "version": "2.0.0",
+  "private": true,
+  "description": "A free CCNA lab simulator in one HTML file.",
+  "license": "MIT",
+  "lab4net": {
+    "date": "2026-11-14"
+  },
+  "scripts": {
+    "build": "node tools/build.cjs",
+    "check": "node tools/build.cjs --check",
+    "site": "node tools/build-site.cjs",
+    "test": "node tests/run-node.cjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.11.0",
+    "@playwright/test": "1.64.1"
+  }
+}
