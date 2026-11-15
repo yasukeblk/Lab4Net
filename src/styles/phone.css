@@ -1,6 +1,7 @@
 /* Phones (up to 767 px): the sidebar becomes a drawer, controls grow to 40 px */
 @media (max-width: 767px) {
   .pcards { grid-template-columns: 1fr; }
+  .task__help .btn { height: 40px; }
   :root { --row-h: 40px; --control-h: 40px; --topbar-h: 52px; }
   .topbar .btn .kbds { display: none; }
   .topbar__status .chip--grade { display: none; }

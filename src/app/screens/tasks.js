@@ -53,7 +53,8 @@
     }
 
     function stepRow() {
-      const sw = ui.toggle({ label: 'Step-by-step', checked: !!ws.guide, onChange: v => ws.setGuide(v) });
+      // every task's commands at once: the same cost as using all the per-task help (grade.js)
+      const sw = ui.toggle({ label: 'Step-by-step for every task (−15)', checked: !!ws.guide, onChange: v => ws.setGuide(v) });
       return el('div', { class: 'tasks__row' }, sw, el('span', { class: 'tasks__count num', text: ws.tasks.filter(Boolean).length + ' of ' + lab.tasks.length + ' done' }));
     }
 
@@ -84,11 +85,43 @@
       return box;
     }
 
+    // ---- help for one task: a hint, then its commands. Each costs points once (grade.js), and says so first. ----
+    // The hint says where to work without saying what to type: the device, the mode, how many commands.
+    const MOVE = /^\s*(end|exit|enable|disable|conf(igure)?(\s+t(erminal)?)?|logout)\s*$/i;
+    const MODES = [[/\(config\)#$/, 'global configuration'], [/\(config-if\)#$/, 'interface configuration'], [/\(config-subif\)#$/, 'subinterface configuration'],
+      [/\(config-router\)#$/, 'routing configuration'], [/\(config-line\)#$/, 'line configuration'], [/\(config-vlan\)#$/, 'VLAN configuration'],
+      [/\(dhcp-config\)#$/, 'DHCP pool configuration'], [/\(config-(std|ext)-nacl\)#$/, 'ACL configuration'], [/\(config-[a-z0-9-]+\)#$/, 'configuration mode'],
+      [/^[A-Z]:\\>$/, 'the command prompt'], [/#$/, 'privileged EXEC'], [/>$/, 'user EXEC']];
+    const modeOf = p => { const m = MODES.find(([re]) => re.test(String(p || '').trim())); return m ? m[1] : ''; };
+    function hintFor(i) {
+      const parts = (sim.steps(lab)[i] || []).map(g => {
+        const cmds = g.lines.filter(x => x.cmd && !/:\s*$/.test(x.prompt || '') && !MOVE.test(x.cmd));
+        if (!cmds.length) return null;
+        const dev = st.net.devs[g.dev], modes = [...new Set(cmds.map(x => modeOf(x.prompt)).filter(Boolean))];
+        return (dev ? dev.hostname : g.dev) + (modes.length ? ' (' + modes.join(', ') + ')' : '') + ', ' + cmds.length + (cmds.length > 1 ? ' commands' : ' command');
+      }).filter(Boolean);
+      return parts.length ? 'Work on ' + parts.join('; then ') + '.' : null;
+    }
+    function taskHelp(i) {
+      const steps = stepRows(i);
+      if (!steps) return [];
+      // order: the hint (once opened), the buttons still on offer, then the commands (once opened). A finished task
+      // offers no more help; what was already opened stays.
+      const out = [], R = ws.reveal || { hint: [], cmds: [] }, hint = hintFor(i), done = !!ws.tasks[i];
+      const row = el('div', { class: 'task__help' });
+      if (hint && R.hint.includes(i)) out.push(el('p', { class: 'task__hint' }, el('b', { text: 'Hint: ' }), hint));
+      else if (hint && !R.cmds.includes(i) && !done) row.append(ui.button({ label: 'Hint (−2)', kind: 'ghost', icon: 'bulb', aria: 'Hint for task ' + (i + 1) + ', costs 2 points', onClick: () => ws.reveal1('hint', i) }));
+      if (!R.cmds.includes(i) && !done) row.append(ui.button({ label: 'Show commands (−5)', kind: 'ghost', icon: 'eye', aria: 'Show the commands for task ' + (i + 1) + ', costs 5 points', onClick: () => ws.reveal1('cmds', i) }));
+      if (row.childNodes.length) out.push(row);
+      if (R.cmds.includes(i)) out.push(steps);
+      return out;
+    }
+
     // One line with a close button, so the tasks stay near the top.
     function firstRunTip() {
       if (!help() || ws.guide || (ws.hints && ws.hints.stepTip)) return null;
       const box = el('div', { class: 'banner banner--line', role: 'note' }, icon('info'),
-        el('span', { text: 'New here? Turn on step-by-step to see the commands for each task.' }),
+        el('span', { text: 'New here? Each task has a Hint and its commands, and Step-by-step shows every task\'s commands.' }),
         ui.button({ icon: 'x', aria: 'Got it, hide this tip', kind: 'ghost', onClick: () => { ws.dismissHint('stepTip'); box.remove(); } }));
       return box;
     }
@@ -117,10 +150,15 @@
       lab.tasks.forEach((t, i) => {
         const textId = id('task');
         const li = el('li', { class: ['task', ws.tasks[i] && 'is-ticked'] });
-        const cb = ui.checkbox({ checked: !!ws.tasks[i], aria: 'Task ' + (i + 1) + ' done', onChange: v => { ws.tasks[i] = v; li.classList.toggle('is-ticked', v); updateCount(); if (ws.onTick) ws.onTick(i, v); } });
+        // a task that ticks itself (ws.auto) can't be ticked by hand; the others can, as before
+        const self = !!(ws.auto && ws.auto[i]);
+        const cb = ui.checkbox({ checked: !!ws.tasks[i], aria: 'Task ' + (i + 1) + ' done' + (self ? ', ticks itself when the network does this' : ''), disabled: self,
+          tip: self ? 'Ticks itself when the network does this' : null,
+          onChange: v => { ws.tasks[i] = v; li.classList.toggle('is-ticked', v); updateCount(); if (ws.onTick) ws.onTick(i, v); } });
         const more = el('div', { class: 'task__more' });
         if (lab.why && lab.why[i] && help()) more.append(el('details', { class: 'why' }, el('summary', {}, icon('chevron-right'), 'Why'), trusted(lab.why[i], 'div', { class: 'why__text' })));
         if (ws.guide && help()) { const s = stepRows(i); if (s) more.append(s); }
+        else if (help()) more.append(...taskHelp(i));
         li.append(cb, trusted(t, 'div', { class: 'task__text', id: textId }), more);
         cb.querySelector('input').setAttribute('aria-describedby', textId);
         list.append(li);

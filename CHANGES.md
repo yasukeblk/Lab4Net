@@ -1,5 +1,35 @@
 # Lab4Net changes
 
+## The Tasks panel: tasks that tick themselves, and help one task at a time
+
+Before this change, task checkboxes were a to-do list you ticked on trust; the grader's checks were a separate list, and you only heard from them when you pressed Grade. Step-by-step was one switch that showed every task's commands at once and took 15 points off the whole lab, without saying so.
+
+- **Tasks tick themselves.** A new data file, `src/data/task-checks.js`, links each task in the 38 build labs and 2 capstones to the checks that show it is done. The workspace checks after every command:
+  - **A task ticks as soon as the network does what it asks.** "On R1, add static routes to 192.168.3.0/24 and 10.0.23.0/30" ticks when R1 has both routes, not after the first.
+  - **A task that asks you to look or test also needs that command run**, on the right device: "Check each table with show ip route" ticks after you run it on R1, R2 and R3. Shortened commands count, as IOS allows (`sh ip ro`). A command a task asks for "again" must be run again.
+  - **Incidents follow four rules:** "Reproduce" ticks after a test (ping, traceroute, Telnet or SSH); "Gather evidence" after a `show`; "Restore" when every check passes; "Retest" after a test once it's fixed.
+  - **Once done, a task stays ticked**, like a checklist, even when a later task breaks something on purpose (the failover tests shut a link). Grade still checks the whole network.
+  - **A self-ticking box can't be ticked by hand.** It has a dashed edge until it ticks, and a tooltip saying it ticks itself. The 26 tasks no check fits (such as "Save the running configuration") are ticked by hand as before. Exams and the sandbox don't tick.
+
+  In numbers: 186 tasks tick from checks, 32 from running their commands, and 26 by hand.
+- **Help for one task at a time, with the cost on the button.** Under each task, next to its "Why":
+  - **"Hint (−2)"** says where to work without saying what to type: "Work on R2 (global configuration), 2 commands." It's worked out from the step-by-step.
+  - **"Show commands (−5)"** shows that task's commands only.
+
+  Each is charged once, stays open (saved with the lab's work and in backups), and is no longer offered once the task is done. Per-task help is capped at 15 points, so it never costs more than turning step-by-step on, and nothing more if it already is.
+- **Costs are on the labels.** The switch is now "Step-by-step for every task (−15)", the menu item "Show walkthrough (−25)", and the palette says "Costs 25 points". Clues already said "Each clue costs 5 points".
+- **One "Why".** The explanation under the console, also called "Why:", is now "What it does:", so "Why" only means why a task matters.
+- **Grading and storage.**
+  - `src/app/core/grade.js` counts per-task help (`hints`, `shown`).
+  - `validate.js` keeps those fields and the saved list of opened help only when they're used, so older saved progress keeps exactly its shape.
+  - `store.js` saves the opened list with the lab's work.
+- **Tests.**
+  - A new Node test, `tests/task-checks.cjs`, checks the links against all 40 labs: one entry per task, every check used, and "look" tasks only where the commands only look. It also works every lab through its step-by-step one task at a time: nothing ticks when a lab opens, each task ticks once its own steps are done, and no later task ticks early. All 37 incidents are checked through their four rules. Drafting the links automatically and then running this test found 10 links that had to move to a later task (a bundle needs both switches; a DHCP lease needs the renew).
+  - `tests/grade.cjs` has five new cases for per-task help, and `tests/validate.cjs` four.
+  - A new browser test, `task-ticks.spec.js`, works Static routing by hand, uses a hint and the commands for one task (reload, no second charge), and works an incident.
+  - The tests that named the old tip, the console's "Why:" and its buttons use the new wording.
+- **Screenshots.** The "Update screenshot baselines" workflow refreshed the 14 workspace baselines (the Tasks panel's dashed boxes and help buttons); every other screen matched. The share image, `og.png`, was rebuilt to show the new Tasks panel.
+
 ## Fixes, phase 10: a lighter hosted site
 
 Every visitor used to download all 66 lessons' text (about 490 KB) before seeing anything, and it grew with every lesson batch. The public site now loads a lesson's text when the lesson is opened. The single-file download is unchanged.

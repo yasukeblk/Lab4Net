@@ -82,8 +82,13 @@
 
   function run(r) {
     if (!isObj(r)) return null;
-    return { errs: int(r.errs, 0, 1e6, 0), checks: int(r.checks, 0, 1e6, 0), help: bool(r.help, false), walk: bool(r.walk, false),
+    const out = { errs: int(r.errs, 0, 1e6, 0), checks: int(r.checks, 0, 1e6, 0), help: bool(r.help, false), walk: bool(r.walk, false),
       valid: bool(r.valid, true), done: bool(r.done, false), cmds: int(r.cmds, 0, 1e6, 0) };
+    // help for single tasks (hints, and tasks whose commands were shown): kept only when used, so older runs keep their shape
+    const hints = int(r.hints, 0, 64, 0), shown = int(r.shown, 0, 64, 0);
+    if (hints) out.hints = hints;
+    if (shown) out.shown = shown;
+    return out;
   }
 
   // labs: {[slug]: {done, grade, doneAt, clues, guide, run}}
@@ -118,7 +123,14 @@
       if (typeof e.t === 'number' && isFinite(e.t) && e.t >= 0 && e.t < MAX_T) o.t = e.t;
       journal.push(o);
     }
-    return { journal, tasks };
+    const out = { journal, tasks };
+    // which tasks' hint or commands were opened (Tasks panel), kept only when used, so older work keeps its shape
+    if (isObj(w.reveal)) {
+      const list = a => Array.isArray(a) ? [...new Set(a.filter(n => Number.isInteger(n) && n >= 0 && n < 64))].slice(0, 64) : [];
+      const hint = list(w.reveal.hint), cmds = list(w.reveal.cmds);
+      if (hint.length || cmds.length) out.reveal = { hint, cmds };
+    }
+    return out;
   }
   function work(m) {
     const out = {};

@@ -24,7 +24,13 @@ const rows = [
   [{ checks: 1, help: true, walk: true }, 60, 'C', 'guide and walkthrough'],
   [{ checks: 0, help: true, walk: true, clues: 3, errs: 20 }, 35, 'D', 'everything'],
   [{ checks: 1, help: true, walk: true, clues: 1 }, 55, 'C', 'C starts at 55'],
-  [{ checks: 1, help: true, errs: 7 }, 75, 'B', 'B is 70 to 84']
+  [{ checks: 1, help: true, errs: 7 }, 75, 'B', 'B is 70 to 84'],
+  // help for one task at a time (the Tasks panel's Hint and Show commands)
+  [{ checks: 1, hints: 1 }, 98, 'S', 'a hint costs 2'],
+  [{ checks: 1, shown: 1 }, 95, 'S', "one task's commands cost 5"],
+  [{ checks: 1, hints: 2, shown: 1 }, 91, 'A', 'two hints and one task shown'],
+  [{ checks: 1, hints: 5, shown: 5 }, 85, 'A', 'per-task help costs at most 15, never more than the guide'],
+  [{ checks: 1, help: true, hints: 3, shown: 2 }, 85, 'A', 'with the guide on, per-task help costs nothing more']
 ];
 for (const [run, score, letter, what] of rows) {
   assert.strictEqual(G.score(run), score, what + ': score');

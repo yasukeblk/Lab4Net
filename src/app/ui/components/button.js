@@ -47,8 +47,9 @@
 
   function checkbox(o) {
     const inp = el('input', { type: 'checkbox', checked: !!o.checked, 'aria-label': o.aria || null });
+    if (o.disabled) inp.disabled = true;
     if (o.onChange) inp.addEventListener('change', () => o.onChange(inp.checked));
-    return el('label', { class: ['check', o.class] }, inp, el('span', { class: 'check__box', 'aria-hidden': 'true' }, icon('check')), o.label && el('span', { text: o.label }));
+    return el('label', { class: ['check', o.class, o.disabled && 'is-disabled'], 'data-tip': o.tip || null }, inp, el('span', { class: 'check__box', 'aria-hidden': 'true' }, icon('check')), o.label && el('span', { text: o.label }));
   }
 
   // segmented({label, options: [{value, label, icon}], value, onChange})

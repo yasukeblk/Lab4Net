@@ -50,6 +50,9 @@
 /* checkbox: 16 px box in a 24 px click area */
 .check { position: relative; display: inline-flex; align-items: center; gap: var(--space-2); min-height: 24px; cursor: pointer; }
 .check input { position: absolute; left: 0; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -4px; opacity: 0; cursor: pointer; }
+/* a box that ticks itself: no pointer, and a dashed edge until it ticks */
+.check.is-disabled, .check.is-disabled input { cursor: default; }
+.check.is-disabled input:not(:checked) + .check__box { border-style: dashed; }
 .check__box {
   width: 16px; height: 16px; flex: none; display: grid; place-items: center;
   border: var(--hairline) solid var(--border-control); border-radius: var(--radius-1); background: var(--bg-surface); color: transparent;

@@ -83,7 +83,7 @@ test('progress saved before this change (done, nothing ticked) shows as done wit
 
 test('using step-by-step once retires the tip that points to it', async ({ page }) => {
   await open(page, '#/labs/' + SLUG, { main: { v: 2, settings: { pace: 'instant' }, ui: { landingSeen: true } } });
-  const tip = page.getByText('New here? Turn on step-by-step');
+  const tip = page.getByText('New here? Each task has a Hint');
   await expect(tip).toBeVisible();
   await page.getByRole('switch', { name: 'Step-by-step' }).click();
   await page.getByRole('switch', { name: 'Step-by-step' }).click();

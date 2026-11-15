@@ -48,6 +48,8 @@
     const ws = {
       st, entry, slug: entry.slug,
       tasks: saved ? saved.tasks.slice(0, entry.lab.tasks.length) : [],
+      // the tasks whose hint or commands were opened (each costs points once; see grade.js)
+      reveal: { hint: (saved && saved.reveal && saved.reveal.hint) || [], cmds: (saved && saved.reveal && saved.reveal.cmds) || [] },
       graded: null, exam: !!(ov && ov.exam),
       hooks: [],
       next: () => nextLab(entry)
@@ -72,7 +74,8 @@
     if (!ov && (!st.journal.length || !(L && L.run))) setLab(entry.slug, { run: { errs: 0, checks: 0, help: false, walk: false, valid: !st.journal.length, done: false, cmds: 0 } });
     if (!ov) touch(entry.slug);
 
-    ws.save = ov ? () => ov.save(st.journal) : () => L4N.work.put(entry.slug, { journal: st.journal, tasks: ws.tasks });
+    ws.save = ov ? () => ov.save(st.journal) : () => L4N.work.put(entry.slug, Object.assign({ journal: st.journal, tasks: ws.tasks },
+      ws.reveal.hint.length || ws.reveal.cmds.length ? { reveal: ws.reveal } : {}));
 
     // ---- help: step-by-step, walkthrough, clues (each one marks the run, as the old rank rules did) ----
     const capstone = entry.kind === 'capstone';
@@ -90,6 +93,15 @@
       if (changed) setLab(entry.slug, { run });
     }
     ws.markRun = markRun;
+    // help for one task: its hint ('hint') or its commands ('cmds'). Shown from then on, and counted once in the run.
+    ws.reveal1 = (kind, i) => {
+      const list = ws.reveal[kind];
+      if (!list || list.includes(i)) return;
+      list.push(i); ws.save();
+      const rec = labRec(entry.slug), run = rec && rec.run ? Object.assign({}, rec.run) : null;
+      if (run && run.valid && !run.done) { const k = kind === 'hint' ? 'hints' : 'shown'; run[k] = (run[k] || 0) + 1; setLab(entry.slug, { run }); }
+      ws.tasksView.rebuild(); ws.sync();
+    };
     ws.setGuide = v => {
       ws.guide = !!v;
       if (capstone) setLab(entry.slug, { guide: ws.guide });
@@ -137,6 +149,7 @@
       if (ws.guide) markRun({ help: true });
       if (ws.graded && !ws.graded.stale) { ws.graded.stale = true; ws.tasksView.renderResults(); ws.sync(); }
       ws.tasksView.refreshCommands();
+      autoTick(true);
       ws.save();
       refreshStatus();
       if (ws.map) ws.map.update(res, dev);
@@ -191,6 +204,21 @@
     // ---- the frame ----
     ws.maximise = () => ws.panes.toggle('map');
     ws.console = L4N.consoleView.create(ws);
+    // Tasks that tick themselves (sim.taskStatus, src/data/task-checks.js): checked when the lab opens and after every
+    // command. Once done, a task stays ticked, like a checklist, even when a later task breaks something on purpose
+    // (a failover test); Grade still checks the whole network. Not in exams, which give no help.
+    ws.auto = [];
+    function autoTick(redraw) {
+      if (ov || ws.exam) return;
+      if (entry.kind === 'incident' && ws.fixedAt == null && sim.grade(st).every(r => r[1])) ws.fixedAt = st.journal.length;
+      const s = sim.taskStatus(st, entry, ws.fixedAt);
+      ws.auto = s.map(v => v !== null);
+      let changed = false;
+      s.forEach((v, i) => { if (v === true && !ws.tasks[i]) { ws.tasks[i] = true; changed = true; } });
+      if (changed && redraw) { ws.tasksView.rebuild(); if (ws.onLayout) ws.onLayout(); ws.sync(); }
+    }
+    ws.autoTick = autoTick;
+    autoTick(false);
     ws.tasksView = ov && ov.left ? ov.left(ws) : L4N.tasksView.create(ws);
     ws.map = L4N.mapCore.create(ws, ov && ov.mapOpts ? ov.mapOpts(ws) : undefined);
     ws.trace = L4N.traceView.create(ws);
@@ -243,7 +271,7 @@
       for (const h of ws.menuHooks || []) items.push(...h());
       if (window.innerWidth >= 1600) items.push({ label: ws.panes.layout() === 'side' ? 'Layout: stacked' : 'Layout: side by side', icon: ws.panes.layout() === 'side' ? 'panel-bottom' : 'sidebar', run: () => ws.panes.setLayout(ws.panes.layout() === 'side' ? 'stacked' : 'side') });
       items.push({ label: 'Reset panel sizes', icon: 'maximize', run: () => ws.panes.resetSizes() });
-      if (!ws.hideHelp()) items.unshift({ label: ws.walk ? 'Hide walkthrough' : 'Show walkthrough', icon: 'eye', run: () => ws.setWalk(!ws.walk) });
+      if (!ws.hideHelp()) items.unshift({ label: ws.walk ? 'Hide walkthrough' : 'Show walkthrough (−25)', icon: 'eye', run: () => ws.setWalk(!ws.walk) });
       if (ov) items.push(...ov.menu());
       else items.push({ label: 'Reset lab', icon: 'reset', danger: true, run: () => ws.reset() });
       return items;
@@ -302,7 +330,7 @@
     for (const dv of sim.devices(ws.st)) out.push({ id: 'lab-dev-' + dv.name, group: 'In a lab', title: 'Switch to device ' + dv.hostname, icon: 'labs', subtitle: dv.kindName, keywords: dv.name, run: () => ws.selectDevice(dv.name, true) });
     if (!(ws.hideHelp && ws.hideHelp())) {
       out.push({ id: 'lab-guide', group: 'In a lab', title: 'Toggle step-by-step', icon: 'list-checks', subtitle: ws.guide ? 'On' : 'Off', run: () => ws.setGuide(!ws.guide) },
-        { id: 'lab-walk', group: 'In a lab', title: ws.walk ? 'Hide walkthrough' : 'Show walkthrough', icon: 'eye', subtitle: 'Lowers the grade', run: () => ws.setWalk(!ws.walk) });
+        { id: 'lab-walk', group: 'In a lab', title: ws.walk ? 'Hide walkthrough' : 'Show walkthrough', icon: 'eye', subtitle: 'Costs 25 points', run: () => ws.setWalk(!ws.walk) });
       if (ws.entry.kind === 'incident' && ws.clues < 3) out.push({ id: 'lab-clue', group: 'In a lab', title: 'Reveal next clue', icon: 'bulb', subtitle: 'Clue ' + (ws.clues + 1) + ' of 3 · costs 5 points', run: () => ws.revealClue() });
     }
     out.push(

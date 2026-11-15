@@ -30,6 +30,12 @@ eq(V.labs({ [X]: { done: true }, 'no-such-lab': { done: true }, 'static-routing'
 eq(V.labs({ __proto__: { done: true }, constructor: { done: true } }), {});
 assert.strictEqual(({}).done, undefined, 'no prototype pollution'); n++;
 
+// per-task help in a run (hints, tasks whose commands were shown): kept when used, dropped when bad or zero
+eq(V.labs({ 'static-routing': { done: false, run: { checks: 1, hints: 2, shown: 1 } } })['static-routing'].run, { errs: 0, checks: 1, help: false, walk: false, valid: true, done: false, cmds: 0, hints: 2, shown: 1 });
+eq(V.labs({ 'static-routing': { done: false, run: { hints: 'two', shown: -1 } } })['static-routing'].run, { errs: 0, checks: 0, help: false, walk: false, valid: true, done: false, cmds: 0 });
+// saved work keeps which tasks' hint or commands were opened, as small whole numbers only
+eq(V.workEntry({ journal: [], tasks: [true], reveal: { hint: [0, 2, 2, -1, 'x', 99], cmds: [1] } }), { journal: [], tasks: [true], reveal: { hint: [0, 2], cmds: [1] } });
+eq(V.workEntry({ journal: [], tasks: [], reveal: { hint: [], cmds: X } }), { journal: [], tasks: [] });
 // lessons, quiz, subnet
 eq(V.lessons({ 'static-routing': { read: true, quiz: { 0: true, 1: false, 2: X, 99: true, '-1': true } } }), { 'static-routing': { read: true, quiz: { 0: true, 1: false } } });
 eq(V.lessons({ [X]: { read: true }, 'static-routing': X }), {});

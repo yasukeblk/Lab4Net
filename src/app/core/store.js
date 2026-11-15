@@ -43,20 +43,21 @@
     onStatus(fn) { storage.listeners.add(fn); return () => storage.listeners.delete(fn); }
   };
 
-  // Saved lab work, in its own key: {[labSlug]: {journal: [{device, line, t}], tasks: [bool]}}.
+  // Saved lab work, in its own key: {[labSlug]: {journal: [{device, line, t}], tasks: [bool], reveal?: {hint, cmds}}}
+  // (reveal: the tasks whose hint or commands were opened, only when there are any).
   // Read once (checked by validate.work), kept in memory, written a moment after each change.
   let workMap = null, workTimer = 0;
   const work = {
     all() { if (!workMap) workMap = L4N.validate.work(storage.read(KEYS.work)); return workMap; },
     get(slug) { return work.all()[slug] || null; },
-    put(slug, entry) { work.all()[slug] = { journal: entry.journal, tasks: entry.tasks || [] }; work.schedule(); },
+    put(slug, entry) { work.all()[slug] = Object.assign({ journal: entry.journal, tasks: entry.tasks || [] }, entry.reveal ? { reveal: entry.reveal } : {}); work.schedule(); },
     remove(slug) { delete work.all()[slug]; work.schedule(); },
     schedule() { clearTimeout(workTimer); workTimer = setTimeout(work.flush, 150); },
     flush() {
       clearTimeout(workTimer); workTimer = 0;
       if (!workMap) return;
       const out = {};
-      for (const k of Object.keys(workMap)) if (!workMap[k].corrupt && (workMap[k].journal.length || (workMap[k].tasks || []).some(Boolean))) out[k] = { journal: workMap[k].journal, tasks: workMap[k].tasks };
+      for (const k of Object.keys(workMap)) if (!workMap[k].corrupt && (workMap[k].journal.length || (workMap[k].tasks || []).some(Boolean))) out[k] = Object.assign({ journal: workMap[k].journal, tasks: workMap[k].tasks }, workMap[k].reveal ? { reveal: workMap[k].reveal } : {});
       storage.write(KEYS.work, out);
     },
     pending: () => !!workTimer,

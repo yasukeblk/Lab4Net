@@ -76,13 +76,13 @@ test('the Why line opens to body size with More and closes with Less', async ({ 
   await page.locator('.con__input').fill('enable'); await page.locator('.con__input').press('Enter');
   await page.locator('.con__input').fill('show ip route'); await page.locator('.con__input').press('Enter');
   const why = page.locator('.con__why');
-  const more = why.getByRole('button', { name: 'Show all of why' });
-  await expect(why).toContainText('Why:');
+  const more = why.getByRole('button', { name: 'Show all about this command' });
+  await expect(why).toContainText('What it does:');
   await expect(more).toHaveAttribute('aria-expanded', 'false');
   const small = await why.evaluate(e => parseFloat(getComputedStyle(e).fontSize));
   await more.click();
   await expect(why).toHaveClass(/is-open/);
-  const less = why.getByRole('button', { name: 'Show less of why' });
+  const less = why.getByRole('button', { name: 'Show less about this command' });
   await expect(less).toHaveAttribute('aria-expanded', 'true');
   await expect(less).toBeFocused();
   expect(await why.evaluate(e => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThan(small);

@@ -22,6 +22,7 @@ src/
   lessons/               the lessons, one Markdown file each (NNN-slug.md); see docs/LESSON-WRITING.md
   data/                  content: quiz.js (QUIZ), automation.js (the automation drill), campaign.js (the eight stages),
                          lessons.js (LESSONS: the build fills it from lessons/), lesson-order.js (teaching order),
+                         task-checks.js (which checks show each task is done, so tasks tick themselves),
                          objectives.js (extra CCNA objective names), sandbox.js (starter kits and goals)
   app/
     core/                no DOM: slug, store (state and storage), validate, router, search,
@@ -174,6 +175,7 @@ The Node tests read the built `index.html`, so build first.
 - `visual.spec` compares screenshots of the main screens. Baselines are made on Linux, so it only compares in CI. At most 2 pixels may differ (on the CI machines a changed digit alters 5 to 7, and unchanged screens match to the pixel), parts that change on purpose (the exam clock) are masked, "full" states grow the window until `#screen` no longer scrolls, and a missing baseline fails. After an intended change, refresh them with the "Update screenshot baselines" workflow (Actions › Update screenshot baselines › Run workflow), which commits them to the branch.
 - `counts.spec` checks every lab, lesson and quiz total the app shows against the data in the page. It has no typed numbers, so it keeps working as content grows.
 - `lessons-markdown.cjs` proves that `lessons.cjs` rejects Markdown (links, bold, backticks) in a lesson.
+- `task-checks.cjs` keeps `src/data/task-checks.js` in step with the labs and works every lab through its step-by-step a task at a time: nothing ticks before its task, and each task ticks once its own steps are done. Incidents are checked through their four rules. `task-ticks.spec` checks the same in the app, with per-task help and its costs.
 - `lessons-order.cjs` checks `src/data/lesson-order.js`: every lesson once, in the group of its first objective. A new lesson goes in that file too.
 - Totals are never typed. In `src/index.template.html` and `tools/og.html` they are tokens (`{{LABS}}`, `{{BUILD_LABS}}`, `{{INCIDENTS}}`, `{{CAPSTONES}}`, `{{LESSONS}}`, `{{QUIZ}}`, `{{LAB_LESSONS}}`, `{{TOPIC_LESSONS}}`) that the build fills from the data. The docs are written by hand, and `counts.cjs` checks every total they state. The browser tests read totals from the page.
 - Generated files are checked: CI fails if `lessons/` or `sitemap.xml` differ from what `tools/build-site.cjs` writes, or if `og.png` was built from other counts or another `tools/og.html` (`node tools/build-og.cjs --check`, which compares a fingerprint in `tools/og-source.sha256`).

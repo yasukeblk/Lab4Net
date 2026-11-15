@@ -32,7 +32,7 @@ for (const mode of ['sabotage', 'lab', 'incident', 'daily']) {
     await expect(page.getByRole('tab', { name: 'Commands' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Lesson', exact: true })).toHaveCount(0);
     await page.evaluate(() => L4N.test.exec(null, 'enable'));
-    await expect(page.locator('.con__why')).not.toContainText('Why:');
+    await expect(page.locator('.con__why')).not.toContainText('What it does:');
     await page.getByRole('button', { name: 'More lab actions' }).click();
     await expect(page.getByRole('menuitem', { name: /walkthrough|Pop out/i })).toHaveCount(0);
     await page.keyboard.press('Escape');
