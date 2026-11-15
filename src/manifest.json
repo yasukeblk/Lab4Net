@@ -57,6 +57,7 @@
     "data/task-checks.js",
     "data/objectives.js",
     "data/sandbox.js",
+    "data/tickets.js",
     "app/core/slug.js",
     "app/core/store.js",
     "app/core/validate.js",

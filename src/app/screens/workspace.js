@@ -52,7 +52,8 @@
       reveal: { hint: (saved && saved.reveal && saved.reveal.hint) || [], cmds: (saved && saved.reveal && saved.reveal.cmds) || [] },
       graded: null, exam: !!(ov && ov.exam),
       hooks: [],
-      next: () => nextLab(entry)
+      next: () => nextLab(entry),
+      isDone: () => !ov && !!(labRec(entry.slug) || {}).done
     };
     // A lab finished before grading ticked the tasks shows them ticked. Worked out for display only: nothing is
     // written until the learner works in the lab again.
@@ -208,9 +209,23 @@
     // command. Once done, a task stays ticked, like a checklist, even when a later task breaks something on purpose
     // (a failover test); Grade still checks the whole network. Not in exams, which give no help.
     ws.auto = [];
+    // The business services this lab keeps running, as lights in the map head that go green as their checks pass.
+    // Updated in place, so a service that comes up as you type pulses once (is-new) even while you keep typing;
+    // ones already up when the lab opens don't.
+    const svcs = el('ul', { class: 'svcs', 'aria-label': 'Business services' });
+    let lights = null;
     function autoTick(redraw) {
       if (ov || ws.exam) return;
-      if (entry.kind === 'incident' && ws.fixedAt == null && sim.grade(st).every(r => r[1])) ws.fixedAt = st.journal.length;
+      const res = sim.grade(st), now = sim.services(entry, res), first = !lights;
+      if (first) lights = now.map(([n]) => { const sr = el('span', { class: 'sr-only' }), li = el('li', { class: 'svc' }, el('span', { class: 'svc__dot', 'aria-hidden': 'true' }), el('span', { class: 'svc__name', text: n }), sr);
+        li.addEventListener('animationend', () => li.classList.remove('is-new')); svcs.append(li); return { li, sr }; });
+      now.forEach(([n, up], i) => {
+        const { li, sr } = lights[i];
+        if (up && !first && !li.classList.contains('is-up')) li.classList.add('is-new');
+        li.classList.toggle('is-up', up); if (!up) li.classList.remove('is-new');
+        sr.textContent = up ? ', working' : ', not working yet'; li.setAttribute('data-tip', n + (up ? ': working' : ': not working yet'));
+      });
+      if (entry.kind === 'incident' && ws.fixedAt == null && res.every(r => r[1])) ws.fixedAt = st.journal.length;
       const s = sim.taskStatus(st, entry, ws.fixedAt);
       ws.auto = s.map(v => v !== null);
       let changed = false;
@@ -224,7 +239,7 @@
     ws.trace = L4N.traceView.create(ws);
     const mapToggle = ui.button({ icon: 'chevron-up', aria: 'Collapse the map', onClick: () => ws.panes.toggle('map') });
     const mapPane = el('section', { class: 'pane map', id: 'ws-map', 'aria-label': 'Network map' },
-      el('div', { class: 'pane__head' }, el('h2', { class: 'pane__title' }, icon('route'), el('span', { text: 'Network map' })), el('span', { class: 'spacer' }), mapToggle),
+      el('div', { class: 'pane__head' }, el('h2', { class: 'pane__title' }, icon('route'), el('span', { text: 'Network map' })), svcs, el('span', { class: 'spacer' }), mapToggle),
       ws.map.body);
     const tasksToggle = ui.button({ icon: 'panel-left', aria: 'Collapse the Tasks panel', onClick: () => ws.panes.toggle('tasks', true) });
     ws.tasksView.el.querySelector('.pane__head').append(tasksToggle);
