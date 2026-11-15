@@ -34,5 +34,173 @@
     };
   }
 
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue });
+  // ---- running a lab ----
+  const MAX_LINES = 2000, MAX_JOURNAL = 5000, MAX_LINE = 512;
+  const MODE = { user: 'User EXEC', priv: 'Privileged EXEC', config: 'Global configuration', if: 'Interface configuration', vlan: 'VLAN configuration',
+    line: 'Line configuration', ospf: 'OSPF configuration', acl: 'ACL configuration', dhcp: 'DHCP pool configuration', pc: 'Host console', answer: 'Answer' };
+
+  // Which kind of device this is, for icons and tooltips.
+  function devKind(d) {
+    if (d.type === 'router') return 'router';
+    if (d.type === 'switch') return d.l3 ? 'l3' : 'switch';
+    if (d.phone) return 'phone';
+    if (/^AP\d*$/i.test(d.name || '')) return 'ap';
+    if (Array.isArray(d.services) && d.services.length) return 'server';
+    return 'pc';
+  }
+  const KIND_NAME = { router: 'router', switch: 'switch', l3: 'Layer 3 switch', pc: 'PC', server: 'server', phone: 'IP phone', ap: 'access point' };
+
+  // The colour of a console line: the old lineClass rules, plus syslog messages shown dim.
+  const SYSLOG = /^(\*?[A-Z][a-z]{2} +\d+ [\d:.]+: )?%[A-Z0-9_]+-\d-[A-Z0-9_]+:/;
+  function lineClass(l) {
+    if (/^ *\^$/.test(l) || /is not recognized as an internal|^operable program or batch file\.$|^Error: unrecognized/.test(l)) return 'bad';
+    if (/: ICMP: /.test(l)) return 'warn';
+    if (/^[!.U]+$/.test(l) && l.length <= 70) return /^!+$/.test(l) ? 'ok' : /!/.test(l) ? 'warn' : 'bad';
+    { const m = /^Success rate is (\d+) percent/.exec(l); if (m) return m[1] === '100' ? 'ok' : m[1] === '0' ? 'bad' : 'warn'; }
+    if (/unreachable|General failure|!H|!A|could not find host/.test(l)) return 'bad';
+    if (/^ {0,2}\d+ \*  \*/.test(l)) return 'warn';
+    if (/changed state to up/.test(l)) return 'ok';
+    if (/changed state to down/.test(l)) return 'warn';
+    if (SYSLOG.test(l)) return 'log';
+    if (/^%|refused|timed out|failed|^\.{5}$|rejected/i.test(l)) return 'bad';
+    if (/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l)) return 'ok';
+    return '';
+  }
+
+  // A simulator bug must never leave the page half-updated or throw saved work away.
+  function safeExec(net, d, s, line) {
+    try { return execLine(net, d, s, line); }
+    catch (e) {
+      if (typeof console !== 'undefined') console.error('Lab4Net engine error on "' + line + '":', e);
+      s.pace = null; if (s.prompt) s.prompt = null;
+      return ['% Lab4Net internal error: ' + String(e && e.message || e).slice(0, 160), '% The command did not complete. The rest of the lab still works.'];
+    }
+  }
+
+  function push(con, lines, cls) {
+    for (const t of lines) con.lines.push({ t, c: cls != null ? cls : lineClass(t) });
+    if (con.lines.length > MAX_LINES) con.lines.splice(0, con.lines.length - MAX_LINES);
+  }
+
+  function freshState(entry) {
+    const lab = entry.lab, net = lab.build(), sess = {}, con = {};
+    for (const n of Object.keys(net.devs)) {
+      const d = net.devs[n];
+      sess[n] = { mode: d.type === 'pc' ? 'pc' : 'user', ctx: null };
+      con[n] = { lines: [], hist: [], hi: 0 };
+      push(con[n], [d.type === 'pc' ? 'Host console · ipconfig, ping, tracert, telnet, ssh' : d.hostname + ' console ready', ''], 'dim');
+    }
+    const devs = Object.keys(net.devs);
+    return { entry, lab, net, sess, con, journal: [], sel: net.devs[lab.start] ? lab.start : devs[0], devs };
+  }
+
+  // Run one line on one device: the same path for live commands and for replay.
+  function step(st, dev, line) {
+    const d = st.net.devs[dev], s = st.sess[dev], con = st.con[dev];
+    TRACE = null;
+    const pr = effPrompt(s), masked = !!(pr && pr.mask);
+    const echo = promptOf(d, s) + (masked ? '' : line);
+    const res = { echo, lines: [], pace: null, why: null, masked, ran: false, trace: null };
+    if (line.trim() || pr) {
+      res.ran = true;
+      s.last = null; s.pace = null;
+      const out = safeExec(st.net, d, s, line);
+      if (out.length) { res.lines = out.join('\n').split('\n'); if (s.pace && res.lines.length === out.length) res.pace = s.pace; }
+      s.pace = null;
+      res.why = (s.last && typeof WHYC !== 'undefined' && WHYC[s.last]) || null;
+    }
+    res.trace = TRACE; TRACE = null;
+    if (line.trim() && !masked) con.hist.push(line);
+    if (con.hist.length > 200) con.hist.splice(0, con.hist.length - 200);
+    con.hi = con.hist.length;
+    return res;
+  }
+
+  // Move each device's own console messages (debug output) into its tab. `except` keeps one device's for later.
+  function drain(st, except) {
+    const changed = [];
+    for (const n of st.devs) {
+      const d = st.net.devs[n];
+      if (!d.conq || !d.conq.length || n === except) continue;
+      push(st.con[n], d.conq); d.conq = []; changed.push(n);
+    }
+    return changed;
+  }
+
+  // open(entry, saved) → state. Saved work is the command journal, replayed onto a fresh build() at the times it was typed.
+  // Throws if the journal does not fit this lab; the caller then opens the lab fresh.
+  function open(entry, saved) {
+    const st = freshState(entry);
+    const journal = saved && saved.journal ? saved.journal : [];
+    if (!Array.isArray(journal) || journal.length > MAX_JOURNAL) throw Error('Invalid command history');
+    try {
+      for (const e of journal) {
+        if (!e || !Object.prototype.hasOwnProperty.call(st.net.devs, e.device) || !L4N.validate.okLine(e.line)) throw Error('Invalid saved command');
+        if (typeof e.t === 'number' && isFinite(e.t)) SIM_NOW = e.t;
+        const r = step(st, e.device, e.line);
+        push(st.con[e.device], [r.echo], 'cmd');
+        push(st.con[e.device], r.lines);
+        drain(st, null);
+        st.journal.push(typeof e.t === 'number' ? { device: e.device, line: e.line, t: e.t } : { device: e.device, line: e.line });
+      }
+    } finally { SIM_NOW = null; }
+    TRACE = null;
+    return st;
+  }
+
+  // exec(st, device, line) → {echo, lines, pace, why, masked, ran, trace}. The caller shows the lines (or plays them).
+  function exec(st, dev, line) {
+    if (typeof line !== 'string' || line.length > MAX_LINE || /[\r\n]/.test(line)) return { error: 'Keep each command on one line, under 512 characters.' };
+    if (st.journal.length >= MAX_JOURNAL) return { error: 'This lab has reached its saved command limit. Export a backup, then reset the lab.' };
+    const r = step(st, dev, line);
+    if (r.ran) st.journal.push({ device: dev, line, t: Date.now() });
+    return r;
+  }
+
+  function prompt(st, dev) {
+    const d = st.net.devs[dev], s = st.sess[dev], pr = effPrompt(s), es = effSess(s);
+    const mode = pr ? 'answer' : es.mode;
+    return { text: promptOf(d, s), masked: !!(pr && pr.mask), mode, modeName: MODE[mode] || mode, asking: !!pr };
+  }
+
+  // `?` help: the lines IOS prints (the prompt and line with ?, then keyword and description). null during a question.
+  function help(st, dev, line) {
+    const s0 = st.sess[dev];
+    if (effPrompt(s0)) return null;
+    const [d, s] = effPair(st.net.devs[dev], s0);
+    const c = candidates(d, s.mode, line), w = Math.max(0, ...c.map(x => x.length));
+    return [promptOf(d, s) + line + '?'].concat(c.length ? c.map(x => ('  ' + x.padEnd(w + 2) + (s.mode === 'pc' ? '' : (typeof KWHELP !== 'undefined' && KWHELP[x]) || '')).trimEnd()) : ['% Unrecognized command']);
+  }
+
+  // Tab: complete the word when exactly one keyword fits; otherwise null (nothing changes, as on IOS).
+  function complete(st, dev, line) {
+    const s0 = st.sess[dev];
+    if (effPrompt(s0)) return null;
+    const [d, s] = effPair(st.net.devs[dev], s0);
+    if (/\s$/.test(line)) return null;
+    const c = candidates(d, s.mode, line).filter(x => /^[a-z\/-]/.test(x));
+    return c.length === 1 ? line.replace(/\S*$/, c[0] + ' ') : null;
+  }
+
+  // Ctrl+Z is IOS `end`: only in a configuration mode, never during a question or on a host.
+  function canEnd(st, dev) {
+    const s0 = st.sess[dev];
+    if (effPrompt(s0)) return false;
+    const [d, s] = effPair(st.net.devs[dev], s0);
+    return d.type !== 'pc' && s.mode !== 'user' && s.mode !== 'priv' && s.mode !== 'pc';
+  }
+
+  function grade(st) {
+    return st.lab.checks.map(([t, f]) => { let ok = false; try { ok = !!f(st.net); } catch (e) { ok = false; } return [t, ok]; });
+  }
+
+  function devices(st) {
+    return st.devs.map(n => {
+      const d = st.net.devs[n], ifs = Object.values(d.ifs);
+      let up = 0; for (const i of ifs) { try { if (i.link && ifUp(st.net, d, i)) up++; } catch (e) {} }
+      return { name: n, hostname: d.hostname, kind: devKind(d), kindName: KIND_NAME[devKind(d)], up, linked: ifs.filter(i => i.link).length };
+    });
+  }
+
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});

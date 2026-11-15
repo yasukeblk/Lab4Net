@@ -19,6 +19,8 @@
     "styles/base.css",
     "styles/components.css",
     "styles/shell.css",
+    "styles/workspace.css",
+    "styles/console.css",
     "styles/screens.css",
     "styles/phone.css"
   ],
@@ -54,6 +56,7 @@
     "app/core/router.js",
     "app/core/search.js",
     "app/core/sim.js",
+    "app/core/grade.js",
     "app/site.js",
     "app/ui/dom.js",
     "app/ui/theme.js",
@@ -68,6 +71,10 @@
     "app/ui/shortcuts.js",
     "app/ui/shell.js",
     "app/screens/placeholders.js",
+    "app/screens/console.js",
+    "app/screens/tasks.js",
+    "app/screens/map.js",
+    "app/screens/workspace.js",
     "app/screens/settings.js",
     "app/screens/gallery.js",
     "app/main.js"

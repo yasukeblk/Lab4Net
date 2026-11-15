@@ -76,7 +76,7 @@
     const recent = (state().ui.recent || []).map(s => L4N.data && L4N.data.lab(s)).filter(Boolean);
     if (recent.length) {
       recentBox.append(el('div', { class: 'sb__sep' }), el('div', { class: 'sb__label label-caps', text: 'Continue' }),
-        recent.map(l => el('a', { class: 'sb__item sb__recent', href: L4N.router.href('lab', l.slug), 'data-tip': l.title, onClick: closeDrawer },
+        ...recent.map(l => el('a', { class: 'sb__item sb__recent', href: L4N.router.href('lab', l.slug), 'data-tip': l.title, onClick: closeDrawer },
           ui.statusIcon(L4N.stats ? L4N.stats.labStatus(l.slug) : 'todo'), el('span', { text: l.short || l.title }))));
     }
   }

@@ -588,6 +588,127 @@ button.cmd:hover { background: var(--bg-hover); }
 
 /* ---- announcer ---- */
 #announcer { position: fixed; }
+/* Lab workspace: panes and the Tasks panel (section 5.4) */
+.screen[data-screen="lab"], .screen[data-screen="sandbox"] { overflow: hidden; }
+.ws {
+  --tasks-w: 340px; --map-h: 290px;
+  display: grid; grid-template-columns: var(--tasks-w) 1px minmax(0, 1fr); height: 100%; min-height: 0; background: var(--bg-surface);
+}
+.ws__right { display: grid; grid-template-rows: var(--map-h) auto 1px minmax(0, 1fr); min-width: 0; min-height: 0; }
+.pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg-surface); position: relative; }
+.pane__head {
+  display: flex; align-items: center; gap: var(--space-2); flex: none; height: 32px; padding: 0 var(--space-2) 0 var(--space-3);
+  border-bottom: var(--hairline) solid var(--border-subtle); background: var(--bg-surface); min-width: 0;
+}
+.pane__title { font-size: var(--fs-12); font-weight: var(--fw-medium); color: var(--text-2); display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
+.pane__title .icon { color: var(--text-2); }
+.pane__head .btn--icon { width: 24px; height: 24px; }
+.pane__head .tabs { border-bottom: 0; min-height: 31px; gap: var(--space-3); }
+.pane__head .tab { height: 31px; }
+.pane__body { flex: 1; min-height: 0; overflow: auto; }
+.ws__divider { background: var(--border-subtle); }
+
+/* ---- tasks panel ---- */
+.tasks__body { padding: var(--space-3) var(--space-4) var(--space-8); display: flex; flex-direction: column; gap: var(--space-4); }
+.tasks__brief { font-size: var(--fs-14); line-height: var(--lh-14); color: var(--text); }
+.tasks__brief code, .task__text code, .why code { font-size: var(--fs-12); }
+.tasks__chips { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
+.sect { display: flex; flex-direction: column; gap: var(--space-2); }
+.sect > summary, .sect__head { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; list-style: none; min-height: 24px; }
+.sect > summary::-webkit-details-marker { display: none; }
+.sect > summary .icon { color: var(--text-2); transition: transform var(--dur-2) var(--ease); }
+.sect:not([open]) > summary .icon--chev { transform: rotate(-90deg); }
+.sect > summary:focus-visible { box-shadow: var(--focus-ring); }
+.addr { font-size: var(--fs-12); }
+.addr th, .addr td { height: 26px; padding: 0 var(--space-2); }
+.addr td { font-family: var(--font-mono); font-size: var(--fs-12); white-space: normal; overflow-wrap: anywhere; vertical-align: top; padding-top: 4px; padding-bottom: 4px; height: auto; }
+.addr td:first-child { font-family: var(--font-ui); }
+.tasks__row { display: flex; align-items: center; gap: var(--space-3); justify-content: space-between; }
+.tasks__count { font-size: var(--fs-12); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tasklist { display: flex; flex-direction: column; gap: 2px; counter-reset: task; }
+.task { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 0 var(--space-2); padding: var(--space-2) 0; border-top: var(--hairline) solid var(--border-subtle); }
+.task:first-child { border-top: 0; }
+.task .check { align-self: start; }
+.task__text { font-size: var(--fs-14); line-height: var(--lh-14); color: var(--text); padding-top: 1px; }
+.task__text::before { counter-increment: task; content: counter(task) ". "; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.task.is-ticked .task__text { color: var(--text-2); }
+.task__more { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-1); }
+.why > summary { color: var(--accent); font-size: var(--fs-12); cursor: pointer; width: max-content; list-style: none; display: flex; align-items: center; gap: 2px; }
+.why > summary::-webkit-details-marker { display: none; }
+.why > summary .icon { width: 12px; height: 12px; transition: transform var(--dur-2) var(--ease); }
+.why[open] > summary .icon { transform: rotate(90deg); }
+.why__text { font-size: var(--fs-13); color: var(--text-2); padding: var(--space-1) 0 var(--space-1) var(--space-3); border-left: 2px solid var(--border); margin-top: var(--space-1); }
+
+.results { display: flex; flex-direction: column; gap: var(--space-2); }
+.results__sum { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--fw-semi); font-size: var(--fs-14); }
+.results__sum.is-ok .icon { color: var(--ok); } .results__sum.is-bad .icon { color: var(--bad); }
+.results__list { display: flex; flex-direction: column; }
+.check-row { display: flex; align-items: flex-start; gap: var(--space-2); padding: 3px 0; font-size: var(--fs-13); }
+.check-row .icon { margin-top: 2px; }
+.check-row.is-ok .icon { color: var(--ok); } .check-row.is-bad .icon { color: var(--bad); }
+.results.is-stale .results__list, .results.is-stale .results__sum { opacity: .5; }
+.results__stale { font-size: var(--fs-12); color: var(--warn); display: flex; gap: var(--space-1); align-items: center; }
+
+/* ---- map placeholder (Phase 2) ---- */
+.devlist { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3); }
+.devbtn { display: inline-flex; align-items: center; gap: var(--space-2); }
+.devbtn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+
+/* ---- trace strip ---- */
+.trace { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; padding: 0 var(--space-3); border-top: var(--hairline) solid var(--border-subtle); font-size: var(--fs-12); color: var(--text-2); min-width: 0; }
+.trace__msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* small device icons (console tabs, device buttons) */
+.dev-ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; --node-fill: transparent; }
+/* Console (section 5.6) */
+.console { background: var(--bg-console); color: var(--text-console); }
+.con__tabs { display: flex; align-items: stretch; gap: 1px; flex: none; height: 32px; padding: 0 var(--space-2); overflow-x: auto; overflow-y: hidden; background: var(--bg-surface); border-bottom: var(--hairline) solid var(--border-subtle); scrollbar-width: none; }
+.con__tabs::-webkit-scrollbar { display: none; }
+.con__tab {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0 var(--space-2); white-space: nowrap;
+  color: var(--text-2); font-weight: var(--fw-medium); font-size: var(--fs-12);
+}
+.con__tab:hover { color: var(--text); }
+.con__tab[aria-selected="true"] { color: var(--text); }
+.con__tab[aria-selected="true"]::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 0; height: 2px; border-radius: 2px; background: var(--accent); }
+.con__tab:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); border-radius: var(--radius-1); }
+.dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.dot--up { background: var(--ok); }
+.dot--down { border: 1.5px solid var(--bad); }
+.dot--none { border: 1.5px solid var(--text-3); }
+.con__tools { display: flex; align-items: center; gap: var(--space-2); flex: none; height: 32px; padding: 0 var(--space-2) 0 var(--space-3); background: var(--bg-surface); border-bottom: var(--hairline) solid var(--border-subtle); }
+.con__tools .btn { height: 24px; padding: 0 var(--space-2); font-size: var(--fs-12); }
+.con__tools .btn--icon { width: 24px; padding: 0; }
+.con__mode { font-size: var(--fs-12); }
+.con__view { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.con__out {
+  flex: 1; min-height: 0; overflow: auto; padding: var(--space-2) var(--space-3) 0;
+  font: var(--fs-console)/var(--lh-console) var(--font-mono); color: var(--text-console); background: var(--bg-console);
+  white-space: pre; cursor: text; font-variant-ligatures: none; tab-size: 8;
+}
+.con__out:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 0; }
+.cl { display: block; min-height: var(--lh-console); }
+.cl--cmd { color: var(--text-console); }
+.cl--ok { color: var(--ok); }
+.cl--bad { color: var(--bad); }
+.cl--warn { color: var(--warn); }
+.cl--log, .cl--dim { color: var(--text-console-dim); }
+.con__jump { position: absolute; right: var(--space-4); bottom: var(--space-2); }
+.con__jump.btn { background: var(--bg-overlay); box-shadow: var(--shadow-2); height: 24px; font-size: var(--fs-12); }
+.con__line { display: flex; align-items: center; flex: none; padding: 0 var(--space-3) var(--space-1); background: var(--bg-console); font: var(--fs-console)/var(--lh-console) var(--font-mono); }
+.con__prompt { white-space: pre; color: var(--text-console); }
+.con__input {
+  flex: 1; min-width: 0; height: var(--lh-console); padding: 0; border: 0; background: transparent; color: var(--text-console);
+  font: inherit; caret-color: var(--accent); outline: none;
+}
+.con__input:focus-visible { box-shadow: none; }
+.con__input::placeholder { color: var(--text-console-dim); }
+.console:focus-within .con__line { box-shadow: inset 2px 0 0 var(--accent); }
+.con__why { flex: none; min-height: 28px; display: flex; align-items: center; gap: var(--space-1); padding: 4px var(--space-3); border-top: var(--hairline) solid var(--border-subtle); background: var(--bg-surface); color: var(--text-2); font-size: var(--fs-12); line-height: var(--lh-12); }
+.con__why b { color: var(--text); font-weight: var(--fw-medium); }
+.con__why .kbd { margin: 0 1px; }
+.con__keys { display: flex; flex-wrap: wrap; gap: 2px var(--space-3); align-items: center; }
+.con__keys span { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
 /* Screens: placeholders, gallery, settings, home, progress */
 .gal { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 .gal__col { background: var(--bg-surface); color: var(--text); border: var(--hairline) solid var(--border); border-radius: var(--radius-3); padding: var(--space-5); min-width: 0; display: flex; flex-direction: column; gap: var(--space-6); }
@@ -5744,8 +5865,29 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     onStatus(fn) { storage.listeners.add(fn); return () => storage.listeners.delete(fn); }
   };
 
+  // Saved lab work, in its own key: {[labSlug]: {journal: [{device, line, t}], tasks: [bool]}}.
+  // Read once (checked by validate.work), kept in memory, written a moment after each change.
+  let workMap = null, workTimer = 0;
+  const work = {
+    all() { if (!workMap) workMap = L4N.validate.work(storage.read(KEYS.work)); return workMap; },
+    get(slug) { return work.all()[slug] || null; },
+    put(slug, entry) { work.all()[slug] = { journal: entry.journal, tasks: entry.tasks || [] }; work.schedule(); },
+    remove(slug) { delete work.all()[slug]; work.schedule(); },
+    schedule() { clearTimeout(workTimer); workTimer = setTimeout(work.flush, 150); },
+    flush() {
+      clearTimeout(workTimer); workTimer = 0;
+      if (!workMap) return;
+      const out = {};
+      for (const k of Object.keys(workMap)) if (!workMap[k].corrupt && (workMap[k].journal.length || (workMap[k].tasks || []).some(Boolean))) out[k] = { journal: workMap[k].journal, tasks: workMap[k].tasks };
+      storage.write(KEYS.work, out);
+    },
+    pending: () => !!workTimer,
+    reset() { workMap = null; }
+  };
+
   L4N.createStore = createStore;
   L4N.storage = storage;
+  L4N.work = work;
   L4N.KEYS = KEYS;
 })(window.L4N = window.L4N || {});
 // validate.js: everything read from storage, a backup file or another window is checked here before use.
@@ -5826,7 +5968,57 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     };
   }
 
-  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: {}, SETTINGS };
+  const GRADES = ['S', 'A', 'B', 'C', 'D'];
+  const MAX_T = 1e14;
+
+  function run(r) {
+    if (!isObj(r)) return null;
+    return { errs: int(r.errs, 0, 1e6, 0), checks: int(r.checks, 0, 1e6, 0), help: bool(r.help, false), walk: bool(r.walk, false),
+      valid: bool(r.valid, true), done: bool(r.done, false), cmds: int(r.cmds, 0, 1e6, 0) };
+  }
+
+  // labs: {[slug]: {done, grade, doneAt, clues, guide, run}}
+  function labs(m) {
+    const out = {};
+    if (!isObj(m)) return out;
+    for (const k of Object.keys(m)) {
+      if (!known.labs.has(k) || !isObj(m[k])) continue;
+      const v = m[k];
+      const e = { done: bool(v.done, false) };
+      const g = oneOf(v.grade, GRADES, null); if (g) e.grade = g;
+      const t = int(v.doneAt, 0, MAX_T, null); if (t != null) e.doneAt = t;
+      const c = int(v.clues, 0, 3, 0); if (c) e.clues = c;
+      if (typeof v.guide === 'boolean') e.guide = v.guide;
+      const r = run(v.run); if (r) e.run = r;
+      if (e.done || e.grade || e.clues || e.guide != null || e.run) out[k] = e;
+    }
+    return out;
+  }
+
+  const DEVICE = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
+  const okLine = l => typeof l === 'string' && l.length <= 512 && !/[\r\n]/.test(l);
+  // One lab's saved work. Anything odd marks it corrupt, so the lab opens fresh (with a toast) rather than half-replayed.
+  function workEntry(w) {
+    if (!isObj(w)) return null;
+    const j = w.journal, tasks = Array.isArray(w.tasks) ? w.tasks.slice(0, 64).map(x => x === true) : [];
+    if (!Array.isArray(j) || j.length > 5000) return { journal: [], tasks: [], corrupt: true };
+    const journal = [];
+    for (const e of j) {
+      if (!isObj(e) || typeof e.device !== 'string' || !DEVICE.test(e.device) || !okLine(e.line)) return { journal: [], tasks: [], corrupt: true };
+      const o = { device: e.device, line: e.line };
+      if (typeof e.t === 'number' && isFinite(e.t) && e.t >= 0 && e.t < MAX_T) o.t = e.t;
+      journal.push(o);
+    }
+    return { journal, tasks };
+  }
+  function work(m) {
+    const out = {};
+    if (!isObj(m)) return out;
+    for (const k of Object.keys(m)) { if (!known.labs.has(k)) continue; const w = workEntry(m[k]); if (w) out[k] = w; }
+    return out;
+  }
+
+  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs }, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
 })(window.L4N = window.L4N || {});
 // router.js: the URL hash is data. It is parsed into {screen, slug}; a slug is only ever looked up in a table,
 // never written into the page. No DOM.
@@ -5961,7 +6153,212 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     };
   }
 
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue });
+  // ---- running a lab ----
+  const MAX_LINES = 2000, MAX_JOURNAL = 5000, MAX_LINE = 512;
+  const MODE = { user: 'User EXEC', priv: 'Privileged EXEC', config: 'Global configuration', if: 'Interface configuration', vlan: 'VLAN configuration',
+    line: 'Line configuration', ospf: 'OSPF configuration', acl: 'ACL configuration', dhcp: 'DHCP pool configuration', pc: 'Host console', answer: 'Answer' };
+
+  // Which kind of device this is, for icons and tooltips.
+  function devKind(d) {
+    if (d.type === 'router') return 'router';
+    if (d.type === 'switch') return d.l3 ? 'l3' : 'switch';
+    if (d.phone) return 'phone';
+    if (/^AP\d*$/i.test(d.name || '')) return 'ap';
+    if (Array.isArray(d.services) && d.services.length) return 'server';
+    return 'pc';
+  }
+  const KIND_NAME = { router: 'router', switch: 'switch', l3: 'Layer 3 switch', pc: 'PC', server: 'server', phone: 'IP phone', ap: 'access point' };
+
+  // The colour of a console line: the old lineClass rules, plus syslog messages shown dim.
+  const SYSLOG = /^(\*?[A-Z][a-z]{2} +\d+ [\d:.]+: )?%[A-Z0-9_]+-\d-[A-Z0-9_]+:/;
+  function lineClass(l) {
+    if (/^ *\^$/.test(l) || /is not recognized as an internal|^operable program or batch file\.$|^Error: unrecognized/.test(l)) return 'bad';
+    if (/: ICMP: /.test(l)) return 'warn';
+    if (/^[!.U]+$/.test(l) && l.length <= 70) return /^!+$/.test(l) ? 'ok' : /!/.test(l) ? 'warn' : 'bad';
+    { const m = /^Success rate is (\d+) percent/.exec(l); if (m) return m[1] === '100' ? 'ok' : m[1] === '0' ? 'bad' : 'warn'; }
+    if (/unreachable|General failure|!H|!A|could not find host/.test(l)) return 'bad';
+    if (/^ {0,2}\d+ \*  \*/.test(l)) return 'warn';
+    if (/changed state to up/.test(l)) return 'ok';
+    if (/changed state to down/.test(l)) return 'warn';
+    if (SYSLOG.test(l)) return 'log';
+    if (/^%|refused|timed out|failed|^\.{5}$|rejected/i.test(l)) return 'bad';
+    if (/^!{5}$|^Reply from|\[OK\]|works\.|^Open$|^Lease obtained|Trace complete/.test(l)) return 'ok';
+    return '';
+  }
+
+  // A simulator bug must never leave the page half-updated or throw saved work away.
+  function safeExec(net, d, s, line) {
+    try { return execLine(net, d, s, line); }
+    catch (e) {
+      if (typeof console !== 'undefined') console.error('Lab4Net engine error on "' + line + '":', e);
+      s.pace = null; if (s.prompt) s.prompt = null;
+      return ['% Lab4Net internal error: ' + String(e && e.message || e).slice(0, 160), '% The command did not complete. The rest of the lab still works.'];
+    }
+  }
+
+  function push(con, lines, cls) {
+    for (const t of lines) con.lines.push({ t, c: cls != null ? cls : lineClass(t) });
+    if (con.lines.length > MAX_LINES) con.lines.splice(0, con.lines.length - MAX_LINES);
+  }
+
+  function freshState(entry) {
+    const lab = entry.lab, net = lab.build(), sess = {}, con = {};
+    for (const n of Object.keys(net.devs)) {
+      const d = net.devs[n];
+      sess[n] = { mode: d.type === 'pc' ? 'pc' : 'user', ctx: null };
+      con[n] = { lines: [], hist: [], hi: 0 };
+      push(con[n], [d.type === 'pc' ? 'Host console · ipconfig, ping, tracert, telnet, ssh' : d.hostname + ' console ready', ''], 'dim');
+    }
+    const devs = Object.keys(net.devs);
+    return { entry, lab, net, sess, con, journal: [], sel: net.devs[lab.start] ? lab.start : devs[0], devs };
+  }
+
+  // Run one line on one device: the same path for live commands and for replay.
+  function step(st, dev, line) {
+    const d = st.net.devs[dev], s = st.sess[dev], con = st.con[dev];
+    TRACE = null;
+    const pr = effPrompt(s), masked = !!(pr && pr.mask);
+    const echo = promptOf(d, s) + (masked ? '' : line);
+    const res = { echo, lines: [], pace: null, why: null, masked, ran: false, trace: null };
+    if (line.trim() || pr) {
+      res.ran = true;
+      s.last = null; s.pace = null;
+      const out = safeExec(st.net, d, s, line);
+      if (out.length) { res.lines = out.join('\n').split('\n'); if (s.pace && res.lines.length === out.length) res.pace = s.pace; }
+      s.pace = null;
+      res.why = (s.last && typeof WHYC !== 'undefined' && WHYC[s.last]) || null;
+    }
+    res.trace = TRACE; TRACE = null;
+    if (line.trim() && !masked) con.hist.push(line);
+    if (con.hist.length > 200) con.hist.splice(0, con.hist.length - 200);
+    con.hi = con.hist.length;
+    return res;
+  }
+
+  // Move each device's own console messages (debug output) into its tab. `except` keeps one device's for later.
+  function drain(st, except) {
+    const changed = [];
+    for (const n of st.devs) {
+      const d = st.net.devs[n];
+      if (!d.conq || !d.conq.length || n === except) continue;
+      push(st.con[n], d.conq); d.conq = []; changed.push(n);
+    }
+    return changed;
+  }
+
+  // open(entry, saved) → state. Saved work is the command journal, replayed onto a fresh build() at the times it was typed.
+  // Throws if the journal does not fit this lab; the caller then opens the lab fresh.
+  function open(entry, saved) {
+    const st = freshState(entry);
+    const journal = saved && saved.journal ? saved.journal : [];
+    if (!Array.isArray(journal) || journal.length > MAX_JOURNAL) throw Error('Invalid command history');
+    try {
+      for (const e of journal) {
+        if (!e || !Object.prototype.hasOwnProperty.call(st.net.devs, e.device) || !L4N.validate.okLine(e.line)) throw Error('Invalid saved command');
+        if (typeof e.t === 'number' && isFinite(e.t)) SIM_NOW = e.t;
+        const r = step(st, e.device, e.line);
+        push(st.con[e.device], [r.echo], 'cmd');
+        push(st.con[e.device], r.lines);
+        drain(st, null);
+        st.journal.push(typeof e.t === 'number' ? { device: e.device, line: e.line, t: e.t } : { device: e.device, line: e.line });
+      }
+    } finally { SIM_NOW = null; }
+    TRACE = null;
+    return st;
+  }
+
+  // exec(st, device, line) → {echo, lines, pace, why, masked, ran, trace}. The caller shows the lines (or plays them).
+  function exec(st, dev, line) {
+    if (typeof line !== 'string' || line.length > MAX_LINE || /[\r\n]/.test(line)) return { error: 'Keep each command on one line, under 512 characters.' };
+    if (st.journal.length >= MAX_JOURNAL) return { error: 'This lab has reached its saved command limit. Export a backup, then reset the lab.' };
+    const r = step(st, dev, line);
+    if (r.ran) st.journal.push({ device: dev, line, t: Date.now() });
+    return r;
+  }
+
+  function prompt(st, dev) {
+    const d = st.net.devs[dev], s = st.sess[dev], pr = effPrompt(s), es = effSess(s);
+    const mode = pr ? 'answer' : es.mode;
+    return { text: promptOf(d, s), masked: !!(pr && pr.mask), mode, modeName: MODE[mode] || mode, asking: !!pr };
+  }
+
+  // `?` help: the lines IOS prints (the prompt and line with ?, then keyword and description). null during a question.
+  function help(st, dev, line) {
+    const s0 = st.sess[dev];
+    if (effPrompt(s0)) return null;
+    const [d, s] = effPair(st.net.devs[dev], s0);
+    const c = candidates(d, s.mode, line), w = Math.max(0, ...c.map(x => x.length));
+    return [promptOf(d, s) + line + '?'].concat(c.length ? c.map(x => ('  ' + x.padEnd(w + 2) + (s.mode === 'pc' ? '' : (typeof KWHELP !== 'undefined' && KWHELP[x]) || '')).trimEnd()) : ['% Unrecognized command']);
+  }
+
+  // Tab: complete the word when exactly one keyword fits; otherwise null (nothing changes, as on IOS).
+  function complete(st, dev, line) {
+    const s0 = st.sess[dev];
+    if (effPrompt(s0)) return null;
+    const [d, s] = effPair(st.net.devs[dev], s0);
+    if (/\s$/.test(line)) return null;
+    const c = candidates(d, s.mode, line).filter(x => /^[a-z\/-]/.test(x));
+    return c.length === 1 ? line.replace(/\S*$/, c[0] + ' ') : null;
+  }
+
+  // Ctrl+Z is IOS `end`: only in a configuration mode, never during a question or on a host.
+  function canEnd(st, dev) {
+    const s0 = st.sess[dev];
+    if (effPrompt(s0)) return false;
+    const [d, s] = effPair(st.net.devs[dev], s0);
+    return d.type !== 'pc' && s.mode !== 'user' && s.mode !== 'priv' && s.mode !== 'pc';
+  }
+
+  function grade(st) {
+    return st.lab.checks.map(([t, f]) => { let ok = false; try { ok = !!f(st.net); } catch (e) { ok = false; } return [t, ok]; });
+  }
+
+  function devices(st) {
+    return st.devs.map(n => {
+      const d = st.net.devs[n], ifs = Object.values(d.ifs);
+      let up = 0; for (const i of ifs) { try { if (i.link && ifUp(st.net, d, i)) up++; } catch (e) {} }
+      return { name: n, hostname: d.hostname, kind: devKind(d), kindName: KIND_NAME[devKind(d)], up, linked: ifs.filter(i => i.link).length };
+    });
+  }
+
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+})(window.L4N = window.L4N || {});
+// grade.js: the grade rules (section 2), copied exactly from the old rank rules. No DOM.
+//  - A lab is done when every check passes.
+//  - Score starts at 100. Minus 25 for the walkthrough, 15 for the guide, 5 per clue, and 2 per rejected command
+//    after the first two (at most 10).
+//  - A run with no check command of your own tops out at A.
+//  - S is 95 or more, A is 85, B is 70, C is 55, D is anything lower. The best grade is kept.
+//  - Time and command count are never scored.
+(function (L4N) {
+  'use strict';
+  const ORDER = ['D', 'C', 'B', 'A', 'S'];
+  // A command that checks the network (free, and needed for an S).
+  const CHECKCMD = /^\s*(do\s+)?(sh(o(w)?)?|ping|traceroute|tracert|telnet|ssh|ipconfig|arp|debug|netstat)\b/i;
+  // Output that means the command was rejected.
+  const REJECTED = /^% (Invalid|Incomplete|Ambiguous|Unrecognized|Unknown|Bad|Please|Login invalid|Password too short)|^%Inconsistent|^Command rejected|^Bad mask|is not recognized as an internal|^Error: unrecognized|^Bad option|^Usage: |^Permission denied/;
+
+  // run: {errs, checks, help, walk, clues}
+  function score(run) {
+    const r = run || {};
+    let s = 100 - (r.walk ? 25 : 0) - (r.help ? 15 : 0) - (r.clues || 0) * 5 - Math.min(10, Math.max(0, (r.errs || 0) - 2) * 2);
+    if (!r.checks) s = Math.min(s, 94);
+    return s;
+  }
+  function letter(s) { return s >= 95 ? 'S' : s >= 85 ? 'A' : s >= 70 ? 'B' : s >= 55 ? 'C' : 'D'; }
+  function better(a, b) { if (!a) return b || null; if (!b) return a; return ORDER.indexOf(a) >= ORDER.indexOf(b) ? a : b; }
+  const rejected = lines => (lines || []).some(l => REJECTED.test(l));
+  const isCheck = line => CHECKCMD.test(line || '');
+
+  // Count one command into a run (the old rules: a rejected command is an error, a check command is a check).
+  function count(run, line, lines) {
+    if (!run || run.done || !String(line).trim()) return run;
+    if (rejected(lines)) run.errs = (run.errs || 0) + 1;
+    else if (isCheck(line)) run.checks = (run.checks || 0) + 1;
+    return run;
+  }
+
+  L4N.grade = { score, letter, better, rejected, isCheck, count, ORDER, CHECKCMD, REJECTED };
 })(window.L4N = window.L4N || {});
 // site.js: SITE settings, the visit counter and the donate link. The only place that makes network requests.
 // tools/build-site.cjs reads the SITE line below, so keep its exact shape.
@@ -6827,7 +7224,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const recent = (state().ui.recent || []).map(s => L4N.data && L4N.data.lab(s)).filter(Boolean);
     if (recent.length) {
       recentBox.append(el('div', { class: 'sb__sep' }), el('div', { class: 'sb__label label-caps', text: 'Continue' }),
-        recent.map(l => el('a', { class: 'sb__item sb__recent', href: L4N.router.href('lab', l.slug), 'data-tip': l.title, onClick: closeDrawer },
+        ...recent.map(l => el('a', { class: 'sb__item sb__recent', href: L4N.router.href('lab', l.slug), 'data-tip': l.title, onClick: closeDrawer },
           ui.statusIcon(L4N.stats ? L4N.stats.labStatus(l.slug) : 'todo'), el('span', { text: l.short || l.title }))));
     }
   }
@@ -7067,6 +7464,635 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     }
   });
 })(window.L4N = window.L4N || {});
+// console.js: the device console (section 5.6). Every line is a span filled with textContent.
+(function (L4N) {
+  'use strict';
+  const { el, icon, svg, clear, id } = L4N.dom;
+  const sim = L4N.sim, ui = L4N.ui;
+  const PACE = { real: 1, fast: 0.4 };
+
+  function devIcon(kind) { return svg('svg', { class: 'dev-ic', viewBox: '0 0 40 40', 'aria-hidden': 'true', focusable: 'false' }, svg('use', { href: '#d-' + kind })); }
+
+  // createConsole(ws): ws = {st, onCommand(res, line, dev), onSelect(dev), onFinished(dev, lines), maximise()}
+  function createConsole(ws) {
+    const st = ws.st;
+    const outId = id('con-out'), hintId = id('con-hint');
+    let stream = null, announcedEsc = false, tabs = {}, shown = null;
+
+    const tabsEl = el('div', { class: 'con__tabs', role: 'tablist', 'aria-label': 'Devices' });
+    const modeChip = el('span', { class: 'chip con__mode' });
+    const maxBtn = ui.button({ icon: 'maximize', aria: 'Maximise the console', onClick: () => ws.maximise && ws.maximise() });
+    const tools = el('div', { class: 'con__tools' }, modeChip, el('span', { class: 'spacer' }),
+      ui.button({ label: 'Clear', kind: 'ghost', tip: 'Clear the screen', kbd: 'ctrl+l', tipKbd: true, showKbd: false, onClick: () => { clearScreen(); input.focus(); } }), maxBtn);
+    const out = el('div', { class: 'con__out', id: outId, role: 'tabpanel', tabindex: '-1' });
+    const jump = ui.button({ label: 'Jump to latest', icon: 'chevron-down', kind: 'secondary', class: 'con__jump', onClick: () => { toBottom(); input.focus(); } });
+    jump.hidden = true;
+    const promptEl = el('span', { class: 'con__prompt', 'aria-hidden': 'true' });
+    const input = el('input', { class: 'con__input', type: 'text', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false',
+      maxlength: '512', 'aria-describedby': hintId, enterkeyhint: 'send' });
+    const why = el('div', { class: 'con__why', id: hintId });
+    const log = el('div', { class: 'sr-only', role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' });
+    const root = el('section', { class: 'pane console', 'aria-label': 'Console', id: 'ws-console' },
+      tabsEl, tools, el('div', { class: 'con__view' }, out, jump), el('div', { class: 'con__line' }, promptEl, input), why, log);
+
+    function keyHints() {
+      clear(why);
+      why.append(el('span', { class: 'con__keys' },
+        el('span', {}, el('kbd', { class: 'kbd', text: '?' }), 'help'), el('span', {}, el('kbd', { class: 'kbd', text: 'Tab' }), 'complete'),
+        el('span', {}, el('kbd', { class: 'kbd', text: '↑' }), el('kbd', { class: 'kbd', text: '↓' }), 'history'),
+        el('span', {}, el('kbd', { class: 'kbd', text: 'Ctrl' }), el('kbd', { class: 'kbd', text: 'Z' }), 'end'),
+        el('span', {}, el('kbd', { class: 'kbd', text: 'Esc' }), 'leave the console')));
+    }
+    function setWhy(text) {
+      if (!text) { keyHints(); return; }
+      clear(why); why.append(el('span', {}, el('b', { text: 'Why: ' }), text));
+    }
+
+    // ---- output ----
+    const atBottom = () => out.scrollHeight - out.scrollTop - out.clientHeight < 24;
+    function toBottom() { out.scrollTop = out.scrollHeight; jump.hidden = true; }
+    out.addEventListener('scroll', () => { if (atBottom()) jump.hidden = true; });
+    const span = l => el('span', { class: 'cl' + (l.c ? ' cl--' + l.c : ''), text: l.t || '​' });
+
+    function renderAll() {
+      const con = st.con[st.sel];
+      clear(out);
+      const frag = document.createDocumentFragment();
+      for (const l of con.lines) frag.append(span(l));
+      out.append(frag);
+      shown = st.sel;
+      toBottom();
+    }
+    function addLines(dev, texts, cls) {
+      const con = st.con[dev];
+      const before = con.lines.length;
+      sim.push(con, texts, cls);
+      if (dev !== shown) return;
+      const stick = atBottom();
+      const added = Math.min(texts.length, con.lines.length);
+      const frag = document.createDocumentFragment();
+      for (let i = con.lines.length - added; i < con.lines.length; i++) frag.append(span(con.lines[i]));
+      out.append(frag);
+      while (out.children.length > con.lines.length) out.firstChild.remove();
+      if (before + texts.length !== con.lines.length && out.children.length !== con.lines.length) renderAll();
+      if (stick) toBottom(); else jump.hidden = false;
+    }
+    function appendToLast(dev, text) {
+      const con = st.con[dev];
+      if (!con.lines.length) { addLines(dev, [text]); return; }
+      const l = con.lines[con.lines.length - 1];
+      l.t += text; l.c = sim.lineClass(l.t);
+      if (dev !== shown) return;
+      const stick = atBottom();
+      const node = out.lastChild;
+      if (node) { node.textContent = l.t; node.className = 'cl' + (l.c ? ' cl--' + l.c : ''); }
+      if (stick) toBottom();
+    }
+    function clearScreen() { const con = st.con[st.sel]; con.lines = []; renderAll(); }
+
+    // A finished command's output is read out once, cut to 20 lines.
+    function announce(lines) {
+      const L = lines.filter(x => x.trim());
+      if (!L.length) return;
+      const text = L.slice(0, 20).join('\n') + (L.length > 20 ? '\nand ' + (L.length - 20) + ' more lines' : '');
+      while (log.children.length > 4) log.firstChild.remove();
+      log.append(el('div', { text }));
+    }
+
+    // ---- paced output (ping, traceroute) ----
+    function paceScale() {
+      if (L4N.motion.reduced()) return 0;
+      const p = L4N.store.get().settings.pace;
+      return p === 'instant' ? 0 : PACE[p] || 0.4;
+    }
+    function streamStart(dev, lines, pace) {
+      const scale = paceScale(), units = [];
+      lines.forEach((line, i) => {
+        const p = pace.t[i];
+        let parts;
+        if (p && p.chars) parts = [...line].map((c, k) => [p.chars[k] || 0, c, true]);
+        else if (p && p.parts) parts = p.parts.map(([ms, txt]) => [ms, txt, false]);
+        else parts = [[typeof p === 'number' ? p : p && p.d || 0, line, !!(p && p.pkt)]];
+        parts.forEach(([ms, txt, pkt], k) => units.push({ ms: Math.round(ms * scale), txt, pkt, first: k === 0 }));
+      });
+      stream = { dev, units, pos: 0, pkts: 0, abort: pace.abort, full: lines, timer: 0 };
+      refreshPrompt();
+      tick(true);
+    }
+    function unit(S, u) { if (u.first) addLines(S.dev, [u.txt]); else appendToLast(S.dev, u.txt); if (u.pkt) S.pkts++; }
+    function tick(first) {
+      const S = stream;
+      if (!S) return;
+      S.timer = 0;
+      let k = 0;
+      while (S.pos < S.units.length && (S.units[S.pos].ms === 0 || (!first && k === 0))) { unit(S, S.units[S.pos++]); k++; }
+      if (S.pos >= S.units.length) { stop(false); return; }
+      S.timer = setTimeout(() => tick(false), S.units[S.pos].ms);
+    }
+    // stop(true) is Ctrl+C: print the engine's abort summary. stop(false) finishes the output at once.
+    function stop(abort) {
+      const S = stream;
+      if (!S) return;
+      if (S.timer) clearTimeout(S.timer);
+      stream = null;
+      let lines = S.full;
+      if (abort) { const sum = S.abort ? S.abort(S.pkts) : []; addLines(S.dev, sum); lines = sum; }
+      else while (S.pos < S.units.length) unit(S, S.units[S.pos++]);
+      for (const d of sim.drain(st, null)) if (d === shown) renderAll();
+      refreshPrompt();
+      announce(lines);
+      if (ws.onFinished) ws.onFinished(S.dev);
+    }
+
+    // ---- prompt, mode, tabs ----
+    function refreshPrompt() {
+      const p = sim.prompt(st, st.sel);
+      const playing = stream && stream.dev === st.sel;
+      promptEl.textContent = playing ? '' : p.text;
+      input.placeholder = playing ? 'Running… Ctrl+C to stop' : '';
+      const type = p.masked ? 'password' : 'text';
+      if (input.type !== type) input.type = type;
+      modeChip.textContent = p.modeName;
+      const d = st.net.devs[st.sel];
+      input.setAttribute('aria-label', 'Console for ' + d.hostname + ', ' + p.modeName.toLowerCase());
+    }
+    function renderTabs() {
+      clear(tabsEl); tabs = {};
+      for (const dv of sim.devices(st)) {
+        const t = el('button', {
+          class: 'con__tab', type: 'button', role: 'tab', id: id('con-tab'), 'aria-selected': String(dv.name === st.sel), tabindex: dv.name === st.sel ? '0' : '-1',
+          'aria-controls': outId, 'data-dev': dv.name, onClick: () => { select(dv.name); input.focus(); }
+        }, devIcon(dv.kind), el('span', { text: dv.hostname }),
+        el('span', { class: 'dot ' + (dv.linked ? (dv.up ? 'dot--up' : 'dot--down') : 'dot--none'), 'aria-hidden': 'true' }),
+        el('span', { class: 'sr-only', text: dv.linked ? ', ' + dv.up + ' of ' + dv.linked + ' links up' : '' }));
+        tabs[dv.name] = t; tabsEl.append(t);
+      }
+      const cur = tabs[st.sel];
+      if (cur) out.setAttribute('aria-labelledby', cur.id);
+    }
+    function refreshTabs() {
+      for (const dv of sim.devices(st)) {
+        const t = tabs[dv.name]; if (!t) continue;
+        t.childNodes[1].textContent = dv.hostname;
+        t.childNodes[2].className = 'dot ' + (dv.linked ? (dv.up ? 'dot--up' : 'dot--down') : 'dot--none');
+        t.childNodes[3].textContent = dv.linked ? ', ' + dv.up + ' of ' + dv.linked + ' links up' : '';
+      }
+    }
+    tabsEl.addEventListener('keydown', e => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+      e.preventDefault();
+      const names = st.devs, i = names.indexOf(st.sel);
+      const j = e.key === 'Home' ? 0 : e.key === 'End' ? names.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + names.length) % names.length;
+      select(names[j]); tabs[names[j]].focus();
+    });
+
+    function select(dev) {
+      if (!st.net.devs[dev]) return;
+      st.sel = dev;
+      for (const n in tabs) { const on = n === dev; tabs[n].setAttribute('aria-selected', String(on)); tabs[n].tabIndex = on ? 0 : -1; if (on) out.setAttribute('aria-labelledby', tabs[n].id); }
+      input.value = '';
+      renderAll(); refreshPrompt();
+      if (ws.onSelect) ws.onSelect(dev);
+    }
+
+    // ---- running commands ----
+    function run(line) {
+      stop(false);
+      const dev = st.sel;
+      const r = sim.exec(st, dev, line);
+      if (r.error) { L4N.toast({ text: r.error, kind: 'warn' }); return null; }
+      addLines(dev, [r.echo], 'cmd');
+      const playing = r.lines.length && r.pace && paceScale() > 0;
+      if (r.lines.length) { if (playing) streamStart(dev, r.lines, r.pace); else { addLines(dev, r.lines); announce(r.lines); } }
+      for (const d of sim.drain(st, playing ? dev : null)) if (d === shown && !playing) renderAll();
+      setWhy(r.why);
+      refreshPrompt(); refreshTabs();
+      if (ws.onCommand) ws.onCommand(r, line, dev);
+      return r;
+    }
+
+    function history(dir) {
+      const con = st.con[st.sel];
+      if (dir < 0) { if (con.hi > 0) input.value = con.hist[--con.hi]; }
+      else input.value = con.hi < con.hist.length - 1 ? con.hist[++con.hi] : (con.hi = con.hist.length, '');
+      const n = input.value.length; input.setSelectionRange(n, n);
+    }
+
+    input.addEventListener('focus', () => {
+      if (announcedEsc) return; announcedEsc = true;
+      L4N.shell.announce('Console. Tab completes commands. Press Escape to leave the console, then Tab moves on.');
+    });
+    input.addEventListener('input', () => {
+      if (!input.value.includes('?')) return;
+      const line = input.value.replace(/\?/g, '');
+      const rows = sim.help(st, st.sel, line);
+      if (!rows) return; // during a question, ? is a normal character
+      addLines(st.sel, [rows[0]], 'cmd'); addLines(st.sel, rows.slice(1)); announce(rows.slice(1));
+      input.value = line;
+    });
+    input.addEventListener('keydown', e => {
+      const ctrl = e.ctrlKey && !e.metaKey && !e.altKey;
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (stream && ctrl && ((k === 'c' && input.selectionStart === input.selectionEnd) || (e.shiftKey && (e.code === 'Digit6' || k === '^' || k === '6')))) { e.preventDefault(); stop(true); return; }
+      if (ctrl && e.shiftKey && (e.code === 'Digit6' || k === '^')) { e.preventDefault(); return; }
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) { e.preventDefault(); const line = input.value; input.value = ''; run(line); return; }
+      if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); if (e.shiftKey) return; const c = sim.complete(st, st.sel, input.value); if (c) input.value = c; return; }
+      if (e.key === 'Escape') { e.preventDefault(); out.focus(); return; }
+      if (e.key === 'ArrowUp' || (ctrl && k === 'p')) { e.preventDefault(); history(-1); return; }
+      if (e.key === 'ArrowDown' || (ctrl && k === 'n')) { e.preventDefault(); history(1); return; }
+      if (!ctrl || e.shiftKey) return;
+      if (k === 'a') { e.preventDefault(); input.setSelectionRange(0, 0); }
+      else if (k === 'e') { e.preventDefault(); const n = input.value.length; input.setSelectionRange(n, n); }
+      else if (k === 'u') { e.preventDefault(); input.value = ''; }
+      else if (k === 'l') { e.preventDefault(); clearScreen(); }
+      else if (k === 'z') { e.preventDefault(); if (sim.canEnd(st, st.sel)) run('end'); }
+    });
+    // Pasting several lines runs them one at a time, in order (up to 200), like pasting a config.
+    input.addEventListener('paste', e => {
+      const cd = e.clipboardData || window.clipboardData;
+      const text = cd ? (cd.getData('text/plain') || cd.getData('text') || '') : '';
+      if (!/[\r\n]/.test(text)) return;
+      e.preventDefault();
+      const lines = text.split(/\r?\n|\r/).filter(x => x.trim());
+      if (!lines.length) return;
+      if (lines.length > 200) { L4N.toast({ text: 'Paste up to 200 commands at a time.', kind: 'warn' }); return; }
+      if (lines.some(x => x.length > 512)) { L4N.toast({ text: 'Keep each pasted command under 512 characters.', kind: 'warn' }); return; }
+      lines[0] = input.value + lines[0];
+      input.value = '';
+      for (const l of lines) if (!run(l)) break;
+    });
+    out.addEventListener('click', () => { const s = window.getSelection(); if (s && String(s).length) return; input.focus({ preventScroll: true }); });
+
+    renderTabs(); renderAll(); refreshPrompt(); keyHints();
+    return {
+      el: root, input, out, run, select, stop, refreshPrompt, refreshTabs, renderAll, clearScreen,
+      focus() { input.focus({ preventScroll: true }); },
+      playing: () => !!stream,
+      setMaximised(on) { maxBtn.setAttribute('aria-label', on ? 'Restore the map' : 'Maximise the console'); maxBtn.setAttribute('data-tip', on ? 'Restore the map' : 'Maximise the console'); clear(maxBtn).append(icon(on ? 'minimize' : 'maximize')); },
+      destroy() { if (stream && stream.timer) clearTimeout(stream.timer); stream = null; }
+    };
+  }
+
+  L4N.consoleView = { create: createConsole, devIcon };
+})(window.L4N = window.L4N || {});
+// tasks.js: the Tasks panel (section 5.4). Lab task text, briefs and "why" text are repo content (dom.trusted);
+// everything else is text.
+(function (L4N) {
+  'use strict';
+  const { el, icon, clear, trusted, id } = L4N.dom;
+  const ui = L4N.ui;
+
+  function objChips(lab) {
+    return (lab.ccna || []).slice(0, 4).map(o => ui.objChip(o, (typeof CCNA_OBJECTIVES !== 'undefined' && CCNA_OBJECTIVES[o]) || ''));
+  }
+
+  // createTasks(ws): ws = {st, entry, tasks: [bool], onTick(i, v), graded, gradeNow(), extras}
+  function createTasks(ws) {
+    const st = ws.st, lab = st.lab, entry = st.entry;
+    const body = el('div', { class: 'tasks__body' });
+    const countEl = el('span', { class: 'tasks__count num' });
+    const head = el('div', { class: 'pane__head' }, el('h2', { class: 'pane__title' }, icon('list-checks'), 'Tasks'), el('span', { class: 'spacer' }), countEl);
+    const root = el('section', { class: 'pane tasks', 'aria-label': 'Tasks', id: 'ws-tasks' }, head, el('div', { class: 'pane__body', tabindex: '-1' }, body));
+    const results = el('section', { class: 'results', 'aria-label': 'Results', 'aria-live': 'polite', id: id('results') });
+    const taskNodes = [];
+
+    function updateCount() {
+      const n = ws.tasks.filter(Boolean).length;
+      countEl.textContent = n + ' of ' + lab.tasks.length + ' done';
+    }
+
+    function build() {
+      clear(body);
+      // 1. the brief, with objective chips
+      body.append(el('div', {}, trusted(lab.brief || '', 'p', { class: 'tasks__brief' }), el('div', { class: 'tasks__chips' }, objChips(lab))));
+      // 2. incidents
+      if (entry.kind === 'incident') body.append(ui.callout({ kind: 'warn', icon: 'alert', body: ['This network worked until something changed. Find it, make the smallest repair, keep everything else working.'] }));
+      if (ws.extras && ws.extras.top) body.append(ws.extras.top());
+      // 3. address plan
+      if (lab.addr && lab.addr.length) {
+        body.append(el('details', { class: 'sect', open: true },
+          el('summary', {}, icon('chevron-down', 'icon--chev'), el('span', { class: 'label-caps', text: 'Address plan' })),
+          el('div', { class: 'table-wrap' }, el('table', { class: 'table addr' },
+            el('thead', {}, el('tr', {}, el('th', { text: 'Device', scope: 'col' }), el('th', { text: 'Interface', scope: 'col' }), el('th', { text: 'Address', scope: 'col' }))),
+            el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) }))))))));
+      }
+      // 4. step-by-step row (Phase 4 adds the switch)
+      if (ws.extras && ws.extras.stepRow) body.append(ws.extras.stepRow());
+      // 5. the tasks
+      const list = el('ol', { class: 'tasklist', 'aria-label': 'Tasks' });
+      taskNodes.length = 0;
+      lab.tasks.forEach((t, i) => {
+        const textId = id('task');
+        const cb = ui.checkbox({ checked: !!ws.tasks[i], aria: 'Task ' + (i + 1) + ' done', onChange: v => { ws.tasks[i] = v; li.classList.toggle('is-ticked', v); updateCount(); if (ws.onTick) ws.onTick(i, v); } });
+        const more = el('div', { class: 'task__more' });
+        if (lab.why && lab.why[i] && !(ws.hideHelp && ws.hideHelp())) {
+          more.append(el('details', { class: 'why' }, el('summary', {}, icon('chevron-right'), 'Why'), trusted(lab.why[i], 'div', { class: 'why__text' })));
+        }
+        if (ws.extras && ws.extras.taskExtra) { const x = ws.extras.taskExtra(i); if (x) more.append(x); }
+        const li = el('li', { class: ['task', ws.tasks[i] && 'is-ticked'] }, cb, trusted(t, 'div', { class: 'task__text', id: textId }), more);
+        cb.querySelector('input').setAttribute('aria-describedby', textId);
+        taskNodes.push(li); list.append(li);
+      });
+      body.append(list);
+      if (ws.extras && ws.extras.afterTasks) body.append(ws.extras.afterTasks());
+      // 7. results
+      body.append(results);
+      if (ws.extras && ws.extras.bottom) body.append(ws.extras.bottom());
+      renderResults();
+      updateCount();
+    }
+
+    function renderResults() {
+      clear(results);
+      const g = ws.graded;
+      if (!g) { results.hidden = true; return; }
+      results.hidden = false;
+      const pass = g.results.filter(x => x[1]).length, all = g.results.length, done = pass === all;
+      results.classList.toggle('is-stale', !!g.stale);
+      results.append(el('h3', { class: 'label-caps', text: 'Results' }));
+      if (g.stale) results.append(el('p', { class: 'results__stale' }, icon('alert'), 'Commands run since grading. Grade again.'));
+      const sum = done ? 'Lab complete' + (g.grade ? ' · Grade ' + g.grade : '') : pass + ' of ' + all + ' checks pass';
+      results.append(el('p', { class: ['results__sum', done ? 'is-ok' : 'is-bad'] }, icon(done ? 'check-circle' : 'x-circle'), sum));
+      if (!g.hideList) {
+        results.append(el('ul', { class: 'results__list' }, g.results.map(([t, ok]) => el('li', { class: ['check-row', ok ? 'is-ok' : 'is-bad'] },
+          icon(ok ? 'check' : 'x'), el('span', { class: 'sr-only', text: ok ? 'Passes: ' : 'Fails: ' }), el('span', { text: t })))));
+      }
+      if (done && entry.kind === 'incident' && lab.lesson && !g.hideList) results.append(ui.callout({ title: 'Root cause', body: [trusted(lab.lesson, 'div')] }));
+      if (done && ws.next && ws.next()) {
+        const n = ws.next();
+        results.append(el('div', {}, ui.button({ label: 'Next lab: ' + n.short, icon: 'arrow-right', kind: 'secondary', href: L4N.router.href('lab', n.slug) })));
+      }
+    }
+
+    build();
+    return { el: root, rebuild: build, renderResults, focus() { root.querySelector('.pane__body').focus(); }, results };
+  }
+
+  L4N.tasksView = { create: createTasks };
+})(window.L4N = window.L4N || {});
+// map.js: the network map pane. Phase 2 placeholder: the devices as buttons, so a console can be chosen.
+(function (L4N) {
+  'use strict';
+  const { el, icon, clear } = L4N.dom;
+
+  function createMap(ws) {
+    const st = ws.st;
+    const list = el('div', { class: 'devlist', role: 'group', 'aria-label': 'Devices' });
+    const root = el('section', { class: 'pane map', 'aria-label': 'Network map', id: 'ws-map' },
+      el('div', { class: 'pane__head' }, el('h2', { class: 'pane__title' }, icon('route'), 'Network map')),
+      el('div', { class: 'pane__body', tabindex: '-1' }, list));
+    function render() {
+      clear(list);
+      for (const dv of L4N.sim.devices(st)) {
+        list.append(el('button', {
+          class: 'btn btn--secondary devbtn', type: 'button', 'aria-pressed': String(dv.name === st.sel), 'data-dev': dv.name,
+          'aria-label': dv.hostname + ', ' + dv.kindName + (dv.linked ? ', ' + dv.up + ' of ' + dv.linked + ' links up' : '') + '. Open console.',
+          onClick: () => ws.selectDevice(dv.name, true)
+        }, L4N.consoleView.devIcon(dv.kind), el('span', { text: dv.hostname })));
+      }
+    }
+    render();
+    return { el: root, render, update: render, focus() { const b = list.querySelector('[aria-pressed="true"]') || list.firstChild; if (b) b.focus(); }, destroy() {} };
+  }
+
+  L4N.mapView = { create: createMap };
+})(window.L4N = window.L4N || {});
+// workspace.js: the lab workspace (section 5.4): Tasks, Map and Console, the top bar, grading and saved work.
+(function (L4N) {
+  'use strict';
+  const { el, icon, clear } = L4N.dom;
+  const ui = L4N.ui, sim = L4N.sim, G = L4N.grade;
+  let current = null;
+  const waiters = [];
+
+  // ---- progress helpers ----
+  const labRec = slug => L4N.store.get().labs[slug] || null;
+  function setLab(slug, patch) {
+    L4N.store.set(s => { const labs = Object.assign({}, s.labs); labs[slug] = Object.assign({ done: false }, labs[slug], patch); return { labs }; });
+  }
+  function status(slug) {
+    const L = labRec(slug);
+    if (L && L.done) return 'done';
+    const w = L4N.work.get(slug);
+    return w && w.journal && w.journal.length ? 'progress' : 'todo';
+  }
+  L4N.labStatus = status;
+  L4N.setLab = setLab;
+
+  function touch(slug) {
+    L4N.store.set(s => {
+      const recent = [slug].concat((s.ui.recent || []).filter(x => x !== slug)).slice(0, 3);
+      return { ui: Object.assign({}, s.ui, { recent, lastLab: slug }) };
+    });
+  }
+
+  function nextLab(entry) {
+    const order = L4N.labsOrder ? L4N.labsOrder() : L4N.data.labs;
+    const i = order.indexOf(entry);
+    for (let k = 1; k <= order.length; k++) { const n = order[(i + k) % order.length]; if (status(n.slug) !== 'done') return n; }
+    return null;
+  }
+
+  // ---- mounting ----
+  function mount(root, r) {
+    const entry = L4N.data.lab(r.slug);
+    if (!entry) { L4N.toast({ text: 'That link is out of date.', kind: 'warn' }); setTimeout(() => L4N.shell.go('#/labs'), 0); return; }
+    let saved = L4N.work.get(entry.slug), st;
+    const restoreFailed = () => { L4N.toast({ text: 'Could not restore this lab. A fresh topology is ready.', kind: 'warn' }); L4N.work.remove(entry.slug); saved = null; };
+    if (saved && saved.corrupt) restoreFailed();
+    try { st = sim.open(entry, saved); }
+    catch (e) { console.error(e); restoreFailed(); st = sim.open(entry, null); }
+
+    const ws = {
+      st, entry, slug: entry.slug,
+      tasks: saved ? saved.tasks.slice(0, entry.lab.tasks.length) : [],
+      graded: null,
+      hooks: [],
+      next: () => nextLab(entry)
+    };
+    current = ws;
+
+    // a run counts toward a grade only if it started from a fresh lab (the old rule)
+    const L = labRec(entry.slug);
+    if (!st.journal.length || !(L && L.run)) setLab(entry.slug, { run: { errs: 0, checks: 0, help: false, walk: false, valid: !st.journal.length, done: false, cmds: 0 } });
+    touch(entry.slug);
+
+    ws.save = () => L4N.work.put(entry.slug, { journal: st.journal, tasks: ws.tasks });
+    ws.onTick = () => ws.save();
+    ws.selectDevice = (dev, focus) => { ws.console.select(dev); if (focus) ws.console.focus(); };
+    ws.onSelect = () => { if (ws.map) ws.map.update(); };
+    ws.onCommand = (res, line, dev) => {
+      if (res.ran) {
+        const rec = labRec(entry.slug), run = rec && rec.run ? Object.assign({}, rec.run) : null;
+        if (run && run.valid && !run.done && line.trim()) { run.cmds = (run.cmds || 0) + 1; G.count(run, line, res.lines); setLab(entry.slug, { run }); }
+      }
+      if (ws.graded && !ws.graded.stale) { ws.graded.stale = true; ws.tasksView.renderResults(); }
+      ws.save();
+      refreshStatus();
+      if (ws.map) ws.map.update(res, dev);
+      for (const h of ws.hooks) h(res, line, dev);
+    };
+
+    ws.grade = () => {
+      const results = sim.grade(st);
+      const done = results.every(x => x[1]);
+      let letter = null;
+      if (done) {
+        const rec = labRec(entry.slug) || {};
+        const run = rec.run ? Object.assign({}, rec.run) : null;
+        const patch = { done: true, doneAt: rec.doneAt || Date.now() };
+        if (run && run.valid && !run.done && run.cmds > 0) {
+          run.done = true; run.clues = rec.clues || 0;
+          letter = G.letter(G.score(run));
+          patch.grade = G.better(rec.grade, letter);
+          patch.run = run;
+        }
+        setLab(entry.slug, patch);
+        letter = letter || (labRec(entry.slug) || {}).grade || null;
+      }
+      ws.graded = { results, stale: false, grade: letter };
+      ws.tasksView.renderResults();
+      refreshStatus();
+      const pass = results.filter(x => x[1]).length;
+      const n = done && ws.next();
+      if (done) L4N.toast({ text: 'Lab complete' + (letter ? ' · Grade ' + letter : ''), kind: 'ok', action: n ? { label: 'Next lab', run: () => L4N.shell.go(L4N.router.href('lab', n.slug)) } : null });
+      else L4N.toast({ text: pass + ' of ' + results.length + ' checks pass', kind: 'warn' });
+      ws.tasksView.results.scrollIntoView({ block: 'nearest' });
+      return results;
+    };
+
+    ws.reset = async () => {
+      const ok = await L4N.dialog.confirm({ title: 'Reset this lab?', body: 'Your commands and ticks for this lab are deleted and the network goes back to the start. Finished labs and grades are kept.', ok: 'Reset lab', danger: true });
+      if (!ok) return;
+      L4N.work.remove(entry.slug);
+      const rec = labRec(entry.slug) || {};
+      setLab(entry.slug, { run: { errs: 0, checks: 0, help: false, walk: false, valid: true, done: false, cmds: 0 }, clues: 0, done: !!rec.done });
+      L4N.shell.go(L4N.router.href('lab', entry.slug));
+    };
+
+    // ---- the frame ----
+    ws.console = L4N.consoleView.create(ws);
+    ws.tasksView = L4N.tasksView.create(ws);
+    ws.map = L4N.mapView.create(ws);
+    ws.trace = el('div', { class: 'trace', 'aria-live': 'polite', id: 'ws-trace' }, el('span', { class: 'trace__msg hint', text: 'Ping, traceroute, Telnet or SSH from a console shows the path here.' }));
+    const frame = el('div', { class: 'ws', 'data-layout': 'stacked' },
+      ws.tasksView.el, el('div', { class: 'ws__divider', 'aria-hidden': 'true' }),
+      el('div', { class: 'ws__right' }, ws.map.el, ws.trace, el('div', { class: 'ws__divider', 'aria-hidden': 'true' }), ws.console.el));
+    ws.frame = frame;
+    root.append(el('h1', { class: 'sr-only', 'data-heading': '', tabindex: '-1', text: entry.title }), frame);
+
+    // ---- top bar ----
+    const statusBox = el('span', { class: 'hstack' });
+    function refreshStatus() {
+      clear(statusBox);
+      const s = status(entry.slug), rec = labRec(entry.slug);
+      statusBox.append(ui.statusChip(s));
+      if (rec && rec.grade) statusBox.append(ui.gradeChip(rec.grade));
+    }
+    ws.refreshStatus = refreshStatus;
+    refreshStatus();
+    L4N.shell.topbar.setStatus(statusBox);
+    const lesson = sim.catalogue && L4N.data.lessonFor(entry);
+    const moreBtn = ui.button({ icon: 'more', aria: 'More lab actions', onClick: e => L4N.menu.open(e.currentTarget, moreItems(), { align: 'end', label: 'Lab actions' }) });
+    const gradeBtn = ui.button({ label: 'Grade', kind: 'primary', kbd: 'mod+enter', id: 'gradeBtn', onClick: () => ws.grade() });
+    gradeBtn.setAttribute('data-tip', 'Grade the lab'); gradeBtn.setAttribute('data-kbd', 'mod+enter');
+    L4N.shell.topbar.setActions(lesson ? ui.button({ label: 'Lesson', kind: 'ghost', icon: 'lessons', href: L4N.router.href('lesson', lesson.slug) }) : null, gradeBtn, moreBtn);
+    ws.gradeBtn = gradeBtn;
+    function moreItems() {
+      const items = [];
+      for (const h of ws.menuHooks || []) items.push(...h());
+      items.push({ label: 'Reset lab', icon: 'reset', danger: true, run: () => ws.reset() });
+      return items;
+    }
+
+    if (L4N.workspaceExtras) for (const fn of L4N.workspaceExtras) { try { fn(ws); } catch (e) { console.error(e); } }
+
+    // focus the console so typing starts at once (not on phones, where the keyboard would cover the page)
+    if (window.innerWidth >= 768) setTimeout(() => { if (current === ws && !document.querySelector('dialog[open]')) ws.console.focus(); }, 0);
+    while (waiters.length) waiters.shift()(ws);
+
+    return () => {
+      ws.console.stop(false);
+      ws.save(); L4N.work.flush();
+      ws.console.destroy(); ws.map.destroy();
+      if (ws.cleanup) for (const f of ws.cleanup) f();
+      if (current === ws) current = null;
+    };
+  }
+
+  // ---- shortcuts and palette commands while a lab is open ----
+  const inLab = () => !!current;
+  const panes = () => current ? [['tasks', () => current.tasksView.focus()], ['map', () => current.map.focus()], ['console', () => current.console.focus()]] : [];
+  function cyclePane(dir) {
+    const P = panes(); if (!P.length) return;
+    const a = document.activeElement;
+    let i = P.findIndex(([k]) => { const n = document.getElementById('ws-' + k); return n && n.contains(a); });
+    i = (i + dir + P.length) % P.length;
+    P[i][1]();
+  }
+  function cycleDevice(dir) {
+    if (!current) return;
+    const names = current.st.devs, i = names.indexOf(current.st.sel);
+    current.selectDevice(names[(i + dir + names.length) % names.length], true);
+  }
+  const K = L4N.keys;
+  K.add({ keys: 'mod+enter', label: 'Grade the lab', group: 'Lab', input: true, when: inLab, run: () => current.grade() });
+  K.add({ keys: 'alt+.', label: 'Next device console', group: 'Lab', input: true, when: inLab, run: () => cycleDevice(1) });
+  K.add({ keys: 'alt+,', label: 'Previous device console', group: 'Lab', input: true, when: inLab, run: () => cycleDevice(-1) });
+  K.add({ keys: 'f6', label: 'Next pane', group: 'Lab', input: true, when: inLab, run: () => cyclePane(1) });
+  K.add({ keys: 'shift+f6', label: 'Previous pane', group: 'Lab', input: true, when: inLab, run: () => cyclePane(-1) });
+
+  L4N.commands.add(() => {
+    if (!current) return [];
+    const ws = current, out = [
+      { id: 'lab-grade', group: 'In a lab', title: 'Grade lab', icon: 'check-circle', kbd: 'mod+enter', run: () => ws.grade() },
+      { id: 'lab-reset', group: 'In a lab', title: 'Reset lab', icon: 'reset', run: () => ws.reset() },
+      { id: 'lab-focus-console', group: 'In a lab', title: 'Focus console', icon: 'labs', kbd: 'f6', run: () => ws.console.focus() },
+      { id: 'lab-focus-map', group: 'In a lab', title: 'Focus map', icon: 'route', run: () => ws.map.focus() },
+      { id: 'lab-focus-tasks', group: 'In a lab', title: 'Focus tasks', icon: 'list-checks', run: () => ws.tasksView.focus() },
+      { id: 'lab-clear', group: 'In a lab', title: 'Clear console', icon: 'x', run: () => { ws.console.clearScreen(); ws.console.focus(); } }
+    ];
+    const lesson = L4N.data.lessonFor(ws.entry);
+    if (lesson && !(ws.hideHelp && ws.hideHelp())) out.push({ id: 'lab-lesson', group: 'In a lab', title: "Open this lab's lesson", icon: 'lessons', subtitle: lesson.title, run: () => L4N.shell.go(L4N.router.href('lesson', lesson.slug)) });
+    for (const dv of sim.devices(ws.st)) out.push({ id: 'lab-dev-' + dv.name, group: 'In a lab', title: 'Switch to device ' + dv.hostname, icon: 'labs', subtitle: dv.kindName, keywords: dv.name, run: () => ws.selectDevice(dv.name, true) });
+    for (const h of ws.commandHooks || []) out.push(...h());
+    return out;
+  });
+
+  // ---- the test hook (section 8.3): the same code paths a person uses ----
+  L4N.test = {
+    openLab(slug) {
+      return new Promise(resolve => {
+        waiters.push(ws => resolve(!!ws));
+        const href = L4N.router.href('lab', slug);
+        if (location.hash === href && current && current.slug === slug) { waiters.length = 0; resolve(true); return; }
+        L4N.shell.go(href);
+      });
+    },
+    exec(device, line) {
+      if (!current) throw Error('No lab is open');
+      if (device && device !== current.st.sel) current.console.select(device);
+      const r = current.console.run(line);
+      current.console.stop(false);
+      return r ? r.lines : null;
+    },
+    grade() { if (!current) throw Error('No lab is open'); current.gradeBtn.click(); return current.graded && current.graded.results; },
+    state() {
+      if (!current) return null;
+      const c = current, rec = labRec(c.slug) || {};
+      return { slug: c.slug, sel: c.st.sel, journal: c.st.journal.length, graded: c.graded, done: !!rec.done, grade: rec.grade || null, run: rec.run || null,
+        lines: c.st.con[c.st.sel].lines.slice(-60).map(l => l.t), prompt: sim.prompt(c.st, c.st.sel) };
+    }
+  };
+
+  L4N.workspace = { current: () => current, status, nextLab };
+  L4N.screens.register('lab', {
+    nav: 'labs',
+    title: r => { const l = L4N.data.lab(r.slug); return l ? l.title : 'Lab'; },
+    crumbs: r => { const l = L4N.data.lab(r.slug); return l ? [{ label: 'Labs', href: '#/labs' }, { label: l.lab.group, href: '#/labs' }, { label: l.short }] : [{ label: 'Labs', href: '#/labs' }]; },
+    mount
+  });
+})(window.L4N = window.L4N || {});
 // settings.js: Appearance, Console, Data and About (section 5.11).
 (function (L4N) {
   'use strict';
@@ -7252,14 +8278,14 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   }
   L4N.saveNow = save;
   L4N.store.subscribe((s, prev) => { if (SAVED.some(k => s[k] !== prev[k])) { clearTimeout(timer); timer = setTimeout(save, 120); } });
-  window.addEventListener('pagehide', () => { if (timer) save(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && timer) save(); });
+  window.addEventListener('pagehide', () => { if (timer) save(); if (L4N.work.pending()) L4N.work.flush(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'hidden') return; if (timer) save(); if (L4N.work.pending()) L4N.work.flush(); });
 
   // Progress numbers for the sidebar and the lists. Later phases fill these in from the store.
   L4N.stats = L4N.stats || {
     labs: () => ({ done: Object.keys(L4N.store.get().labs).filter(k => L4N.store.get().labs[k].done).length, total: L4N.data.labs.length }),
     lessons: () => ({ done: Object.keys(L4N.store.get().lessons).filter(k => L4N.store.get().lessons[k].read).length, total: L4N.data.lessons.length }),
-    labStatus: () => 'todo'
+    labStatus: slug => (L4N.labStatus ? L4N.labStatus(slug) : 'todo')
   };
 
   L4N.shell.mount(document.getElementById('app'));

@@ -1,5 +1,31 @@
 # Lab4Net changes
 
+## Redesign, phase 2: the console and the lab workspace
+
+Labs open again: `#/labs/<lab>` shows the new workspace with the Tasks panel on the left and the map and console on the right. Every lab can be finished and graded from the console.
+
+- **The bridge to the simulator.** All engine calls go through `src/app/core/sim.js`. Screens never call the simulator directly. The engine itself is unchanged (its hash still matches).
+- **The console.** One tab per device with its icon and a link-state dot. A mode chip ("Privileged EXEC", "Interface configuration", "Host console", "Answer"), Clear, and the prompt and input on one line, as on a real terminal. Output keeps the last 2,000 lines per device, and every line is plain text. Colours: errors and the `^` marker red, warnings amber, success green, log messages dim. Under the console, the "Why" line explains the last command. Otherwise it shows the key hints.
+- **Console keys.** `?` lists the choices at once, without Enter. `Tab` completes a word when exactly one fits and never leaves the input. `Esc` leaves the input, and screen readers are told this once. `↑`/`↓` and `Ctrl+P` walk the history per device. `Ctrl+A`/`Ctrl+E` jump to the start or end, `Ctrl+U` clears the line, `Ctrl+L` clears the screen and `Ctrl+Z` is IOS `end`. `Ctrl+C` or `Ctrl+Shift+6` stops a running ping or traceroute.
+- **Live output.** Ping and traceroute play at the speed set in Settings: Real time, Fast (the old 40%, the default) or Instant. Reduce motion makes it instant. Running another command finishes the current output at once, so nothing is lost or reordered.
+- **Pasting** several lines runs them one at a time, in order, up to 200 lines. The old app asked first in a dialog; the plan says run them.
+- **Passwords** are typed into a password field, never echoed, and kept out of the history, both live and on replay.
+- **Saved work** lives in its own key, `lab4net:v2:work`, and is replayed onto a fresh network at the times it was typed. A saved lab that does not fit opens fresh with a toast. Leaving a lab saves it first.
+- **Grade.** The Grade button (and `Ctrl/Cmd+Enter` from anywhere in the lab) runs every check. Results show in the Tasks panel with a pass or fail icon and word for each check, plus one toast. A finished incident shows its root cause, and there is a "Next lab" button. Typing after grading greys the results with "Commands run since grading. Grade again."
+- **Grades.** `src/app/core/grade.js` holds the old rank rules exactly. As in the old app, a grade is awarded only for a run that started from a fresh lab. The new Node test `tests/grade.cjs` checks a table of runs.
+- **Tasks panel (first part).** The brief with objective chips, the incident note, the address plan, the task list with your own tick boxes (grading ignores them) and "Why" for each task, then the results.
+- **Map (placeholder).** The devices as buttons, so a console can be picked. Phase 3 draws the real map.
+- **Lab shortcuts.** `Alt+.` and `Alt+,` switch device consoles, and `F6`/`Shift+F6` move between the panes. The palette gains "In a lab" commands: Grade, Reset, Focus console/map/tasks, Clear console, Open this lab's lesson, and Switch to each device.
+- **The test hook** `window.L4N.test` (`openLab`, `exec`, `grade`, `state`) goes through the same code as pressing Enter and clicking Grade.
+- **New browser tests.** `labs-all.spec` opens all 77 labs, runs each solution through the console path, presses the real Grade button, checks every check passes and the lab is marked done, then reloads and checks again. `console.spec` covers the console list from the plan in Chromium, Firefox and WebKit. `security.spec` covers its console part: markup typed into router and PC consoles (banner, description, `ip host`, username, raw commands, ping, tracert, telnet and ssh targets) stays text. 233 browser tests pass.
+- **Build.** `tools/build.cjs` retries for a moment if Windows is holding `index.html` open.
+
+Where the build differs from the plan:
+
+- **`Ctrl+N`** is bound for "next command", but Chrome and Edge keep `Ctrl+N` for a new window and never pass it to a page. `↓` always works.
+- **Pasting** in tests uses a real keyboard copy and paste. Firefox empties the clipboard data of a pasted event made by a script.
+- **A hostname with spaces** (such as the security probe) is refused by the simulator, as IOS refuses it. The probe still reaches the console through banners, descriptions and raw commands.
+
 ## Redesign, phase 1: the new look and the app shell
 
 The branch is now the new app. The old interface is gone; the simulator, labs, lessons and data are unchanged (the engine hash still matches).

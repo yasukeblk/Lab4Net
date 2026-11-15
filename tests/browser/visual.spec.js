@@ -11,6 +11,7 @@ const STATES = [
   { name: 'gallery', route: '#/dev/components', full: true },
   { name: 'home-new', route: '#/' },
   { name: 'settings', route: '#/settings' },
+  { name: 'workspace', route: '#/labs/static-routing', act: async page => { await page.evaluate(() => { for (const l of ['enable', 'configure terminal', 'ip route 192.168.3.0 255.255.255.0 10.0.12.2', 'end', 'show ip route']) L4N.test.exec('R1', l); }); } },
   { name: 'palette', route: '#/', act: async page => { await page.locator('.sb__search').click({ force: true }).catch(() => {}); if (!(await page.locator('dialog[open]').count())) await page.evaluate(() => L4N.palette.open()); } }
 ];
 

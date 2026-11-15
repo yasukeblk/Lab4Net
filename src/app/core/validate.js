@@ -76,5 +76,55 @@
     };
   }
 
-  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: {}, SETTINGS };
+  const GRADES = ['S', 'A', 'B', 'C', 'D'];
+  const MAX_T = 1e14;
+
+  function run(r) {
+    if (!isObj(r)) return null;
+    return { errs: int(r.errs, 0, 1e6, 0), checks: int(r.checks, 0, 1e6, 0), help: bool(r.help, false), walk: bool(r.walk, false),
+      valid: bool(r.valid, true), done: bool(r.done, false), cmds: int(r.cmds, 0, 1e6, 0) };
+  }
+
+  // labs: {[slug]: {done, grade, doneAt, clues, guide, run}}
+  function labs(m) {
+    const out = {};
+    if (!isObj(m)) return out;
+    for (const k of Object.keys(m)) {
+      if (!known.labs.has(k) || !isObj(m[k])) continue;
+      const v = m[k];
+      const e = { done: bool(v.done, false) };
+      const g = oneOf(v.grade, GRADES, null); if (g) e.grade = g;
+      const t = int(v.doneAt, 0, MAX_T, null); if (t != null) e.doneAt = t;
+      const c = int(v.clues, 0, 3, 0); if (c) e.clues = c;
+      if (typeof v.guide === 'boolean') e.guide = v.guide;
+      const r = run(v.run); if (r) e.run = r;
+      if (e.done || e.grade || e.clues || e.guide != null || e.run) out[k] = e;
+    }
+    return out;
+  }
+
+  const DEVICE = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
+  const okLine = l => typeof l === 'string' && l.length <= 512 && !/[\r\n]/.test(l);
+  // One lab's saved work. Anything odd marks it corrupt, so the lab opens fresh (with a toast) rather than half-replayed.
+  function workEntry(w) {
+    if (!isObj(w)) return null;
+    const j = w.journal, tasks = Array.isArray(w.tasks) ? w.tasks.slice(0, 64).map(x => x === true) : [];
+    if (!Array.isArray(j) || j.length > 5000) return { journal: [], tasks: [], corrupt: true };
+    const journal = [];
+    for (const e of j) {
+      if (!isObj(e) || typeof e.device !== 'string' || !DEVICE.test(e.device) || !okLine(e.line)) return { journal: [], tasks: [], corrupt: true };
+      const o = { device: e.device, line: e.line };
+      if (typeof e.t === 'number' && isFinite(e.t) && e.t >= 0 && e.t < MAX_T) o.t = e.t;
+      journal.push(o);
+    }
+    return { journal, tasks };
+  }
+  function work(m) {
+    const out = {};
+    if (!isObj(m)) return out;
+    for (const k of Object.keys(m)) { if (!known.labs.has(k)) continue; const w = workEntry(m[k]); if (w) out[k] = w; }
+    return out;
+  }
+
+  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs }, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
 })(window.L4N = window.L4N || {});

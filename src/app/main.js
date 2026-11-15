@@ -26,14 +26,14 @@
   }
   L4N.saveNow = save;
   L4N.store.subscribe((s, prev) => { if (SAVED.some(k => s[k] !== prev[k])) { clearTimeout(timer); timer = setTimeout(save, 120); } });
-  window.addEventListener('pagehide', () => { if (timer) save(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && timer) save(); });
+  window.addEventListener('pagehide', () => { if (timer) save(); if (L4N.work.pending()) L4N.work.flush(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'hidden') return; if (timer) save(); if (L4N.work.pending()) L4N.work.flush(); });
 
   // Progress numbers for the sidebar and the lists. Later phases fill these in from the store.
   L4N.stats = L4N.stats || {
     labs: () => ({ done: Object.keys(L4N.store.get().labs).filter(k => L4N.store.get().labs[k].done).length, total: L4N.data.labs.length }),
     lessons: () => ({ done: Object.keys(L4N.store.get().lessons).filter(k => L4N.store.get().lessons[k].read).length, total: L4N.data.lessons.length }),
-    labStatus: () => 'todo'
+    labStatus: slug => (L4N.labStatus ? L4N.labStatus(slug) : 'todo')
   };
 
   L4N.shell.mount(document.getElementById('app'));

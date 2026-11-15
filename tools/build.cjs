@@ -103,7 +103,11 @@ if (require.main === module) {
     if (r.over.length) { console.error(table(r.sizes, r.over)); process.exit(1); }
     console.log('index.html is up to date.');
   } else {
-    fs.writeFileSync(OUT, r.html);
+    // Windows can hold index.html for a moment while a browser or server reads it; try a few times.
+    for (let i = 0; ; i++) {
+      try { fs.writeFileSync(OUT, r.html); break; }
+      catch (e) { if (i >= 5) throw e; const until = Date.now() + 200; while (Date.now() < until) {} }
+    }
     console.log(table(r.sizes, r.over));
     if (r.over.length) { console.error('Size budget broken: ' + r.over.join(', ')); process.exit(1); }
   }
