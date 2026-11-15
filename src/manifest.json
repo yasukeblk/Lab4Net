@@ -1,41 +1,31 @@
 {
-  "template": "legacy/index.template.html",
+  "template": "index.template.html",
   "fonts": [
     {
-      "family": "Barlow Condensed",
-      "weight": 700,
-      "style": "italic",
-      "file": "legacy/fonts/barlow-condensed-700-italic.woff2"
+      "family": "Inter",
+      "weight": "100 900",
+      "style": "normal",
+      "file": "fonts/inter-latin-wght-normal.woff2"
     },
     {
-      "family": "Barlow Condensed",
-      "weight": 800,
-      "style": "italic",
-      "file": "legacy/fonts/barlow-condensed-800-italic.woff2"
-    },
-    {
-      "family": "VT323",
+      "family": "JetBrains Mono",
       "weight": 400,
       "style": "normal",
-      "file": "legacy/fonts/vt323-400.woff2"
-    },
-    {
-      "family": "IBM Plex Sans",
-      "weight": 400,
-      "style": "normal",
-      "file": "legacy/fonts/ibm-plex-sans-400.woff2"
-    },
-    {
-      "family": "IBM Plex Sans",
-      "weight": 600,
-      "style": "normal",
-      "file": "legacy/fonts/ibm-plex-sans-600.woff2"
+      "file": "fonts/jetbrains-mono-latin-400-normal.woff2"
     }
   ],
   "css": [
-    "legacy/legacy.css"
+    "styles/tokens.css",
+    "styles/base.css",
+    "styles/components.css",
+    "styles/shell.css",
+    "styles/screens.css",
+    "styles/phone.css"
   ],
-  "icons": [],
+  "icons": [
+    "icons/ui.svg",
+    "icons/devices.svg"
+  ],
   "engine": [
     "engine/00-core.js",
     "engine/10-v2.js",
@@ -54,14 +44,32 @@
     "engine/90-ipv6-live.js"
   ],
   "js": [
-    "legacy/ui-1.js",
     "data/quiz.js",
-    "legacy/ui-2.js",
-    "data/lessons.js",
-    "legacy/ui-3.js",
-    "data/objectives.js",
-    "legacy/ui-4.js",
     "data/campaign.js",
-    "legacy/ui-5.js"
+    "data/lessons.js",
+    "data/objectives.js",
+    "app/core/slug.js",
+    "app/core/store.js",
+    "app/core/validate.js",
+    "app/core/router.js",
+    "app/core/search.js",
+    "app/core/sim.js",
+    "app/site.js",
+    "app/ui/dom.js",
+    "app/ui/theme.js",
+    "app/ui/components/button.js",
+    "app/ui/components/tooltip.js",
+    "app/ui/components/toast.js",
+    "app/ui/components/dialog.js",
+    "app/ui/components/menu.js",
+    "app/ui/components/tabs.js",
+    "app/ui/components/list.js",
+    "app/ui/components/palette.js",
+    "app/ui/shortcuts.js",
+    "app/ui/shell.js",
+    "app/screens/placeholders.js",
+    "app/screens/settings.js",
+    "app/screens/gallery.js",
+    "app/main.js"
   ]
 }

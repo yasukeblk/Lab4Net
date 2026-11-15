@@ -1,0 +1,137 @@
+/* Design tokens (REDESIGN-PLAN.md section 4). Components never use raw colours or sizes. */
+:root, [data-theme="dark"] {
+  /* surfaces, darkest to lightest */
+  --bg-app:      #0D0E10;
+  --bg-surface:  #131416;
+  --bg-raised:   #191A1D;
+  --bg-overlay:  #1F2024;
+  --bg-hover:    #1C1D21;
+  --bg-active:   #24262B;
+  --bg-console:  #0A0B0C;
+
+  /* lines */
+  --border-subtle:  #1E1F23;
+  --border:         #2A2C31;
+  --border-control: #6A6D76;
+
+  /* text */
+  --text:    #EDEEF0;
+  --text-2:  #A3A6AD;
+  --text-3:  #858891;
+  --text-console:     #D9DBDF;
+  --text-console-dim: #8B8E97;
+
+  /* the one accent */
+  --accent:        #6C9BFF;
+  --accent-solid:  #2F6BEB;
+  --accent-on:     #FFFFFF;
+  --accent-soft:   #16223D;
+
+  /* meaning */
+  --ok:    #45C08A;
+  --bad:   #F2707A;
+  --warn:  #E3AC45;
+
+  --scrim: rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg-app:      #F3F3F1;
+  --bg-surface:  #FFFFFF;
+  --bg-raised:   #FFFFFF;
+  --bg-overlay:  #FFFFFF;
+  --bg-hover:    #EEEEEB;
+  --bg-active:   #E5E5E1;
+  --bg-console:  #FAFAF8;
+
+  --border-subtle:  #ECECE9;
+  --border:         #DEDEDA;
+  --border-control: #85878E;
+
+  --text:    #1A1B1E;
+  --text-2:  #54565D;
+  --text-3:  #696B73;
+  --text-console:     #1A1B1E;
+  --text-console-dim: #62646C;
+
+  --accent:        #1F56D0;
+  --accent-solid:  #1F56D0;
+  --accent-on:     #FFFFFF;
+  --accent-soft:   #E6EDFC;
+
+  --ok:    #17784A;
+  --bad:   #C22E3D;
+  --warn:  #8F5B00;
+
+  --scrim: rgba(20, 20, 22, 0.35);
+  color-scheme: light;
+}
+
+/* "Console: always dark" re-applies the dark console tokens on the console only */
+[data-console="dark"] .console {
+  --bg-console: #0A0B0C; --text-console: #D9DBDF; --text-console-dim: #8B8E97;
+  --ok: #45C08A; --bad: #F2707A; --warn: #E3AC45; --accent: #6C9BFF;
+}
+
+:root {
+  --font-ui:   "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, Menlo, monospace;
+
+  --fs-11: 11px;  --lh-11: 16px;
+  --fs-12: 12px;  --lh-12: 16px;
+  --fs-13: 13px;  --lh-13: 20px;
+  --fs-14: 14px;  --lh-14: 22px;
+  --fs-16: 16px;  --lh-16: 26px;
+  --fs-18: 18px;  --lh-18: 26px;
+  --fs-22: 22px;  --lh-22: 30px;
+  --fs-28: 28px;  --lh-28: 36px;
+
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semi:    600;
+
+  --track-tight: -0.012em;
+  --track-caps:  0.04em;
+
+  --fs-console: 13px;  --lh-console: 20px;
+
+  --space-1: 4px;  --space-2: 8px;   --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px;  --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  --row-h:     32px;
+  --control-h: 28px;
+  --control-h-lg: 36px;
+  --topbar-h:  44px;
+  --sidebar-w: 232px;  --sidebar-w-rail: 48px;
+
+  --radius-1: 4px;
+  --radius-2: 6px;
+  --radius-3: 8px;
+  --radius-4: 12px;
+  --radius-full: 999px;
+
+  --hairline: 1px;
+  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.20);
+  --shadow-2: 0 4px 16px rgba(0,0,0,.28), 0 0 0 1px var(--border);
+  --shadow-3: 0 16px 48px rgba(0,0,0,.40), 0 0 0 1px var(--border);
+
+  --dur-1: 80ms;
+  --dur-2: 120ms;
+  --dur-3: 150ms;
+  --ease: cubic-bezier(.2, 0, 0, 1);
+
+  --pkt-speed: 0.42;
+}
+[data-theme="light"] {
+  --shadow-1: 0 1px 2px rgba(20,20,22,.06);
+  --shadow-2: 0 4px 16px rgba(20,20,22,.10), 0 0 0 1px var(--border);
+  --shadow-3: 0 16px 48px rgba(20,20,22,.16), 0 0 0 1px var(--border);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; }
+}
+/* Settings › Reduce motion forces the same */
+:root[data-motion="reduce"] { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; }

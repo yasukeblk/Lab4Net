@@ -41,12 +41,21 @@ const bySlug = new Set();
 for (const p of pages) { if (bySlug.has(p.slug)) throw Error('Duplicate lesson slug ' + p.slug); bySlug.add(p.slug); }
 
 // ---- fonts: the app's own embedded fonts, written as files ----
-const fonts = [];
-for (const m of html.matchAll(/@font-face\{font-family:"([^"]+)";font-weight:(\d+);font-style:(\w+);[^}]*?base64,([A-Za-z0-9+/=]+)\)/g)) {
-  const [, fam, w, st, b64] = m;
-  fonts.push({ fam, w, st, file: slug(fam) + '-' + w + (st === 'italic' ? 'i' : '') + '.woff2', data: Buffer.from(b64, 'base64') });
-}
-const rootVars = /:root\{[^}]+\}/.exec(html)[0].replace(/\s*box-sizing:[^;]+;[^}]*/, '');
+// The app's fonts (src/fonts, listed in src/manifest.json) and colours (src/styles/tokens.css, dark theme).
+const SRC = path.join(ROOT, 'src');
+const manifest = JSON.parse(fs.readFileSync(path.join(SRC, 'manifest.json'), 'utf8'));
+const fonts = manifest.fonts.map(f => ({ fam: f.family, w: String(f.weight), st: f.style, file: path.basename(f.file), data: fs.readFileSync(path.join(SRC, f.file)) }));
+const tokensCss = fs.readFileSync(path.join(SRC, 'styles/tokens.css'), 'utf8');
+const darkBlock = /:root, \[data-theme="dark"\] \{([^}]+)\}/.exec(tokensCss)[1];
+const tok = n => { const m = new RegExp('--' + n + ':\\s*([^;]+);').exec(darkBlock); if (!m) throw Error('token --' + n + ' missing from tokens.css'); return m[1].trim(); };
+// Until the lesson pages are redesigned (Phase 6), the old page styles keep their variable names, filled from the new tokens.
+const rootVars = ':root{' + [
+  ['night', tok('bg-app')], ['panel', tok('bg-raised')], ['panel2', tok('bg-overlay')], ['panel3', tok('bg-active')], ['line', tok('border')],
+  ['ink', tok('text')], ['muted', tok('text-2')], ['yel', tok('accent')], ['org', tok('accent')], ['mag', tok('border')], ['vio', tok('accent-solid')],
+  ['cy', tok('accent')], ['go', tok('ok')], ['bad', tok('bad')], ['ph', tok('text-console')],
+  ['ui', '"Inter",system-ui,-apple-system,"Segoe UI",sans-serif'], ['px', '"Inter",system-ui,-apple-system,"Segoe UI",sans-serif'],
+  ['mono', '"JetBrains Mono",ui-monospace,Consolas,Menlo,monospace'], ['lift', '0 0 0 1px ' + tok('border')]
+].map(([k, v]) => '--' + k + ':' + v + ';').join('') + '}';
 
 // ---- topology diagram for a lab, drawn from its real build and map positions ----
 function diagram(lab) {

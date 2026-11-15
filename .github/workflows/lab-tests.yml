@@ -28,3 +28,25 @@ jobs:
       - run: node tests/campaign.cjs
       - run: node tests/ospfarea.cjs
       - run: node tests/sitepages.cjs
+  browser:
+    # Playwright: every push to the redesign branch and every pull request.
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/redesign'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npx playwright test
+        env:
+          CI: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7

@@ -1,5 +1,29 @@
 # Lab4Net changes
 
+## Redesign, phase 1: the new look and the app shell
+
+The branch is now the new app. The old interface is gone; the simulator, labs, lessons and data are unchanged (the engine hash still matches).
+
+- **Design system.** Every colour, size, radius, shadow and duration is a token in `src/styles/tokens.css`, from the plan. Dark is the default; light is a full theme of its own. One blue accent, green for works, red for failed, amber for warning.
+- **Fonts.** Inter (the variable latin file, 48 KB, under the plan's 90 KB limit, so one file covers every weight) and JetBrains Mono Regular, taken once from the Fontsource npm packages (5.3.0) and committed to `src/fonts/`. Both are SIL OFL 1.1; `THIRD-PARTY-NOTICES.md` now lists them instead of Barlow Condensed, VT323 and IBM Plex Sans. Tabular numbers survive the subset (checked in a browser: with them on, "1111" and "8888" are the same width) and are used for counts and tables.
+- **Icons.** Two sprites drawn for Lab4Net: 57 interface icons (16 px, 1.5 px stroke) and 7 map devices (router, switch, Layer 3 switch, PC, server, IP phone, access point). New logo mark and favicon: a blue tile with a cable between two devices and a packet on it.
+- **Components.** Buttons, inputs, switches, checkboxes, segmented controls, chips, key chips, tabs, lists, tables, dialogs, toasts, tooltips, menus, empty states, progress bars, divider handles, callouts and command rows. All of them are on `#/dev/components` in both themes side by side.
+- **App shell.** The sidebar (collapses to an icon rail with `[`; a drawer on phones), the top bar with breadcrumbs, the hash router, the command palette (`Ctrl/Cmd+K`: navigation, theme, console colours, sidebar, help), the shortcut list (`?`), `G` then a letter to move between screens, toasts and a screen-name announcement for screen readers.
+- **Settings.** Appearance (theme, reduce motion, sidebar in labs), Console (colours, output speed, step-by-step default) and About. Settings are saved in the new `lab4net:v2` key, checked field by field when read. The theme is applied before the first paint, so there is no flash.
+- **Placeholders.** Every other route shows a proper empty state until its phase rebuilds it.
+- **Lesson pages.** `tools/build-site.cjs` now takes its fonts from `src/fonts/` and its colours from `src/styles/tokens.css` (the smallest change, so the pages keep working until Phase 6 redesigns them). The old font files in `lessons/fonts/` are replaced.
+- **Browser tests.** Playwright 1.64.1 and axe-core are pinned as test-only dev dependencies. New `tests/browser/`: `shell.spec` (routes from a server and from a file, titles, sidebar, palette, every shortcut, keyboard-only use with visible focus, theme, reduced motion; Chromium, Firefox and WebKit), `a11y.spec` (axe on every route and the palette in both themes: zero violations) and `visual.spec` (gallery, Home, Settings and the palette at 1366×768, 1920×1080 and 390×844 in both themes). GitHub Actions runs them on the `redesign` branch and on pull requests. Screenshot baselines are compared on Linux in CI only; the new manual workflow "Update screenshot baselines" makes and commits them.
+- **Old browser tests removed.** `ui.cjs`, `guidewin.cjs`, `pageflows.cjs`, `landing.cjs` and `security.cjs` drove the old interface. Their scenarios come back as Playwright specs in Phases 2 to 5, as the plan says.
+- **`tests/build.cjs`** also checks that no old font, colour or class name (`VT323`, `Barlow`, `Plex`, `--yel`, `--mag`, `skewX`) is left in the app.
+
+Where the build differs from the plan:
+
+- **Alt shortcuts (risk 14).** `Alt+1`, `Alt+2` and `Alt+3` switch tabs in Chrome and Firefox on Linux, and `Alt+S` opens Firefox's History menu on Windows and Linux. Those are dropped; their actions stay in the palette, and `F6` moves between lab panes. `Alt+.` and `Alt+,` have no known clash and stay. Shortcuts match the physical key, so they work on a Mac, where Option changes the typed character. A test checks that all three engines report them correctly. A browser's own menu shortcuts cannot be seen from a test, so the clash list comes from the browsers' documented shortcuts.
+- **The lesson pages still use their old class and variable names** (`--yel`, `--mag` and so on) inside `tools/build-site.cjs`, now filled with the new colours. Phase 6 rewrites them. The app itself has none of the old names.
+- **Settings › Console and Reduce motion** arrive now rather than later, because they are only settings.
+- **Sidebar in labs** is stored as `auto` (collapse below 1600 px, the default) or `open`.
+
+
 ## Redesign, phase 0: the source is split into files, with a build
 
 Nothing you can see has changed. The built `index.html` is byte-for-byte the same as `main`'s (tag `v1-arcade`, commit `3f158d6`).

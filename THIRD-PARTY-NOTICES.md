@@ -4,11 +4,10 @@ Lab4Net's own code and content are under the MIT licence in `LICENSE`. The fonts
 
 | Font | Used for | Copyright | Reserved Font Name |
 | --- | --- | --- | --- |
-| Barlow Condensed (Bold Italic, ExtraBold Italic), version 1.408 | Headings and buttons | Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow) | none |
-| VT323, version 2.000 | Console text | Copyright 2011, The VT323 Project Authors (peter.hull@oikoi.com) | none |
-| IBM Plex Sans (Regular, SemiBold), version 3.201 | Reading text | Copyright 2019 IBM Corp. All rights reserved. | "Plex" |
+| Inter (variable, latin subset), from the @fontsource-variable/inter 5.3.0 package | Interface and reading text | Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) | none |
+| JetBrains Mono Regular (latin subset), from the @fontsource/jetbrains-mono 5.3.0 package | Console and code | Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) | none |
 
-The fonts are unmodified apart from character subsetting for the web, as distributed by their authors and by Google Fonts. They are not sold, alone or as part of Lab4Net.
+The fonts are unmodified apart from character subsetting for the web, as distributed by their authors and by Fontsource. They are not sold, alone or as part of Lab4Net.
 
 ## Trademarks
 

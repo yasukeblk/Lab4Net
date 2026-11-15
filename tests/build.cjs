@@ -33,6 +33,10 @@ for (const name of ['QUIZ', 'CAMPAIGN']) {
   assert.ok(Array.isArray(arr) && arr.length > 0, name + ' reads as an array');
 }
 
+// No old font, colour or class name from the arcade design remains in the app.
+for (const old of ['VT323', 'Barlow', 'Plex', '--yel', '--mag', 'skewX'])
+  assert.ok(!html.includes(old), 'index.html still contains the old name ' + old);
+
 // Size budget.
 assert.deepStrictEqual(r.over, [], 'size budget broken: ' + r.over.join(', '));
 const kb = n => Math.round(n / 1000) + ' KB';

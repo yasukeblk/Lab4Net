@@ -66,4 +66,4 @@ The other `tests/*.cjs` files cover the console, ping, switching, prompts, OSPF 
 
 ## Licence
 
-Lab4Net is released under the [MIT licence](LICENSE). The embedded fonts (Barlow Condensed, VT323 and IBM Plex Sans) are under the SIL Open Font License 1.1; see [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+Lab4Net is released under the [MIT licence](LICENSE). The embedded fonts (Inter and JetBrains Mono) are under the SIL Open Font License 1.1; see [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).

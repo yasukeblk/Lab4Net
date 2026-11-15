@@ -1,0 +1,28 @@
+/* Phones (up to 767 px): the sidebar becomes a drawer, controls grow to 40 px */
+@media (max-width: 767px) {
+  :root { --row-h: 40px; --control-h: 36px; --topbar-h: 48px; }
+  .app, .app[data-sidebar="rail"] { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: min(288px, 86vw);
+    transform: translateX(-100%); visibility: hidden;
+    transition: transform var(--dur-3) var(--ease), visibility 0s linear var(--dur-3);
+    box-shadow: var(--shadow-3);
+  }
+  .app[data-drawer="open"] .sidebar { transform: none; visibility: visible; transition: transform var(--dur-3) var(--ease); }
+  .app[data-sidebar="rail"] .sb__brand .wordmark, .app[data-sidebar="rail"] .sb__search span, .app[data-sidebar="rail"] .sb__search .kbds,
+  .app[data-sidebar="rail"] .sb__item > span, .app[data-sidebar="rail"] .sb__count, .app[data-sidebar="rail"] .sb__label,
+  .app[data-sidebar="rail"] .sb__recent, .app[data-sidebar="rail"] .sb__sep { display: revert; }
+  .app[data-sidebar="rail"] .sb__item, .app[data-sidebar="rail"] .sb__search, .app[data-sidebar="rail"] .sb__brand { justify-content: flex-start; padding: 0 var(--space-2); }
+  .app[data-sidebar="rail"] .sb__item > span:not(.sb__count) { display: block; position: static; width: auto; height: auto; clip: auto; }
+  .app[data-sidebar="rail"] .sb__bottom .sb__row { flex-direction: row; }
+  .drawer-scrim { position: fixed; inset: 0; z-index: 49; background: var(--scrim); }
+  .topbar { padding: 0 var(--space-2); }
+  .topbar__menu { display: inline-flex; }
+  .topbar .btn--icon { width: 40px; height: 40px; }
+  .page { padding: var(--space-5) var(--space-4) var(--space-10); }
+  .keys { columns: 1; }
+  .setrow { flex-wrap: wrap; }
+  .toasts { left: var(--space-4); right: var(--space-4); width: auto; }
+  .crumbs > :not(:last-child) { display: none; }
+}
+@media (min-width: 768px) { .drawer-scrim { display: none; } }

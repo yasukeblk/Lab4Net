@@ -12,5 +12,9 @@
     "check": "node tools/build.cjs --check",
     "site": "node tools/build-site.cjs",
     "test": "node tests/run-node.cjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.11.0",
+    "@playwright/test": "1.64.1"
   }
 }
