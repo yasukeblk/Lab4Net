@@ -1,5 +1,12 @@
 # Lab4Net changes
 
+## CI after the merge
+
+The redesign is merged into `main` and live, so the test setup now treats `main` as home.
+
+- **The browser tests** run on every push to `main` and on every pull request. Before, they ran only on the `redesign` branch. The build check and the Node tests still run on every push.
+- **The "Update screenshot baselines" workflow** is started by hand again (Actions › Update screenshot baselines › Run workflow). The `[baselines]` commit-message trigger is gone: it was only there because GitHub can't start a workflow by hand until it is on `main`.
+
 ## Redesign, phase 9: polish and release
 
 The last phase: a phone and accessibility pass on every screen, the remaining tests, new docs, a new demo and screenshots.

@@ -1,16 +1,12 @@
 name: Update screenshot baselines
 # Run by hand (Actions › Update screenshot baselines › Run workflow) after an intended visual change.
 # It makes new Linux baselines and commits them to the branch it ran on.
-# A push whose commit message contains [baselines] runs it too (a hand-run workflow must exist on main first).
 on:
   workflow_dispatch:
-  push:
-    branches-ignore: [main]
 permissions:
   contents: write
 jobs:
   baselines:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[baselines]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

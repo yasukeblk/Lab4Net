@@ -32,8 +32,8 @@ jobs:
       - run: node tests/ospfarea.cjs
       - run: node tests/sitepages.cjs
   browser:
-    # Playwright: every push to the redesign branch and every pull request.
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/redesign'
+    # Playwright: every push to main and every pull request.
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

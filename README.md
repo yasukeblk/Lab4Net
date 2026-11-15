@@ -72,7 +72,7 @@ The browser tests use Playwright, pinned in `package.json`:
     npx playwright install chromium firefox webkit
     npx playwright test
 
-GitHub Actions runs the build check, every Node test and the browser tests on every push.
+GitHub Actions runs the build check and every Node test on every push, and the browser tests on every push to `main` and every pull request.
 
 ## Licence
 
