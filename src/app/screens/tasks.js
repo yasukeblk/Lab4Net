@@ -185,7 +185,8 @@
     build();
     return {
       el: root, rebuild: build, renderResults, results, refreshCommands: renderCmdList,
-      setHelpTabs(on) { tabs.tab('commands').hidden = !on; if (!on && tab === 'commands') tabs.select('tasks', true); },
+      // during an exam the Commands tab is not hidden but removed: help is absent from the page
+      setHelpTabs(on) { if (on) return; if (tab === 'commands') tabs.select('tasks', true); const b = tabs.tab('commands'); if (b) b.remove(); panelCmds.remove(); },
       focus() { (tab === 'tasks' ? panelTasks : panelCmds).focus(); }
     };
   }

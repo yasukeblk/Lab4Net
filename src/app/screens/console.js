@@ -221,7 +221,7 @@
       const playing = r.lines.length && r.pace && paceScale() > 0;
       if (r.lines.length) { if (playing) streamStart(dev, r.lines, r.pace); else { addLines(dev, r.lines); announce(r.lines); } }
       for (const d of sim.drain(st, playing ? dev : null)) if (d === shown && !playing) renderAll();
-      setWhy(r.why);
+      setWhy(ws.hideHelp && ws.hideHelp() ? null : r.why);
       refreshPrompt(); refreshTabs();
       if (ws.onCommand) ws.onCommand(r, line, dev);
       return r;

@@ -133,6 +133,7 @@
     for (const k of Object.keys(m)) {
       if (!known.lessons.has(k) || !isObj(m[k])) continue;
       const v = m[k], e = { read: bool(v.read, false), quiz: {} };
+      const at = int(v.readAt, 0, MAX_T, null); if (at != null && e.read) e.readAt = at;
       const max = known.lessonQuiz[k] || 0;
       if (isObj(v.quiz)) for (const i of Object.keys(v.quiz)) { const n = +i; if (Number.isInteger(n) && n >= 0 && n < max && typeof v.quiz[i] === 'boolean') e.quiz[n] = v.quiz[i]; }
       if (e.read || Object.keys(e.quiz).length) out[k] = e;

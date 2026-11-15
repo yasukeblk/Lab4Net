@@ -62,6 +62,7 @@
     "app/core/grade.js",
     "app/core/progress.js",
     "app/core/migrate.js",
+    "app/core/exam.js",
     "app/site.js",
     "app/ui/dom.js",
     "app/ui/theme.js",
@@ -88,6 +89,9 @@
     "app/screens/home.js",
     "app/screens/labs.js",
     "app/screens/lessons.js",
+    "app/screens/exam.js",
+    "app/screens/practice.js",
+    "app/screens/progress.js",
     "app/screens/landing.js",
     "app/screens/gallery.js",
     "app/main.js"

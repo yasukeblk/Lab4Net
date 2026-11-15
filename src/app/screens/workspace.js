@@ -35,11 +35,12 @@
   }
 
   // ---- mounting ----
-  function mount(root, r) {
-    const entry = L4N.data.lab(r.slug);
+  // ov (an exam): {entry, journal, save(journal), count(res, line), grade(ws), status(), menu()}
+  function mount(root, r, ctx, ov) {
+    const entry = ov ? ov.entry : L4N.data.lab(r.slug);
     if (!entry) { L4N.toast({ text: 'That link is out of date.', kind: 'warn' }); setTimeout(() => L4N.shell.go('#/labs'), 0); return; }
-    let saved = L4N.work.get(entry.slug), st;
-    const restoreFailed = () => { L4N.toast({ text: 'Could not restore this lab. A fresh topology is ready.', kind: 'warn' }); L4N.work.remove(entry.slug); saved = null; };
+    let saved = ov ? { journal: ov.journal, tasks: [] } : L4N.work.get(entry.slug), st;
+    const restoreFailed = () => { L4N.toast({ text: 'Could not restore this lab. A fresh topology is ready.', kind: 'warn' }); if (!ov) L4N.work.remove(entry.slug); saved = null; };
     if (saved && saved.corrupt) restoreFailed();
     try { st = sim.open(entry, saved); }
     catch (e) { console.error(e); restoreFailed(); st = sim.open(entry, null); }
@@ -47,7 +48,7 @@
     const ws = {
       st, entry, slug: entry.slug,
       tasks: saved ? saved.tasks.slice(0, entry.lab.tasks.length) : [],
-      graded: null,
+      graded: null, exam: !!ov,
       hooks: [],
       next: () => nextLab(entry)
     };
@@ -55,15 +56,15 @@
 
     // a run counts toward a grade only if it started from a fresh lab (the old rule)
     const L = labRec(entry.slug);
-    if (!st.journal.length || !(L && L.run)) setLab(entry.slug, { run: { errs: 0, checks: 0, help: false, walk: false, valid: !st.journal.length, done: false, cmds: 0 } });
-    touch(entry.slug);
+    if (!ov && (!st.journal.length || !(L && L.run))) setLab(entry.slug, { run: { errs: 0, checks: 0, help: false, walk: false, valid: !st.journal.length, done: false, cmds: 0 } });
+    if (!ov) touch(entry.slug);
 
-    ws.save = () => L4N.work.put(entry.slug, { journal: st.journal, tasks: ws.tasks });
+    ws.save = ov ? () => ov.save(st.journal) : () => L4N.work.put(entry.slug, { journal: st.journal, tasks: ws.tasks });
 
     // ---- help: step-by-step, walkthrough, clues (each one marks the run, as the old rank rules did) ----
     const capstone = entry.kind === 'capstone';
     const rec0 = labRec(entry.slug) || {};
-    ws.guide = capstone ? rec0.guide === true : !!L4N.store.get().settings.guideDefault;
+    ws.guide = ov ? false : capstone ? rec0.guide === true : !!L4N.store.get().settings.guideDefault;
     ws.walk = false;
     ws.clues = rec0.clues || 0;
     ws.hints = Object.assign({}, L4N.store.get().ui.hints);
@@ -113,7 +114,8 @@
     ws.selectDevice = (dev, focus) => { ws.console.select(dev); if (focus) ws.console.focus(); };
     ws.onSelect = () => { if (ws.map) ws.map.redraw(); if (ws.tasksView) ws.tasksView.refreshCommands(); };
     ws.onCommand = (res, line, dev) => {
-      if (res.ran) {
+      if (ov) { if (res.ran) ov.count(res, line); }
+      else if (res.ran) {
         const rec = labRec(entry.slug), run = rec && rec.run ? Object.assign({}, rec.run) : null;
         if (run && run.valid && !run.done && line.trim()) { run.cmds = (run.cmds || 0) + 1; G.count(run, line, res.lines); setLab(entry.slug, { run }); }
       }
@@ -129,6 +131,7 @@
     };
 
     ws.grade = () => {
+      if (ov) return ov.grade(ws);
       const results = sim.grade(st);
       const done = results.every(x => x[1]);
       let letter = null;
@@ -200,18 +203,19 @@
     // ---- top bar ----
     const statusBox = el('span', { class: 'hstack' });
     function refreshStatus() {
+      if (ov) return;
       clear(statusBox);
       const s = status(entry.slug), rec = labRec(entry.slug);
       statusBox.append(ui.statusChip(s));
       if (rec && rec.grade) statusBox.append(ui.gradeChip(rec.grade));
     }
     ws.refreshStatus = refreshStatus;
-    refreshStatus();
-    L4N.shell.topbar.setStatus(statusBox);
-    const lesson = sim.catalogue && L4N.data.lessonFor(entry);
+    if (!ov) { refreshStatus(); L4N.shell.topbar.setStatus(statusBox); }
+    const lesson = !ov && L4N.data.lessonFor(entry);
     const moreBtn = ui.button({ icon: 'more', aria: 'More lab actions', onClick: e => L4N.menu.open(e.currentTarget, moreItems(), { align: 'end', label: 'Lab actions' }) });
     const gradeBtn = ui.button({ label: 'Grade', kind: 'primary', kbd: 'mod+enter', id: 'gradeBtn', onClick: () => ws.grade() });
     gradeBtn.setAttribute('data-tip', 'Grade the lab'); gradeBtn.setAttribute('data-kbd', 'mod+enter');
+    if (ov) { L4N.shell.topbar.setStatus(ov.status()); ws.tasksView.setHelpTabs(false); }
     L4N.shell.topbar.setActions(lesson ? ui.button({ label: 'Lesson', kind: 'ghost', icon: 'lessons', href: L4N.router.href('lesson', lesson.slug) }) : null, gradeBtn, moreBtn);
     ws.gradeBtn = gradeBtn;
     function moreItems() {
@@ -220,7 +224,8 @@
       if (window.innerWidth >= 1600) items.push({ label: ws.panes.layout() === 'side' ? 'Layout: stacked' : 'Layout: side by side', icon: ws.panes.layout() === 'side' ? 'panel-bottom' : 'sidebar', run: () => ws.panes.setLayout(ws.panes.layout() === 'side' ? 'stacked' : 'side') });
       items.push({ label: 'Reset panel sizes', icon: 'maximize', run: () => ws.panes.resetSizes() });
       if (!ws.hideHelp()) items.unshift({ label: ws.walk ? 'Hide walkthrough' : 'Show walkthrough', icon: 'eye', run: () => ws.setWalk(!ws.walk) });
-      items.push({ label: 'Reset lab', icon: 'reset', danger: true, run: () => ws.reset() });
+      if (ov) items.push(...ov.menu());
+      else items.push({ label: 'Reset lab', icon: 'reset', danger: true, run: () => ws.reset() });
       return items;
     }
 
@@ -266,7 +271,7 @@
     if (!current) return [];
     const ws = current, out = [
       { id: 'lab-grade', group: 'In a lab', title: 'Grade lab', icon: 'check-circle', kbd: 'mod+enter', run: () => ws.grade() },
-      { id: 'lab-reset', group: 'In a lab', title: 'Reset lab', icon: 'reset', run: () => ws.reset() },
+      ws.exam ? null : { id: 'lab-reset', group: 'In a lab', title: 'Reset lab', icon: 'reset', run: () => ws.reset() },
       { id: 'lab-focus-console', group: 'In a lab', title: 'Focus console', icon: 'labs', kbd: 'f6', run: () => ws.console.focus() },
       { id: 'lab-focus-map', group: 'In a lab', title: 'Focus map', icon: 'route', run: () => ws.map.focus() },
       { id: 'lab-focus-tasks', group: 'In a lab', title: 'Focus tasks', icon: 'list-checks', run: () => ws.tasksView.focus() },
@@ -317,7 +322,7 @@
     }
   };
 
-  L4N.workspace = { current: () => current, status, nextLab };
+  L4N.workspace = { current: () => current, status, nextLab, mount };
   L4N.screens.register('lab', {
     nav: 'labs',
     title: r => { const l = L4N.data.lab(r.slug); return l ? l.title : 'Lab'; },

@@ -13,14 +13,6 @@
   }
 
   const P = (name, title, o, extra) => L4N.screens.register(name, Object.assign({ title: () => title, mount: page(title, o) }, extra || {}));
-  P('practice', 'Practice', { icon: 'practice', what: 'Practice is being rebuilt.', todo: 'The exam, quiz and subnetting drill come back here.', action: { label: 'Home', href: '#/' } });
-  P('exam', 'Exam', { icon: 'clock', what: 'The exam is being rebuilt.', todo: 'Go back to Practice.', action: { label: 'Practice', href: '#/practice' } },
-    { nav: 'practice', crumbs: () => [{ label: 'Practice', href: '#/practice' }, { label: 'Exam' }] });
-  P('quiz', 'Quiz', { icon: 'list-checks', what: 'The quiz is being rebuilt.', todo: 'Go back to Practice.', action: { label: 'Practice', href: '#/practice' } },
-    { nav: 'practice', crumbs: () => [{ label: 'Practice', href: '#/practice' }, { label: 'Quiz' }] });
-  P('subnet', 'Subnetting', { icon: 'practice', what: 'The subnetting drill is being rebuilt.', todo: 'Go back to Practice.', action: { label: 'Practice', href: '#/practice' } },
-    { nav: 'practice', crumbs: () => [{ label: 'Practice', href: '#/practice' }, { label: 'Subnetting' }] });
   P('sandbox', 'Sandbox', { icon: 'sandbox', what: 'The sandbox is being rebuilt.', todo: 'It comes back last, in the same workspace as the labs.', action: { label: 'Home', href: '#/' } });
-  P('progress', 'Progress', { icon: 'progress', what: 'Nothing to show yet.', todo: 'Finish a lab and it shows here.', action: { label: 'Labs', href: '#/labs' } });
 
 })(window.L4N = window.L4N || {});

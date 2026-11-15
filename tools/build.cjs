@@ -24,6 +24,11 @@ const BUDGET = {
 const read = rel => fs.readFileSync(path.join(SRC, rel), 'utf8');
 const bytes = s => Buffer.byteLength(s, 'utf8');
 
+// The app's own comments stay in src/; the built file keeps the code exactly as written, without them, so it fits the
+// size budget (REDESIGN-PLAN.md risk 12). The engine and the data are never touched.
+const stripJs = t => t.replace(/^[ \t]*\/\/.*\r?\n/gm, '');
+const stripCss = t => t.replace(/\/\*[\s\S]*?\*\/\n?/g, '');
+
 function fontFace(f) {
   const b64 = fs.readFileSync(path.join(SRC, f.file)).toString('base64');
   return '@font-face{font-family:"' + f.family + '";font-weight:' + f.weight + ';font-style:' + f.style +
@@ -43,13 +48,13 @@ function build() {
   const template = read(manifest.template);
 
   const fonts = (manifest.fonts || []).map(fontFace).join('');
-  const css = (manifest.css || []).map(read).join('');
+  const css = (manifest.css || []).map(f => stripCss(read(f))).join('');
   const icons = (manifest.icons || []).map(read).join('');
   const engineFiles = manifest.engine.map(read);
   for (const [k, t] of engineFiles.entries())
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(manifest.engine[k] + ' contains an engine marker');
   const engine = '//ENGINE-START\n' + engineFiles.join('') + '//ENGINE-END\n';
-  const jsFiles = manifest.js.map(f => [f, read(f)]);
+  const jsFiles = manifest.js.map(f => [f, f.startsWith('data/') ? read(f) : stripJs(read(f))]);
   for (const [f, t] of jsFiles)
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(f + ' contains an engine marker');
   const data = jsFiles.filter(([f]) => f.startsWith('data/')).map(([, t]) => t).join('');
@@ -88,7 +93,7 @@ function table(sizes, over) {
     (over.includes(k) ? '  OVER BUDGET' : '')).join('\n');
 }
 
-module.exports = { build, BUDGET };
+module.exports = { build, BUDGET, stripJs, stripCss };
 
 if (require.main === module) {
   const check = process.argv.includes('--check');

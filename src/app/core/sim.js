@@ -279,5 +279,41 @@
     return out;
   }
   const CRLINE = typeof CR !== 'undefined' ? CR : '<cr>';
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+
+  // ---- the subnetting drill ----
+  const subnet = {
+    make(range) {
+      const r = Math.random, len = range === 'warm' ? [24, 25, 26][Math.floor(r() * 3)] : range === 'small' ? [27, 28, 29, 30][Math.floor(r() * 4)] : 8 + Math.floor(r() * 23);
+      let a = 1 + Math.floor(r() * 223); if (a === 127) a = 172;
+      return { ip: (a * 16777216 + Math.floor(r() * 16777216)) >>> 0, len };
+    },
+    text: q => n2ip(q.ip) + '/' + q.len,
+    // the six answers, in order: network, broadcast, first host, last host, mask, usable hosts
+    answers(q) { const net = netOf(q.ip, q.len), bc = (net | ~lenMask(q.len)) >>> 0; return [n2ip(net), n2ip(bc), n2ip(net + 1), n2ip(bc - 1), n2ip(lenMask(q.len)), String(2 ** (32 - q.len) - 2)]; },
+    // the worked reason: the block method (the old drill's words)
+    why(q) {
+      const m = lenMask(q.len), mask = n2ip(m);
+      if (q.len % 8 === 0) return '/' + q.len + ' = ' + mask + '. The first ' + q.len / 8 + ' octets are network bits. Set all host bits to 0 for the network and to 1 for the broadcast. The usable hosts sit between them.';
+      const k = Math.floor(q.len / 8), sh = 24 - 8 * k, oct = (m >>> sh) & 255, blk = 256 - oct, val = (q.ip >>> sh) & 255, start = Math.floor(val / blk) * blk;
+      return '/' + q.len + ' = ' + mask + '. In octet ' + (k + 1) + ', block size = 256 − ' + oct + ' = ' + blk + '. ' + val + ' lies in the block starting at ' + start + '. Set later octets to 0 for the network. The broadcast is one address below the next block. Usable hosts = 2^' + (32 - q.len) + ' − 2 = ' + (2 ** (32 - q.len) - 2) + '.';
+    }
+  };
+
+  // ---- the exam: the old makeExam rules (fault-find, build, incident, today's, a stage's three-fault check) ----
+  function examMake(mode, seed, pool) {
+    const rnd = seedRng(seed), inPool = e => !pool || pool.includes(e.slug);
+    const builds = L4N.data.labs.filter(e => e.kind === 'build' && inPool(e)), incs = L4N.data.labs.filter(e => e.kind === 'incident' && inPool(e));
+    let base = null, faults = null;
+    if (mode === 'incident') base = rpick(rnd, incs) || null;
+    else if (mode === 'lab') base = rpick(rnd, builds) || null;
+    else if (mode === 'boss') {
+      const order = shuffled(rnd, builds);
+      for (const need of [3, 2]) { for (const b of order) { const f = examFault(b.lab, seed + '|' + b.lab.title, 3); if (f && f.length >= need) { base = b; faults = f; break; } } if (base) break; }
+    } else for (const b of shuffled(rnd, builds)) { const want = mode === 'daily' ? 2 : (rnd() < 0.3 ? 2 : 1); const f = examFault(b.lab, seed + '|' + b.lab.title, want); if (f) { base = b; faults = f; break; } }
+    if (!base) return null;
+    const title = 'Exam · ' + base.title;
+    const lab = faults ? examLab(base.lab, faults, title) : Object.assign({}, base.lab, { title, group: 'Exam', kind: 'exam', exam: true, baseTitle: base.title, why: [], steps: [] });
+    return { base, faults: faults || [], lab };
+  }
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});

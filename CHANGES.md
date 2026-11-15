@@ -1,5 +1,37 @@
 # Lab4Net changes
 
+## Redesign, phase 7: practice and progress
+
+- **Practice.** One page with three cards and their numbers: Exam (the last result and how many passed), Quiz (correct out of 110) and Subnetting (fields right on the first try).
+- **Exam.** A setup page with the mode (Fault-find, Build, Incident or Today's) and the time (10, 20 or 30 minutes), then "Start exam". The exam runs in the lab workspace with the mode and a clock in the top bar. Under two minutes the clock turns amber and gains a clock icon. There is no help: step-by-step, "why", the walkthrough, clues, the Commands tab, the lesson link and the "Why" line under the console are not in the page at all. Grade shows only "2 of 5 checks pass" until the exam ends. The end shows, in the Tasks panel, passed or not, the grade, the time used, every check and the faults that were hidden. The menu has "Give up". History keeps the last 40 exams (date, mode, lab, result, grade, time).
+- **Exam rules, carried over from the old app.**
+  - Faults come from the simulator's own fault generators: one or two for fault-find, two for Today's, three (or two) for a stage check.
+  - Today's exam is seeded by the date, so it is the same for everyone that day.
+  - The clock is the wall clock. An exam whose time ran out while it was not open is graded from its saved commands, on the next load or as soon as the time is up.
+  - Only one exam runs at a time.
+  - An exam never changes a lab's own progress, grade or saved work.
+- **The lock.** While an exam runs, other labs, lessons, the quiz, the subnetting drill and the sandbox wait. Trying one shows a toast with "Resume exam" and "Give up", not a dialog. Home's Continue card becomes the exam, with its clock.
+- **Stage checks.** On the Labs list, a stage's check starts here: a fault-find exam on that stage's labs (or three faults for the last stage), with the stage's own time. A passed check shows on the list and on Progress.
+- **Exam storage.** An exam is rebuilt from its seed, so storage keeps only the mode, seed, clock and the commands typed. No fault commands are ever stored or imported. Exam history travels in backups and is merged by date.
+- **Quiz.** A topic filter (the eight quiz domains) and "Only missed or unanswered". One question at a time, with the four options in the old order. Keys `1` to `4` pick and `Enter` checks, then goes to the next. A thin bar shows your place, and the score per topic is at the side. Answers are saved by question index, as before.
+- **Subnetting.** Three ranges (Mixed /8 to /30, Warm-up /24 to /26, Small networks /27 to /30). A large address and prefix, then six fields. "Check" marks each with an icon and gives the right answer for wrong ones, then the worked reason by the block method (the old drill's words). Only the first check of each question counts.
+- **Progress.** The summary (labs, lessons, quiz, exams passed). Exam topics, as a table of the six domains (weight, labs done, lessons read, coverage), where each row expands to its objectives with their labs and lessons as links. The Path, with each stage's bar and stage-check result. Grades as five small numbers. Exam history. The last ten labs and lessons finished, with dates (lessons now record when they were read). No streaks, points or badges.
+- **Palette.** Practice: Start exam…, Today's exam, Resume exam (while one runs), Start quiz, Subnetting drill.
+- **Size.** The budget broke here (CSS 70.3 of 70 KB, app JavaScript 296 of 300 KB). As the plan's risk 12 allows, the build now leaves out the app's own full-line comments and CSS comments. The code itself is unchanged and readable; the comments stay in `src/`. The simulator and data are never touched (the engine hash still matches). The file is now 1,495 KB (490 KB gzipped).
+- **Bug fixed.** The exam clock ran in the pop-out window, which has no store, and threw an error every second there. Found by the security test.
+- **Tests.** `node tests/exam.cjs`, `node tests/quiz.cjs` and `node tests/campaign.cjs` pass untouched. New browser tests:
+  - `exam.spec`: each mode starts, with help absent from the page; the same seed gives the same faults; Today's is the same on two fresh profiles; fixing the faults passes and leaves the base lab untouched; a reload resumes; a second exam cannot start; labs, lessons and practice are locked with the toast; time running out grades and records, open or not; a stage check starts from the Labs list and shows as passed.
+  - `quiz.spec`: answers saved by index; keys; filters; Progress numbers equal the store for a seeded profile.
+  - `subnet.spec`: marks, the first check counting once, ranges.
+  - `visual.spec`: Practice, a quiz answered, an exam running and Progress.
+
+  404 browser tests pass.
+
+Where the build differs from the plan:
+
+- **A running exam has its own address**, `#/practice/exam/run`, so a reload comes back to it. `#/practice/exam` shows Resume and Give up while one runs.
+- **Help during an exam is removed from the page, not hidden** (the plan's acceptance asks for it to be absent from the DOM).
+
 ## Redesign, phase 6: lessons, in the app and on the web
 
 - **Lessons list.** The same list-and-detail layout as Labs. It is grouped by exam topic (the six domains) or by type (lab lessons, topic lessons). Each row shows whether you have read it, the minutes, objective chips and your quick-check score ("3/4"). The detail pane shows the minutes, objectives with names, the opening of the first section, "Read" and "Open the lab". The top bar links to "These lessons are also on the web".

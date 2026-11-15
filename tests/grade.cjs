@@ -1,7 +1,8 @@
 // The grade rules (REDESIGN-PLAN.md section 2) for a table of runs. Reads core/grade.js out of the built app.
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm'), assert = require('assert');
-const src = fs.readFileSync(path.join(__dirname, '../src/app/core/grade.js'), 'utf8');
+const { stripJs } = require('../tools/build.cjs');
+const src = stripJs(fs.readFileSync(path.join(__dirname, '../src/app/core/grade.js'), 'utf8'));
 const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 assert.ok(html.includes(src), 'index.html carries src/app/core/grade.js (run node tools/build.cjs)');
 const ctx = { console }; ctx.window = ctx; vm.createContext(ctx);

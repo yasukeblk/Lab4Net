@@ -18,6 +18,10 @@ const STATES = [
   { name: 'workspace-failed-ping', route: '#/labs/static-routing', act: async page => { await page.evaluate(() => L4N.test.exec('PC1', 'ping 192.168.3.10')); await page.locator('#ws-map .badge__icon.is-bad').waitFor({ state: 'attached' }); const d = page.getByRole('button', { name: 'Details' }); if (await d.isVisible()) await d.click(); } },
   { name: 'workspace-tasks-collapsed', route: '#/labs/static-routing', act: async page => { const b = page.getByRole('button', { name: 'Collapse the Tasks panel' }); if (await b.isVisible()) await b.click(); } },
   { name: 'lesson-reader', route: '#/lessons/static-routing' },
+  { name: 'practice', route: '#/practice' },
+  { name: 'quiz-answered', route: '#/practice/quiz', act: async page => { await page.locator('.qc__opt').first().click(); await page.getByRole('button', { name: 'Check' }).click(); } },
+  { name: 'exam-running', route: '#/practice/exam', act: async page => { await page.evaluate(() => { L4N.exam.begin('sabotage', 20, { seed: 'visual' }); L4N.shell.go('#/practice/exam/run'); }); await page.locator('#gradeBtn').waitFor(); } },
+  { name: 'progress-seeded', route: '#/progress', main: { v: 2, ui: { landingSeen: true }, labs: { 'static-routing': { done: true, grade: 'S', doneAt: 1731600000000 }, 'basic-device-setup': { done: true, grade: 'B', doneAt: 1731500000000 } }, lessons: { 'static-routing': { read: true, readAt: 1731650000000, quiz: {} } }, quiz: { answers: { 0: true, 1: true } }, exam: { history: [{ at: 1731700000000, mode: 'sabotage', base: 'static-routing', cleared: true, passed: 6, total: 6, grade: 'A', secs: 300, minutes: 20 }] } } },
   { name: 'palette', route: '#/', act: async page => { await page.locator('.sb__search').click({ force: true }).catch(() => {}); if (!(await page.locator('dialog[open]').count())) await page.evaluate(() => L4N.palette.open()); } }
 ];
 

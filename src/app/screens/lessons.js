@@ -60,7 +60,7 @@
     refresh();
     ctx.topbar.setStatus(ui.chip(l.mins + ' min', '', 'clock'), readChip);
     if (l.lab) ctx.topbar.setActions(ui.button({ label: 'Practise in the lab', kind: 'primary', icon: 'labs', href: L4N.router.href('lab', l.lab.slug) }));
-    const markRead = () => { if (!rec(l.slug).read) { setLesson(l.slug, { read: true }); refresh(); markBtn.hidden = true; L4N.toast({ text: 'Lesson marked as read.', kind: 'ok' }); } };
+    const markRead = () => { if (!rec(l.slug).read) { setLesson(l.slug, { read: true, readAt: Date.now() }); refresh(); markBtn.hidden = true; L4N.toast({ text: 'Lesson marked as read.', kind: 'ok' }); } };
     const markBtn = ui.button({ label: 'Mark as read', icon: 'check', onClick: markRead });
     markBtn.hidden = rec(l.slug).read;
     const toc = el('nav', { class: 'reader__toc', 'aria-label': 'On this page' }, el('h2', { class: 'label-caps', text: 'On this page' }));
