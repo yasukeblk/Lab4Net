@@ -1,6 +1,32 @@
 # Lab4Net changes
 
-## Fixes, phase 4: one kind of progress
+## Fixes, phase 5: the lab screen layout
+
+At 1366×768 the first task started at the bottom edge of the Tasks panel, the map took about 40% of the height even for a line of routers, and "Why" was squeezed into one strip of small text.
+
+- **Tasks first.** The Tasks panel now goes: the scenario, step-by-step, the tasks, then the address plan.
+  - The address plan is a folded "Addresses" section, open by default only in the two capstones, where it is the brief.
+  - "Read the lesson first" and the step-by-step tip are now compact rows with a close button, not cards.
+  - The first task is fully visible without scrolling in all 75 build labs and incidents.
+- **The map fits the network.** Its default height comes from the topology, worked out the way the map fits devices: short for a line of routers, taller for a mesh, never more than half the space. Static routing's map is 160 px (it was 290), and the console now shows 20 lines. Incident 07's triangle gets 293 px. A height you drag yourself is still remembered and wins.
+- **"Why" opens.** The explanation under the console is one line with a "More" button. "More" opens it at normal body size, up to 40% of the console; "Less" closes it. It stays open or closed for the next command while the lab is open, and the button reports its state to screen readers.
+- **On a phone,** task 1 shows near the top of the Tasks tab.
+- **A smaller file.** The size budgets were close to full (app code 299.7 of 300 KB, CSS 69.7 of 70 KB), and these phases add interface code. Instead of raising the budgets, the build now drops what never mattered:
+  - indentation in the app code;
+  - indentation and the spaces after `:` `;` `,` and around braces in the CSS.
+
+  The app code is 279.1 KB and the CSS 62.1 KB. `index.html` went from 1,593.8 to 1,566.3 KB, smaller for every visitor. The build refuses app code with a template literal or a line ending in a backslash, and CSS with a quoted string holding a separator and a space, the only cases where this could change what is shown. The strict screenshots from phase 2 confirm that every screen this phase didn't change renders exactly as before.
+- **Tests.** A new browser test, `layout.spec.js`, checks:
+  - the first task in all 75 build labs and incidents at 1366×768;
+  - the map and console sizes;
+  - that a mesh gets a taller map than a line;
+  - the address plan's place and folding;
+  - the phone;
+  - the "Why" line's More and Less.
+
+  In `map.spec.js`, "Restore the map" used to be checked as "taller than 160 px", which was the old default height. It is now checked more strictly: the map comes back to exactly the height it had before.
+
+
 
 A lab graded S used to say "0 of 5 done" in its header, "0 of 5 tasks" on Home and "0/5" in the Labs list, and still offered "Read the lesson first". Task ticks and grading were two separate records, and grading never touched the ticks. Now a lab that is done looks done everywhere.
 

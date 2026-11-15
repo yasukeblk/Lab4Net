@@ -55,6 +55,16 @@
     // A lab finished before grading ticked the tasks shows them ticked. Worked out for display only: nothing is
     // written until the learner works in the lab again.
     if (!ov && (labRec(entry.slug) || {}).done && !ws.tasks.some(Boolean)) ws.tasks = entry.lab.tasks.map(() => true);
+    // The map height this network needs at width w, fitted the way the map fits it (side padding 56, top 34,
+    // bottom 44, scale at most 2), plus room for the labels. The sandbox sizes its own map.
+    if (!(ov && ov.mapOpts)) ws.mapWant = w => {
+      const pos = st.lab.pos || {}, pts = st.devs.map(n => pos[n]).filter(Boolean);
+      if (!pts.length) return null;
+      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+      const bw = Math.max(1, Math.max(...xs) - Math.min(...xs)), bh = Math.max(...ys) - Math.min(...ys);
+      const s = Math.max(0.25, Math.min((w - 112) / bw, 2));
+      return Math.round(bh * s + 34 + 44 + 24);
+    };
     current = ws;
 
     // a run counts toward a grade only if it started from a fresh lab (the old rule)

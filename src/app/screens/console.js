@@ -64,9 +64,19 @@
         el('span', {}, el('kbd', { class: 'kbd', text: 'Ctrl' }), el('kbd', { class: 'kbd', text: 'Z' }), 'end'),
         el('span', {}, el('kbd', { class: 'kbd', text: 'Esc' }), 'leave the console')));
     }
+    // "Why" for the last command: one line under the console, with More to open it at body size, and Less to close.
+    // Open or closed stays as the learner left it while the lab is open.
+    let whyOpen = false, whyText = null;
     function setWhy(text) {
+      whyText = text || null;
+      why.classList.toggle('is-open', !!text && whyOpen);
       if (!text) { keyHints(); return; }
-      clear(why); why.append(el('span', {}, el('b', { text: 'Why: ' }), text));
+      clear(why);
+      why.append(el('span', { class: 'con__why-text' }, el('b', { text: 'Why: ' }), text),
+        ui.button({ label: whyOpen ? 'Less' : 'More', kind: 'ghost', class: 'con__why-btn', aria: whyOpen ? 'Show less of why' : 'Show all of why',
+          onClick: () => { whyOpen = !whyOpen; setWhy(whyText); const b = why.querySelector('.con__why-btn'); if (b) b.focus(); } }));
+      const b = why.querySelector('.con__why-btn');
+      b.setAttribute('aria-expanded', String(whyOpen)); b.setAttribute('aria-controls', hintId);
     }
 
     // ---- output ----

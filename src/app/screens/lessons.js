@@ -174,9 +174,10 @@
     if (!lesson || quiet()) return;
     const seen = () => L4N.store.set(s => ({ ui: Object.assign({}, s.ui, { seenLesson: Object.assign({}, s.ui.seenLesson, { [ws.slug]: true }) }) }));
     ws.topExtras = (ws.topExtras || []).concat(() => quiet() ? null :
-      el('div', { class: 'banner', role: 'note' }, icon('lessons'), el('span', { text: 'Read the lesson first (' + lesson.mins + ' min)' }),
+      // one line with a close button, so the tasks stay near the top
+      el('div', { class: 'banner banner--line', role: 'note' }, icon('lessons'), el('span', { text: 'Read the lesson first (' + lesson.mins + ' min)' }),
         ui.button({ label: 'Open lesson', kind: 'secondary', onClick: () => { seen(); L4N.shell.go(L4N.router.href('lesson', lesson.slug)); } }),
-        ui.button({ label: 'Skip', kind: 'ghost', onClick: () => { seen(); ws.tasksView.rebuild(); } })));
+        ui.button({ icon: 'x', aria: 'Skip the lesson', kind: 'ghost', onClick: () => { seen(); ws.tasksView.rebuild(); } })));
     ws.tasksView.rebuild();
   });
 

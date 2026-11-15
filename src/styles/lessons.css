@@ -46,6 +46,9 @@
 .banner { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2) var(--space-3); border: var(--hairline) solid var(--border); border-left: 2px solid var(--accent); border-radius: var(--radius-2); font-size: var(--fs-13); }
 .banner > .icon { color: var(--accent); }
 .banner > span { flex: 1; min-width: 140px; }
+.banner--line { flex-wrap: nowrap; padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3); }
+.banner--line > span { min-width: 0; font-size: var(--fs-13); line-height: var(--lh-13); }
+.banner--line .btn { flex: none; }
 .chip--done .icon { color: var(--ok); }
 @media (max-width: 1279px) { .reader { grid-template-columns: minmax(0, 680px); } .reader__toc { display: none; } }
 @media (max-width: 767px) { .reader { padding: var(--space-5) var(--space-4) var(--space-10); } .terms { grid-template-columns: 1fr; gap: 2px; } .terms dd { margin-bottom: var(--space-2); } }

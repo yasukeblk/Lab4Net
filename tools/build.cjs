@@ -37,7 +37,14 @@ const stripJs = (t, file) => {
   });
   return t.replace(/^[ \t]*\/\/.*\r?\n/gm, '').replace(/^[ \t]+/gm, '');
 };
-const stripCss = t => t.replace(/\/\*[\s\S]*?\*\/\n?/g, '');
+// CSS: comments, indentation, and the spaces after : ; , and around { } (none of them matter in CSS). That could only
+// change a quoted string holding one of those followed by a space, so the build refuses such a string.
+const stripCss = t => {
+  const s = t.replace(/\/\*[\s\S]*?\*\/\n?/g, '');
+  const bad = (s.match(/"[^"\n]*"|'[^'\n]*'/g) || []).find(q => /[:;,{}]\s/.test(q));
+  if (bad) throw new Error('CSS string ' + bad + ' holds a separator and a space, which the build would remove. Write it with an escape such as \\3a  instead.');
+  return s.replace(/^[ \t]+/gm, '').replace(/:\s+/g, ':').replace(/;\s+/g, ';').replace(/,\s+/g, ',').replace(/\s*\{\s*/g, '{').replace(/\s*\}\s*/g, '}');
+};
 
 function fontFace(f) {
   const b64 = fs.readFileSync(path.join(SRC, f.file)).toString('base64');
