@@ -25,9 +25,18 @@ const BUDGET = {
 const read = rel => fs.readFileSync(path.join(SRC, rel), 'utf8');
 const bytes = s => Buffer.byteLength(s, 'utf8');
 
-// The app's own comments stay in src/; the built file keeps the code exactly as written, without them, so it fits the
-// size budget (REDESIGN-PLAN.md risk 12). The engine and the data are never touched.
-const stripJs = t => t.replace(/^[ \t]*\/\/.*\r?\n/gm, '');
+// The app's own comments and indentation stay in src/; the built file keeps the code as written without them, so it
+// fits the size budget (REDESIGN-PLAN.md risk 12; indentation since FIXES-PLAN.md phase 5). The engine and the data are
+// never touched. Removing indentation is only safe while no string spans two lines, so the build refuses app code with
+// a template literal or a line continued with a backslash.
+const stripJs = (t, file) => {
+  t.split(/\r?\n/).forEach((l, i) => {
+    if (/^\s*\/\//.test(l)) return;
+    if (l.includes('`') || l.endsWith('\\')) throw new Error((file || 'app code') + ':' + (i + 1) + ' has a backtick or a trailing backslash; ' +
+      'the build strips indentation, which could change a string that spans lines. Use quotes and + instead.');
+  });
+  return t.replace(/^[ \t]*\/\/.*\r?\n/gm, '').replace(/^[ \t]+/gm, '');
+};
 const stripCss = t => t.replace(/\/\*[\s\S]*?\*\/\n?/g, '');
 
 function fontFace(f) {
@@ -55,7 +64,7 @@ function build() {
   for (const [k, t] of engineFiles.entries())
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(manifest.engine[k] + ' contains an engine marker');
   const engine = '//ENGINE-START\n' + engineFiles.join('') + '//ENGINE-END\n';
-  const jsFiles = manifest.js.map(f => [f, f.startsWith('data/') ? read(f) : stripJs(read(f))]);
+  const jsFiles = manifest.js.map(f => [f, f.startsWith('data/') ? read(f) : stripJs(read(f), f)]);
   for (const [f, t] of jsFiles)
     if (/\/\/ENGINE-(START|END)/.test(t)) throw new Error(f + ' contains an engine marker');
   const data = jsFiles.filter(([f]) => f.startsWith('data/')).map(([, t]) => t).join('');
