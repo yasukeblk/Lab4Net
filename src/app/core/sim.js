@@ -296,6 +296,37 @@
   //  - a 'run' task is done once its looking commands were run, each on its own device;
   //  - incidents: reproduce = a test was run; evidence = a show was run; restore = every check passes;
   //    retest = a test was run after the repair (fixedAt: the journal length when every check first passed).
+  // taskAsks(entry) → per task, the looking commands it asks for, as [device, command]: see the rule below.
+  function taskAsks(entry) {
+    const lab = entry.lab, links = (typeof TASK_CHECKS !== 'undefined' && TASK_CHECKS[entry.slug]) || [], all = steps(lab);
+    // Only what the task asks for counts: a looking command in the step-by-step is needed only when the task's own
+    // words name it. A ping, traceroute, Telnet or SSH when the task mentions it; a show when the task writes it out
+    // (shortened or not). "Bring it up" ticks when it is up, even though the steps then suggest show ip int brief.
+    // A task that is only about looking ('run') and names nothing needs all its looking commands.
+    const asks = i => {
+      const text = String(lab.tasks[i] || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').toLowerCase();
+      const words = text.replace(/[^a-z0-9/.\-\s]/g, ' ').split(/\s+/).filter(Boolean);
+      const looks = (all[i] || []).flatMap(g => g.lines.filter(x => x.cmd && !/:\s*$/.test(x.prompt || '') && !MOVES.test(x.cmd) && LOOKS.test(x.cmd)).map(x => [g.dev, x.cmd]));
+      // ports, addresses and VLAN numbers are left out when matching: "show lldp interface" names show lldp interface gi0/1
+      const bare = s => s.toLowerCase().replace(/^do\s+/, '').split(/\s+/).filter(w => w && !/\d/.test(w));
+      const textWords = words.filter(w => !/\d/.test(w));
+      const named = ([, c]) => {
+        const v = c.trim().toLowerCase().replace(/^do\s+/, '').split(/\s+/)[0];
+        if (/^(ping|traceroute|tracert)$/.test(v)) return /\b(ping|trace|test)/.test(text);   // "Test: PC1 should still reach…"
+        if (v === 'telnet' || v === 'ssh') return new RegExp('\\b' + v + '\\b').test(text);
+        if (v === 'ipconfig' || v === 'ipv6config') return /\b(ipv6config|ipconfig|renew|release|autoconfig)/.test(text);   // "Renew the phone's address"
+        const b = bare(c).join(' ');
+        for (let k = 0; k < textWords.length; k++) if (typed(textWords.slice(k, k + 12).join(' '), b)) return true;
+        return false;
+      };
+      const want = looks.filter(named);
+      // asked to look without naming how ("check both VLANs again", "confirm traffic returns"): the task's own looking
+      // commands are how; the same for a task that is only about looking
+      if (!want.length && (links[i] === 'run' || /\b(check|verify|confirm)\b/.test(text))) return looks;
+      return want;
+    };
+    return lab.tasks.map((_, i) => asks(i));
+  }
   function taskStatus(st, entry, fixedAt) {
     const lab = entry.lab, J = st.journal || [];
     if (entry.kind === 'incident') {
@@ -305,14 +336,13 @@
     }
     const links = typeof TASK_CHECKS !== 'undefined' && TASK_CHECKS[entry.slug];
     if (!links || links.length !== lab.tasks.length) return lab.tasks.map(() => null);
-    const res = links.some(e => Array.isArray(e) && e.length) ? grade(st) : [], all = steps(lab);
-    const looksOf = i => (all[i] || []).flatMap(g => g.lines.filter(x => x.cmd && !/:\s*$/.test(x.prompt || '') && !MOVES.test(x.cmd) && LOOKS.test(x.cmd)).map(x => [g.dev, x.cmd]));
-    // a command asked for again ("run show spanning-tree again") must be run again: as many times as the steps ask
-    // for it up to this task
+    const res = links.some(e => Array.isArray(e) && e.length) ? grade(st) : [];
+    const asked = taskAsks(entry);
+    // A command asked for again ("Ping again from ADMIN") must be run again: once for each task that asks for it.
     const times = (dev, cmd) => J.filter(e => e.device === dev && typed(e.line, cmd)).length;
-    const need = (i, dev, cmd) => { let n = 0; for (let k = 0; k <= i; k++) n += looksOf(k).filter(([d, c]) => d === dev && c === cmd).length; return n; };
+    const need = (i, dev, cmd) => { let n = 0; for (let k = 0; k <= i; k++) if (asked[k].some(([d, c]) => d === dev && c === cmd)) n++; return n; };
     return links.map((e, i) => {
-      const looks = looksOf(i);
+      const looks = asked[i];
       const looked = looks.every(([d, c]) => times(d, c) >= need(i, d, c));
       if (e === 'run') return looks.length ? looked : null;
       if (!Array.isArray(e) || !e.length) return null;
@@ -390,5 +420,5 @@
     const lab = faults ? examLab(base.lab, faults, title) : Object.assign({}, base.lab, { title, group: 'Exam', kind: 'exam', exam: true, baseTitle: base.title, why: [], steps: [] });
     return { base, faults: faults || [], lab };
   }
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, taskStatus, typedCommand: typed, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, sandbox, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, taskStatus, taskAsks, typedCommand: typed, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, sandbox, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});
