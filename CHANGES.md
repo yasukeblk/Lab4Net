@@ -28,6 +28,7 @@ Before this change, task checkboxes were a to-do list you ticked on trust; the g
   - `tests/grade.cjs` has five new cases for per-task help, and `tests/validate.cjs` four.
   - A new browser test, `task-ticks.spec.js`, works Static routing by hand, uses a hint and the commands for one task (reload, no second charge), and works an incident.
   - The tests that named the old tip, the console's "Why:" and its buttons use the new wording.
+- **Screenshots.** The "Update screenshot baselines" workflow refreshed the 14 workspace baselines (the Tasks panel's dashed boxes and help buttons); every other screen matched. The share image, `og.png`, was rebuilt to show the new Tasks panel.
 
 ## Fixes, phase 10: a lighter hosted site
 
