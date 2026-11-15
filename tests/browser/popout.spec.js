@@ -41,8 +41,9 @@ test('open, step to the console, change lab, reconnect after a reload, dock', as
   await expect(page.locator('.tasks-strip.is-out')).toBeVisible({ timeout: 8000 });
   await expect(pop.locator('.popout__title')).toHaveText('VLANs and access ports');
 
-  // the Dock button in the pop-out closes it and docks the panel
-  await pop.getByRole('button', { name: 'Dock' }).click();
+  // the Dock button in the pop-out closes it and docks the panel. The window can close before Playwright finishes
+  // the click and report it as failed, so that error is accepted only when the window really did close.
+  await pop.getByRole('button', { name: 'Dock' }).click({ noWaitAfter: true }).catch(e => { if (!pop.isClosed()) throw e; });
   await expect.poll(() => pop.isClosed()).toBe(true);
   await expect(page.locator('#ws-tasks')).toBeVisible();
 });
