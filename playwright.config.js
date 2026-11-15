@@ -7,13 +7,17 @@ module.exports = defineConfig({
   timeout: 60000,
   fullyParallel: true,
   workers: process.env.CI ? 2 : undefined,
-  retries: process.env.CI ? 1 : 0,
+  // No retries: a test that only passes on a second try is a bug to fix, not to hide (FIXES-PLAN.md phase 2).
+  retries: 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
   outputDir: 'test-results',
-  // Screenshot baselines are made and compared on Linux in CI only (section 8.4).
-  updateSnapshots: process.env.CI ? 'missing' : 'none',
+  // Screenshot baselines are made and compared on Linux in CI only (section 8.4). A missing baseline fails;
+  // the "Update screenshot baselines" workflow makes them (it passes --update-snapshots).
+  updateSnapshots: 'none',
   snapshotPathTemplate: '{testDir}/__screenshots__/{testFileName}/{arg}{ext}',
-  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: 'disabled' } },
+  // A changed digit in a count alters 3 to 9 pixels at the default colour threshold, so allow at most 2.
+  // Parts that change on purpose (the exam clock) are masked in visual.spec.js.
+  expect: { toHaveScreenshot: { maxDiffPixels: 2, animations: 'disabled' } },
   use: {
     baseURL: 'http://127.0.0.1:8138',
     viewport: { width: 1366, height: 768 },

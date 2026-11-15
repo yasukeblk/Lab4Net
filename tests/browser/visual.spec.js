@@ -6,6 +6,8 @@ const { open } = require('./helpers');
 
 const SIZES = [[1366, 768], [1920, 1080], [390, 844]];
 const COMPARE = process.platform === 'linux' && !!process.env.CI;
+// Parts of a screen that change on purpose between runs. Everything else must match the baseline.
+const MASK = page => [page.locator('.chip--clock')];
 
 const STATES = [
   { name: 'gallery', route: '#/dev/components', full: true },
@@ -33,7 +35,7 @@ for (const scheme of ['dark', 'light']) for (const [w, h] of SIZES) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
     await page.goto('/lessons/static-routing.html');
     const name = `lesson-page-${scheme}-${w}x${h}.png`;
-    if (COMPARE) await expect(page).toHaveScreenshot(name);
+    if (COMPARE) await expect(page).toHaveScreenshot(name, { mask: MASK(page) });
     else await page.screenshot({ path: path.join(__dirname, '..', '..', 'test-results', 'shots', name) });
   });
 }
@@ -51,7 +53,7 @@ for (const theme of ['dark', 'light']) {
         if (s.act) await s.act(page);
         await page.waitForTimeout(150);
         const name = `${s.name}-${theme}-${w}x${h}.png`;
-        if (COMPARE) await expect(page).toHaveScreenshot(name, { fullPage: !!s.full });
+        if (COMPARE) await expect(page).toHaveScreenshot(name, { fullPage: !!s.full, mask: MASK(page) });
         else await page.screenshot({ path: path.join(__dirname, '..', '..', 'test-results', 'shots', name), fullPage: !!s.full });
       });
     }

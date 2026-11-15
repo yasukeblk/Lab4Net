@@ -129,15 +129,28 @@ test('live ping output plays at the chosen pace, and Ctrl+C stops it', async ({ 
 });
 
 test('fast pace finishes on its own; another command finishes it at once', async ({ page }) => {
+  // The page's clock is frozen while the ping plays, so "Running…" can't finish before it is checked,
+  // however slow the machine is. Then time is moved on by hand to show the ping also ends by itself.
+  await page.clock.install({ time: new Date('2026-01-05T09:00:00Z') });
   await lab(page, 'static-routing', FAST);
   await device(page, 'PC1');
+  await page.clock.pauseAt(new Date('2026-01-05T09:01:00Z'));
   await type(page, 'ping 192.168.1.1');
   await expect(input(page)).toHaveAttribute('placeholder', 'Running… Ctrl+C to stop');
+  await expect(out(page)).not.toContainText('Ping statistics');
+  // another command finishes the ping at once, before its own output
   await type(page, 'ipconfig');
   await expect(out(page)).toContainText('Ping statistics');
   await expect(out(page)).toContainText('IPv4 Address');
   const text = await out(page).textContent();
   expect(text.indexOf('Ping statistics')).toBeLessThan(text.indexOf('IPv4 Address'));
+  // on its own: a second ping, left alone, plays to the end as time passes
+  await type(page, 'ping 192.168.1.1');
+  await expect(input(page)).toHaveAttribute('placeholder', 'Running… Ctrl+C to stop');
+  await page.clock.runFor(20000);
+  await expect(out(page).getByText('Ping statistics')).toHaveCount(2);
+  await expect(input(page)).toHaveAttribute('placeholder', '');
+  await expect(prompt(page)).toHaveText('C:\\>');
 });
 
 test('with reduced motion the output is instant', async ({ page }) => {
