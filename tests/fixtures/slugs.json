@@ -743,6 +743,56 @@
    "slug": "wiring-a-wireless-lan",
    "title": "Wiring a wireless LAN",
    "topic": false
+  },
+  {
+   "slug": "binary-and-the-powers-of-two",
+   "title": "Binary and the powers of two",
+   "topic": true
+  },
+  {
+   "slug": "subnetting-questions-the-exam-asks",
+   "title": "Subnetting questions the exam asks",
+   "topic": true
+  },
+  {
+   "slug": "vlsm-subnets-of-different-sizes",
+   "title": "VLSM: subnets of different sizes",
+   "topic": true
+  },
+  {
+   "slug": "dns-names-to-addresses",
+   "title": "DNS: names to addresses",
+   "topic": true
+  },
+  {
+   "slug": "arp-and-the-journey-of-a-packet",
+   "title": "ARP and the journey of a packet",
+   "topic": true
+  },
+  {
+   "slug": "the-osi-and-tcp-ip-models",
+   "title": "The OSI and TCP/IP models",
+   "topic": true
+  },
+  {
+   "slug": "ipv6-neighbor-discovery",
+   "title": "IPv6 neighbor discovery",
+   "topic": true
+  },
+  {
+   "slug": "protecting-the-spanning-tree",
+   "title": "Protecting the spanning tree",
+   "topic": true
+  },
+  {
+   "slug": "ospf-neighbor-states-and-troubleshooting",
+   "title": "OSPF neighbor states and troubleshooting",
+   "topic": true
+  },
+  {
+   "slug": "finding-a-fault-step-by-step",
+   "title": "Finding a fault step by step",
+   "topic": true
   }
  ]
 }

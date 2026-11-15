@@ -1,6 +1,6 @@
 # Writing Lab4Net lessons
 
-This is the brief the current 56 lessons were written to. Use it for any new lesson, so they stay consistent.
+This is the brief the current 66 lessons were written to. Use it for any new lesson, so they stay consistent.
 
 Lab4Net is a browser CCNA 200-301 v1.1 lab simulator. Its owner is studying for the CCNA. The labs teach which commands to type; the lessons teach the networking behind them, so he understands what he is doing and can answer exam questions. He asked for this because he "is not learning stuff, like what is DHCP pooling".
 

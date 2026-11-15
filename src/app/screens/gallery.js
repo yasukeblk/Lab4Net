@@ -63,7 +63,7 @@
           el('button', { class: 'btn btn--secondary', type: 'button', 'data-tip': 'Tooltips wait 400 ms on hover', 'data-kbd': 'mod+k' }, 'Hover me'))),
       block('Empty state', ui.empty({ icon: 'filter', what: 'No labs match.', todo: 'Clear the filters.', action: { label: 'Clear filters' } })),
       block('Progress and dividers',
-        el('div', { class: 'stack' }, ui.bar(23, 77, 'Labs done'), ui.bar(0, 56, 'Lessons read'),
+        el('div', { class: 'stack' }, ui.bar(23, 77, 'Labs done'), ui.bar(0, 66, 'Lessons read'),
           el('div', { class: 'hstack', style: 'height:48px;gap:24px' }, el('div', { class: 'handle handle--v', style: 'height:48px', tabindex: '0', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Example divider', 'aria-valuenow': '50' }),
             el('div', { class: 'handle handle--h', style: 'width:120px', tabindex: '0', role: 'separator', 'aria-orientation': 'horizontal', 'aria-label': 'Example divider', 'aria-valuenow': '50' })))),
       block('Callouts and code',

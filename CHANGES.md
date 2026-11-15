@@ -1,5 +1,29 @@
 # Lab4Net changes
 
+## Lessons, batch 1: ten new topic lessons
+
+Lab4Net now has 66 lessons (38 lab lessons and 28 topic lessons). The ten new ones are topic lessons, so they have no story on a lab map:
+
+- Binary and the powers of two (1.6)
+- Subnetting questions the exam asks (1.6)
+- VLSM: subnets of different sizes (1.6)
+- DNS: names to addresses (4.3)
+- ARP and the journey of a packet (1.13, 3.2)
+- The OSI and TCP/IP models (1.5, 1.13)
+- IPv6 neighbor discovery (1.8, 1.9)
+- Protecting the spanning tree (2.5)
+- OSPF neighbor states and troubleshooting (3.4)
+- Finding a fault step by step (1.4, 3.1)
+
+What else changed with them:
+
+- **Size budget.** `index.html` is now 1,590 KB, over the old 1,550 KB total. The total budget is raised to 1,900 KB and the gzipped budget from 570 KB to 700 KB, because lesson content is growing on purpose and more batches are planned. The budgets for the app code, CSS, fonts and markup are unchanged, so the interface itself still can't grow unnoticed.
+- **Web pages.** Each new lesson has its own page under `lessons/`, and they are in the lessons index and `sitemap.xml`.
+- **Slugs.** The ten new lesson slugs are added to `tests/fixtures/slugs.json`. No existing slug changed.
+- **Counts.** Every "56 lessons" is now 66: the README, the developer and lesson-writing guides, the page description and share tags, the landing page, the share image (`og.png`, rebuilt), and the browser tests that count lessons.
+- **Screenshot baselines.** Only the screens that show a lesson count were updated.
+- **One fix to the pasted text.** In the DNS lesson, `www.example.com` had arrived as a Markdown link, `[www.example.com](https://www.example.com)`, twice: once in the first section and once in the `nslookup` example. That was the chat turning the name into a link. It is back to plain `www.example.com`. Nothing else in the lessons was changed.
+
 ## CI after the merge
 
 The redesign is merged into `main` and live, so the test setup now treats `main` as home.

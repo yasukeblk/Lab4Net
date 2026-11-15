@@ -165,7 +165,7 @@ The Node tests read the built `index.html`, so build first.
 - `tests/browser/` (Playwright, pinned in `package.json`): `shell`, `labs-all` (all 77 labs solved and graded through the real Grade button), `guide`, `console`, `map`, `popout`, `deeplinks`, `firstrun`, `offline`, `labs`, `lessons`, `lessonpages`, `exam`, `quiz`, `subnet`, `sandbox`, `security`, `phone` (390 by 844), `a11y` (axe on every route in both themes, the keyboard-only run, keyboard patterns, live regions), `themes` and `motion`. `shell`, `console` and `map` also run in Firefox and WebKit.
 - `visual.spec` compares screenshots of the main screens. Baselines are made on Linux, so it only compares in CI. After an intended change, refresh them with the "Update screenshot baselines" workflow (Actions › Update screenshot baselines › Run workflow), which commits them to the branch.
 
-Current numbers: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1,571 guide commands; 56 lessons (38 lab, 18 topic); 110 quiz questions.
+Current numbers: 77 labs (38 build, 37 incidents, 2 capstones), 445 checks, 1,571 guide commands; 66 lessons (38 lab, 28 topic); 110 quiz questions.
 
 For anything visual, open the page in a real browser at 1366 by 768 in both themes and at 390 wide, and look at it. Tests catch a lot, not everything.
 

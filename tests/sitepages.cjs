@@ -19,7 +19,7 @@ const labSlugs = new Set(LABS.map(l => slug(l.title)));
 const sitemap = read('sitemap.xml');
 const files = fs.readdirSync(path.join(ROOT, 'lessons')).filter(f => f.endsWith('.html'));
 assert.equal(files.length, pages.length + 1, 'one page per lesson plus the index');
-assert.ok(pages.length >= 56, 'every lesson has a page');
+assert.ok(pages.length >= 66, 'every lesson has a page');
 
 const titles = new Set(), descs = new Set();
 for (const f of files) {
