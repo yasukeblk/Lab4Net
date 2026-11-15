@@ -38,6 +38,7 @@ Labs used to open with a technical brief and nothing else. Now each one arrives 
   - an incident's service coming back after the repair;
   - nothing in the sandbox.
 - The layout test still holds: the first task shows without scrolling in every lab at 1366×768.
+- The workspace screenshot baselines (18 images) were refreshed. They now show the ticket and the services strip.
 
 ## Tasks tick when done as asked
 
