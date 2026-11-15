@@ -11,14 +11,15 @@ const SRC = path.join(ROOT, 'src');
 const OUT = path.join(ROOT, 'index.html');
 const KB = 1000;
 
-// Size budget (REDESIGN-PLAN.md section 6.2). Engine and data have no budget.
+// Size budget (REDESIGN-PLAN.md section 6.2). Engine and data have no budget of their own.
+// total and gzip were raised from 1550 and 570 KB for lessons batch 1: lesson content grows on purpose.
 const BUDGET = {
   appJs: 300 * KB,
   css: 70 * KB,
   fonts: 170 * KB,
   markup: 30 * KB,
-  total: 1550 * KB,
-  gzip: 570 * KB
+  total: 1900 * KB,
+  gzip: 700 * KB
 };
 
 const read = rel => fs.readFileSync(path.join(SRC, rel), 'utf8');

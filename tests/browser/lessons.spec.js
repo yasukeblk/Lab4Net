@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 const { open, watch, go } = require('./helpers');
 const lessons = require('../fixtures/slugs.json').lessons;
 
-test('all 56 lessons open in the reader', async ({ page }) => {
+test('all 66 lessons open in the reader', async ({ page }) => {
   const errors = watch(page);
   await open(page, '#/lessons');
   for (const l of lessons) {
@@ -11,7 +11,7 @@ test('all 56 lessons open in the reader', async ({ page }) => {
     await expect(page.locator('.reader__title')).toBeVisible();
     await expect(page.locator('.reader__sect').first()).toBeVisible();
   }
-  expect(lessons.length).toBe(56);
+  expect(lessons.length).toBe(66);
   expect(errors()).toEqual([]);
 });
 
@@ -27,7 +27,7 @@ test('?lesson= opens the reader; reaching the end marks it read; Mark as read wo
   await page.getByRole('button', { name: 'Mark as read' }).click();
   await expect(page.locator('.topbar__status')).toContainText('Read');
   await page.goto('/#/lessons');
-  await expect(page.locator('.sidebar [data-nav="lessons"] .sb__count')).toHaveText('2/56');
+  await expect(page.locator('.sidebar [data-nav="lessons"] .sb__count')).toHaveText('2/66');
 });
 
 test('quick-check answers are saved by question index', async ({ page }) => {

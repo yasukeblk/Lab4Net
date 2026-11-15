@@ -26,7 +26,7 @@ No install, no account and no ads. Your progress stays in your own browser. The 
   - MAC address tables, spanning tree, duplex mismatches and debug output
 - **A network map** that shows every ping along the path it really takes, and where and why it failed.
 - **Learning support:**
-  - 56 lessons that teach the concept before the commands, also readable on the web: [free CCNA lessons](https://yasukeblk.github.io/Lab4Net/lessons/)
+  - 66 lessons that teach the concept before the commands, also readable on the web: [free CCNA lessons](https://yasukeblk.github.io/Lab4Net/lessons/)
   - a "why" for every task and command
   - optional step-by-step help, a walkthrough, and three clues per incident
   - grades from S to D, scored on results, never on speed

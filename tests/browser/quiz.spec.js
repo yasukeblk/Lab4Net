@@ -38,7 +38,7 @@ test('Progress numbers equal the store for a seeded profile', async ({ page }) =
   await open(page, '#/progress', { main });
   const stats = page.locator('.stats .stat');
   await expect(stats.nth(0)).toContainText('3/77');
-  await expect(stats.nth(1)).toContainText('1/56');
+  await expect(stats.nth(1)).toContainText('1/66');
   await expect(stats.nth(2)).toContainText('2/110');
   await expect(stats.nth(3)).toContainText('1');
   const grades = page.locator('.grades li');
