@@ -21,7 +21,7 @@ What else changed with them:
 - **Web pages.** Each new lesson has its own page under `lessons/`, and they are in the lessons index and `sitemap.xml`.
 - **Slugs.** The ten new lesson slugs are added to `tests/fixtures/slugs.json`. No existing slug changed.
 - **Counts.** Every "56 lessons" is now 66: the README, the developer and lesson-writing guides, the page description and share tags, the landing page, the share image (`og.png`, rebuilt), and the browser tests that count lessons.
-- **Screenshot baselines.** Only the screens that show a lesson count were updated.
+- **Screenshot baselines.** None needed updating. The "Update screenshot baselines" workflow ran on this branch and all 102 screenshots still matched: the count changing from 56 to 66 is well inside the 1% pixel tolerance in `playwright.config.js`, so the baselines stay as they were.
 - **One fix to the pasted text.** In the DNS lesson, `www.example.com` had arrived as a Markdown link, `[www.example.com](https://www.example.com)`, twice: once in the first section and once in the `nslookup` example. That was the chat turning the name into a link. It is back to plain `www.example.com`. Nothing else in the lessons was changed.
 
 ## CI after the merge
