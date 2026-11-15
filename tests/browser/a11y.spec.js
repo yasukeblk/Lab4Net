@@ -16,6 +16,13 @@ for (const theme of ['dark', 'light']) {
       });
     }
 
+    test('axe: landing section', async ({ page }) => {
+      await open(page, '?welcome', { theme });
+      await expect(page.locator('#landing')).toBeVisible();
+      const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+      expect(r.violations.map(v => v.id + ': ' + v.nodes.slice(0, 3).map(n => n.target.join(' ')).join(' | '))).toEqual([]);
+    });
+
     test('axe: command palette open', async ({ page }) => {
       await open(page, '#/', { theme });
       await page.locator('.sb__search').click();

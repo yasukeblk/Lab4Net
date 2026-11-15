@@ -23,6 +23,7 @@
     "styles/map.css",
     "styles/console.css",
     "styles/screens.css",
+    "styles/landing.css",
     "styles/phone.css"
   ],
   "icons": [
@@ -58,6 +59,8 @@
     "app/core/search.js",
     "app/core/sim.js",
     "app/core/grade.js",
+    "app/core/progress.js",
+    "app/core/migrate.js",
     "app/site.js",
     "app/ui/dom.js",
     "app/ui/theme.js",
@@ -80,6 +83,10 @@
     "app/screens/workspace.js",
     "app/screens/popout.js",
     "app/screens/settings.js",
+    "app/screens/data.js",
+    "app/screens/home.js",
+    "app/screens/labs.js",
+    "app/screens/landing.js",
     "app/screens/gallery.js",
     "app/main.js"
   ]

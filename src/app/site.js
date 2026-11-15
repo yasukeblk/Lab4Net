@@ -13,8 +13,7 @@
     const p = event ? { p: event, t: event, e: 'true' } : { p: location.pathname, r: document.referrer || '' };
     const q = Object.keys(p).map(k => k + '=' + encodeURIComponent(p[k])).join('&') + '&rnd=' + Math.random().toString(36).slice(2);
     const url = 'https://' + SITE.counter + '.goatcounter.com/count?' + q;
-    try { if (navigator.sendBeacon) { navigator.sendBeacon(url); return; } } catch (e) {}
-    try { const i = new Image(); i.src = url; } catch (e) {}
+    try { const i = new Image(); i.referrerPolicy = 'no-referrer'; i.src = url; } catch (e) {}
   }
 
   L4N.site = {

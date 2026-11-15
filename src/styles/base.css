@@ -27,6 +27,8 @@ pre { margin: 0; }
 /* Focus: always visible for keyboard users, never for mouse clicks */
 :focus { outline: none; }
 :focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-1); }
+/* headings take focus when a screen opens; they never show a ring */
+h1[tabindex="-1"]:focus-visible, h2[tabindex="-1"]:focus-visible, [data-heading]:focus-visible, section[tabindex="-1"]:focus-visible { box-shadow: none; }
 
 /* Numbers that line up */
 .num, time { font-variant-numeric: tabular-nums; }

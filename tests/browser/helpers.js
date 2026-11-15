@@ -34,7 +34,7 @@ function watch(page) {
 async function open(page, route, opts) {
   await seed(page, opts);
   await page.goto('/' + (route || '#/'));
-  await expect(page.locator('#screen')).toBeVisible();
+  await expect(page.locator('#screen')).toBeAttached();
   await settled(page);
 }
 

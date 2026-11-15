@@ -194,6 +194,8 @@ pre { margin: 0; }
 /* Focus: always visible for keyboard users, never for mouse clicks */
 :focus { outline: none; }
 :focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-1); }
+/* headings take focus when a screen opens; they never show a ring */
+h1[tabindex="-1"]:focus-visible, h2[tabindex="-1"]:focus-visible, [data-heading]:focus-visible, section[tabindex="-1"]:focus-visible { box-shadow: none; }
 
 /* Numbers that line up */
 .num, time { font-variant-numeric: tabular-nums; }
@@ -866,6 +868,94 @@ button.cmd:hover { background: var(--bg-hover); }
 @media (max-width: 1100px) { .gal { grid-template-columns: 1fr; } }
 
 .placeholder { min-height: 60vh; display: flex; align-items: center; justify-content: center; }
+
+/* status icons in rows */
+.st--done { color: var(--ok); } .st--progress { color: var(--warn); } .st--todo { color: var(--text-3); }
+.row[aria-selected="true"] .st--todo { color: var(--text-2); }
+.list__bar { display: inline-flex; width: 64px; margin-left: auto; }
+.list__bar .bar__track { height: 3px; }
+
+/* ---- Labs list ---- */
+.filters { display: flex; align-items: center; gap: var(--space-2); }
+.filters .search { width: 220px; }
+.lst { display: grid; grid-template-columns: minmax(0, 1fr) 420px; height: 100%; min-height: 0; }
+.lst__main { min-width: 0; min-height: 0; overflow: auto; padding: var(--space-2) var(--space-3) var(--space-10); }
+.lst__list { max-width: 960px; }
+.lst__detail { border-left: var(--hairline) solid var(--border-subtle); overflow: auto; padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); background: var(--bg-surface); }
+.lst__detail[hidden] { display: none; }
+.screen[data-screen="labs"] { overflow: hidden; }
+.detail__head { display: flex; flex-direction: column; gap: 2px; }
+.detail__title { font-size: var(--fs-18); line-height: var(--lh-18); letter-spacing: var(--track-tight); }
+.detail__brief { font-size: var(--fs-14); line-height: var(--lh-14); color: var(--text); }
+.detail__objs { display: flex; flex-direction: column; gap: var(--space-1); }
+.detail__objs li { display: flex; align-items: center; gap: var(--space-2); color: var(--text-2); font-size: var(--fs-12); }
+.detail__map { height: 200px; display: flex; border: var(--hairline) solid var(--border-subtle); border-radius: var(--radius-3); overflow: hidden; }
+.detail__map .map__body { flex: 1; }
+.detail p a { display: inline-flex; align-items: center; gap: var(--space-1); }
+@media (max-width: 1279px) { .lst { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Home ---- */
+.home__card { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--space-6); flex-wrap: wrap; }
+.home__card-body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.home__card .section__title { margin: 0; }
+.home__card .muted { display: flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; }
+.home__steps { list-style: decimal; padding-left: var(--space-5); color: var(--text-2); font-size: var(--fs-14); line-height: var(--lh-14); margin-top: var(--space-1); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+.stat { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: var(--hairline) solid var(--border-subtle); border-radius: var(--radius-3); color: var(--text); }
+.stat:hover { background: var(--bg-hover); text-decoration: none; }
+.stat__label { font-weight: var(--fw-medium); }
+.topic .row__meta { min-width: 220px; justify-content: flex-end; }
+.topic__bar { width: 160px; }
+.data__status { margin-top: var(--space-3); }
+.data__msg { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.data__msg.ok .icon { color: var(--ok); } .data__msg.bad { color: var(--bad); }
+@media (max-width: 767px) { .stats { grid-template-columns: 1fr; } .topic .row__meta { min-width: 0; } .topic__bar { width: 90px; } .filters .search { width: 100%; } }
+/* The landing section (section 5.1): one calm column, 720 px wide */
+html[data-landing="show"] #app { display: none; }
+html[data-landing="hide"] #landing { display: none; }
+html[data-landing="show"] body { overflow: auto; }
+.landing { min-height: 100vh; background: var(--bg-surface); color: var(--text); }
+.landing__col { max-width: 720px; margin: 0 auto; padding: var(--space-12) var(--space-6) var(--space-10); display: flex; flex-direction: column; gap: var(--space-6); }
+.landing__brand { display: flex; align-items: center; gap: var(--space-2); }
+.logo--lg { width: 28px; height: 28px; }
+.landing__brand .wordmark { font-size: 18px; }
+.landing__title { font-size: 40px; line-height: 48px; letter-spacing: -0.022em; font-weight: var(--fw-semi); margin-top: var(--space-6); }
+.landing__title:focus { outline: none; }
+.landing__lead { font-size: var(--fs-16); line-height: var(--lh-16); color: var(--text-2); max-width: 62ch; }
+.landing__cta { display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap; }
+.landing__cta a { font-weight: var(--fw-medium); }
+.landing__shot { margin: var(--space-4) 0 0; }
+.landing__svg { width: 100%; height: auto; display: block; }
+.ls-frame { fill: var(--bg-raised); stroke: var(--border); }
+.ls-bar { fill: var(--bg-app); }
+.ls-line { stroke: var(--border); stroke-width: 1; }
+.ls-acc { fill: var(--accent-solid); }
+.ls-text { fill: var(--text-2); }
+.ls-mute { fill: var(--border); }
+.ls-box { fill: none; stroke: var(--border-control); stroke-width: 1.2; }
+.ls-done { fill: var(--accent-solid); }
+.ls-panel { fill: var(--bg-surface); stroke: var(--border-subtle); }
+.ls-code { fill: var(--text-3); }
+.ls-link { stroke: var(--text-3); stroke-width: 1.5; }
+.ls-hi { stroke: var(--accent); stroke-width: 2; }
+.ls-node { fill: var(--bg-raised); stroke: var(--text-2); stroke-width: 1.5; }
+.ls-sel { stroke: var(--accent); }
+.ls-pkt { fill: var(--accent); }
+.ls-console { fill: var(--bg-console); }
+.ls-ctext { fill: var(--text-console-dim); }
+.ls-ok { fill: var(--ok); }
+.landing__facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); color: var(--text-2); font-size: var(--fs-14); }
+.landing__facts li { display: flex; align-items: center; gap: var(--space-2); }
+.landing__facts li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.landing__features { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
+.landing__features h2 { font-size: var(--fs-14); margin-bottom: var(--space-1); }
+.landing__features p { font-size: var(--fs-14); line-height: var(--lh-14); color: var(--text-2); }
+.landing__foot { border-top: var(--hairline) solid var(--border-subtle); padding-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--fs-12); color: var(--text-2); }
+@media (max-width: 767px) {
+  .landing__col { padding: var(--space-8) var(--space-4); }
+  .landing__title { font-size: var(--fs-28); line-height: var(--lh-28); margin-top: var(--space-2); }
+  .landing__features { grid-template-columns: 1fr; gap: var(--space-4); }
+}
 /* Phones (up to 767 px): the sidebar becomes a drawer, controls grow to 40 px */
 @media (max-width: 767px) {
   :root { --row-h: 40px; --control-h: 40px; --topbar-h: 52px; }
@@ -972,6 +1062,50 @@ button.cmd:hover { background: var(--bg-hover); }
 <symbol id="d-phone" viewBox="0 0 40 40"><path d="M9.6 10.2 30.4 7.3a2 2 0 0 1 2.26 1.7l2.4 17.3a2 2 0 0 1-1.7 2.26L12.55 31.5a2 2 0 0 1-2.26-1.7L7.9 12.45a2 2 0 0 1 1.7-2.25Z" style="fill:var(--node-fill,none)"/><path d="M12.6 15.3l3.6-.5.9 6.4-3.6.5Z"/><rect x="21.3" y="16.2" width="7" height="7" rx="1" transform="rotate(-8 24.8 19.7)"/></symbol>
 <symbol id="d-ap" viewBox="0 0 40 40"><rect x="7.75" y="23.75" width="24.5" height="8.5" rx="4.25" style="fill:var(--node-fill,none)"/><path d="M14.25 18.25a8 8 0 0 1 11.5 0M10.5 14.25a13.5 13.5 0 0 1 19 0"/></symbol>
 </svg>
+<section id="landing" class="landing" aria-labelledby="landing-title">
+<div class="landing__col">
+<div class="landing__brand"><svg class="logo logo--lg" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" style="fill:var(--accent-solid)"/><path d="M10 9v9.5a4.5 4.5 0 0 0 4.5 4.5H22" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="10" cy="9" r="3.25" fill="#fff"/><circle cx="22.5" cy="23" r="3.25" fill="#fff"/><circle cx="16.5" cy="23" r="2.4" fill="#fff"/></svg><span class="wordmark">Lab4Net</span></div>
+<h1 id="landing-title" class="landing__title" tabindex="-1">Learn the CCNA by doing it.</h1>
+<p class="landing__lead">Lab4Net is a free CCNA 200-301 lab simulator that runs in your browser. Configure routers, switches and PCs from IOS-style consoles, watch packets cross the network map, and get graded on whether the network actually works.</p>
+<div class="landing__cta"><button class="btn btn--primary btn--lg" id="landingStart" type="button">Start</button><a href="https://yasukeblk.github.io/Lab4Net/lessons/">Free CCNA lessons</a><a href="https://github.com/yasukeblk/Lab4Net" rel="noopener noreferrer">Source on GitHub</a></div>
+<figure class="landing__shot"><svg class="landing__svg" viewBox="0 0 720 380" role="img" aria-label="The Lab4Net lab workspace: the tasks on the left, the network map at the top right and a router console below it">
+<rect x="0.5" y="0.5" width="719" height="379" rx="10" class="ls-frame"/>
+<rect x="0.5" y="0.5" width="719" height="30" rx="10" class="ls-bar"/><rect x="0.5" y="20" width="719" height="11" class="ls-bar"/>
+<rect x="14" y="10" width="11" height="11" rx="3" class="ls-acc"/><rect x="34" y="12" width="120" height="7" rx="3.5" class="ls-mute"/><rect x="612" y="9" width="94" height="13" rx="4" class="ls-acc"/>
+<line x1="200" y1="31" x2="200" y2="380" class="ls-line"/>
+<rect x="16" y="48" width="150" height="8" rx="4" class="ls-text"/><rect x="16" y="64" width="166" height="6" rx="3" class="ls-mute"/><rect x="16" y="76" width="120" height="6" rx="3" class="ls-mute"/>
+<g class="ls-task"><rect x="16" y="104" width="10" height="10" rx="2" class="ls-box"/><rect x="34" y="105" width="140" height="7" rx="3.5" class="ls-text"/>
+<rect x="16" y="132" width="10" height="10" rx="2" class="ls-box"/><rect x="34" y="133" width="124" height="7" rx="3.5" class="ls-text"/>
+<rect x="16" y="160" width="10" height="10" rx="2" class="ls-done"/><rect x="34" y="161" width="132" height="7" rx="3.5" class="ls-mute"/>
+<rect x="16" y="188" width="10" height="10" rx="2" class="ls-box"/><rect x="34" y="189" width="108" height="7" rx="3.5" class="ls-text"/></g>
+<rect x="28" y="214" width="156" height="66" rx="6" class="ls-panel"/><rect x="38" y="226" width="100" height="6" rx="3" class="ls-code"/><rect x="38" y="242" width="126" height="6" rx="3" class="ls-code"/><rect x="38" y="258" width="88" height="6" rx="3" class="ls-code"/>
+<line x1="200" y1="190" x2="720" y2="190" class="ls-line"/>
+<line x1="270" y1="110" x2="400" y2="110" class="ls-link ls-hi"/><line x1="400" y1="110" x2="530" y2="110" class="ls-link ls-hi"/><line x1="530" y1="110" x2="650" y2="110" class="ls-link"/>
+<circle cx="270" cy="110" r="15" class="ls-node"/><circle cx="400" cy="110" r="15" class="ls-node ls-sel"/><circle cx="530" cy="110" r="15" class="ls-node"/><circle cx="650" cy="110" r="15" class="ls-node"/>
+<circle cx="466" cy="110" r="4" class="ls-pkt"/>
+<rect x="258" y="134" width="24" height="6" rx="3" class="ls-mute"/><rect x="388" y="134" width="24" height="6" rx="3" class="ls-text"/><rect x="518" y="134" width="24" height="6" rx="3" class="ls-mute"/><rect x="638" y="134" width="24" height="6" rx="3" class="ls-mute"/>
+<rect x="200" y="190" width="520" height="190" class="ls-console"/><rect x="200" y="368" width="520" height="12" class="ls-console"/>
+<rect x="216" y="208" width="180" height="6" rx="3" class="ls-ctext"/><rect x="216" y="224" width="240" height="6" rx="3" class="ls-ctext"/><rect x="216" y="240" width="96" height="6" rx="3" class="ls-ok"/>
+<rect x="216" y="256" width="210" height="6" rx="3" class="ls-ctext"/><rect x="216" y="272" width="150" height="6" rx="3" class="ls-ok"/><rect x="216" y="296" width="70" height="6" rx="3" class="ls-ctext"/><rect x="290" y="294" width="2" height="10" class="ls-acc"/>
+</svg></figure>
+<ul class="landing__facts"><li>Free</li><li>No sign-up</li><li>No ads</li><li>Works offline</li><li>Open source</li></ul>
+<div class="landing__features">
+<section><h2>The labs</h2><p><span data-w="labs">77</span> hands-on labs mapped to the CCNA 200-301 exam topics: <span data-w="build">38</span> builds, <span data-w="incidents">37</span> troubleshooting incidents and <span data-w="capstones">2</span> capstones, with <span data-w="lessons">56</span> lessons that teach the idea before the commands.</p></section>
+<section><h2>The console</h2><p>Consoles that answer like IOS: <code>?</code> help, Tab completion, the <code>^</code> error marker, passwords, Telnet and SSH, and live ping and traceroute output.</p></section>
+<section><h2>The map</h2><p>Every ping travels the map along the path it really takes. When it fails, the map shows where and says why.</p></section>
+</div>
+<footer class="landing__foot">
+<p>Your progress is saved in this browser only. Settings › Data exports a backup to move it.<span id="landingCounter" hidden> This public site counts visits anonymously: no cookies and no personal data, and nothing at all with Do Not Track on.</span></p>
+<p>Lab4Net is an independent study tool. It is not affiliated with, endorsed by or sponsored by Cisco Systems, Inc. Cisco, Cisco IOS, CCNA and Catalyst are trademarks or registered trademarks of Cisco Systems, Inc.</p>
+<p>Free and open source under the MIT licence.</p>
+</footer>
+</div>
+</section>
+<script>
+/* The landing section shows on a first visit with no deep link, or with ?welcome. Decided before paint. */
+(function(){var d=document.documentElement,q=location.search,show=false;try{if(/[?&]welcome(=|&|$)/.test(q))show=true;else if(!/[?&](lab|lesson|panel)=/.test(q)&&!/^#\/./.test(location.hash)){var v=JSON.parse(localStorage.getItem('lab4net:v2')||'null');show=!(v&&v.ui&&v.ui.landingSeen===true)&&localStorage.getItem('lab4net-welcomed')==null;}}catch(e){}
+d.setAttribute('data-landing',show?'show':'hide');})();
+</script>
 <noscript><p style="padding:24px;font:14px/1.5 system-ui,sans-serif">Lab4Net runs in your browser and needs JavaScript turned on.</p></noscript>
 <div id="app" class="app" data-version="2.0.0" data-date="2026-11-14"></div>
 <script>
@@ -6168,7 +6302,48 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     return out;
   }
 
-  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs }, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
+  // lessons: {[slug]: {read, quiz: {index: bool}}}
+  function lessons(m) {
+    const out = {};
+    if (!isObj(m)) return out;
+    for (const k of Object.keys(m)) {
+      if (!known.lessons.has(k) || !isObj(m[k])) continue;
+      const v = m[k], e = { read: bool(v.read, false), quiz: {} };
+      const max = known.lessonQuiz[k] || 0;
+      if (isObj(v.quiz)) for (const i of Object.keys(v.quiz)) { const n = +i; if (Number.isInteger(n) && n >= 0 && n < max && typeof v.quiz[i] === 'boolean') e.quiz[n] = v.quiz[i]; }
+      if (e.read || Object.keys(e.quiz).length) out[k] = e;
+    }
+    return out;
+  }
+  // quiz: {rev: 2, answers: {index: bool}} (answers are kept by question index; new questions only go at the end)
+  function quiz(q) {
+    const out = { rev: 2, answers: {} };
+    if (!isObj(q) || !isObj(q.answers)) return out;
+    for (const i of Object.keys(q.answers)) { const n = +i; if (Number.isInteger(n) && n >= 0 && n < known.quizCount && typeof q.answers[i] === 'boolean') out.answers[n] = q.answers[i]; }
+    return out;
+  }
+  function subnet(s) {
+    if (!isObj(s)) return { right: 0, total: 0 };
+    const total = int(s.total, 0, 1e7, 0), right = int(s.right, 0, total, 0);
+    return { right, total };
+  }
+  function migrated(m) {
+    if (!isObj(m)) return null;
+    return { from: oneOf(m.from, ['v1', 'none', 'reset'], 'v1'), at: int(m.at, 0, MAX_T, 0), labs: int(m.labs, 0, 1000, 0), lessons: int(m.lessons, 0, 1000, 0), told: bool(m.told, false) };
+  }
+  // A second line of defence for imported data: < and > are stripped from every string that is not a console command.
+  function stripTags(v, depth) {
+    depth = depth || 0;
+    if (depth > 8) return null;
+    if (typeof v === 'string') return v.replace(/[<>]/g, '');
+    if (Array.isArray(v)) return v.map(x => stripTags(x, depth + 1));
+    if (isObj(v)) { const o = {}; for (const k of Object.keys(v)) { if (!SAFE_KEY(k)) continue; o[k.replace(/[<>]/g, '')] = stripTags(v[k], depth + 1); } return o; }
+    return v;
+  }
+
+  known.lessonQuiz = {};
+  known.quizCount = 0;
+  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs, lessons, quiz, subnet, migrated }, lessons, quiz, subnet, migrated, stripTags, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
 })(window.L4N = window.L4N || {});
 // router.js: the URL hash is data. It is parsed into {screen, slug}; a slug is only ever looked up in a table,
 // never written into the page. No DOM.
@@ -6249,7 +6424,8 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const t = String(title || '').toLowerCase(), k = String(keywords || '').toLowerCase();
     let total = 0;
     for (const w of words) {
-      const a = word(w, t) * 1.5, b = word(w, k);
+      // loose (subsequence) matching only on titles; keywords and long text need the word itself
+      const a = word(w, t) * 1.5, b = k.indexOf(w) >= 0 ? word(w, k) : 0;
       const best = Math.max(a, b);
       if (!best) return 0;
       total += best;
@@ -6587,6 +6763,228 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
   L4N.grade = { score, letter, better, rejected, isCheck, count, ORDER, CHECKCMD, REJECTED };
 })(window.L4N = window.L4N || {});
+// progress.js: the numbers every screen shows (counts, statuses, exam topics, the Path), read from the store.
+// No DOM.
+(function (L4N) {
+  'use strict';
+  const S = () => L4N.store.get();
+  const domainOf = id => String(id || '').split('.')[0];
+
+  function labStatus(slug) {
+    const L = S().labs[slug];
+    if (L && L.done) return 'done';
+    const w = L4N.work.get(slug);
+    return w && ((w.journal && w.journal.length) || (w.tasks || []).some(Boolean)) ? 'progress' : 'todo';
+  }
+  const lessonRead = slug => !!(S().lessons[slug] && S().lessons[slug].read);
+
+  function labs() { const all = L4N.data.labs; return { done: all.filter(l => labStatus(l.slug) === 'done').length, total: all.length }; }
+  function lessons() { const all = L4N.data.lessons; return { done: all.filter(l => lessonRead(l.slug)).length, total: all.length }; }
+  function quiz() { const a = S().quiz.answers; return { correct: Object.keys(a).filter(k => a[k] === true).length, answered: Object.keys(a).length, total: typeof QUIZ !== 'undefined' ? QUIZ.length : 0 }; }
+
+  // the objectives a lesson covers: a topic lesson's own, or its lab's
+  const lessonObjs = l => (l.lesson.ccna && l.lesson.ccna.length ? l.lesson.ccna : l.lab && l.lab.lab.ccna) || [];
+
+  // six exam domains: weight, labs done, lessons read, coverage (labs and lessons by their first objective)
+  function domains() {
+    const D = typeof CCNA_DOMAINS !== 'undefined' ? CCNA_DOMAINS : [];
+    return D.map(([id, name, weight]) => {
+      const labsIn = L4N.data.labs.filter(l => domainOf((l.lab.ccna || [])[0]) === id);
+      const lessonsIn = L4N.data.lessons.filter(l => domainOf(lessonObjs(l)[0]) === id);
+      const ld = labsIn.filter(l => labStatus(l.slug) === 'done').length, lr = lessonsIn.filter(l => lessonRead(l.slug)).length;
+      const total = labsIn.length + lessonsIn.length;
+      return { id, name, weight, labs: { done: ld, total: labsIn.length }, lessons: { read: lr, total: lessonsIn.length }, done: ld + lr, total, labsIn, lessonsIn };
+    });
+  }
+  function objectives(domainId) {
+    const O = typeof CCNA_OBJECTIVES !== 'undefined' ? CCNA_OBJECTIVES : {};
+    return Object.keys(O).filter(k => domainOf(k) === domainId).sort((a, b) => a.split('.').map(Number)[1] - b.split('.').map(Number)[1] || a.localeCompare(b))
+      .map(k => ({ id: k, name: O[k], labs: L4N.data.labs.filter(l => (l.lab.ccna || []).includes(k)), lessons: L4N.data.lessons.filter(l => lessonObjs(l).includes(k)) }));
+  }
+
+  // The Path: the eight stages from CAMPAIGN, in order, each with its labs and its stage check.
+  function stages() {
+    const C = typeof CAMPAIGN !== 'undefined' ? CAMPAIGN : [];
+    return C.map((c, i) => {
+      const labsIn = L4N.data.labs.filter(l => l.lab.group === c.group);
+      const done = labsIn.filter(l => labStatus(l.slug) === 'done').length;
+      let check = null;
+      if (c.boss) {
+        const need = Number.isInteger(c.need) ? c.need : 0;
+        const locked = need > 0 && done < need;
+        let passed = false, incident = null;
+        if (c.boss.mode === 'incident') { incident = L4N.data.labByTitle(c.boss.title); passed = !!(incident && labStatus(incident.slug) === 'done'); }
+        else passed = !!(L4N.exam && L4N.exam.stagePassed && L4N.exam.stagePassed(c.id));
+        check = { mode: c.boss.mode, minutes: c.boss.minutes || 0, need, locked, passed, incident };
+      }
+      return { id: c.id, index: i, group: c.group, title: c.title, story: c.story, outro: c.outro, labs: labsIn, done, total: labsIn.length, check, complete: done === labsIn.length && (!check || check.passed) };
+    });
+  }
+  // every lab in Path order
+  function labsOrder() { return stages().flatMap(s => s.labs); }
+
+  L4N.stats = { labStatus, lessonRead, labs, lessons, quiz, domains, objectives, stages, labsOrder, domainOf, lessonObjs };
+  L4N.labsOrder = labsOrder;
+})(window.L4N = window.L4N || {});
+// migrate.js: the one-time import from the old app's storage keys (section 6.3), and backups.
+// fromV1(read) is pure: it only reads through `read(key)` and never writes. Old data is untrusted and goes through
+// the same checks as a backup file. The old keys are never deleted, so a rollback still finds them. No DOM.
+(function (L4N) {
+  'use strict';
+  const V = L4N.validate;
+  const OLD = ['ccna-bench-v2', 'lab4net-fun-v1', 'lab4net-lessons-v1', 'lab4net-workspace-v1', 'lab4net-incident-hints', 'lab4net-capstone-guide', 'lab4net-welcomed'];
+  // Theory questions 29, 69, 70, 90, 97, 98, 99, 101 and 104 were rewritten; old answers to them no longer apply.
+  const REWRITTEN = [29, 69, 70, 90, 97, 98, 99, 101, 104];
+  const GRADES = ['S', 'A', 'B', 'C', 'D'];
+  const isObj = V.isObj;
+
+  function parse(v) {
+    if (v == null) return null;
+    if (typeof v !== 'string') return v;
+    if (v.length > 6e6) return null;
+    try { return JSON.parse(v); } catch (e) { return null; }
+  }
+
+  // fromV1(read, opts) → {main, work, labs: n, lessons: n, found: bool}
+  // read(key) gives the old value (a string as stored, or an already-parsed object). opts.replays(slug, draft) → bool.
+  function fromV1(read, opts) {
+    opts = opts || {};
+    const data = L4N.data, slug = L4N.slug;
+    const labByTitle = t => (typeof t === 'string' && !/^Exam · /.test(t) ? data.labByTitle(t) : null);
+    const raw = {};
+    for (const k of OLD) { let v = null; try { v = read(k); } catch (e) { v = null; } raw[k] = k === 'lab4net-welcomed' ? v : parse(v); }
+    const found = OLD.some(k => raw[k] != null);
+    const labs = {}, lessons = {}, ui = {}, work = {};
+    const rec = s => labs[s] || (labs[s] = { done: false });
+    let quiz = { rev: 2, answers: {} }, subnet = { right: 0, total: 0 };
+
+    // ccna-bench-v2: finished labs, quiz answers, the subnetting score
+    const P = raw['ccna-bench-v2'];
+    if (isObj(P)) {
+      for (const t of Object.keys(P)) { const e = labByTitle(t); if (e && P[t] === true) rec(e.slug).done = true; }
+      if (isObj(P.quiz)) {
+        const ans = {};
+        for (const i of Object.keys(P.quiz)) { const n = +i; if (Number.isInteger(n) && typeof P.quiz[i] === 'boolean') ans[n] = P.quiz[i]; }
+        if (!(Number.isInteger(P.quizRev) && P.quizRev >= 2)) for (const n of REWRITTEN) delete ans[n];
+        quiz = V.quiz({ answers: ans });
+      }
+      if (isObj(P.drill)) subnet = V.subnet({ right: P.drill.r, total: P.drill.t });
+    }
+    // lab4net-fun-v1: grades, and cleared labs also count as done
+    const F = raw['lab4net-fun-v1'];
+    if (isObj(F)) {
+      if (isObj(F.ranks)) for (const t of Object.keys(F.ranks)) { const e = labByTitle(t); if (e && GRADES.includes(F.ranks[t])) rec(e.slug).grade = F.ranks[t]; }
+      if (isObj(F.cleared)) for (const t of Object.keys(F.cleared)) { const e = labByTitle(t); if (e && F.cleared[t] === true) rec(e.slug).done = true; }
+    }
+    // a grade means the lab was finished
+    for (const s of Object.keys(labs)) if (labs[s].grade) labs[s].done = true;
+    // lab4net-lessons-v1: {title: {read, q: {index: bool}}}
+    const Ls = raw['lab4net-lessons-v1'];
+    if (isObj(Ls)) for (const k of Object.keys(Ls)) {
+      const s = slug(k);
+      if (!V.known.lessons.has(s) || !isObj(Ls[k])) continue;
+      lessons[s] = { read: Ls[k].read === true, quiz: isObj(Ls[k].q) ? Ls[k].q : {} };
+    }
+    // lab4net-workspace-v1: saved work (kept only if it replays cleanly) and the last lab
+    const W = raw['lab4net-workspace-v1'];
+    if (isObj(W)) {
+      if (isObj(W.drafts)) for (const t of Object.keys(W.drafts)) {
+        const e = labByTitle(t);
+        if (!e) continue;
+        const w = V.workEntry(W.drafts[t]);
+        if (!w || w.corrupt) continue;
+        w.tasks = w.tasks.slice(0, e.lab.tasks.length);
+        if (opts.replays && !opts.replays(e.slug, w)) continue;
+        if (w.journal.length || w.tasks.some(Boolean)) work[e.slug] = w;
+      }
+      if (Number.isInteger(W.lastLab) && W.lastLab >= 0 && W.lastLab < data.labs.length) { ui.lastLab = data.labs[W.lastLab].slug; ui.recent = [ui.lastLab]; }
+    }
+    // clues already revealed, and the capstone guide choice
+    const H = raw['lab4net-incident-hints'];
+    if (isObj(H)) for (const t of Object.keys(H)) { const e = labByTitle(t); if (e && e.kind === 'incident' && Number.isInteger(H[t]) && H[t] > 0 && H[t] <= 3) rec(e.slug).clues = H[t]; }
+    const C = raw['lab4net-capstone-guide'];
+    if (isObj(C)) for (const t of Object.keys(C)) { const e = labByTitle(t); if (e && e.kind === 'capstone' && typeof C[t] === 'boolean') rec(e.slug).guide = C[t]; }
+    if (raw['lab4net-welcomed'] != null) ui.landingSeen = true;
+
+    const doneCount = Object.keys(labs).filter(s => labs[s].done).length;
+    const main = V.main({ v: 2, labs, lessons: V.stripTags(lessons), quiz, subnet, ui });
+    const readCount = Object.keys(main.lessons).filter(s => main.lessons[s].read).length;
+    main.migrated = { from: found ? 'v1' : 'none', at: opts.now || Date.now(), labs: Object.keys(main.labs).filter(s => main.labs[s].done).length, lessons: readCount, told: !found };
+    return { main, work, labs: doneCount, lessons: readCount, found };
+  }
+
+  // ---- backups ----
+  const MAX_FILE = 5 * 1024 * 1024;
+  function exportBackup(state, workMap, sandbox) {
+    return { format: 'lab4net', version: 2, exported: Date.now(), data: { v2: state, work: workMap, sandbox: sandbox || null } };
+  }
+
+  // readBackup(text) → {main, work, sandbox, summary} for a version 2 file or an old version 1 file. Throws on anything else.
+  function readBackup(text, opts) {
+    if (typeof text !== 'string' || text.length > MAX_FILE) throw Error('That file is larger than 5 MB.');
+    let p;
+    try { p = JSON.parse(text); } catch (e) { throw Error('That file is not a Lab4Net backup.'); }
+    if (!isObj(p) || p.format !== 'lab4net') throw Error('That file is not a Lab4Net backup.');
+    if (p.version === 2) {
+      const d = isObj(p.data) ? p.data : {};
+      const main = V.main(V.stripTags(isObj(d.v2) ? d.v2 : {}));
+      const work = {};
+      const wm = V.work(d.work);
+      for (const s of Object.keys(wm)) { const w = wm[s]; if (w.corrupt) continue; if (opts && opts.replays && !opts.replays(s, w)) continue; work[s] = w; }
+      const sandbox = L4N.validate.sandbox ? L4N.validate.sandbox(d.sandbox) : null;
+      return { main, work, sandbox, version: 2 };
+    }
+    if (p.version === 1) {
+      if (!isObj(p.progress)) throw Error('That file is not a Lab4Net backup.');
+      const extras = isObj(p.extras) ? p.extras : {};
+      const read = k => {
+        if (k === 'ccna-bench-v2') return p.progress;
+        if (k === 'lab4net-workspace-v1') return { drafts: isObj(p.drafts) ? p.drafts : {}, lastLab: p.lastLab };
+        const v = extras[k];
+        return typeof v === 'string' && v.length <= 2e6 ? v : null;
+      };
+      const r = fromV1(read, opts);
+      r.main.migrated = null;
+      return { main: r.main, work: r.work, sandbox: null, version: 1 };
+    }
+    throw Error('This backup is from a newer version of Lab4Net.');
+  }
+
+  // merge(current, incoming): finished labs and the better grade are kept; saved work is replaced only for labs in the file.
+  function merge(cur, inc) {
+    const out = JSON.parse(JSON.stringify(cur.main));
+    for (const s of Object.keys(inc.main.labs)) {
+      const a = out.labs[s] || { done: false }, b = inc.main.labs[s];
+      const m = Object.assign({}, a);
+      m.done = !!(a.done || b.done);
+      const g = L4N.grade.better(a.grade, b.grade); if (g) m.grade = g;
+      if (b.doneAt && (!a.doneAt || b.doneAt < a.doneAt)) m.doneAt = b.doneAt;
+      if (b.clues && !a.clues) m.clues = b.clues;
+      if (typeof b.guide === 'boolean' && typeof a.guide !== 'boolean') m.guide = b.guide;
+      out.labs[s] = m;
+    }
+    for (const s of Object.keys(inc.main.lessons)) {
+      const a = out.lessons[s] || { read: false, quiz: {} }, b = inc.main.lessons[s];
+      out.lessons[s] = { read: a.read || b.read, quiz: Object.assign({}, a.quiz, b.quiz) };
+    }
+    out.quiz = { rev: 2, answers: Object.assign({}, out.quiz.answers, inc.main.quiz.answers) };
+    if (inc.main.subnet.total > out.subnet.total) out.subnet = inc.main.subnet;
+    if (L4N.exam && L4N.exam.mergeHistory) out.exam = L4N.exam.mergeHistory(out.exam, inc.main.exam);
+    const work = Object.assign({}, cur.work);
+    for (const s of Object.keys(inc.work)) work[s] = inc.work[s];
+    return { main: V.main(out), work, sandbox: inc.sandbox || cur.sandbox || null };
+  }
+
+  function summary(inc) {
+    const labs = Object.keys(inc.main.labs).filter(s => inc.main.labs[s].done).length;
+    const lessons = Object.keys(inc.main.lessons).filter(s => inc.main.lessons[s].read).length;
+    const work = Object.keys(inc.work).length, quiz = Object.keys(inc.main.quiz.answers).length;
+    const exams = (inc.main.exam && inc.main.exam.history || []).length;
+    return { labs, lessons, work, quiz, exams, sandbox: !!inc.sandbox };
+  }
+
+  L4N.migrate = { fromV1, OLD, REWRITTEN, readBackup, exportBackup, merge, summary, MAX_FILE };
+})(window.L4N = window.L4N || {});
 // site.js: SITE settings, the visit counter and the donate link. The only place that makes network requests.
 // tools/build-site.cjs reads the SITE line below, so keep its exact shape.
 (function (L4N) {
@@ -6602,8 +7000,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     const p = event ? { p: event, t: event, e: 'true' } : { p: location.pathname, r: document.referrer || '' };
     const q = Object.keys(p).map(k => k + '=' + encodeURIComponent(p[k])).join('&') + '&rnd=' + Math.random().toString(36).slice(2);
     const url = 'https://' + SITE.counter + '.goatcounter.com/count?' + q;
-    try { if (navigator.sendBeacon) { navigator.sendBeacon(url); return; } } catch (e) {}
-    try { const i = new Image(); i.src = url; } catch (e) {}
+    try { const i = new Image(); i.referrerPolicy = 'no-referrer'; i.src = url; } catch (e) {}
   }
 
   L4N.site = {
@@ -7328,6 +7725,7 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
   function onKey(e) {
     if (e.defaultPrevented || e.isComposing) return;
+    if (document.documentElement.getAttribute('data-landing') === 'show') return;   // the landing section has only Start and Esc
     const typing = L4N.dom.isTyping(e.target);
     const modal = document.querySelector('dialog[open]');
     const now = Date.now();
@@ -7656,9 +8054,6 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   }
 
   const P = (name, title, o, extra) => L4N.screens.register(name, Object.assign({ title: () => title, mount: page(title, o) }, extra || {}));
-  P('home', 'Home', { icon: 'home', what: 'Home is being rebuilt.', todo: 'Open the command palette to find a lab or a lesson.', action: { label: 'Search or jump to', icon: 'search', onClick: () => L4N.palette.open() } },
-    { title: () => 'Lab4Net', crumbs: () => [{ label: 'Home' }] });
-  P('labs', 'Labs', { icon: 'labs', what: 'The labs list is being rebuilt.', todo: 'Labs open from the command palette for now.', action: { label: 'Search labs', icon: 'search', onClick: () => L4N.palette.open() } });
   P('lessons', 'Lessons', { icon: 'lessons', what: 'The lessons list is being rebuilt.', todo: 'The lessons are also on the web.', action: { label: 'Lessons on the web', href: L4N.site.lessonsUrl, target: '_blank', rel: 'noopener noreferrer', icon: 'external' } });
   P('practice', 'Practice', { icon: 'practice', what: 'Practice is being rebuilt.', todo: 'The exam, quiz and subnetting drill come back here.', action: { label: 'Home', href: '#/' } });
   P('exam', 'Exam', { icon: 'clock', what: 'The exam is being rebuilt.', todo: 'Go back to Practice.', action: { label: 'Practice', href: '#/practice' } },
@@ -7670,16 +8065,6 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
   P('sandbox', 'Sandbox', { icon: 'sandbox', what: 'The sandbox is being rebuilt.', todo: 'It comes back last, in the same workspace as the labs.', action: { label: 'Home', href: '#/' } });
   P('progress', 'Progress', { icon: 'progress', what: 'Nothing to show yet.', todo: 'Finish a lab and it shows here.', action: { label: 'Labs', href: '#/labs' } });
 
-  const labTitle = r => { const l = L4N.data.lab(r.slug); return l ? l.title : 'Lab'; };
-  L4N.screens.register('lab', {
-    nav: 'labs', title: labTitle,
-    crumbs: r => { const l = L4N.data.lab(r.slug); return [{ label: 'Labs', href: '#/labs' }, l ? { label: l.lab.group, href: '#/labs' } : null, { label: labTitle(r) }].filter(Boolean); },
-    mount(root, r) {
-      const l = L4N.data.lab(r.slug);
-      if (!l) { L4N.toast({ text: 'That link is out of date.', kind: 'warn' }); setTimeout(() => L4N.shell.go('#/labs'), 0); return; }
-      page(l.title, { icon: 'labs', what: 'The lab workspace is being rebuilt.', todo: 'It comes back in the next build phase.', action: { label: 'Labs', href: '#/labs' } })(root);
-    }
-  });
   const lessonTitle = r => { const l = L4N.data.lesson(r.slug); return l ? l.title : 'Lesson'; };
   L4N.screens.register('lesson', {
     nav: 'lessons', title: lessonTitle,
@@ -9425,6 +9810,364 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 
   L4N.screens.register('settings', { title: () => 'Settings', mount });
 })(window.L4N = window.L4N || {});
+// data.js: Settings › Data (section 5.11): export a backup, import one (version 2, or version 1 from the old app),
+// reset everything. An import says what it will add first, and never reloads by itself.
+(function (L4N) {
+  'use strict';
+  const { el, icon, clear } = L4N.dom;
+  const ui = L4N.ui, V = L4N.validate, K = L4N.KEYS;
+
+  const replays = (slug, w) => { const e = L4N.data.lab(slug); if (!e) return false; try { L4N.sim.open(e, w); return true; } catch (x) { return false; } };
+  L4N.replays = replays;
+
+  function current() {
+    const s = L4N.store.get(), main = { v: 2 };
+    for (const k of ['settings', 'labs', 'lessons', 'quiz', 'subnet', 'exam', 'ui', 'migrated']) main[k] = s[k];
+    const work = {};
+    const all = L4N.work.all();
+    for (const k of Object.keys(all)) if (!all[k].corrupt) work[k] = { journal: all[k].journal, tasks: all[k].tasks };
+    return { main, work, sandbox: L4N.storage.read(K.sandbox) };
+  }
+
+  function exportBackup() {
+    if (L4N.saveNow) L4N.saveNow();
+    L4N.work.flush();
+    const c = current();
+    const blob = new Blob([JSON.stringify(L4N.migrate.exportBackup(c.main, c.work, c.sandbox), null, 1)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob), a = el('a', { href: url, download: 'lab4net-backup.json' });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  }
+
+  function section() {
+    const status = el('div', { class: 'data__status', role: 'status' });
+    const file = el('input', { type: 'file', accept: 'application/json,.json', hidden: true, id: 'importFile' });
+    function say(kind, text, extra) {
+      clear(status);
+      status.setAttribute('role', kind === 'bad' ? 'alert' : 'status');
+      status.append(el('p', { class: 'data__msg ' + kind }, icon(kind === 'bad' ? 'x-circle' : kind === 'ok' ? 'check-circle' : 'info'), el('span', { text })), extra || null);
+    }
+    file.addEventListener('change', async () => {
+      const f = file.files && file.files[0];
+      file.value = '';
+      if (!f) return;
+      try {
+        if (f.size > L4N.migrate.MAX_FILE) throw Error('That file is larger than 5 MB.');
+        const inc = L4N.migrate.readBackup(await f.text(), { replays });
+        const s = L4N.migrate.summary(inc);
+        const parts = [s.labs + ' finished lab' + (s.labs === 1 ? '' : 's'), s.lessons + ' lesson' + (s.lessons === 1 ? '' : 's') + ' read', 'saved work for ' + s.work + ' lab' + (s.work === 1 ? '' : 's'), s.quiz + ' quiz answer' + (s.quiz === 1 ? '' : 's')];
+        if (s.exams) parts.push(s.exams + ' exam result' + (s.exams === 1 ? '' : 's'));
+        if (s.sandbox) parts.push('a sandbox build');
+        const ok = await L4N.dialog.confirm({ title: 'Import this backup?', body: [el('p', { text: 'It adds ' + parts.join(', ') + '.' }),
+          el('p', { text: 'Finished labs and the better grade are kept. Saved work is replaced only for labs in the file.' })], ok: 'Import' });
+        if (!ok) return;
+        const merged = L4N.migrate.merge(current(), inc);
+        if (!L4N.storage.write(K.pending, merged)) throw Error('This browser would not save the backup.');
+        say('ok', 'Backup checked. Reload to use it.', ui.button({ label: 'Reload now', kind: 'primary', onClick: () => location.reload() }));
+      } catch (e) { say('bad', 'Import failed: ' + (e && e.message || 'that file could not be read.')); }
+    });
+    return el('section', { class: 'section', 'aria-labelledby': 'set-data', id: 'data' },
+      el('h2', { class: 'section__title', id: 'set-data', text: 'Data' }),
+      el('div', { class: 'setrows' },
+        el('div', { class: 'setrow' }, el('div', { class: 'setrow__label' }, el('b', { text: 'Export backup' }), el('span', { text: 'Downloads lab4net-backup.json with your finished labs, grades, saved work and answers.' })),
+          ui.button({ label: 'Export backup', icon: 'download', onClick: () => { exportBackup(); say('ok', 'Backup exported. Import it on your other device.'); } })),
+        el('div', { class: 'setrow' }, el('div', { class: 'setrow__label' }, el('b', { text: 'Import backup' }), el('span', { text: 'A backup from this version or from the old Lab4Net. You see what it adds before anything changes.' })),
+          ui.button({ label: 'Import backup', icon: 'upload', id: 'importBtn', onClick: () => file.click() }), file),
+        el('div', { class: 'setrow' }, el('div', { class: 'setrow__label' }, el('b', { text: 'Reset everything' }), el('span', { text: 'Deletes every lab, grade, answer and setting in this browser.' })),
+          ui.button({ label: 'Reset everything', kind: 'danger', icon: 'trash', onClick: resetAll }))),
+      status,
+      el('p', { class: 'hint', style: 'margin-top:12px', text: 'Your progress is stored only in this browser.' }));
+  }
+
+  async function resetAll() {
+    const ok = await L4N.dialog.confirm({ title: 'Reset everything?', body: 'Every finished lab, grade, saved command, answer and setting in this browser is deleted. This cannot be undone. Export a backup first if you might want it back.', ok: 'Reset everything', danger: true });
+    if (!ok) return;
+    for (const k of [K.main, K.work, K.sandbox, K.pending]) L4N.storage.remove(k);
+    L4N.work.reset();
+    const fresh = V.main({ ui: { landingSeen: true } });
+    fresh.migrated = { from: 'reset', at: Date.now(), labs: 0, lessons: 0, told: true };
+    L4N.storage.write(K.main, fresh);
+    L4N.store.set(fresh);
+    L4N.shell.go('#/');
+    L4N.toast({ text: 'Everything was reset.', kind: 'ok' });
+  }
+
+  L4N.settingsData = section;
+  L4N.backup = { exportBackup, current };
+  L4N.commands.add(() => [
+    { id: 'data-export', group: 'Data', title: 'Export backup', icon: 'download', run: exportBackup },
+    { id: 'data-import', group: 'Data', title: 'Import backup', icon: 'upload', run: () => { L4N.shell.go('#/settings'); setTimeout(() => { const b = document.getElementById('importBtn'); if (b) { b.scrollIntoView({ block: 'center' }); b.focus(); } }, 0); } }
+  ]);
+})(window.L4N = window.L4N || {});
+// home.js: Home (section 5.2): Continue (or Start here), Next up, Progress, Exam topics, Practice.
+(function (L4N) {
+  'use strict';
+  const { el, icon } = L4N.dom;
+  const ui = L4N.ui;
+
+  function row(l) {
+    const st = L4N.stats.labStatus(l.slug), rec = L4N.store.get().labs[l.slug] || {};
+    return el('a', { class: 'row', href: L4N.router.href('lab', l.slug) }, ui.statusIcon(st), el('span', { class: 'row__id', text: l.idText }),
+      el('span', { class: 'row__title', text: l.short }), el('span', { class: 'row__meta' }, el('span', { text: l.lab.group }), rec.grade ? ui.gradeChip(rec.grade) : null));
+  }
+
+  function mount(root) {
+    const S = L4N.store.get(), stats = L4N.stats;
+    const labs = stats.labs(), lessons = stats.lessons(), quiz = stats.quiz();
+    const order = stats.labsOrder();
+    const page = el('div', { class: 'page home' }, el('h1', { class: 'sr-only', 'data-heading': '', tabindex: '-1', text: 'Home' }));
+
+    // 1. Continue (an exam, the last lab) or Start here for a new user
+    const exam = L4N.exam && L4N.exam.running && L4N.exam.running();
+    const last = S.ui.lastLab && L4N.data.lab(S.ui.lastLab);
+    if (exam && L4N.exam.card) page.append(L4N.exam.card());
+    else if (!labs.done && !(last && L4N.work.get(last.slug))) {
+      const first = order[0];
+      page.append(el('section', { class: 'card home__card', 'aria-labelledby': 'home-start' },
+        el('div', { class: 'home__card-body' },
+          el('h2', { class: 'section__title', id: 'home-start', text: 'Start here' }),
+          el('p', { class: 'muted', text: 'Your first lab: ' + first.title + '.' }),
+          el('ol', { class: 'home__steps' }, el('li', { text: 'Read the tasks.' }), el('li', { text: 'Type commands in the console.' }), el('li', { text: 'Press Grade when the network works.' }))),
+        ui.button({ label: 'Start lab', kind: 'primary', size: 'lg', icon: 'play', href: L4N.router.href('lab', first.slug) })));
+    } else if (last) {
+      const w = L4N.work.get(last.slug), ticked = w ? (w.tasks || []).filter(Boolean).length : 0;
+      page.append(el('section', { class: 'card home__card', 'aria-labelledby': 'home-continue' },
+        el('div', { class: 'home__card-body' },
+          el('span', { class: 'label-caps', text: 'Continue' }),
+          el('h2', { class: 'section__title', id: 'home-continue', text: last.title }),
+          el('p', { class: 'muted num' }, last.lab.group + ' · ' + ticked + ' of ' + last.lab.tasks.length + ' tasks', ' · ', ui.statusChip(stats.labStatus(last.slug)))),
+        ui.button({ label: 'Resume', kind: 'primary', size: 'lg', icon: 'play', href: L4N.router.href('lab', last.slug) })));
+    }
+
+    // 2. Next up: the next three labs on the Path that are not done
+    const next = order.filter(l => stats.labStatus(l.slug) !== 'done' && l.slug !== (last && last.slug)).slice(0, 3);
+    if (next.length) page.append(el('section', { class: 'section', 'aria-labelledby': 'home-next' },
+      el('h2', { class: 'section__title', id: 'home-next', text: 'Next up' }), el('div', { class: 'list' }, next.map(row))));
+
+    // 3. Progress
+    const stat = (label, done, total, href) => el('a', { class: 'stat', href }, el('span', { class: 'stat__label', text: label }), ui.bar(done, total, label));
+    page.append(el('section', { class: 'section', 'aria-labelledby': 'home-progress' },
+      el('h2', { class: 'section__title', id: 'home-progress', text: 'Progress' }),
+      el('div', { class: 'stats' }, stat('Labs', labs.done, labs.total, '#/labs'), stat('Lessons', lessons.done, lessons.total, '#/lessons'), stat('Quiz', quiz.correct, quiz.total, '#/practice/quiz'))));
+
+    // 4. Exam topics
+    page.append(el('section', { class: 'section', 'aria-labelledby': 'home-topics' },
+      el('h2', { class: 'section__title', id: 'home-topics', text: 'Exam topics' }),
+      el('div', { class: 'list' }, stats.domains().map(d => el('a', { class: 'row topic', href: '#/progress' },
+        el('span', { class: 'row__id', text: d.id }), el('span', { class: 'row__title', text: d.name }),
+        el('span', { class: 'row__meta' }, el('span', { class: 'num', text: d.weight + '%' }), el('span', { class: 'topic__bar' }, ui.bar(d.done, d.total, d.name + ' coverage'))))))));
+
+    // 5. Practice
+    page.append(el('section', { class: 'section', 'aria-labelledby': 'home-practice' },
+      el('h2', { class: 'section__title', id: 'home-practice', text: 'Practice' }),
+      el('div', { class: 'hstack' },
+        ui.button({ label: "Today's exam", kind: 'ghost', icon: 'clock', href: '#/practice/exam' }),
+        ui.button({ label: 'Quiz', kind: 'ghost', icon: 'list-checks', href: '#/practice/quiz' }),
+        ui.button({ label: 'Subnetting', kind: 'ghost', icon: 'practice', href: '#/practice/subnetting' }))));
+    root.append(page);
+  }
+
+  L4N.screens.register('home', { title: () => 'Lab4Net', crumbs: () => [{ label: 'Home' }], mount });
+})(window.L4N = window.L4N || {});
+// labs.js: the Labs list (section 5.3): grouped by Path, Type or Exam topic, filtered, with a detail pane.
+(function (L4N) {
+  'use strict';
+  const { el, icon, clear, trusted } = L4N.dom;
+  const ui = L4N.ui, stats = () => L4N.stats;
+  const TYPE_NAME = { build: 'Build', incident: 'Incident', capstone: 'Capstone' };
+  const objName = id => (typeof CCNA_OBJECTIVES !== 'undefined' && CCNA_OBJECTIVES[id]) || '';
+  const text = h => String(h || '').replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ');
+  let filters = { q: '', group: 'path', status: 'all', type: 'all' }, lastSelected = null;
+
+  function matches(l, q) {
+    if (!q) return true;
+    const lab = l.lab, objs = (lab.ccna || []).map(o => o + ' ' + objName(o)).join(' ');
+    return L4N.search.score(q, l.title + ' ' + l.idText, text(lab.brief) + ' ' + lab.group + ' ' + objs) > 0;
+  }
+  const passes = l => (filters.status === 'all' || stats().labStatus(l.slug) === filters.status) && (filters.type === 'all' || l.kind === filters.type) && matches(l, filters.q);
+
+  function rowOf(l) {
+    const rec = L4N.store.get().labs[l.slug] || {}, objs = l.lab.ccna || [], w = L4N.work.get(l.slug);
+    const meta = objs.slice(0, 2).map(o => ui.objChip(o, objName(o)));
+    if (objs.length > 2) meta.push(ui.chip('+' + (objs.length - 2)));
+    if (rec.grade) meta.push(ui.gradeChip(rec.grade));
+    const ticked = w ? (w.tasks || []).filter(Boolean).length : 0;
+    meta.push(el('span', { class: 'num', text: ticked + '/' + l.lab.tasks.length }));
+    const st = stats().labStatus(l.slug);
+    return { key: l.slug, status: st, idText: l.idText, title: l.short, meta, entry: l,
+      aria: l.idText + ', ' + l.short + ', ' + { todo: 'to do', progress: 'in progress', done: 'done' }[st] + (rec.grade ? ', grade ' + rec.grade : '') };
+  }
+
+  function groups() {
+    const all = L4N.data.labs.filter(passes);
+    if (filters.group === 'type') {
+      return ['build', 'incident', 'capstone'].map(k => { const rows = all.filter(l => l.kind === k).map(rowOf); return { label: { build: 'Build labs', incident: 'Incidents', capstone: 'Capstones' }[k], count: rows.length, rows }; });
+    }
+    if (filters.group === 'topic') {
+      return stats().domains().map(d => { const rows = all.filter(l => stats().domainOf((l.lab.ccna || [])[0]) === d.id).map(rowOf);
+        return { label: d.id + ' ' + d.name, count: rows.filter(r => r.status === 'done').length + '/' + rows.length, rows }; });
+    }
+    // Path: the eight stages in order, each ending with its stage check
+    return stats().stages().map(s => {
+      const rows = s.labs.filter(passes).map(rowOf);
+      if (s.check && filters.type === 'all' && filters.status !== 'progress' && !filters.q) {
+        const ck = s.check, st = ck.passed ? 'done' : 'todo';
+        if (filters.status === 'all' || filters.status === st)
+          rows.push({ key: 'stage:' + s.id, icon: ck.locked ? 'lock' : ck.passed ? 'check-circle' : 'flag', iconClass: ck.passed ? 'st--done' : '', idText: 'CHECK', title: 'Stage check',
+            meta: [ck.locked ? el('span', { text: 'Finish ' + ck.need + ' labs to unlock' }) : el('span', { text: ck.mode === 'incident' ? 'Incident' : ck.minutes + ' min' })], stage: s,
+            aria: 'Stage check for ' + s.title + (ck.locked ? ', locked' : ck.passed ? ', passed' : '') });
+      }
+      const bar = el('span', { class: 'list__bar' }, el('span', { class: 'bar__track' }, el('span', { class: 'bar__fill', style: { width: (s.total ? Math.round(s.done / s.total * 100) : 0) + '%' } })));
+      return { label: s.title, count: s.done + '/' + s.total, rows, extra: bar };
+    });
+  }
+
+  // ---- the detail pane ----
+  function stillMap(entry) {
+    const st = L4N.sim.open(entry, null);
+    st.sel = null;
+    const m = L4N.mapCore.create({ st, selectDevice() {} }, { interactive: false, label: 'Network map of ' + entry.title, maxScale: 1.2 });
+    return m;
+  }
+  let mapInst = null;
+  function detailLab(box, l) {
+    clear(box);
+    if (mapInst) { mapInst.destroy(); mapInst = null; }
+    const lab = l.lab, rec = L4N.store.get().labs[l.slug] || {}, st = stats().labStatus(l.slug), lesson = L4N.data.lessonFor(l);
+    const devs = Object.keys(lab.pos || {}).length;
+    const actions = el('div', { class: 'hstack' }, ui.button({ label: 'Open lab', kind: 'primary', kbd: 'enter', href: L4N.router.href('lab', l.slug) }));
+    if (L4N.work.get(l.slug)) actions.append(ui.button({ label: 'Reset', kind: 'danger', icon: 'reset', onClick: async () => {
+      if (await L4N.dialog.confirm({ title: 'Reset this lab?', body: 'Your commands and ticks for this lab are deleted. Finished labs and grades are kept.', ok: 'Reset lab', danger: true })) { L4N.work.remove(l.slug); L4N.work.flush(); refresh(); }
+    } }));
+    box.append(
+      el('div', { class: 'detail__head' }, el('span', { class: 'row__id', text: l.idText }), el('h2', { class: 'detail__title', text: l.title })),
+      el('div', { class: 'hstack' }, ui.chip(TYPE_NAME[l.kind]), ui.statusChip(st), rec.grade ? ui.gradeChip(rec.grade) : null),
+      trusted(lab.brief || '', 'p', { class: 'detail__brief' }),
+      el('ul', { class: 'detail__objs' }, (lab.ccna || []).map(o => el('li', {}, ui.objChip(o, objName(o)), el('span', { text: objName(o) })))),
+      el('p', { class: 'hint num', text: lab.tasks.length + ' tasks · ' + devs + ' devices' }));
+    const mapBox = el('div', { class: 'detail__map' });
+    box.append(mapBox);
+    try { mapInst = stillMap(l); mapBox.append(mapInst.body); requestAnimationFrame(() => mapInst && mapInst.layout()); } catch (e) { console.error(e); }
+    if (lesson) box.append(el('p', {}, el('a', { href: L4N.router.href('lesson', lesson.slug) }, icon('lessons'), ' Lesson: ' + lesson.title)));
+    box.append(actions);
+  }
+  function detailStage(box, s) {
+    clear(box);
+    if (mapInst) { mapInst.destroy(); mapInst = null; }
+    const ck = s.check;
+    const what = ck.mode === 'incident' ? 'Fix ' + (ck.incident ? ck.incident.short : 'the incident') + '. The stage check is passed when that incident is done.'
+      : ck.mode === 'boss' ? 'A fault-find exam with three hidden faults across this stage, ' + ck.minutes + ' minutes on the clock. No help.'
+        : 'A fault-find exam on one of this stage\'s labs, with hidden faults and ' + ck.minutes + ' minutes on the clock. No help.';
+    box.append(el('div', { class: 'detail__head' }, el('span', { class: 'row__id', text: s.group }), el('h2', { class: 'detail__title', text: s.title })),
+      el('p', { class: 'detail__brief', text: s.complete && s.outro ? s.outro : s.story }),
+      el('h3', { class: 'label-caps', text: 'Stage check' }), el('p', { text: what }));
+    if (ck.locked) box.append(ui.callout({ icon: 'lock', body: ['Finish ' + ck.need + ' labs in this stage to unlock the stage check (' + s.done + ' done).'] }));
+    else if (ck.passed) box.append(ui.callout({ icon: 'check-circle', body: ['Passed.'] }));
+    if (!ck.locked) box.append(el('div', { class: 'hstack' }, ui.button({ label: ck.mode === 'incident' ? 'Open the incident' : 'Start stage check', kind: 'primary', onClick: () => startCheck(s) })));
+  }
+  function startCheck(s) {
+    const ck = s.check;
+    if (ck.locked) return;
+    if (ck.mode === 'incident' && ck.incident) { L4N.shell.go(L4N.router.href('lab', ck.incident.slug)); return; }
+    if (L4N.exam && L4N.exam.startStage) L4N.exam.startStage(s);
+    else L4N.toast({ text: 'Stage checks open with the exam.', kind: 'info' });
+  }
+
+  let refresh = () => {};
+  function mount(root, r, ctx) {
+    const wide = () => window.innerWidth >= 1280;
+    const filter = ui.searchInput({ placeholder: 'Filter labs', label: 'Filter labs', value: filters.q, onInput: v => { filters.q = v; render(); } });
+    const inputEl = filter.querySelector('input');
+    inputEl.setAttribute('data-kbd', '/'); inputEl.setAttribute('data-tip', 'Filter labs');
+    inputEl.addEventListener('keydown', e => { if (e.key === 'Escape' && inputEl.value) { e.preventDefault(); inputEl.value = ''; filters.q = ''; render(); } else if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); list.focus(); if (e.key === 'Enter') list.open(); } });
+    const sel = (label, key, opts) => ui.select({ label, value: filters[key], options: opts, onChange: v => { filters[key] = v; render(); } });
+    ctx.topbar.setActions(el('div', { class: 'filters' }, filter,
+      sel('Group by', 'group', [{ value: 'path', label: 'Group: Path' }, { value: 'type', label: 'Group: Type' }, { value: 'topic', label: 'Group: Exam topic' }]),
+      sel('Status', 'status', [{ value: 'all', label: 'Status: All' }, { value: 'todo', label: 'To do' }, { value: 'progress', label: 'In progress' }, { value: 'done', label: 'Done' }]),
+      sel('Type', 'type', [{ value: 'all', label: 'Type: All' }, { value: 'build', label: 'Build' }, { value: 'incident', label: 'Incident' }, { value: 'capstone', label: 'Capstone' }])));
+    ctx.filter = inputEl;
+
+    const detail = el('aside', { class: 'lst__detail', 'aria-label': 'Lab details', 'aria-live': 'polite' });
+    const list = ui.list({
+      label: 'Labs', class: 'lst__list', selected: lastSelected, groups: groups(),
+      detail: () => wide(),
+      onSelect: row => { lastSelected = row.key; if (wide()) row.stage ? detailStage(detail, row.stage) : detailLab(detail, row.entry); },
+      onOpen: row => { if (row.stage) { if (wide()) detailStage(detail, row.stage); else startCheck(row.stage); return; } L4N.shell.go(L4N.router.href('lab', row.key)); },
+      empty: () => ui.empty({ icon: 'filter', what: 'No labs match.', todo: 'Clear the filters.', action: { label: 'Clear filters', onClick: () => { filters = { q: '', group: filters.group, status: 'all', type: 'all' }; L4N.shell.go('#/labs'); } } })
+    });
+    ctx.list = list;
+    const head = el('h1', { class: 'sr-only', 'data-heading': '', tabindex: '-1', text: 'Labs' });
+    const layout = el('div', { class: 'lst' }, el('div', { class: 'lst__main' }, head, list.el), detail);
+    root.append(layout);
+
+    function render() {
+      list.render(groups());
+      const s = list.selected();
+      detail.hidden = !wide();
+      if (s && wide()) s.stage ? detailStage(detail, s.stage) : detailLab(detail, s.entry);
+      else if (wide()) { clear(detail); detail.append(ui.empty({ icon: 'labs', what: 'No lab selected.', todo: 'Choose a lab to see its details.' })); }
+    }
+    refresh = render;
+    render();
+    const onResize = () => { const w = wide(); if (w !== detail.hidden) return; render(); };
+    window.addEventListener('resize', onResize);
+    const unsub = L4N.store.subscribe((s, p) => { if (s.labs !== p.labs) render(); });
+    return () => { window.removeEventListener('resize', onResize); unsub(); if (mapInst) { mapInst.destroy(); mapInst = null; } };
+  }
+
+  // palette: "Open lab: <title>" for all 77, matching group, objective number and name
+  L4N.commands.add(() => L4N.data.labs.map(l => ({
+    id: 'open-' + l.slug, group: 'Labs', title: 'Open lab: ' + l.short, subtitle: l.idText + ' · ' + l.lab.group, icon: 'labs',
+    keywords: l.title + ' ' + l.lab.group + ' ' + (l.lab.ccna || []).map(o => o + ' ' + objName(o)).join(' '),
+    run: () => L4N.shell.go(L4N.router.href('lab', l.slug))
+  })));
+
+  L4N.screens.register('labs', { title: () => 'Labs', mount });
+  L4N.labsScreen = { filters: () => filters, reset() { filters = { q: '', group: 'path', status: 'all', type: 'all' }; } };
+})(window.L4N = window.L4N || {});
+// landing.js: the landing section (section 5.1). The markup is static in the page so search engines and link
+// previews can read it; this fills in the live counts and handles Start.
+(function (L4N) {
+  'use strict';
+  const root = document.documentElement;
+  const visible = () => root.getAttribute('data-landing') === 'show';
+
+  function fill() {
+    const n = { labs: L4N.data.labs.length, build: L4N.data.labs.filter(l => l.kind === 'build').length, incidents: L4N.data.labs.filter(l => l.kind === 'incident').length,
+      capstones: L4N.data.labs.filter(l => l.kind === 'capstone').length, lessons: L4N.data.lessons.length };
+    for (const s of document.querySelectorAll('#landing [data-w]')) { const k = s.getAttribute('data-w'); if (n[k] != null) s.textContent = String(n[k]); }
+    const c = document.getElementById('landingCounter');
+    if (c) c.hidden = !L4N.site.counting();
+  }
+
+  // Start stores that the landing was seen and goes Home. Esc does the same.
+  function start() {
+    if (!visible()) return;
+    L4N.setUi({ landingSeen: true });
+    L4N.site.count('start');
+    root.setAttribute('data-landing', 'hide');
+    if (location.hash && location.hash !== '#/') L4N.shell.go('#/');
+    const h = document.querySelector('#screen [data-heading], #screen h1');
+    setTimeout(() => { const s = document.querySelector('.sb__search'); (h || s) && (h || s).focus({ preventScroll: true }); }, 0);
+  }
+  function show() {
+    root.setAttribute('data-landing', 'show');
+    window.scrollTo(0, 0);
+    const t = document.getElementById('landing-title');
+    if (t) t.focus({ preventScroll: true });
+  }
+
+  (L4N.afterBoot = L4N.afterBoot || []).push(() => {
+    fill();
+    const b = document.getElementById('landingStart');
+    if (b) b.addEventListener('click', start);
+    window.addEventListener('keydown', e => { if (e.key === 'Escape' && visible() && !document.querySelector('dialog[open]')) { e.preventDefault(); start(); } });
+    if (visible()) { const t = document.getElementById('landing-title'); if (t) t.focus({ preventScroll: true }); }
+  });
+
+  L4N.landing = { show, start, visible };
+})(window.L4N = window.L4N || {});
 // gallery.js: #/dev/components. Every component in both themes, side by side. Not linked; used by the
 // screenshot, contrast and accessibility tests.
 (function (L4N) {
@@ -9519,20 +10262,45 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
 // main.js: boot. Reads storage once (checked), builds the store, applies the theme, mounts the shell.
 (function (L4N) {
   'use strict';
-  const V = L4N.validate;
+  const V = L4N.validate, K = L4N.KEYS, S = L4N.storage;
 
   // The catalogue of labs and lessons, and the slugs storage is allowed to name.
   L4N.data = L4N.sim.catalogue();
   for (const l of L4N.data.labs) V.known.labs.add(l.slug);
-  for (const l of L4N.data.lessons) V.known.lessons.add(l.slug);
+  for (const l of L4N.data.lessons) { V.known.lessons.add(l.slug); V.known.lessonQuiz[l.slug] = Array.isArray(l.lesson.quiz) ? l.lesson.quiz.length : 0; }
+  V.known.quizCount = typeof QUIZ !== 'undefined' ? QUIZ.length : 0;
 
   // index.html?panel=tasks is the pop-out Tasks window: it never touches storage and never runs the app.
   if (L4N.popout && L4N.popout.isPopout()) { L4N.popout.boot(); return; }
 
-  // One-time import from the old keys runs before the first read (core/migrate.js, Phase 5).
-  if (L4N.migrate && L4N.migrate.boot) { try { L4N.migrate.boot(); } catch (e) { console.error(e); } }
+  const replays = (slug, w) => { const e = L4N.data.lab(slug); if (!e) return false; try { L4N.sim.open(e, w); return true; } catch (x) { return false; } };
+  const notes = [];
 
-  const doc = V.main(L4N.storage.read(L4N.KEYS.main));
+  // A backup checked in Settings › Data waits in lab4net:v2:pending until this load ("Reload now").
+  const pending = S.read(K.pending);
+  if (pending != null) {
+    S.remove(K.pending);
+    if (V.isObj(pending) && V.isObj(pending.main)) {
+      const main = V.main(pending.main);
+      main.migrated = V.migrated(pending.main.migrated) || { from: 'none', at: Date.now(), labs: 0, lessons: 0, told: true };
+      const work = {}, wm = V.work(pending.work);
+      for (const k of Object.keys(wm)) if (!wm[k].corrupt && replays(k, wm[k])) work[k] = wm[k];
+      S.write(K.main, main); S.write(K.work, work);
+      if (pending.sandbox != null && V.sandbox) { const sb = V.sandbox(pending.sandbox); if (sb) S.write(K.sandbox, sb); }
+      notes.push({ text: 'Backup imported.', kind: 'ok' });
+    }
+  }
+
+  // One-time import from the old app's keys, when lab4net:v2 does not exist yet. The old keys are left alone.
+  if (S.raw(K.main) == null) {
+    try {
+      const r = L4N.migrate.fromV1(k => S.raw(k), { replays });
+      S.write(K.main, r.main);
+      if (Object.keys(r.work).length) S.write(K.work, r.work);
+    } catch (e) { console.error(e); }
+  }
+
+  const doc = V.main(S.read(K.main));
   L4N.store = L4N.createStore(doc);
   L4N.theme.apply(doc.settings);
 
@@ -9543,22 +10311,39 @@ for(const k in CCNA_OBJECTIVES)if(!CCNA_OBJECTIVES[k])delete CCNA_OBJECTIVES[k];
     clearTimeout(timer); timer = 0;
     const s = L4N.store.get(), out = { v: 2 };
     for (const k of SAVED) out[k] = s[k];
-    L4N.storage.write(L4N.KEYS.main, out);
+    S.write(K.main, out);
   }
   L4N.saveNow = save;
   L4N.store.subscribe((s, prev) => { if (SAVED.some(k => s[k] !== prev[k])) { clearTimeout(timer); timer = setTimeout(save, 120); } });
   window.addEventListener('pagehide', () => { if (timer) save(); if (L4N.work.pending()) L4N.work.flush(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'hidden') return; if (timer) save(); if (L4N.work.pending()) L4N.work.flush(); });
 
-  // Progress numbers for the sidebar and the lists. Later phases fill these in from the store.
-  L4N.stats = L4N.stats || {
-    labs: () => ({ done: Object.keys(L4N.store.get().labs).filter(k => L4N.store.get().labs[k].done).length, total: L4N.data.labs.length }),
-    lessons: () => ({ done: Object.keys(L4N.store.get().lessons).filter(k => L4N.store.get().lessons[k].read).length, total: L4N.data.lessons.length }),
-    labStatus: slug => (L4N.labStatus ? L4N.labStatus(slug) : 'todo')
-  };
+  // Old links: ?lab=<slug> and ?lesson=<slug> become hash routes (skipping the landing), then the query is removed.
+  const qs = new URLSearchParams(location.search);
+  if (qs.has('lab') || qs.has('lesson') || qs.has('welcome')) {
+    let hash = location.hash;
+    if (qs.has('lab') || qs.has('lesson')) {
+      const kind = qs.has('lab') ? 'lab' : 'lesson', s = String(qs.get(kind) || '').toLowerCase().slice(0, 120);
+      const ok = L4N.isSlug(s) && (kind === 'lab' ? L4N.data.lab(s) : L4N.data.lesson(s));
+      hash = ok ? L4N.router.href(kind, s) : (kind === 'lab' ? '#/labs' : '#/lessons');
+      if (!ok) notes.push({ text: 'That link is out of date.', kind: 'warn' });
+    }
+    history.replaceState(null, '', location.pathname + (hash || ''));
+  }
 
   L4N.shell.mount(document.getElementById('app'));
   if (L4N.afterBoot) for (const fn of L4N.afterBoot) { try { fn(); } catch (e) { console.error(e); } }
+
+  // One toast if old progress was carried over (once).
+  const mig = L4N.store.get().migrated;
+  if (mig && mig.from === 'v1' && !mig.told) {
+    notes.push({ text: 'Your progress was carried over: ' + mig.labs + ' lab' + (mig.labs === 1 ? '' : 's') + ' and ' + mig.lessons + ' lesson' + (mig.lessons === 1 ? '' : 's') + '.', kind: 'ok' });
+    L4N.store.set(s => ({ migrated: Object.assign({}, s.migrated, { told: true }) }));
+  }
+  for (const n of notes) L4N.toast(n);
+
+  // One cookieless page view on the public site only (never with Do Not Track).
+  L4N.site.count();
 })(window.L4N = window.L4N || {});
 </script>
 </body>

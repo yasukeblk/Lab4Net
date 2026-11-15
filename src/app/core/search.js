@@ -29,7 +29,8 @@
     const t = String(title || '').toLowerCase(), k = String(keywords || '').toLowerCase();
     let total = 0;
     for (const w of words) {
-      const a = word(w, t) * 1.5, b = word(w, k);
+      // loose (subsequence) matching only on titles; keywords and long text need the word itself
+      const a = word(w, t) * 1.5, b = k.indexOf(w) >= 0 ? word(w, k) : 0;
       const best = Math.max(a, b);
       if (!best) return 0;
       total += best;

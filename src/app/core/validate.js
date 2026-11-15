@@ -126,5 +126,46 @@
     return out;
   }
 
-  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs }, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
+  // lessons: {[slug]: {read, quiz: {index: bool}}}
+  function lessons(m) {
+    const out = {};
+    if (!isObj(m)) return out;
+    for (const k of Object.keys(m)) {
+      if (!known.lessons.has(k) || !isObj(m[k])) continue;
+      const v = m[k], e = { read: bool(v.read, false), quiz: {} };
+      const max = known.lessonQuiz[k] || 0;
+      if (isObj(v.quiz)) for (const i of Object.keys(v.quiz)) { const n = +i; if (Number.isInteger(n) && n >= 0 && n < max && typeof v.quiz[i] === 'boolean') e.quiz[n] = v.quiz[i]; }
+      if (e.read || Object.keys(e.quiz).length) out[k] = e;
+    }
+    return out;
+  }
+  // quiz: {rev: 2, answers: {index: bool}} (answers are kept by question index; new questions only go at the end)
+  function quiz(q) {
+    const out = { rev: 2, answers: {} };
+    if (!isObj(q) || !isObj(q.answers)) return out;
+    for (const i of Object.keys(q.answers)) { const n = +i; if (Number.isInteger(n) && n >= 0 && n < known.quizCount && typeof q.answers[i] === 'boolean') out.answers[n] = q.answers[i]; }
+    return out;
+  }
+  function subnet(s) {
+    if (!isObj(s)) return { right: 0, total: 0 };
+    const total = int(s.total, 0, 1e7, 0), right = int(s.right, 0, total, 0);
+    return { right, total };
+  }
+  function migrated(m) {
+    if (!isObj(m)) return null;
+    return { from: oneOf(m.from, ['v1', 'none', 'reset'], 'v1'), at: int(m.at, 0, MAX_T, 0), labs: int(m.labs, 0, 1000, 0), lessons: int(m.lessons, 0, 1000, 0), told: bool(m.told, false) };
+  }
+  // A second line of defence for imported data: < and > are stripped from every string that is not a console command.
+  function stripTags(v, depth) {
+    depth = depth || 0;
+    if (depth > 8) return null;
+    if (typeof v === 'string') return v.replace(/[<>]/g, '');
+    if (Array.isArray(v)) return v.map(x => stripTags(x, depth + 1));
+    if (isObj(v)) { const o = {}; for (const k of Object.keys(v)) { if (!SAFE_KEY(k)) continue; o[k.replace(/[<>]/g, '')] = stripTags(v[k], depth + 1); } return o; }
+    return v;
+  }
+
+  known.lessonQuiz = {};
+  known.quizCount = 0;
+  L4N.validate = { isObj, oneOf, bool, num, int, str, own, SAFE_KEY, known, settings, ui, main, ext: { labs, lessons, quiz, subnet, migrated }, lessons, quiz, subnet, migrated, stripTags, SETTINGS, run, labs, work, workEntry, okLine, DEVICE, GRADES };
 })(window.L4N = window.L4N || {});

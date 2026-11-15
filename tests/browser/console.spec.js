@@ -149,10 +149,19 @@ test('with reduced motion the output is instant', async ({ page }) => {
   await expect(prompt(page)).toHaveText('C:\\>');
 });
 
-test('pasting several lines runs them in order', async ({ page, context, browserName }) => {
+test('pasting several lines runs them in order', async ({ page, browserName }) => {
   await lab(page, 'static-routing');
-  if (browserName === 'chromium') await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  // a real copy and paste through the clipboard, as a person does it
+  const text = ['enable', 'configure terminal', 'hostname PASTED', ''].join(String.fromCharCode(10));
+  if (browserName !== 'firefox') {
+    // Chromium and WebKit: a paste event carrying the text (the OS clipboard is shared by parallel test runs)
+    await page.evaluate(t => {
+      const dt = new DataTransfer(); dt.setData('text/plain', t);
+      document.querySelector('.con__input').dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    }, text);
+    await expect(prompt(page)).toHaveText('PASTED(config)#');
+    return;
+  }
+  // Firefox empties scripted paste data, so it uses a real copy and paste through the clipboard
   const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
   await page.evaluate(() => { const t = document.createElement('textarea'); t.id = 'clip'; t.value = ['enable', 'configure terminal', 'hostname PASTED', ''].join(String.fromCharCode(10)); document.body.append(t); });
   await page.locator('#clip').focus();

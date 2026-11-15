@@ -50,12 +50,12 @@ test.describe('routes', () => {
 test.describe('sidebar', () => {
   test('[ collapses to a rail and back, and the choice is remembered', async ({ page }) => {
     await open(page, '#/settings');
-    await page.locator('#screen h1').click();
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
     await page.keyboard.press('[');
     await expect(page.locator('#app')).toHaveAttribute('data-sidebar', 'rail');
     await page.reload();
     await expect(page.locator('#app')).toHaveAttribute('data-sidebar', 'rail');
-    await page.locator('#screen h1').click();
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
     await page.keyboard.press('[');
     await expect(page.locator('#app')).toHaveAttribute('data-sidebar', 'open');
   });
@@ -85,7 +85,7 @@ test.describe('command palette', () => {
 
   test('filters and runs a command', async ({ page }) => {
     await open(page, '#/');
-    await page.locator('#screen h1').click();
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
     await page.keyboard.press(MOD + '+k');
     await page.keyboard.type('light');
     await expect(page.getByRole('option').first()).toContainText('Theme: light');
@@ -112,7 +112,7 @@ test.describe('shortcuts', () => {
     await open(page, '#/');
     const go = { l: /#\/labs$/, e: /#\/lessons$/, p: /#\/practice$/, b: /#\/sandbox$/, r: /#\/progress$/, ',': /#\/settings$/, h: /#\/$/ };
     for (const [k, url] of Object.entries(go)) {
-      await page.locator('#screen h1').click();
+      await page.evaluate(() => document.activeElement && document.activeElement.blur());
       await page.keyboard.press('g');
       await page.keyboard.press(k);
       try { await expect(page).toHaveURL(url); } catch (err) { console.log('KEYLOG', JSON.stringify(await page.evaluate(() => window.__log.slice(-8)))); throw err; }
@@ -122,7 +122,7 @@ test.describe('shortcuts', () => {
 
   test('? shows the shortcut list, Esc closes it', async ({ page }) => {
     await open(page, '#/');
-    await page.locator('#screen h1').click();
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
     await page.keyboard.press('Shift+?');
     await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
     await page.keyboard.press('Escape');
@@ -142,7 +142,7 @@ test.describe('shortcuts', () => {
   test('Alt shortcuts are read from the physical key in this browser', async ({ page }) => {
     await open(page, '#/');
     await page.evaluate(() => { window.__alt = []; window.addEventListener('keydown', e => { for (const k of ['alt+.', 'alt+,']) if (L4N.keys.matches(e, k)) window.__alt.push(k); }, true); });
-    await page.locator('#screen h1').click();
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
     await page.keyboard.press('Alt+Period');
     await page.keyboard.press('Alt+Comma');
     expect(await page.evaluate(() => window.__alt)).toEqual(['alt+.', 'alt+,']);

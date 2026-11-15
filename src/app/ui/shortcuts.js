@@ -39,6 +39,7 @@
 
   function onKey(e) {
     if (e.defaultPrevented || e.isComposing) return;
+    if (document.documentElement.getAttribute('data-landing') === 'show') return;   // the landing section has only Start and Esc
     const typing = L4N.dom.isTyping(e.target);
     const modal = document.querySelector('dialog[open]');
     const now = Date.now();

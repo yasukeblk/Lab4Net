@@ -9,7 +9,10 @@ const COMPARE = process.platform === 'linux' && !!process.env.CI;
 
 const STATES = [
   { name: 'gallery', route: '#/dev/components', full: true },
+  { name: 'landing', route: '?welcome', full: true },
   { name: 'home-new', route: '#/' },
+  { name: 'home-seeded', route: '#/', main: { v: 2, labs: { 'basic-device-setup': { done: true, grade: 'S' }, 'switch-management-access': { done: true, grade: 'A' }, 'vlans-and-access-ports': { done: true, grade: 'B' } }, lessons: { 'static-routing': { read: true, quiz: {} } }, quiz: { answers: { 0: true, 1: true, 2: false } }, ui: { landingSeen: true, lastLab: 'static-routing', recent: ['static-routing'] } }, keys: { 'lab4net:v2:work': { 'static-routing': { journal: [{ device: 'R1', line: 'enable' }], tasks: [true, true] } } } },
+  { name: 'labs', route: '#/labs' },
   { name: 'settings', route: '#/settings' },
   { name: 'workspace', route: '#/labs/static-routing', act: async page => { await page.evaluate(() => { for (const l of ['enable', 'configure terminal', 'ip route 192.168.3.0 255.255.255.0 10.0.12.2', 'end', 'show ip route']) L4N.test.exec('R1', l); }); } },
   { name: 'workspace-failed-ping', route: '#/labs/static-routing', act: async page => { await page.evaluate(() => L4N.test.exec('PC1', 'ping 192.168.3.10')); await page.locator('#ws-map .badge__icon.is-bad').waitFor({ state: 'attached' }); const d = page.getByRole('button', { name: 'Details' }); if (await d.isVisible()) await d.click(); } },
@@ -26,7 +29,7 @@ for (const theme of ['dark', 'light']) {
       test(`${s.name} ${theme} ${w}x${h}`, async ({ page }) => {
         await page.setViewportSize({ width: w, height: h });
         await page.emulateMedia({ reducedMotion: 'reduce' });
-        await open(page, s.route, { theme });
+        await open(page, s.route, { theme, main: s.main && JSON.parse(JSON.stringify(s.main)), keys: s.keys });
         if (s.act) await s.act(page);
         await page.waitForTimeout(150);
         const name = `${s.name}-${theme}-${w}x${h}.png`;

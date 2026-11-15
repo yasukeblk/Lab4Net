@@ -1,5 +1,50 @@
 # Lab4Net changes
 
+## Redesign, phase 5: Home, the Labs list, your old progress, backups and the landing page
+
+A returning user now lands in the new app with their history.
+
+- **Home.** One column: Continue (the lab you touched last, with "4 of 9 tasks" and Resume), or for a new user a "Start here" card with the first lab and three lines (read the tasks, type commands, press Grade). Then Next up (the next three labs on the Path that are not done), Progress (labs, lessons and quiz, with thin bars), Exam topics (the six CCNA domains with their exam weight and a coverage bar) and Practice (Today's exam, Quiz, Subnetting).
+- **Labs list.** Grouped by Path (the default: the eight stages in order, each with its count and a thin bar, ending in a "Stage check" row), by Type, or by Exam topic. Filters for text (`/`), status and type combine. The text matches titles, IDs, briefs, groups, objective numbers (such as `3.4`) and objective names. Rows show a status icon, an ID (`LAB-01`, `INC-07`, `CAP-01`), the title (incidents without their "Incident 07:" prefix), up to two objective chips, the grade and the ticked tasks. From 1280 px wide a detail pane shows the brief, objectives with their names, the task and device count, a small still map, the grade, the lesson link, "Open lab" and "Reset". Narrower, a row opens the lab directly. `J`/`K` or the arrows move and `Enter` opens. An empty result says "No labs match." with "Clear filters".
+- **Stage checks.** The Path shows each stage's check with its story in the detail pane (the outro once complete). An incident check opens that incident and counts as passed when it is done. A stage with `need` says how many labs unlock it. Exam-based checks start with the exam in Phase 7.
+- **Palette.** "Open lab: …" for all 77 labs, matching group, objective number and name. Data: "Export backup" and "Import backup".
+- **Your old progress.** On the first load of the new app (when `lab4net:v2` does not exist), `core/migrate.js` reads the old keys once:
+  - finished labs (`ccna-bench-v2` and `cleared`);
+  - grades;
+  - quiz answers, dropping the nine rewritten questions for old answer sets;
+  - the subnetting score;
+  - lessons read with their quick-check answers;
+  - saved work (kept only if it still replays on the lab);
+  - the last lab;
+  - revealed clues;
+  - the capstone guide choice;
+  - whether the old title screen was seen.
+
+  Old data is checked exactly like a backup. `Exam · …` titles are skipped. **The old keys are never deleted**, so a rollback still finds them. One toast says what was carried over ("Your progress was carried over: 23 labs and 12 lessons."), once.
+- **Plain matching.** Search and filters only match loosely on titles. Keywords and briefs need the word itself, so "ospf" no longer matches a lab whose brief happens to contain those letters in order.
+- **Settings › Data.** Export backup downloads `lab4net-backup.json` (version 2: the main key, saved work and the sandbox). Import backup reads version 2 files and the old app's version 1 files, says what it will add in a confirm dialog, and merges: finished labs and the better grade are kept, and saved work is replaced only for labs in the file. The checked result waits in `lab4net:v2:pending` until you press "Reload now". It never reloads by itself. As a second line of defence, `<` and `>` are stripped from every imported string that is not a console command. Files over 5 MB are refused. Reset everything asks first.
+- **Old links.** `?lab=<slug>` and `?lesson=<slug>` go to the new routes, skip the landing section and are removed from the address bar. An unknown slug lands on the list with "That link is out of date."
+- **Landing section.** Static HTML at the top of the page, so search engines and link previews can read it. It has the mark, "Learn the CCNA by doing it.", one paragraph, Start with links to the free lessons and the source, a drawn still of the workspace, five facts, three feature blocks with live counts, and the footer (storage, the counter sentence on the public site only, the Cisco notice, the licence). It shows only on a first visit with no deep link, or with `?welcome`, decided before the first paint. Start (or `Esc`) remembers it and goes Home. Settings › About has "Show the landing page again".
+- **Counter and donate link.** `site.js` sends one cookieless page view on the public site only, never with Do Not Track, and a `start` event when Start is pressed. The donate link is a normal link opened in a new tab.
+- **Focus rings.** Headings that take focus when a screen opens no longer show a ring.
+- **New tests.** Node: `tests/migrate.cjs` (old storage becomes the expected new state; bad values dropped; `Exam · …` skipped; old keys untouched; version 1 and 2 backups; merging) and `tests/validate.cjs` (every stored shape, good and bad, no prototype pollution). Both are in GitHub Actions. Browser:
+  - `deeplinks.spec`;
+  - `firstrun.spec` (a browser seeded with the old keys shows the same finished labs, grades, read lessons and saved work, the toast once, and keeps the old keys);
+  - `offline.spec` (no requests from a file, none to other hosts from a server, exactly one count on the public host name and none with Do Not Track);
+  - `labs.spec` (the list keyboard, combined filters, the empty state, grouping, the palette);
+  - `security.spec`'s backup and storage part (doctored version 1 and 2 backups and doctored storage, then every screen);
+  - visual states for the landing page, Home with progress, and the Labs list.
+
+  All 344 browser tests and 20 Node tests pass.
+
+Where the build differs from the plan:
+
+- **The old `lastLab`** was a list position, not a title. It is mapped to the lab at that position.
+- **A fresh browser** (no old keys) records `migrated: {from: 'none'}`. "Reset everything" records `from: 'reset'`, so the old keys are not imported again after a reset.
+- **Stage checks that are exams** show in the list now but start in Phase 7, with the exam.
+- **The paste test** uses a paste event in Chromium and WebKit and a real clipboard only in Firefox. The real clipboard is shared by test runs going in parallel.
+- **Size.** The file is 1,462 KB (485 KB gzipped) against the 1,550 KB budget, with three phases to go. The remaining screens are written compactly. Phase 9 checks the budget.
+
 ## Redesign, phase 4: step-by-step, clues, grades and the pop-out
 
 The workspace is complete.

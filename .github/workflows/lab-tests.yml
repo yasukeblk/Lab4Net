@@ -14,6 +14,8 @@ jobs:
       - run: node tests/build.cjs
       - run: node tests/slugs.cjs
       - run: node tests/grade.cjs
+      - run: node tests/migrate.cjs
+      - run: node tests/validate.cjs
       - run: node tests/labs.cjs
       - run: node tests/forwarding.cjs
       - run: node tests/curriculum.cjs

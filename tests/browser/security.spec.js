@@ -128,3 +128,58 @@ test.describe('messages', () => {
     expect(perr()).toEqual([]);
   });
 });
+
+test.describe('backups and storage', () => {
+  const { ROUTES, seed } = require('./helpers');
+  const deep = P => ({ title: P, name: P, [P]: P, list: [P, { [P]: P }] });
+  const V1 = P => JSON.stringify({ format: 'lab4net', version: 1,
+    progress: { 'Static routing': true, [P]: true, quiz: { 0: true, [P]: P }, drill: { r: P, t: 2 } },
+    drafts: { 'Static routing': { journal: [{ device: 'R1', line: 'enable' }, { device: 'R1', line: 'banner motd #' + P + '#' }], tasks: [P] }, [P]: { journal: [{ device: P, line: P }] } },
+    lastLab: P,
+    extras: { 'lab4net-fun-v1': JSON.stringify({ ranks: { 'Static routing': P, [P]: 'S' }, cleared: deep(P) }), 'lab4net-lessons-v1': JSON.stringify({ 'Static routing': { read: P, q: deep(P) }, [P]: deep(P) }),
+      'lab4net-exam-v1': JSON.stringify({ history: [deep(P)], current: deep(P) }), 'lab4net-incident-hints': JSON.stringify({ [P]: P }), 'lab4net-sandbox-v1': JSON.stringify(deep(P)), [P]: P } });
+  const V2 = P => JSON.stringify({ format: 'lab4net', version: 2, exported: P, data: {
+    v2: { v: 2, settings: deep(P), labs: { 'static-routing': { done: true, grade: P, run: deep(P) }, [P]: deep(P) }, lessons: { 'static-routing': { read: true, quiz: deep(P) }, [P]: deep(P) },
+      quiz: { answers: deep(P) }, subnet: deep(P), exam: { current: deep(P), history: [deep(P), { title: P, mode: P, lab: P, result: P, grade: P, at: P }] }, ui: Object.assign(deep(P), { lastLab: P, recent: [P] }), migrated: deep(P) },
+    work: { 'static-routing': { journal: [{ device: 'R1', line: 'enable' }, { device: 'R1', line: P }], tasks: [true] }, [P]: deep(P) }, sandbox: deep(P) } });
+
+  async function visitAll(page) {
+    for (const r of ROUTES) { await page.goto('/' + r); await expect(page.locator('#screen h1')).toBeAttached(); }
+    await page.goto('/#/labs/static-routing');
+    await expect(page.locator('.con__prompt')).toBeVisible();
+  }
+
+  for (const [name, make] of [['version 1', V1], ['version 2', V2]]) {
+    test('a doctored ' + name + ' backup imports without running anything, then every screen is safe', async ({ page }) => {
+      const errors = watch(page);
+      await seed(page);
+      await page.goto('/#/settings');
+      await page.locator('#importFile').setInputFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(make(PROBE)) });
+      const dlg = page.getByRole('dialog', { name: 'Import this backup?' });
+      await expect(dlg).toBeVisible();
+      await dlg.getByRole('button', { name: 'Import' }).click();
+      await page.getByRole('button', { name: 'Reload now' }).click();
+      await expect(page.getByText('Backup imported.')).toBeVisible();
+      const stored = await page.evaluate(() => localStorage.getItem('lab4net:v2'));
+      expect(stored).not.toContain('<img');
+      await visitAll(page);
+      await clean(page, errors);
+    });
+  }
+
+  test('doctored lab4net:v2 storage on load, then every screen', async ({ page }) => {
+    const errors = watch(page);
+    const P = PROBE;
+    const main = JSON.stringify(Object.assign(JSON.parse(V2(P)).data.v2, { ui: { landingSeen: true, lastLab: P, recent: [P, 'static-routing'] } }));
+    const work = JSON.stringify(JSON.parse(V2(P)).data.work);
+    await page.addInitScript(([P, main, work]) => {
+      if (sessionStorage.getItem('__seeded')) return; sessionStorage.setItem('__seeded', '1');
+      localStorage.setItem('lab4net:v2', main); localStorage.setItem('lab4net:v2:work', work);
+      localStorage.setItem('lab4net:v2:sandbox', JSON.stringify({ devices: [{ name: P }] }));
+      localStorage.setItem('lab4net:v2:pending', JSON.stringify({ main: { ui: { lastLab: P } } }));
+    }, [P, main, work]);
+    await page.goto('/');
+    await visitAll(page);
+    await clean(page, errors);
+  });
+});
