@@ -65,3 +65,14 @@
 .mapchip.is-ok { border-color: var(--ok); color: var(--ok); }
 .link__hit { stroke: transparent; stroke-width: 12; cursor: pointer; }
 .note { font: var(--fs-12) var(--font-ui); fill: var(--warn); cursor: default; }
+
+/* ---- business services in the map head: a hollow ring until its checks pass, then a filled green dot ---- */
+.svcs { display: flex; align-items: center; gap: var(--space-3); min-width: 0; overflow: hidden; margin: 0 0 0 var(--space-4); padding: 0; list-style: none; }
+.svc { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-12); color: var(--text-2); white-space: nowrap; }
+.svc__name { overflow: hidden; text-overflow: ellipsis; }
+.svc__dot { width: 8px; height: 8px; flex: none; border-radius: var(--radius-full); border: 1.5px solid var(--text-3); }
+.svc.is-up { color: var(--text); }
+.svc.is-up .svc__dot { background: var(--ok); border-color: var(--ok); }
+.svc.is-new .svc__dot { animation: svc-on calc(var(--dur-3) * 4) var(--ease) 2; }
+@keyframes svc-on { from { box-shadow: 0 0 0 0 var(--ok); } to { box-shadow: 0 0 0 6px transparent; } }
+.ws.is-map-collapsed #ws-map .svcs { display: none; }

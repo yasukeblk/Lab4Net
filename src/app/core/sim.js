@@ -420,5 +420,8 @@
     const lab = faults ? examLab(base.lab, faults, title) : Object.assign({}, base.lab, { title, group: 'Exam', kind: 'exam', exam: true, baseTitle: base.title, why: [], steps: [] });
     return { base, faults: faults || [], lab };
   }
-  L4N.sim = Object.assign(L4N.sim || {}, { catalogue, open, exec, prompt, help, complete, canEnd, grade, taskStatus, taskAsks, typedCommand: typed, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, sandbox, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
+  // ---- the people and the business (data/tickets.js): the ticket a lab arrives as, and the services it keeps up ----
+  const ticket = e => { const t = typeof TICKETS !== 'undefined' && e && TICKETS[e.slug]; return t ? { from: t[0], team: t[1], subject: t[2], body: t[3], reply: t[4] } : null; };
+  const services = (e, res) => ((typeof SERVICES !== 'undefined' && e && SERVICES[e.slug]) || []).map(([n, js]) => [n, js.every(j => res[j] && res[j][1])]);
+  L4N.sim = Object.assign(L4N.sim || {}, { ticket, services, catalogue, open, exec, prompt, help, complete, canEnd, grade, taskStatus, taskAsks, typedCommand: typed, drain, push, lineClass, devKind, devices, links, describe, linkKey, shortName, ip, steps, why, commands, CRLINE, subnet, examMake, sandbox, MODE, KIND_NAME, MAX_LINE, MAX_JOURNAL });
 })(window.L4N = window.L4N || {});

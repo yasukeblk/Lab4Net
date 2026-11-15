@@ -1,5 +1,45 @@
 # Lab4Net changes
 
+## Tickets and the services strip: the work comes from people, and the business sees it working
+
+Labs used to open with a technical brief and nothing else. Now each one arrives the way real network work does, from someone at Harbor Street Logistics, the story company. The map also shows what the business gets out of the work, live.
+
+- **Every lab opens as a ticket** above the brief: who sent it, their team, a subject and a few lines in their own words.
+  - Build labs are change requests, such as Maya Chen in Sales asking why Engineering can see their printers.
+  - Incidents are fault reports, such as Lee Santos on the warehouse floor: "nothing behind the third site answers".
+  - There are 77 tickets from 8 people, across Sales, Engineering, Security, the warehouse floor, the branch office, the front desk, the office manager and network engineering.
+  - The ticket says **Open**, and **Resolved** once the lab is complete.
+- **The sender replies when you finish.** After a full grade, the results show their answer under "Lab complete", for example "Maya Chen replied: Much tidier. We only see our own things now."
+- **The services strip.** The map's header lists the business services the lab keeps running, such as "Sales network", "Internet for the office" or "Guests kept off servers".
+  - Each service is a hollow ring until the checks that prove it pass. Then it fills green, with one short pulse.
+  - It updates after every command, so you watch the business come back as you work. Services go green one at a time: in the VLAN lab, Sales comes up as soon as VLAN 10 and its ports are in, while Engineering is still waiting.
+  - An incident opens with its broken service down, and the repair turns it green.
+  - On a phone the names are hidden and the lights stay. Screen readers hear each service as "working" or "not working yet".
+- **Not in exams or the sandbox.** An exam stays a plain technical test, and the sandbox has no story.
+- **Room at the top.** To keep the first task in view at 1366×768 in every lab, three things are tighter:
+  - the ticket and the brief share one block, with less space between them;
+  - the first-run tip is one line: "New here? Each task has a Hint and its commands.";
+  - the wireless lab's ticket is short, because its brief is the longest.
+
+**Data.** `src/data/tickets.js` holds `TICKETS` (sender, team, subject, body, reply) and `SERVICES` (each service's name and the lab checks that prove it). Both cover every lab.
+
+**Tests.**
+- `tests/tickets.cjs` checks the data for every lab:
+  - each lab has one ticket from a named person, short enough to sit above the first task, with a reply;
+  - each lab has 1 to 4 services, all linked to real checks;
+  - with the lab's solution applied, every service is up;
+  - when the lab opens, at least one service is down.
+
+  It found that an incident's services were all up from the start (incident 34), which is now fixed.
+- `tickets.spec.js` tests in the browser:
+  - the ticket on a build lab;
+  - services going green one at a time, with the pulse;
+  - the reply and "Resolved" after grading;
+  - an incident's service coming back after the repair;
+  - nothing in the sandbox.
+- The layout test still holds: the first task shows without scrolling in every lab at 1366×768.
+- The workspace screenshot baselines (18 images) were refreshed. They now show the ticket and the services strip.
+
 ## Tasks tick when done as asked
 
 A task waited for every `show` or ping in its step-by-step, even ones its own words never asked for. Switch management access, task 3 ("Create interface vlan 99, give it 192.168.99.2/24 and bring it up"), only ticked after `show ip interface brief`, because the step-by-step suggests it as a last step. Now a task waits only for what it asks:

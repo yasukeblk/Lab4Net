@@ -121,7 +121,7 @@
     function firstRunTip() {
       if (!help() || ws.guide || (ws.hints && ws.hints.stepTip)) return null;
       const box = el('div', { class: 'banner banner--line', role: 'note' }, icon('info'),
-        el('span', { text: 'New here? Each task has a Hint and its commands, and Step-by-step shows every task\'s commands.' }),
+        el('span', { text: 'New here? Each task has a Hint and its commands.' }),
         ui.button({ icon: 'x', aria: 'Got it, hide this tip', kind: 'ghost', onClick: () => { ws.dismissHint('stepTip'); box.remove(); } }));
       return box;
     }
@@ -137,8 +137,13 @@
     function build() {
       const keepScroll = panelTasks.scrollTop;
       clear(tasksBody);
-      // 1. the brief, with objective chips
-      tasksBody.append(el('div', {}, trusted(lab.brief || '', 'p', { class: 'tasks__brief' }), el('div', { class: 'tasks__chips' }, objChips(lab))));
+      // 1. the ticket the lab arrives as (who asked, in their words), then the brief, with objective chips
+      const tk = !ws.exam && sim.ticket(entry);
+      tasksBody.append(el('div', { class: 'tasks__intro' }, tk && el('article', { class: ['ticket', ws.isDone() && 'is-done'], 'aria-label': 'Ticket from ' + tk.from },
+        el('p', { class: 'ticket__from' }, el('span', { class: 'ticket__who', 'aria-hidden': 'true', text: tk.from.split(' ').map(w => w[0]).join('') }),
+          el('b', { text: tk.from }), el('span', { text: ' · ' + tk.team }), el('span', { class: 'ticket__state', text: ws.isDone() ? 'Resolved' : 'Open' })),
+        el('h3', { class: 'ticket__subj', text: tk.subject }), el('p', { class: 'ticket__body', text: tk.body })),
+        el('div', {}, trusted(lab.brief || '', 'p', { class: 'tasks__brief' }), el('div', { class: 'tasks__chips' }, objChips(lab)))));
       // 2. incidents
       if (entry.kind === 'incident') tasksBody.append(ui.callout({ kind: 'warn', icon: 'alert', body: ['This network worked until something changed. Find it, make the smallest repair, keep everything else working.'] }));
       for (const fn of ws.topExtras || []) { const x = fn(); if (x) tasksBody.append(x); }
@@ -188,6 +193,8 @@
       if (g.stale) results.append(el('p', { class: 'results__stale' }, icon('alert'), 'Commands run since grading. Grade again.'));
       const sum = g.summary || (done ? 'Lab complete' + (g.grade ? ' · Grade ' + g.grade : '') : pass + ' of ' + all + ' checks pass');
       results.append(el('p', { class: ['results__sum', done ? 'is-ok' : 'is-bad'] }, icon(done ? 'check-circle' : 'x-circle'), sum));
+      const tk = done && !ws.exam && sim.ticket(entry);
+      if (tk) results.append(el('p', { class: 'ticket__reply' }, el('b', { text: tk.from + ' replied: ' }), tk.reply));
       if (!g.hideList) {
         results.append(el('ul', { class: 'results__list' }, g.results.map(([t, ok]) => el('li', { class: ['check-row', ok ? 'is-ok' : 'is-bad'] },
           icon(ok ? 'check' : 'x'), el('span', { class: 'sr-only', text: ok ? 'Passes: ' : 'Fails: ' }), el('span', { text: t })))));

@@ -138,3 +138,17 @@
 .build__devs .btn { justify-content: flex-start; }
 .build__goal { display: flex; gap: var(--space-2); align-items: flex-start; justify-content: space-between; }
 .zoom .btn--icon { width: 24px; height: 24px; }
+
+.tasks__intro { display: flex; flex-direction: column; gap: var(--space-2); }
+/* ---- the ticket a lab arrives as, and the reply when it is done ---- */
+.ticket { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius-2); background: var(--bg-raised); padding: 6px var(--space-3); display: flex; flex-direction: column; gap: 2px; }
+.ticket.is-done { border-left-color: var(--ok); }
+.ticket__from { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-12); line-height: var(--lh-12); color: var(--text-2); }
+.ticket__from b { color: var(--text); font-weight: var(--fw-semi); }
+.ticket__who { width: 18px; height: 18px; flex: none; border-radius: var(--radius-full); background: var(--accent-soft); color: var(--accent); display: inline-grid; place-items: center; font-size: 10px; font-weight: var(--fw-semi); }
+.ticket__state { margin-left: auto; font-size: var(--fs-11); font-weight: var(--fw-semi); text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
+.ticket.is-done .ticket__state { color: var(--ok); }
+.ticket__subj { font-size: var(--fs-14); line-height: 20px; font-weight: var(--fw-semi); }
+.ticket__body { font-size: var(--fs-13); line-height: var(--lh-13); color: var(--text-2); }
+.ticket__reply { font-size: var(--fs-13); line-height: var(--lh-13); color: var(--text-2); border-left: 3px solid var(--ok); padding-left: var(--space-2); }
+.ticket__reply b { color: var(--text); font-weight: var(--fw-semi); }
