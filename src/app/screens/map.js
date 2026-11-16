@@ -160,7 +160,7 @@
         L.geom = { ax, ay, bx, by, ux, uy, nx, ny, len };
         const up = l.up;
         L.l = l;
-        if (L.up !== null && L.up !== up && animate && !reduced()) { L.g.classList.add('is-flash'); setTimeout(() => L.g.classList.remove('is-flash'), 150); }
+        if (L.up !== null && L.up !== up && animate && !reduced()) { L.g.classList.add('is-flash'); setTimeout(() => L.g.classList.remove('is-flash'), 600); }
         L.up = up;
         L.g.classList.toggle('is-down', !up);
         set(L.line, { x1: ax, y1: ay, x2: bx, y2: by });

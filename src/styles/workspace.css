@@ -152,3 +152,14 @@
 .ticket__body { font-size: var(--fs-13); line-height: var(--lh-13); color: var(--text-2); }
 .ticket__reply { font-size: var(--fs-13); line-height: var(--lh-13); color: var(--text-2); border-left: 3px solid var(--ok); padding-left: var(--space-2); }
 .ticket__reply b { color: var(--text); font-weight: var(--fw-semi); }
+
+/* Motion, once per event: a task that has just ticked pops its box and washes green; a ticket that has just resolved
+   flashes green and pops its state; fresh grade results arrive one row after another, then the reply. */
+.task.is-new { animation: wash calc(var(--dur-3) * 6) var(--ease); border-radius: var(--radius-1); }
+.task.is-new .check__box, .ticket.is-new .ticket__state { animation: pop calc(var(--dur-3) * 2) var(--ease); }
+.ticket.is-new { animation: wash calc(var(--dur-3) * 6) var(--ease); }
+@keyframes wash { from { background-color: color-mix(in srgb, var(--ok) 16%, transparent); } }
+.results.is-fresh .results__sum, .results.is-fresh .check-row, .results.is-fresh .ticket__reply { animation: rise-in calc(var(--dur-3) * 1.4) var(--ease) backwards; }
+.results.is-fresh .check-row { animation-delay: calc(var(--dur-1) * .4 * var(--i, 0)); }
+.results.is-fresh .ticket__reply { animation-delay: calc(var(--dur-3) * 2); }
+.why[open] > .why__text { animation: rise-in var(--dur-3) var(--ease); }

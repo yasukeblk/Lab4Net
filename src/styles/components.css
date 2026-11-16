@@ -58,6 +58,7 @@
   border: var(--hairline) solid var(--border-control); border-radius: var(--radius-1); background: var(--bg-surface); color: transparent;
 }
 .check__box .icon { width: 12px; height: 12px; stroke-width: 2; }
+.check__box { transition: background-color var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease); }
 .check input:checked + .check__box { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
 .check input:focus-visible + .check__box { box-shadow: var(--focus-ring); }
 
@@ -210,7 +211,8 @@
 /* ---- other pieces ---- */
 .bar { display: flex; align-items: center; gap: var(--space-2); }
 .bar__track { flex: 1; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; min-width: 40px; }
-.bar__fill { height: 100%; background: var(--accent); border-radius: 2px; }
+.bar__fill { height: 100%; background: var(--accent); border-radius: 2px; transform-origin: left; animation: bar-in calc(var(--dur-3) * 4) var(--ease) backwards; }
+@keyframes bar-in { from { transform: scaleX(0); } }
 .bar__num { font-size: var(--fs-12); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .handle { position: relative; flex: none; background: var(--border-subtle); }

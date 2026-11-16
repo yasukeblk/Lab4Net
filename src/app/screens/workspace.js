@@ -180,7 +180,7 @@
         ws.tasks = entry.lab.tasks.map(() => true);
         ws.save();
       }
-      ws.graded = { results, stale: false, grade: letter };
+      ws.graded = { results, stale: false, grade: letter, fresh: true };
       if (done) ws.tasksView.rebuild(); else ws.tasksView.renderResults();
       if (ws.onLayout) ws.onLayout();
       refreshStatus();

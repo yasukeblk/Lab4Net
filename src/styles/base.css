@@ -64,6 +64,12 @@ h1[tabindex="-1"]:focus-visible, h2[tabindex="-1"]:focus-visible, [data-heading]
 .hint { color: var(--text-3); }
 .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
 
+/* Shared motion. Every duration and delay is built from the --dur tokens, so Reduce motion sets them all to 0. */
+@keyframes rise-in { from { opacity: 0; transform: translateY(4px); } }
+@keyframes pop { 40% { transform: scale(1.25); } }
+/* a new screen rises into place */
+.screen > * { animation: rise-in calc(var(--dur-3) * 1.4) var(--ease); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0ms !important; animation-iteration-count: 1 !important; transition-duration: 0ms !important; scroll-behavior: auto !important; }
 }
