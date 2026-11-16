@@ -134,14 +134,16 @@
           el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) })))))));
     }
 
+    // the last build's ticks and done, so a fresh tick or resolve animates once
+    let prev = null, wasDone = null;
     function build() {
-      const keepScroll = panelTasks.scrollTop;
+      const keepScroll = panelTasks.scrollTop, done = ws.isDone();
       clear(tasksBody);
       // 1. the ticket the lab arrives as (who asked, in their words), then the brief, with objective chips
       const tk = !ws.exam && sim.ticket(entry);
-      tasksBody.append(el('div', { class: 'tasks__intro' }, tk && el('article', { class: ['ticket', ws.isDone() && 'is-done'], 'aria-label': 'Ticket from ' + tk.from },
+      tasksBody.append(el('div', { class: 'tasks__intro' }, tk && el('article', { class: ['ticket', done && 'is-done', done && wasDone === false && 'is-new'], 'aria-label': 'Ticket from ' + tk.from },
         el('p', { class: 'ticket__from' }, el('span', { class: 'ticket__who', 'aria-hidden': 'true', text: tk.from.split(' ').map(w => w[0]).join('') }),
-          el('b', { text: tk.from }), el('span', { text: ' · ' + tk.team }), el('span', { class: 'ticket__state', text: ws.isDone() ? 'Resolved' : 'Open' })),
+          el('b', { text: tk.from }), el('span', { text: ' · ' + tk.team }), el('span', { class: 'ticket__state', text: done ? 'Resolved' : 'Open' })),
         el('h3', { class: 'ticket__subj', text: tk.subject }), el('p', { class: 'ticket__body', text: tk.body })),
         el('div', {}, trusted(lab.brief || '', 'p', { class: 'tasks__brief' }), el('div', { class: 'tasks__chips' }, objChips(lab)))));
       // 2. incidents
@@ -154,12 +156,12 @@
       const list = el('ol', { class: 'tasklist', 'aria-label': 'Tasks' });
       lab.tasks.forEach((t, i) => {
         const textId = id('task');
-        const li = el('li', { class: ['task', ws.tasks[i] && 'is-ticked'] });
+        const li = el('li', { class: ['task', ws.tasks[i] && 'is-ticked', ws.tasks[i] && prev && !prev[i] && 'is-new'] });
         // a task that ticks itself (ws.auto) can't be ticked by hand; the others can, as before
         const self = !!(ws.auto && ws.auto[i]);
         const cb = ui.checkbox({ checked: !!ws.tasks[i], aria: 'Task ' + (i + 1) + ' done' + (self ? ', ticks itself when the network does this' : ''), disabled: self,
           tip: self ? 'Ticks itself when the network does this' : null,
-          onChange: v => { ws.tasks[i] = v; li.classList.toggle('is-ticked', v); updateCount(); if (ws.onTick) ws.onTick(i, v); } });
+          onChange: v => { ws.tasks[i] = v; li.classList.toggle('is-ticked', v); li.classList.toggle('is-new', v); if (prev) prev[i] = v; updateCount(); if (ws.onTick) ws.onTick(i, v); } });
         const more = el('div', { class: 'task__more' });
         if (lab.why && lab.why[i] && help()) more.append(el('details', { class: 'why' }, el('summary', {}, icon('chevron-right'), 'Why'), trusted(lab.why[i], 'div', { class: 'why__text' })));
         if (ws.guide && help()) { const s = stepRows(i); if (s) more.append(s); }
@@ -179,6 +181,7 @@
       // 8. walkthrough
       const w = walkthrough(); if (w) tasksBody.append(w);
       updateCount();
+      prev = ws.tasks.slice(); wasDone = done;
       panelTasks.scrollTop = keepScroll;
     }
 
@@ -189,6 +192,7 @@
       results.hidden = false;
       const pass = g.results.filter(x => x[1]).length, all = g.results.length, done = pass === all;
       results.classList.toggle('is-stale', !!g.stale);
+      results.classList.toggle('is-fresh', !!g.fresh); g.fresh = false;
       results.append(el('h3', { class: 'label-caps', text: 'Results' }));
       if (g.stale) results.append(el('p', { class: 'results__stale' }, icon('alert'), 'Commands run since grading. Grade again.'));
       const sum = g.summary || (done ? 'Lab complete' + (g.grade ? ' · Grade ' + g.grade : '') : pass + ' of ' + all + ' checks pass');
@@ -196,7 +200,7 @@
       const tk = done && !ws.exam && sim.ticket(entry);
       if (tk) results.append(el('p', { class: 'ticket__reply' }, el('b', { text: tk.from + ' replied: ' }), tk.reply));
       if (!g.hideList) {
-        results.append(el('ul', { class: 'results__list' }, g.results.map(([t, ok]) => el('li', { class: ['check-row', ok ? 'is-ok' : 'is-bad'] },
+        results.append(el('ul', { class: 'results__list' }, g.results.map(([t, ok], k) => el('li', { class: ['check-row', ok ? 'is-ok' : 'is-bad'], style: '--i:' + Math.min(k, 12) },
           icon(ok ? 'check' : 'x'), el('span', { class: 'sr-only', text: ok ? 'Passes: ' : 'Fails: ' }), el('span', { text: t })))));
       }
       if (done && entry.kind === 'incident' && lab.lesson && !g.hideList) results.append(ui.callout({ title: 'Root cause', body: [trusted(lab.lesson, 'div')] }));

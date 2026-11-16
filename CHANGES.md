@@ -1,5 +1,19 @@
 # Lab4Net changes
 
+## A little motion: things move when something happens
+
+The app had very little motion: dialogs, menus and toasts slid in, packets moved on the map, and the services strip pulsed. Now the moments that matter move too. Each one plays once, when the thing happens, and none of it gets in the way. It all lasts under a second, and most of it under a quarter of one.
+
+- **A task ticks.** When a task ticks itself (or you tick it), its box pops and the row washes green for a moment. Tasks that were already ticked when you opened the lab stay still.
+- **The ticket resolves.** When the lab is complete, the ticket washes green and its **Resolved** label pops.
+- **Grade results arrive in order.** The summary rises in, then the checks one after another, then the sender's reply. Results drawn again later, for example after another command, do not replay.
+- **Links on the map.** A link that comes up glows green and settles. A link that goes down flashes red before it turns dashed. Before, both flashed white for a split second.
+- **Choosing a device.** Its selection ring springs in on the map.
+- **Screens and bars.** A new screen rises into place. Progress bars fill from the left when they appear. A task's "Why" note rises in when you open it.
+- **Checkboxes** fade to their ticked colour instead of switching at once.
+
+**Reduce motion turns all of it off**, whether you set it in Settings or on your computer. Every new duration and delay is built from the app's motion settings, so nothing is left waiting or half-drawn.
+
 ## A flaky pop-out test
 
 The pop-out test sometimes failed in CI, which blocked a deploy. Its Dock button closes the pop-out window, and the window could close before Playwright finished the click, so Playwright reported the click as failed. The test now accepts that error only when the window really did close. It still checks that the window closes and the Tasks panel docks. The app itself is unchanged.
