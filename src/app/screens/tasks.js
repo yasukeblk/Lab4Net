@@ -125,13 +125,30 @@
         ui.button({ icon: 'x', aria: 'Got it, hide this tip', kind: 'ghost', onClick: () => { ws.dismissHint('stepTip'); box.remove(); } }));
       return box;
     }
+    const addrTable = () => el('div', { class: 'table-wrap' }, el('table', { class: 'table addr' },
+          el('thead', {}, el('tr', {}, el('th', { text: 'Device', scope: 'col' }), el('th', { text: 'Interface', scope: 'col' }), el('th', { text: 'Address', scope: 'col' }))),
+          el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) }))))));
     function addressPlan() {
       if (!lab.addr || !lab.addr.length) return null;
       return el('details', { class: 'sect addr-plan', open: entry.kind === 'capstone' },
-        el('summary', {}, icon('chevron-down', 'icon--chev'), el('span', { class: 'label-caps', text: 'Addresses' })),
-        el('div', { class: 'table-wrap' }, el('table', { class: 'table addr' },
-          el('thead', {}, el('tr', {}, el('th', { text: 'Device', scope: 'col' }), el('th', { text: 'Interface', scope: 'col' }), el('th', { text: 'Address', scope: 'col' }))),
-          el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) })))))));
+        el('summary', {}, icon('chevron-down', 'icon--chev'), el('span', { class: 'label-caps', text: 'Addresses' })), addrTable());
+    }
+    // In a task or the brief, "the table" or "the address plan" is a link that opens the address table right there, so
+    // nobody hunts for the plan folded below the tasks. Returns the table's box for the caller to place, or null.
+    // What is open (key: task index, or 'b' for the brief) stays open when the panel is drawn again.
+    const addrOpen = new Set();
+    function addrLink(node, key) {
+      if (!lab.addr || !lab.addr.length) return null;
+      const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      for (let t; (t = w.nextNode());) {
+        const m = /\bthe (address plan|table)\b/.exec(t.data); if (!m) continue;
+        const on = addrOpen.has(key), box = el('div', { class: 'addr-inline', id: id('addr'), hidden: !on }, addrTable());
+        const b = el('button', { type: 'button', class: 'linkbtn addr-link', 'aria-expanded': String(on), 'aria-controls': box.id, text: m[0],
+          onClick: () => { box.hidden = !box.hidden; b.setAttribute('aria-expanded', String(!box.hidden)); addrOpen[box.hidden ? 'delete' : 'add'](key); } });
+        const rest = t.splitText(m.index); rest.data = rest.data.slice(m[0].length); rest.before(b);
+        return box;
+      }
+      return null;
     }
 
     // the last build's ticks and done, so a fresh tick or resolve animates once
@@ -140,12 +157,12 @@
       const keepScroll = panelTasks.scrollTop, done = ws.isDone();
       clear(tasksBody);
       // 1. the ticket the lab arrives as (who asked, in their words), then the brief, with objective chips
-      const tk = !ws.exam && sim.ticket(entry);
+      const tk = !ws.exam && sim.ticket(entry), brief = trusted(lab.brief || '', 'p', { class: 'tasks__brief' });
       tasksBody.append(el('div', { class: 'tasks__intro' }, tk && el('article', { class: ['ticket', done && 'is-done', done && wasDone === false && 'is-new'], 'aria-label': 'Ticket from ' + tk.from },
         el('p', { class: 'ticket__from' }, el('span', { class: 'ticket__who', 'aria-hidden': 'true', text: tk.from.split(' ').map(w => w[0]).join('') }),
           el('b', { text: tk.from }), el('span', { text: ' · ' + tk.team }), el('span', { class: 'ticket__state', text: done ? 'Resolved' : 'Open' })),
         el('h3', { class: 'ticket__subj', text: tk.subject }), el('p', { class: 'ticket__body', text: tk.body })),
-        el('div', {}, trusted(lab.brief || '', 'p', { class: 'tasks__brief' }), el('div', { class: 'tasks__chips' }, objChips(lab)))));
+        el('div', {}, brief, addrLink(brief, 'b'), el('div', { class: 'tasks__chips' }, objChips(lab)))));
       // 2. incidents
       if (entry.kind === 'incident') tasksBody.append(ui.callout({ kind: 'warn', icon: 'alert', body: ['This network worked until something changed. Find it, make the smallest repair, keep everything else working.'] }));
       for (const fn of ws.topExtras || []) { const x = fn(); if (x) tasksBody.append(x); }
@@ -166,7 +183,9 @@
         if (lab.why && lab.why[i] && help()) more.append(el('details', { class: 'why' }, el('summary', {}, icon('chevron-right'), 'Why'), trusted(lab.why[i], 'div', { class: 'why__text' })));
         if (ws.guide && help()) { const s = stepRows(i); if (s) more.append(s); }
         else if (help()) more.append(...taskHelp(i));
-        li.append(cb, trusted(t, 'div', { class: 'task__text', id: textId }), more);
+        const text = trusted(t, 'div', { class: 'task__text', id: textId }), box = addrLink(text, i);
+        if (box) more.prepend(box);
+        li.append(cb, text, more);
         cb.querySelector('input').setAttribute('aria-describedby', textId);
         list.append(li);
       });
