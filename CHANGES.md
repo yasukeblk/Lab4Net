@@ -1,5 +1,13 @@
 # Lab4Net changes
 
+## Reset lab works again
+
+**Reset lab** (in a lab's **More lab actions** menu) did nothing. You confirmed it, and the lab came back with every command, tick and setting still in place.
+
+The cause: the reset deleted the lab's saved work and then reopened the lab. But the lab view saves its work as it closes, so closing the old view put the deleted work straight back. The reset now stops that save before it deletes anything. Your commands, ticks and device settings go, and they stay gone after a reload. Finished labs and grades are kept, as before.
+
+**Tests.** An existing test clicked Reset lab but never checked that anything was cleared. The new `reset.spec.js` checks three things after a reset: the commands, the tick and the hostname are gone; nothing is saved for the lab; and it is all still cleared after a reload. Without the fix, it fails with 9 commands still there.
+
 ## A little motion: things move when something happens
 
 The app had very little motion: dialogs, menus and toasts slid in, packets moved on the map, and the services strip pulsed. Now the moments that matter move too. Each one plays once, when the thing happens, and none of it gets in the way. It all lasts under a second, and most of it under a quarter of one.

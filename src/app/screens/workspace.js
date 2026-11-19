@@ -196,6 +196,8 @@
     ws.reset = async () => {
       const ok = await L4N.dialog.confirm({ title: 'Reset this lab?', body: 'Your commands and ticks for this lab are deleted and the network goes back to the start. Finished labs and grades are kept.', ok: 'Reset lab', danger: true });
       if (!ok) return;
+      // this view saves its work as it closes; stop that first, or it puts back the work just deleted
+      ws.save = () => {};
       L4N.work.remove(entry.slug);
       const rec = labRec(entry.slug) || {};
       setLab(entry.slug, { run: { errs: 0, checks: 0, help: false, walk: false, valid: true, done: false, cmds: 0 }, clues: 0, done: !!rec.done });
