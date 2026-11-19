@@ -194,7 +194,7 @@ For anything visual, open the page in a real browser at 1366 by 768 in both them
    - "Simulator regression checks" (`lab-tests.yml`, job `labs`) runs the build check and every Node test, on every push to a branch and every pull request.
    - "Test and deploy" (`deploy.yml`, job `browser`) runs the build check, every Node test, a check that `lessons/` and `sitemap.xml` match `tools/build-site.cjs`, and every browser test.
 3. Both `labs` and `browser` must pass before the pull request can merge.
-4. After the merge, "Test and deploy" runs the whole suite again on `main`. Only if it passes does its `deploy` job publish the site to GitHub Pages. A failed run leaves the live site as it was.
+4. After the merge, "Test and deploy" runs the whole suite again on `main`. Only if it passes does its `pages` job build and upload the site, and then its `deploy` job publish it to GitHub Pages. If the publish fails, it waits a minute and tries once more. A failed run leaves the live site as it was. If only `deploy` failed, **Re-run failed jobs** publishes the same upload again.
 
 The deploy builds `site/` (`node tools/build.cjs --site`) and publishes exactly that folder:
 
