@@ -19,6 +19,10 @@ Now the Tasks panel has a third tab, **Addresses**, next to **Tasks** and **Comm
   - a capstone has the plan open under the brief and keeps it folded across a redraw.
 - `addr-link.spec.js` checks that a capstone brief has no link, and that the plan is right under it.
 - The check that the first task shows without scrolling, in every lab at 1366×768, is unchanged, and it passes.
+- The stored screenshots (`visual.spec.js`) of the lab, exam and sandbox screens were made again with the "Update screenshot baselines" workflow, 26 pictures. The only differences are the intended ones:
+  - the Addresses tab, and the count on one line;
+  - in the exam, the folded Addresses section gone from the bottom;
+  - in the sandbox, the header count a few pixels to the right.
 
 ## The site deploys even when GitHub is slow to list the upload
 
