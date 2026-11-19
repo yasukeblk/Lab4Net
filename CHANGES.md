@@ -1,5 +1,19 @@
 # Lab4Net changes
 
+## The site deploys even when GitHub is slow to list the upload
+
+After the address-table change merged, the site didn't update. The tests passed, but the publish step failed three times in a row with "No artifacts named github-pages were found". Nothing in the code was wrong. The workflow uploads the built site and then, under a second later, asks GitHub to find it. That day GitHub hadn't listed it yet. Re-running made it worse: the re-run uploaded a second copy into the same run, and the publish step refuses to choose between two.
+
+The "Test and deploy" workflow (`.github/workflows/deploy.yml`) now does this:
+
+- **Build and publish are separate jobs.** A new `pages` job builds `site/` and uploads it. Then the `deploy` job publishes it. The second job starts on a fresh machine, which gives GitHub time to list the upload.
+- **The publish tries twice.** If the first try fails, the job waits 60 seconds, leaves a warning, and tries once more. It fails only if both tries fail. A failed lookup stops before anything is published, so trying again is safe.
+- **Re-running is clean now.** If `deploy` fails, **Re-run failed jobs** re-runs only `deploy`, with the same upload, so there is no second copy.
+
+Nothing else changes. The site is built the same way, from the same files, and only after every test passes. The required checks are still `labs` and `browser`. `docs/DEVELOPING.md` describes the new steps.
+
+**Tests.** The deploy jobs run only on `main`, so this pull request can't run them. GitHub reads the workflow file when the pull request's checks start, so a mistake in it would fail them. The real test is the deploy after this merges, which also publishes the address-table change.
+
 ## The address table opens where a task mentions it
 
 Tasks say things like "its address from the table" or "gather evidence from the address plan". But the address table sat folded at the very bottom, under **Addresses**, below every task, so you had to scroll past the whole list to find it.

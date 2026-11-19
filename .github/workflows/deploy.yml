@@ -49,17 +49,15 @@ jobs:
             playwright-report
             test-results
           retention-days: 7
-  deploy:
+  # Building and publishing are two jobs. deploy-pages asks GitHub for this run's uploads once, straight away, and
+  # fails if the site isn't listed yet. In one job it asked under a second after the upload, and on 19 Nov 2026 GitHub
+  # hadn't listed it in time, three runs in a row. A second job starts on a fresh machine, which gives GitHub that time.
+  # It also means "Re-run failed jobs" re-runs only the publish, with the same upload, instead of uploading a second
+  # copy (which deploy-pages refuses).
+  pages:
     needs: browser
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -69,9 +67,30 @@ jobs:
         # site/: the app with each lesson's text in its own file, the lesson pages, sitemap, share image and licences at
         # the same addresses as before, and the single file as lab4net.html for offline use (tools/build.cjs --site).
         run: node tools/build.cjs --site
-      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - id: deployment
+  deploy:
+    needs: pages
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.first.outputs.page_url || steps.again.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      # If GitHub still doesn't list the upload, wait a minute and try once more. A failed lookup stops before anything
+      # is published, so the second try is safe. If that fails too, the job fails.
+      - id: first
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Wait a minute before trying again
+        if: steps.first.outcome == 'failure'
+        run: |
+          echo "::warning::The first publish failed (see above). Trying once more in 60 seconds."
+          sleep 60
+      - id: again
+        if: steps.first.outcome == 'failure'
         uses: actions/deploy-pages@v4
