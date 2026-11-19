@@ -20,6 +20,17 @@
   L4N.labStatus = status;
   L4N.setLab = setLab;
 
+  // Reset one lab completely, after asking: its saved commands and ticks, and its record (finished, grade, clues,
+  // step-by-step, the scored run), as if it had never been opened. Other labs are not touched. before() runs once
+  // confirmed, ahead of the delete (an open lab uses it to stop its closing save from putting the work back).
+  async function resetLab(slug, before) {
+    if (!await L4N.dialog.confirm({ title: 'Reset this lab?', body: 'Everything for this lab is deleted: your commands, ticks, grade and finished mark. The network goes back to the start. Other labs are not touched.', ok: 'Reset lab', danger: true })) return false;
+    if (before) before();
+    L4N.work.remove(slug); L4N.work.flush();
+    L4N.store.set(s => { const labs = Object.assign({}, s.labs); delete labs[slug]; return { labs }; });
+    L4N.toast({ text: 'Lab reset.', kind: 'ok' });
+    return true;
+  }
   function touch(slug) {
     L4N.store.set(s => {
       const recent = [slug].concat((s.ui.recent || []).filter(x => x !== slug)).slice(0, 3);
@@ -193,14 +204,8 @@
       return results;
     };
 
-    ws.reset = async () => {
-      const ok = await L4N.dialog.confirm({ title: 'Reset this lab?', body: 'Your commands and ticks for this lab are deleted and the network goes back to the start. Finished labs and grades are kept.', ok: 'Reset lab', danger: true });
-      if (!ok) return;
-      L4N.work.remove(entry.slug);
-      const rec = labRec(entry.slug) || {};
-      setLab(entry.slug, { run: { errs: 0, checks: 0, help: false, walk: false, valid: true, done: false, cmds: 0 }, clues: 0, done: !!rec.done });
-      L4N.shell.go(L4N.router.href('lab', entry.slug));
-    };
+    // this view saves its work as it closes; resetLab stops that first, or it would put back the work just deleted
+    ws.reset = async () => { if (await resetLab(entry.slug, () => { ws.save = () => {}; })) L4N.shell.go(L4N.router.href('lab', entry.slug)); };
 
     // ---- the frame ----
     ws.maximise = () => ws.panes.toggle('map');
@@ -385,7 +390,7 @@
     }
   };
 
-  L4N.workspace = { current: () => current, status, nextLab, mount };
+  L4N.workspace = { current: () => current, status, nextLab, mount, resetLab };
   L4N.screens.register('lab', {
     nav: 'labs',
     title: r => { const l = L4N.data.lab(r.slug); return l ? l.title : 'Lab'; },

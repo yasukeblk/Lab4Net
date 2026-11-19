@@ -7477,6 +7477,14 @@ return w && w.journal && w.journal.length ? 'progress' : 'todo';
 L4N.labStatus = status;
 L4N.setLab = setLab;
 
+async function resetLab(slug, before) {
+if (!await L4N.dialog.confirm({ title: 'Reset this lab?', body: 'Everything for this lab is deleted: your commands, ticks, grade and finished mark. The network goes back to the start. Other labs are not touched.', ok: 'Reset lab', danger: true })) return false;
+if (before) before();
+L4N.work.remove(slug); L4N.work.flush();
+L4N.store.set(s => { const labs = Object.assign({}, s.labs); delete labs[slug]; return { labs }; });
+L4N.toast({ text: 'Lab reset.', kind: 'ok' });
+return true;
+}
 function touch(slug) {
 L4N.store.set(s => {
 const recent = [slug].concat((s.ui.recent || []).filter(x => x !== slug)).slice(0, 3);
@@ -7638,14 +7646,7 @@ ws.tasksView.results.scrollIntoView({ block: 'nearest' });
 return results;
 };
 
-ws.reset = async () => {
-const ok = await L4N.dialog.confirm({ title: 'Reset this lab?', body: 'Your commands and ticks for this lab are deleted and the network goes back to the start. Finished labs and grades are kept.', ok: 'Reset lab', danger: true });
-if (!ok) return;
-L4N.work.remove(entry.slug);
-const rec = labRec(entry.slug) || {};
-setLab(entry.slug, { run: { errs: 0, checks: 0, help: false, walk: false, valid: true, done: false, cmds: 0 }, clues: 0, done: !!rec.done });
-L4N.shell.go(L4N.router.href('lab', entry.slug));
-};
+ws.reset = async () => { if (await resetLab(entry.slug, () => { ws.save = () => {}; })) L4N.shell.go(L4N.router.href('lab', entry.slug)); };
 
 ws.maximise = () => ws.panes.toggle('map');
 ws.console = L4N.consoleView.create(ws);
@@ -7819,7 +7820,7 @@ lines: c.st.con[c.st.sel].lines.slice(-60).map(l => l.t), prompt: sim.prompt(c.s
 }
 };
 
-L4N.workspace = { current: () => current, status, nextLab, mount };
+L4N.workspace = { current: () => current, status, nextLab, mount, resetLab };
 L4N.screens.register('lab', {
 nav: 'labs',
 title: r => { const l = L4N.data.lab(r.slug); return l ? l.title : 'Lab'; },
@@ -8287,8 +8288,8 @@ if (mapInst) { mapInst.destroy(); mapInst = null; }
 const lab = l.lab, rec = L4N.store.get().labs[l.slug] || {}, st = stats().labStatus(l.slug), lesson = L4N.data.lessonFor(l);
 const devs = Object.keys(lab.pos || {}).length;
 const actions = el('div', { class: 'hstack' }, ui.button({ label: 'Open lab', kind: 'primary', kbd: 'enter', href: L4N.router.href('lab', l.slug) }));
-if (L4N.work.get(l.slug)) actions.append(ui.button({ label: 'Reset', kind: 'danger', icon: 'reset', onClick: async () => {
-if (await L4N.dialog.confirm({ title: 'Reset this lab?', body: 'Your commands and ticks for this lab are deleted. Finished labs and grades are kept.', ok: 'Reset lab', danger: true })) { L4N.work.remove(l.slug); L4N.work.flush(); refresh(); }
+if (L4N.work.get(l.slug) || L4N.store.get().labs[l.slug]) actions.append(ui.button({ label: 'Reset', kind: 'danger', icon: 'reset', onClick: async () => {
+if (await L4N.workspace.resetLab(l.slug)) refresh();
 } }));
 box.append(
 el('div', { class: 'detail__head' }, el('span', { class: 'row__id', text: l.idText }), el('h2', { class: 'detail__title', text: l.title })),
