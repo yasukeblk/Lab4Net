@@ -1,5 +1,5 @@
-// "the table" / "the address plan" in a task or the brief is a link that opens the address table right there, so the
-// plan folded below the tasks is not hunted for. It stays open while the panel redraws, and closes again.
+// "the table" / "the address plan" in a task is a link that opens the address table right there, under the task, as
+// well as in the Addresses tab. It stays open while the panel redraws, and closes again.
 const { test, expect } = require('@playwright/test');
 const { open } = require('./helpers');
 
@@ -28,18 +28,20 @@ test('a task opens the address table in place, keeps it open across a redraw, an
 
   await task.getByRole('button', { name: 'the table' }).click();
   await expect(task.locator('.addr-inline')).toBeHidden();
-  // the full plan is still at the bottom, folded
-  await expect(page.locator('details.addr-plan')).toHaveCount(1);
+  // the full plan is also in the Addresses tab
+  await expect(page.getByRole('tab', { name: 'Addresses' })).toBeVisible();
 });
 
-test('incidents and a capstone brief link "the address plan"; Why notes about other tables do not', async ({ page }) => {
+test('incident tasks link "the address plan"; a capstone brief and Why notes about other tables do not', async ({ page }) => {
   await open(page, '#/labs/incident-01-one-sales-pc-is-isolated', { main: MAIN });
   await page.getByRole('button', { name: 'the address plan' }).click();
   await expect(page.locator('.task .addr-inline table')).toBeVisible();
 
+  // the capstone brief says "Work from the address plan", and the plan is open right under it: no second copy
   await page.goto('/#/labs/capstone-branch-office-from-scratch');
-  await page.locator('.tasks__intro').getByRole('button', { name: 'the address plan' }).click();
-  await expect(page.locator('.tasks__intro .addr-inline table')).toBeVisible();
+  await expect(page.locator('.tasks__intro')).toContainText('Work from the address plan');
+  await expect(page.locator('.tasks__intro .addr-link')).toHaveCount(0);
+  await expect(page.locator('.tasks__intro + details.addr-plan table')).toBeVisible();
 
   // "Read the table before testing" (a Why note in static routing) is about the routing table: no link
   await page.goto('/#/labs/static-routing');

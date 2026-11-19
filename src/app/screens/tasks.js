@@ -20,12 +20,18 @@
     const countEl = el('span', { class: 'tasks__count num' });
     const panelTasks = el('div', { class: 'pane__body', tabindex: '-1', role: 'tabpanel', id: id('tp') }, tasksBody);
     const panelCmds = el('div', { class: 'pane__body', tabindex: '-1', role: 'tabpanel', id: id('tp'), hidden: true }, cmdsBody);
+    const addrTable = () => el('div', { class: 'table-wrap' }, el('table', { class: 'table addr' },
+          el('thead', {}, el('tr', {}, el('th', { text: 'Device', scope: 'col' }), el('th', { text: 'Interface', scope: 'col' }), el('th', { text: 'Address', scope: 'col' }))),
+          el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) }))))));
+    // An Addresses tab beside Tasks and Commands, so the address plan is one click away from anywhere in the tasks
+    const panelAddr = lab.addr && lab.addr.length ? el('div', { class: 'pane__body', tabindex: '-1', role: 'tabpanel', id: id('tp'), hidden: true }, el('div', { class: 'tasks__body' }, addrTable())) : null;
+    const panels = { tasks: panelTasks, commands: panelCmds, addr: panelAddr };
     let tab = 'tasks';
-    const tabs = ui.tabs({ label: 'Tasks panel', selected: 'tasks', items: [{ id: 'tasks', label: 'Tasks', panel: panelTasks.id }, { id: 'commands', label: 'Commands', panel: panelCmds.id }],
-      onSelect: v => { tab = v; panelTasks.hidden = v !== 'tasks'; panelCmds.hidden = v !== 'commands'; if (v === 'commands') renderCommands(); } });
-    panelTasks.setAttribute('aria-labelledby', tabs.tab('tasks').id); panelCmds.setAttribute('aria-labelledby', tabs.tab('commands').id);
+    const tabs = ui.tabs({ label: 'Tasks panel', selected: 'tasks', items: [{ id: 'tasks', label: 'Tasks', panel: panelTasks.id }, { id: 'commands', label: 'Commands', panel: panelCmds.id }, panelAddr && { id: 'addr', label: 'Addresses', panel: panelAddr.id }].filter(Boolean),
+      onSelect: v => { tab = v; for (const k in panels) if (panels[k]) panels[k].hidden = k !== v; if (v === 'commands') renderCommands(); } });
+    for (const k in panels) if (panels[k]) panels[k].setAttribute('aria-labelledby', tabs.tab(k).id);
     const head = el('div', { class: 'pane__head' }, tabs.el, el('span', { class: 'spacer' }), countEl);
-    const root = el('section', { class: 'pane tasks', 'aria-label': 'Tasks', id: 'ws-tasks' }, head, panelTasks, panelCmds);
+    const root = el('section', { class: 'pane tasks', 'aria-label': 'Tasks', id: 'ws-tasks' }, head, panelTasks, panelCmds, panelAddr);
     const results = el('section', { class: 'results', 'aria-label': 'Results', 'aria-live': 'polite', id: id('results') });
 
     // Before a grade the header counts ticked tasks; after one it counts the checks that passed, the real measure.
@@ -125,17 +131,19 @@
         ui.button({ icon: 'x', aria: 'Got it, hide this tip', kind: 'ghost', onClick: () => { ws.dismissHint('stepTip'); box.remove(); } }));
       return box;
     }
-    const addrTable = () => el('div', { class: 'table-wrap' }, el('table', { class: 'table addr' },
-          el('thead', {}, el('tr', {}, el('th', { text: 'Device', scope: 'col' }), el('th', { text: 'Interface', scope: 'col' }), el('th', { text: 'Address', scope: 'col' }))),
-          el('tbody', {}, lab.addr.map(r => el('tr', {}, el('td', { text: String(r[0]) }), el('td', { text: String(r[1]) }), el('td', { text: String(r[2]) }))))));
+    // In a capstone the address plan is the brief, so it also sits open right under it in Tasks. Folded or open, it
+    // stays as it was left when the panel is drawn again (a task that ticks itself redraws it).
+    let planOpen = true;
     function addressPlan() {
-      if (!lab.addr || !lab.addr.length) return null;
-      return el('details', { class: 'sect addr-plan', open: entry.kind === 'capstone' },
+      if (!panelAddr || entry.kind !== 'capstone') return null;
+      const d = el('details', { class: 'sect addr-plan', open: planOpen },
         el('summary', {}, icon('chevron-down', 'icon--chev'), el('span', { class: 'label-caps', text: 'Addresses' })), addrTable());
+      d.addEventListener('toggle', () => { planOpen = d.open; });
+      return d;
     }
-    // In a task or the brief, "the table" or "the address plan" is a link that opens the address table right there, so
-    // nobody hunts for the plan folded below the tasks. Returns the table's box for the caller to place, or null.
-    // What is open (key: task index, or 'b' for the brief) stays open when the panel is drawn again.
+    // In a task, "the table" or "the address plan" is a link that opens the address table right there. (Not in the
+    // brief: a capstone has the plan just under it.) Returns the table's box for the caller to place, or null.
+    // What is open (key: task index) stays open when the panel is drawn again.
     const addrOpen = new Set();
     function addrLink(node, key) {
       if (!lab.addr || !lab.addr.length) return null;
@@ -157,17 +165,19 @@
       const keepScroll = panelTasks.scrollTop, done = ws.isDone();
       clear(tasksBody);
       // 1. the ticket the lab arrives as (who asked, in their words), then the brief, with objective chips
-      const tk = !ws.exam && sim.ticket(entry), brief = trusted(lab.brief || '', 'p', { class: 'tasks__brief' });
+      const tk = !ws.exam && sim.ticket(entry);
       tasksBody.append(el('div', { class: 'tasks__intro' }, tk && el('article', { class: ['ticket', done && 'is-done', done && wasDone === false && 'is-new'], 'aria-label': 'Ticket from ' + tk.from },
         el('p', { class: 'ticket__from' }, el('span', { class: 'ticket__who', 'aria-hidden': 'true', text: tk.from.split(' ').map(w => w[0]).join('') }),
           el('b', { text: tk.from }), el('span', { text: ' · ' + tk.team }), el('span', { class: 'ticket__state', text: done ? 'Resolved' : 'Open' })),
         el('h3', { class: 'ticket__subj', text: tk.subject }), el('p', { class: 'ticket__body', text: tk.body })),
-        el('div', {}, brief, addrLink(brief, 'b'), el('div', { class: 'tasks__chips' }, objChips(lab)))));
-      // 2. incidents
+        el('div', {}, trusted(lab.brief || '', 'p', { class: 'tasks__brief' }), el('div', { class: 'tasks__chips' }, objChips(lab)))));
+      // 2. in a capstone, the address plan (every lab also has it in the Addresses tab)
+      const plan = addressPlan(); if (plan) tasksBody.append(plan);
+      // 3. incidents
       if (entry.kind === 'incident') tasksBody.append(ui.callout({ kind: 'warn', icon: 'alert', body: ['This network worked until something changed. Find it, make the smallest repair, keep everything else working.'] }));
       for (const fn of ws.topExtras || []) { const x = fn(); if (x) tasksBody.append(x); }
       const tip = firstRunTip(); if (tip) tasksBody.append(tip);
-      // 3. step-by-step switch and the count (the address plan now comes after the tasks)
+      // 4. step-by-step switch and the count
       if (help()) tasksBody.append(stepRow());
       // 5. the tasks
       const list = el('ol', { class: 'tasklist', 'aria-label': 'Tasks' });
@@ -190,8 +200,6 @@
         list.append(li);
       });
       tasksBody.append(list);
-      // 5. the address plan, folded away except in capstones, where it is the brief
-      const plan = addressPlan(); if (plan) tasksBody.append(plan);
       // 6. clues
       const c = clues(); if (c) tasksBody.append(c);
       // 7. results
@@ -261,7 +269,7 @@
       el: root, rebuild: build, renderResults, results, refreshCommands: renderCmdList,
       // during an exam the Commands tab is not hidden but removed: help is absent from the page
       setHelpTabs(on) { if (on) return; if (tab === 'commands') tabs.select('tasks', true); const b = tabs.tab('commands'); if (b) b.remove(); panelCmds.remove(); },
-      focus() { (tab === 'tasks' ? panelTasks : panelCmds).focus(); }
+      focus() { panels[tab].focus(); }
     };
   }
 
