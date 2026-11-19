@@ -1,5 +1,25 @@
 # Lab4Net changes
 
+## The address table opens where a task mentions it
+
+Tasks say things like "its address from the table" or "gather evidence from the address plan". But the address table sat folded at the very bottom, under **Addresses**, below every task, so you had to scroll past the whole list to find it.
+
+Now those words are a link, with a dotted underline. Click **the table** or **the address plan** and the address table opens right under that task. Click it again to fold it away.
+
+- **It stays open while you work.** It doesn't close when a task ticks itself and the panel is redrawn.
+- **Capstone briefs work the same way.** They say "Work from the address plan", and the table opens under the brief.
+- **Only the address table is linked.** "Why" notes that talk about routing or MAC tables are left alone.
+- **The full plan stays at the bottom** as before. The pop-out Tasks window already shows the plan above its tasks, so it is unchanged.
+
+This affects 39 tasks, one each in 39 labs, plus 2 capstone briefs.
+
+**Tests.** The new `addr-link.spec.js` checks four things:
+
+- the link opens the table in place, with every row, and the sentence still reads as one;
+- the table stays open when the panel is redrawn, and closes again;
+- incident tasks and a capstone brief link "the address plan";
+- "Why" notes about other tables get no link.
+
 ## Reset lab works again, and resets the lab fully
 
 **Reset lab** (in a lab's **More lab actions** menu) did nothing. You confirmed it, and the lab came back with every command, tick and setting still in place.
