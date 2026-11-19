@@ -50,6 +50,9 @@
 .pane__head .btn--icon { width: 24px; height: 24px; }
 .pane__head .tabs { border-bottom: 0; min-height: 31px; gap: var(--space-3); }
 .pane__head .tab { height: 31px; }
+/* three tabs (Tasks, Commands, Addresses) and "10 of 10 checks" fit in one line of the 340px panel */
+.tasks > .pane__head { gap: var(--space-1); }
+.tasks > .pane__head .tabs { gap: var(--space-2); }
 .pane__body { flex: 1; min-height: 0; overflow: auto; }
 
 /* ---- tasks panel ---- */
@@ -68,7 +71,7 @@
 .addr td { font-family: var(--font-mono); font-size: var(--fs-12); white-space: normal; overflow-wrap: anywhere; vertical-align: top; padding-top: 4px; padding-bottom: 4px; height: auto; }
 .addr td:first-child { font-family: var(--font-ui); }
 .tasks__row { display: flex; align-items: center; gap: var(--space-3); justify-content: space-between; }
-.tasks__count { font-size: var(--fs-12); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tasks__count { font-size: var(--fs-12); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tasklist { display: flex; flex-direction: column; gap: 2px; counter-reset: task; }
 .task { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 0 var(--space-2); padding: var(--space-2) 0; border-top: var(--hairline) solid var(--border-subtle); }
 .task:first-child { border-top: 0; }
@@ -81,6 +84,10 @@
 .addr-link { text-decoration: underline dotted; text-underline-offset: 3px; }
 .addr-link:hover { text-decoration-style: solid; }
 .addr-inline { margin: var(--space-1) 0; }
+/* the address plan above the tasks: a bordered row, so it reads as something to open */
+.addr-plan { border: var(--hairline) solid var(--border); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); }
+.addr-plan:not([open]) { gap: 0; }
+.addr-plan > summary .label-caps { color: var(--text); }
 /* help for one task: small buttons in a row, and the hint once opened */
 .task__help { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .task__help .btn { height: 24px; padding: 0 var(--space-2); font-size: var(--fs-12); color: var(--text-2); }

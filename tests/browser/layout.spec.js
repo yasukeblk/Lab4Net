@@ -47,18 +47,39 @@ test('a mesh gets a taller map than a line', async ({ page }) => {
   expect(mesh).toBeGreaterThan(line + 60);
 });
 
-test('the address plan comes after the tasks, folded in a build lab and open in a capstone', async ({ page }) => {
+test('the address plan is an Addresses tab, in view from anywhere in the tasks; a capstone also has it open under the brief', async ({ page }) => {
   await open(page, '#/labs/static-routing', { main: NEW });
-  const order = await page.evaluate(() => {
-    const plan = document.querySelector('#ws-tasks .addr-plan'), list = document.querySelector('#ws-tasks .tasklist');
-    return { after: !!(list.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING), open: plan.open };
+  // nothing about addresses in the Tasks tab of a build lab, so the first task keeps its place (tests above)
+  await expect(page.locator('#ws-tasks .addr-plan')).toHaveCount(0);
+  // scrolled to the last task, the tab is still in view
+  await page.locator('#ws-tasks .task').last().scrollIntoViewIfNeeded();
+  const tab = page.getByRole('tab', { name: 'Addresses' });
+  await expect(tab).toBeInViewport();
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  const rows = await page.evaluate(() => L4N.data.lab('static-routing').lab.addr.length);
+  await expect(page.getByRole('tabpanel').locator('table.addr tbody tr')).toHaveCount(rows);
+  await expect(page.locator('#ws-tasks .tasklist')).toBeHidden();
+  // the header holds three tabs and the widest count ("10 of 10 checks") on one line
+  const head = await page.evaluate(() => {
+    const h = document.querySelector('#ws-tasks .pane__head'), c = h.querySelector('.tasks__count');
+    c.textContent = '10 of 10 checks';
+    return { overflow: h.scrollWidth - h.clientWidth, countH: c.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(c).lineHeight) || 20 };
   });
-  expect(order).toEqual({ after: true, open: false });
-  await page.locator('#ws-tasks .addr-plan summary').click();
-  await expect(page.locator('#ws-tasks .addr-plan table')).toBeVisible();
+  expect(head.overflow).toBeLessThanOrEqual(0);
+  expect(head.countH).toBeLessThanOrEqual(head.lh * 1.5);
+  await page.getByRole('tab', { name: 'Tasks' }).click();
+  await expect(page.locator('#ws-tasks .tasklist')).toBeVisible();
+
+  // a capstone: the plan is the brief, so it is open right under it, and a redraw keeps it as it was left
   const cap = SLUGS.labs.find(l => l.capstone);
   await open(page, '#/labs/' + cap.slug, { main: NEW });
-  await expect(page.locator('#ws-tasks .addr-plan')).toHaveJSProperty('open', true);
+  const plan = page.locator('#ws-tasks .tasks__intro + details.addr-plan');
+  await expect(plan).toHaveJSProperty('open', true);
+  await plan.locator('summary').click();
+  await page.evaluate(() => L4N.workspace.current().tasksView.rebuild());
+  await expect(page.locator('#ws-tasks .addr-plan')).toHaveJSProperty('open', false);
+  await expect(page.getByRole('tab', { name: 'Addresses' })).toBeVisible();
 });
 
 test('phone: on the Tasks tab, task 1 shows without scrolling', async ({ browser }) => {

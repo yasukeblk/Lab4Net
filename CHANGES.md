@@ -1,5 +1,25 @@
 # Lab4Net changes
 
+## Addresses get their own tab
+
+The last fix, "the table" links in tasks, only reached 41 of the 77 labs that have an address plan, because it only works where a task says "the table" or "the address plan". In the other 36, such as Static routing, VLANs and OSPF, the plan was still folded at the very bottom, under every task, with nothing pointing to it.
+
+Now the Tasks panel has a third tab, **Addresses**, next to **Tasks** and **Commands**, in every lab that has an address plan. It shows the whole table. The tabs stay at the top of the panel while the task list scrolls, so the addresses are one click away wherever you are. Click **Tasks** to go back.
+
+- **Why a tab, not a folded row above the tasks.** That was the first plan. But a row above the tasks pushed the first task below the bottom of the screen in six labs at 1366×768, for example Wiring a wireless LAN and Voice VLAN. Since Phase 5 the first task always shows without scrolling, and a test checks that in every lab. The tab costs no space at all.
+- **The links in tasks stay.** "the table" or "the address plan" in a task still opens the table right under that task.
+- **Capstones** still show the plan open under the brief, since in a capstone the plan is the brief. The brief no longer links "the address plan", because the plan is right under it. If you fold it, it stays folded when a task ticks itself.
+- **Build labs and incidents** no longer have the folded **Addresses** section at the bottom. The tab replaces it.
+- **The header fits.** The three tabs and the count ("0 of 5 done", or "10 of 10 checks" after grading) fit on one line in the 340 px panel. The count never wraps.
+
+**Tests.**
+- `layout.spec.js` checks three things:
+  - the tab is in view after scrolling to the last task, and shows every address row;
+  - the header stays on one line with the widest count;
+  - a capstone has the plan open under the brief and keeps it folded across a redraw.
+- `addr-link.spec.js` checks that a capstone brief has no link, and that the plan is right under it.
+- The check that the first task shows without scrolling, in every lab at 1366×768, is unchanged, and it passes.
+
 ## The site deploys even when GitHub is slow to list the upload
 
 After the address-table change merged, the site didn't update. The tests passed, but the publish step failed three times in a row with "No artifacts named github-pages were found". Nothing in the code was wrong. The workflow uploads the built site and then, under a second later, asks GitHub to find it. That day GitHub hadn't listed it yet. Re-running made it worse: the re-run uploaded a second copy into the same run, and the publish step refuses to choose between two.
