@@ -66,8 +66,8 @@
     const lab = l.lab, rec = L4N.store.get().labs[l.slug] || {}, st = stats().labStatus(l.slug), lesson = L4N.data.lessonFor(l);
     const devs = Object.keys(lab.pos || {}).length;
     const actions = el('div', { class: 'hstack' }, ui.button({ label: 'Open lab', kind: 'primary', kbd: 'enter', href: L4N.router.href('lab', l.slug) }));
-    if (L4N.work.get(l.slug)) actions.append(ui.button({ label: 'Reset', kind: 'danger', icon: 'reset', onClick: async () => {
-      if (await L4N.dialog.confirm({ title: 'Reset this lab?', body: 'Your commands and ticks for this lab are deleted. Finished labs and grades are kept.', ok: 'Reset lab', danger: true })) { L4N.work.remove(l.slug); L4N.work.flush(); refresh(); }
+    if (L4N.work.get(l.slug) || L4N.store.get().labs[l.slug]) actions.append(ui.button({ label: 'Reset', kind: 'danger', icon: 'reset', onClick: async () => {
+      if (await L4N.workspace.resetLab(l.slug)) refresh();
     } }));
     box.append(
       el('div', { class: 'detail__head' }, el('span', { class: 'row__id', text: l.idText }), el('h2', { class: 'detail__title', text: l.title })),

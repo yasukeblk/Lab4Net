@@ -1,12 +1,31 @@
 # Lab4Net changes
 
-## Reset lab works again
+## Reset lab works again, and resets the lab fully
 
 **Reset lab** (in a lab's **More lab actions** menu) did nothing. You confirmed it, and the lab came back with every command, tick and setting still in place.
 
-The cause: the reset deleted the lab's saved work and then reopened the lab. But the lab view saves its work as it closes, so closing the old view put the deleted work straight back. The reset now stops that save before it deletes anything. Your commands, ticks and device settings go, and they stay gone after a reload. Finished labs and grades are kept, as before.
+The cause: the reset deleted the lab's saved work and then reopened the lab. But the lab view saves its work as it closes, so closing the old view put the deleted work straight back. The reset now stops that save before it deletes anything.
 
-**Tests.** An existing test clicked Reset lab but never checked that anything was cleared. The new `reset.spec.js` checks three things after a reset: the commands, the tick and the hostname are gone; nothing is saved for the lab; and it is all still cleared after a reload. Without the fix, it fails with 9 commands still there.
+**A reset is now a full reset of that one lab.** Before, it kept the lab's finished mark and grade. Now it clears everything for the lab, as if you had never opened it:
+
+- your commands and the device settings they made, so the network is back to the start;
+- the ticks;
+- the grade and the finished mark (the ticket says **Open** again, and the lab shows as not done);
+- the clues used and the step-by-step choice.
+
+Other labs, lessons and settings are not touched. The dialog says so: "Everything for this lab is deleted: your commands, ticks, grade and finished mark." A "Lab reset." message confirms it worked.
+
+**The Reset button on the Labs list** does the same full reset. It now also shows for a finished lab with no saved commands, so you can always clear a lab from there. It goes away once there is nothing left to reset.
+
+**Tests.**
+
+- An existing test clicked Reset lab but never checked that anything was cleared.
+- The new `reset.spec.js` covers both places. It finishes the lab with grade S and a hostname, resets, and checks:
+  - the commands, the tick, the hostname, the grade and the finished mark are gone;
+  - they are still gone after a reload;
+  - another finished lab keeps its grade;
+  - Cancel changes nothing.
+- One check in `guide.spec.js` expected a grade to survive a reset. It now checks the new behaviour: the reset clears the S, and the next run's A is the grade stored.
 
 ## A little motion: things move when something happens
 

@@ -79,16 +79,18 @@ for (const [what, slug, script, want] of TABLE) {
   });
 }
 
-test('the best grade is kept, and the Commands tab puts a command in the console', async ({ page }) => {
+test('a reset clears the grade, the next run sets it, and the Commands tab puts a command in the console', async ({ page }) => {
   expect(await run(page, 'basic-device-setup', ['solve', SHOW])).toBe('S');
-  // a worse run later does not lower the stored grade
+  // Reset lab is a full reset (reset.spec.js): the S goes, and the next run's grade (A here) is the one stored
   await page.getByRole('button', { name: 'More lab actions' }).click();
   await page.getByRole('menuitem', { name: 'Reset lab' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Reset lab' }).click();
   await expect(page.locator('#gradeBtn')).toBeVisible();
+  await expect(page.locator('.topbar__status')).not.toContainText('S');
   await page.evaluate(() => { const lab = LABS.find(l => l.title === 'Basic device setup'); for (const [d, c] of Object.entries(lab.solution)) for (const x of c) L4N.test.exec(d, x); });
   await page.locator('#gradeBtn').click();
-  await expect(page.locator('.topbar__status')).toContainText('S');
+  await expect(page.locator('.topbar__status')).toContainText('A');
+  expect(await page.evaluate(() => L4N.store.get().labs['basic-device-setup'].grade)).toBe('A');
   // Commands tab
   await page.getByRole('tab', { name: 'Commands' }).click();
   await page.getByRole('searchbox', { name: 'Search commands' }).fill('hostname');
