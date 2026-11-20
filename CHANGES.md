@@ -1,5 +1,21 @@
 # Lab4Net changes
 
+## A failed check takes you to its task
+
+After **Grade**, the Results list sits at the bottom of the Tasks panel, under every task. A failed check such as "R1 hostname is HQ-R1" said what was wrong, but not which task it belonged to, so you had to scroll back up and match it by hand.
+
+Now every failed check in a build lab or capstone ends with a link to its task, for example **Task 1**. Click it and the task list scrolls to that task and tints it, so you can open its Hint or check its words. The tint goes when you click or type somewhere else. Only the task list scrolls: the map and the console stay where they are. Passing checks have no link.
+
+- **Incidents and exams have no links.** An incident's four tasks are steps of the fix (reproduce, gather evidence, restore, retest), so a check doesn't belong to one of them. Exams don't show the list of checks at all.
+- **"What was found" was left out on purpose.** The plan was also to show what the network actually has, for example "found: hostname R1-HQ", by comparing the running configuration with the task's commands. A trial over all 77 labs showed it isn't reliable: it found something for only 17 of 244 tasks. On finished labs it also pointed at correct settings in 19 cases, such as stored passwords, which the configuration shows scrambled, and `spanning-tree vlan 1 root primary`, which it shows as a priority number. Showing that would mislead more than it helps.
+- **The app code is now 6 bytes under its 300 KB size limit.** The next change that adds app code will need the limit raised or some code removed.
+
+**Tests.** `task-ticks.spec.js` checks, in Basic device setup:
+- each failed check has exactly one link, and passing checks have none;
+- **Task 1** and **Task 9** go to the right tasks, which come into view and take focus.
+
+It also checks that an incident's results have no links.
+
 ## Addresses get their own tab
 
 The last fix, "the table" links in tasks, only reached 41 of the 77 labs that have an address plan, because it only works where a task says "the table" or "the address plan". In the other 36, such as Static routing, VLANs and OSPF, the plan was still folded at the very bottom, under every task, with nothing pointing to it.

@@ -105,6 +105,8 @@
 .check-row { display: flex; align-items: flex-start; gap: var(--space-2); padding: 3px 0; font-size: var(--fs-13); }
 .check-row .icon { margin-top: 2px; }
 .check-row.is-ok .icon { color: var(--ok); } .check-row.is-bad .icon { color: var(--bad); }
+.check-row__task { margin-left: auto; white-space: nowrap; }
+.task.is-pointed { background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: var(--radius-1); }
 .results.is-stale .results__list, .results.is-stale .results__sum { opacity: .5; }
 .results__stale { font-size: var(--fs-12); color: var(--warn); display: flex; gap: var(--space-1); align-items: center; }
 
