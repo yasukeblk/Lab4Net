@@ -16,6 +16,8 @@ Now every failed check in a build lab or capstone ends with a link to its task, 
 
 It also checks that an incident's results have no links.
 
+**A test that failed once by chance.** On GitHub, the phone test "no route scrolls sideways" failed once on the Sandbox: "screen 561 > 390". Nothing in this change touches the Sandbox. On a phone, the Sandbox and the lab workspace switch to their one-pane layout in the frame just before the screen is first painted. The test measured a moment earlier, so on a slow runner it caught the desktop layout, which never appears on screen. Measured that way, the Sandbox is 561 px wide when it is mounted and 390 px by its first paint. The test now waits for that frame and then makes the same check.
+
 ## Addresses get their own tab
 
 The last fix, "the table" links in tasks, only reached 41 of the 77 labs that have an address plan, because it only works where a task says "the table" or "the address plan". In the other 36, such as Static routing, VLANs and OSPF, the plan was still folded at the very bottom, under every task, with nothing pointing to it.
