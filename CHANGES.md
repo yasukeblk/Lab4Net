@@ -8,7 +8,7 @@ Now every failed check in a build lab or capstone ends with a link to its task, 
 
 - **Incidents and exams have no links.** An incident's four tasks are steps of the fix (reproduce, gather evidence, restore, retest), so a check doesn't belong to one of them. Exams don't show the list of checks at all.
 - **"What was found" was left out on purpose.** The plan was also to show what the network actually has, for example "found: hostname R1-HQ", by comparing the running configuration with the task's commands. A trial over all 77 labs showed it isn't reliable: it found something for only 17 of 244 tasks. On finished labs it also pointed at correct settings in 19 cases, such as stored passwords, which the configuration shows scrambled, and `spanning-tree vlan 1 root primary`, which it shows as a priority number. Showing that would mislead more than it helps.
-- **The app code is now 6 bytes under its 300 KB size limit.** The next change that adds app code will need the limit raised or some code removed.
+- **The app code size limit is raised from 300 KB to 320 KB.** With this change the app code was 6 bytes under 300 KB, and the next improvements, a shorter lab intro and a "review these" list, add code. The build already leaves out code comments, and the code has been trimmed twice before, so there was little left to cut. 320 KB leaves room for both. The limits on the whole file (1,900 KB) and the gzipped file (700 KB) are unchanged, and the file is 1,640 KB and 539 KB today.
 
 **Tests.** `task-ticks.spec.js` checks, in Basic device setup:
 - each failed check has exactly one link, and passing checks have none;

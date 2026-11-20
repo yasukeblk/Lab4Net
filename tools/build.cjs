@@ -13,8 +13,10 @@ const KB = 1000;
 
 // Size budget (REDESIGN-PLAN.md section 6.2). Engine and data have no budget of their own.
 // total and gzip were raised from 1550 and 570 KB for lessons batch 1: lesson content grows on purpose.
+// appJs was raised from 300 KB in Nov 2026, at 299,994 bytes, for the learner improvements that follow (a shorter
+// lab intro, a "review these" list). Code comments were already left out of the build and the code trimmed, twice.
 const BUDGET = {
-  appJs: 300 * KB,
+  appJs: 320 * KB,
   css: 70 * KB,
   fonts: 170 * KB,
   markup: 30 * KB,
