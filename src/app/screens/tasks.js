@@ -160,7 +160,17 @@
     }
 
     // the last build's ticks and done, so a fresh tick or resolve animates once
-    let prev = null, wasDone = null;
+    let prev = null, wasDone = null, lis = [];
+    // a failed check's task (TASK_CHECKS), as a button that scrolls the panel to it
+    const links = !ws.exam && typeof TASK_CHECKS !== 'undefined' && TASK_CHECKS[entry.slug];
+    function taskLink(k) {
+      const i = links ? links.findIndex(e => Array.isArray(e) && e.includes(k)) : -1;
+      return i < 0 ? null : el('button', { type: 'button', class: 'linkbtn check-row__task', text: 'Task ' + (i + 1), onClick: () => {
+        const t = lis[i], r = t.getBoundingClientRect(), p = panelTasks;
+        t.classList.add('is-pointed'); t.addEventListener('focusout', () => t.classList.remove('is-pointed'), { once: true });
+        p.scrollTop += r.top - p.getBoundingClientRect().top - Math.max(0, (p.clientHeight - r.height) / 2); t.focus({ preventScroll: true });
+      } });
+    }
     function build() {
       const keepScroll = panelTasks.scrollTop, done = ws.isDone();
       clear(tasksBody);
@@ -183,7 +193,7 @@
       const list = el('ol', { class: 'tasklist', 'aria-label': 'Tasks' });
       lab.tasks.forEach((t, i) => {
         const textId = id('task');
-        const li = el('li', { class: ['task', ws.tasks[i] && 'is-ticked', ws.tasks[i] && prev && !prev[i] && 'is-new'] });
+        const li = lis[i] = el('li', { class: ['task', ws.tasks[i] && 'is-ticked', ws.tasks[i] && prev && !prev[i] && 'is-new'], tabindex: '-1' });
         // a task that ticks itself (ws.auto) can't be ticked by hand; the others can, as before
         const self = !!(ws.auto && ws.auto[i]);
         const cb = ui.checkbox({ checked: !!ws.tasks[i], aria: 'Task ' + (i + 1) + ' done' + (self ? ', ticks itself when the network does this' : ''), disabled: self,
@@ -228,7 +238,7 @@
       if (tk) results.append(el('p', { class: 'ticket__reply' }, el('b', { text: tk.from + ' replied: ' }), tk.reply));
       if (!g.hideList) {
         results.append(el('ul', { class: 'results__list' }, g.results.map(([t, ok], k) => el('li', { class: ['check-row', ok ? 'is-ok' : 'is-bad'], style: '--i:' + Math.min(k, 12) },
-          icon(ok ? 'check' : 'x'), el('span', { class: 'sr-only', text: ok ? 'Passes: ' : 'Fails: ' }), el('span', { text: t })))));
+          icon(ok ? 'check' : 'x'), el('span', { class: 'sr-only', text: ok ? 'Passes: ' : 'Fails: ' }), el('span', { text: t }), !ok && taskLink(k)))));
       }
       if (done && entry.kind === 'incident' && lab.lesson && !g.hideList) results.append(ui.callout({ title: 'Root cause', body: [trusted(lab.lesson, 'div')] }));
       for (const fn of ws.resultExtras || []) { const x = fn(g); if (x) results.append(x); }

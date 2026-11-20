@@ -93,3 +93,35 @@ test('an incident ticks: reproduce with a test, evidence with a show, restore wi
   await run(page, 'PC1', ['ping 192.168.3.10']);
   await expect.poll(ticked).toEqual([true, true, true, true]);
 });
+
+test('a failed check names its task, and the name brings that task into view; incidents name none', async ({ page }) => {
+  const errors = watch(page);
+  await open(page, '#/labs/basic-device-setup', { main: JSON.parse(JSON.stringify(NEW)) });
+  await run(page, 'R1', ['enable', 'configure terminal', 'hostname R1-HQ', 'end']);   // the wrong way round
+  await page.locator('#gradeBtn').click();
+  const rows = page.locator('#ws-tasks .results .check-row');
+  await expect(rows).toHaveCount(10);
+  // every failed check of a build lab names exactly one task; a passing check names none
+  const bad = rows.filter({ has: page.locator('.sr-only', { hasText: 'Fails' }) });
+  await expect(page.locator('#ws-tasks .results .check-row.is-ok .check-row__task')).toHaveCount(0);
+  for (let k = 0; k < await bad.count(); k++) await expect(bad.nth(k).locator('.check-row__task')).toHaveCount(1);
+  await expect(rows.filter({ hasText: 'R1 hostname is HQ-R1' }).getByRole('button')).toHaveText('Task 1');
+  const sw = rows.filter({ hasText: 'SW1 hostname' }).getByRole('button');
+  await expect(sw).toHaveText('Task 9');
+  // the results are at the bottom of the list; Task 1 is far above them
+  await rows.filter({ hasText: 'R1 hostname is HQ-R1' }).getByRole('button').click();
+  await expect(task(page, 0)).toBeFocused();
+  await expect(task(page, 0)).toHaveClass(/is-pointed/);
+  await expect(task(page, 0)).toBeInViewport();
+  await sw.click();
+  await expect(task(page, 8)).toBeFocused();
+  await expect(task(page, 0)).not.toHaveClass(/is-pointed/);
+  await expect(task(page, 8)).toBeInViewport();
+  expect(errors()).toEqual([]);
+
+  // an incident's tasks are steps of the fix (reproduce, evidence, restore, retest), not owners of checks
+  await open(page, '#/labs/incident-01-one-sales-pc-is-isolated', { main: JSON.parse(JSON.stringify(NEW)) });
+  await page.locator('#gradeBtn').click();
+  await expect(page.locator('#ws-tasks .results .check-row.is-bad').first()).toBeVisible();
+  await expect(page.locator('#ws-tasks .results .check-row__task')).toHaveCount(0);
+});

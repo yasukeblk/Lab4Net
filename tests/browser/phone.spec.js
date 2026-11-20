@@ -6,6 +6,10 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const INSTANT = { v: 2, settings: { pace: 'instant' }, ui: { landingSeen: true } };
 
 async function noSideways(page) {
+  // Measure what is painted: the workspace and sandbox switch to their one-pane phone layout in requestAnimationFrame
+  // (panes.js), which runs before the first paint. Measuring before that frame saw the unpainted desktop layout
+  // ("screen 561 > 390" on the sandbox, once, on a slow CI runner).
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   const r = await page.evaluate(() => {
     const bad = [];
     const de = document.documentElement;
