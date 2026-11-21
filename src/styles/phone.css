@@ -36,5 +36,7 @@
   .topbar__actions { gap: var(--space-1); }
   .tabs .tab, .seg__opt, .btn--lg, .toggle { min-height: 40px; }
   .pane__head .btn--icon { width: 40px; height: 40px; }
+  /* a link inside a sentence: a 40 px tall target without spreading the lines apart */
+  .banner .linkbtn { padding: 10px 0; margin: -10px 0; }
 }
 @media (min-width: 768px) { .drawer-scrim { display: none; } }
