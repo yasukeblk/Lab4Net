@@ -31,12 +31,20 @@
 
   // ---------------------------------------------------------------- quiz
   let qTopic = 'all', qMissed = false, qPos = 0, qPick = null, qChecked = false;
-  const DOMAINS = () => [...new Set(QUIZ.map(q => q[0]))];
+  // topics are the six exam topics, as on Progress (a question's own label still shows above it)
+  const DOMAINS = () => (typeof CCNA_DOMAINS !== 'undefined' ? CCNA_DOMAINS : []).map(([id, name]) => ({ id, name }));
+  const areaName = i => (DOMAINS().find(d => d.id === L4N.stats.quizArea(i)) || {}).name || '';
   const answers = () => S().quiz.answers;
-  function set() { return QUIZ.map((q, i) => i).filter(i => (qTopic === 'all' || QUIZ[i][0] === qTopic) && (!qMissed || answers()[i] !== true)); }
+  // reviewing, the questions missed come before the ones not answered yet
+  function set() {
+    const ids = QUIZ.map((q, i) => i).filter(i => (qTopic === 'all' || L4N.stats.quizArea(i) === qTopic) && (!qMissed || answers()[i] !== true));
+    return qMissed ? ids.filter(i => answers()[i] === false).concat(ids.filter(i => answers()[i] !== false)) : ids;
+  }
+  // Home's "Review these": one exam topic's missed and unanswered questions
+  L4N.quizReview = id => { qTopic = id; qMissed = true; qPos = 0; qPick = null; qChecked = false; L4N.shell.go('#/practice/quiz'); };
   function quiz(root, r, ctx) {
     const box = el('div', { class: 'quiz' }), side = el('aside', { class: 'quiz__side', 'aria-label': 'Score by topic' });
-    const topic = ui.select({ label: 'Topic', value: qTopic, options: [{ value: 'all', label: 'All topics' }].concat(DOMAINS().map(d => ({ value: d, label: d }))), onChange: v => { qTopic = v; qPos = 0; draw(); } });
+    const topic = ui.select({ label: 'Topic', value: qTopic, options: [{ value: 'all', label: 'All topics' }].concat(DOMAINS().map(d => ({ value: d.id, label: d.name }))), onChange: v => { qTopic = v; qPos = 0; draw(); } });
     const missed = ui.toggle({ label: 'Only missed or unanswered', checked: qMissed, onChange: v => { qMissed = v; qPos = 0; draw(); } });
     ctx.topbar.setActions(topic, missed);
     root.append(el('div', { class: 'page page--wide quiz__page' }, el('h1', { class: 'page__title', 'data-heading': '', tabindex: '-1', text: 'Quiz' }), el('div', { class: 'quiz__grid' }, box, side)));
@@ -52,7 +60,7 @@
       if (qChecked) for (const b of btns) { const j = +b.dataset.a; b.classList.toggle('is-right', j === ok); b.classList.toggle('is-wrong', j === qPick && j !== ok); }
       // where you are in the set, in words (a bar here read like a score)
       box.append(el('p', { class: 'quiz__count num muted', text: 'Question ' + (qPos + 1) + ' of ' + ids.length }),
-        el('p', { class: 'label-caps', text: dom + (answers()[i] === true ? ' · answered right before' : answers()[i] === false ? ' · missed before' : '') }),
+        el('p', { class: 'label-caps', text: areaName(i) + (areaName(i).toLowerCase().startsWith(dom.toLowerCase()) ? '' : ' · ' + dom) + (answers()[i] === true ? ' · answered right before' : answers()[i] === false ? ' · missed before' : '') }),
         trusted(text, 'p', { class: 'quiz__q', id: 'quiz-q' }), el('div', { class: 'qc__opts', role: 'group', 'aria-labelledby': 'quiz-q' }, btns));
       const res = el('div', { class: 'qc__res', 'aria-live': 'polite' });
       if (qChecked) res.append(el('p', { class: qPick === ok ? 'ok' : 'bad' }, icon(qPick === ok ? 'check-circle' : 'x-circle'), el('b', { text: qPick === ok ? 'Right.' : 'Not quite.' })), trusted(why, 'p', { class: 'qc__why' }));
@@ -71,7 +79,7 @@
     function next() { qPick = null; qChecked = false; const n = set().length; qPos = qMissed ? Math.min(qPos, n - 1) : (qPos + 1) % Math.max(1, n); if (qMissed && answers()[set()[qPos]] === true) qPos = 0; draw(); }
     function drawSide() {
       clear(side).append(el('h2', { class: 'label-caps', text: 'Score by topic' }));
-      for (const d of DOMAINS()) { const ids = QUIZ.map((q, i) => i).filter(i => QUIZ[i][0] === d); side.append(el('div', { class: 'stat__row' }, el('span', { text: d }), ui.bar(ids.filter(i => answers()[i] === true).length, ids.length, d))); }
+      for (const d of L4N.stats.domains()) side.append(el('div', { class: 'stat__row' }, el('span', { text: d.name }), ui.bar(d.quiz.right, d.quiz.total, d.name)));
     }
     ctx.quizKeys = e => { if (/^[1-4]$/.test(e.key) && !qChecked) { const b = box.querySelectorAll('.qc__opt')[+e.key - 1]; if (b) b.click(); return true; } if (e.key === 'Enter') { qChecked ? next() : check(); return true; } return false; };
     draw();

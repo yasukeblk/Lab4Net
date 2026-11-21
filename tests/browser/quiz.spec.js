@@ -20,10 +20,14 @@ test('answers are saved by question index; keys 1 to 4 and Enter; filters work',
   await page.getByRole('button', { name: 'Check' }).click();
   await expect(page.locator('.qc__res')).toContainText('Not quite.');
   expect(await page.evaluate(() => L4N.store.get().quiz.answers)).toEqual({ 0: true, 1: false });
-  // filters: a topic, and only missed or unanswered
-  await page.getByRole('combobox', { name: 'Topic' }).selectOption('IPv6');
-  await expect(page.locator('.quiz .label-caps')).toContainText('IPv6');
-  await expect(page.locator('.quiz__count')).toHaveText('Question 1 of 9');
+  // filters: an exam topic (the six on Progress, not the questions' own labels), and only missed or unanswered
+  const topics = await page.getByRole('combobox', { name: 'Topic' }).locator('option').allTextContents();
+  expect(topics).toEqual(['All topics', 'Network fundamentals', 'Network access', 'IP connectivity', 'IP services', 'Security fundamentals', 'Automation and programmability']);
+  await page.getByRole('combobox', { name: 'Topic' }).selectOption('IP connectivity');
+  // 13 Routing questions and the IPv6 default route
+  await expect(page.locator('.quiz__count')).toHaveText('Question 1 of 14');
+  await expect(page.locator('.quiz .label-caps')).toHaveText('IP connectivity · Routing');
+  await expect(page.locator('.quiz__side .stat__row')).toHaveCount(6);
   await page.getByRole('combobox', { name: 'Topic' }).selectOption('all');
   await page.getByRole('switch', { name: 'Only missed or unanswered' }).click();
   await expect(page.locator('.quiz__count')).toHaveText('Question 1 of ' + (n - 1));

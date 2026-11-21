@@ -110,3 +110,7 @@ const QUIZ=[
   ["IPv6", "Which prefix is used for IPv6 unique local addresses (the private range)?", ["2000::/3", "FF00::/8", "FE80::/10", "FC00::/7"], 3, "FC00::/7 (in practice FD00::/8) is unique local, like RFC 1918 in IPv4. 2000::/3 is global unicast, FF00::/8 multicast, FE80::/10 link-local."],
   ["IPv6", "What is the IPv6 static default route syntax on IOS?", ["ipv6 route ::/0 2001:db8::1", "ipv6 route 0::0 2001:db8::1 default", "ipv6 default-gateway 2001:db8::1", "ip route 0.0.0.0 0.0.0.0 2001:db8::1"], 0, "::/0 is the IPv6 equivalent of 0.0.0.0/0. Routing must be enabled with ipv6 unicast-routing for the router to forward IPv6."]
 ];
+// Each question's exam topic (CCNA_DOMAINS): its label's, or its own where a label spans two topics. Data and control
+// planes are topic 6; the IPv6 default route is topic 3; Wi-Fi controllers and AP modes are topic 2, WLAN security 5.
+const QUIZ_AREA={label:{'Network fundamentals':'1',IPv6:'1',Wireless:'1',Switching:'2',Routing:'3','IP services':'4',Security:'5',Automation:'6'},
+  q:{3:'6',21:'6',109:'3',23:'2',91:'2',92:'2',95:'2',96:'2',22:'5',93:'5',94:'5'}};

@@ -1,5 +1,32 @@
 # Lab4Net changes
 
+## Review these: what you're weak at, on Home
+
+The app counted what you had done, but never said what to go back to. Home's **Next up** just follows the Path, and missed quiz questions weren't used anywhere outside the quiz. The quiz also sorted its questions under its own eight labels (Wireless, Routing, IPv6…), not the six exam topics that Progress and the labs use, so quiz results couldn't be shown by exam topic.
+
+**Quiz questions now belong to exam topics.** Each question keeps its own label, and also has one of the six exam topics. Most labels map straight across: Routing is IP connectivity, Switching is Network access, Security is Security fundamentals. Where a label spans two topics, the question has its own topic:
+- Wi-Fi basics (SSIDs, channels, bands) are Network fundamentals, controllers and AP modes are Network access, and WLAN security is Security fundamentals;
+- IPv6 addressing is Network fundamentals, but the IPv6 default route is IP connectivity;
+- the two questions on the data and control planes are Automation and programmability.
+
+The question bank itself is unchanged: answers are still kept by question index, and the labels are still checked by the quiz's Node test.
+
+**The quiz** now filters and scores by exam topic, with the same six names as Progress. Above each question it shows the topic and the question's own label, for example "IP connectivity · Routing", or just the topic when the label says the same thing. With **Only missed or unanswered** on, the questions you missed now come before the ones you haven't answered.
+
+**Progress** shows each exam topic's quiz score next to its labs and lessons, for example "1/14 quiz". The coverage bar is unchanged.
+
+**Home has a "Review these" list** under Continue. It shows up to three exam topics, weakest first, with what put them there: quiz questions whose last answer was wrong, automation drill items answered wrong, and labs started but not finished. Each row links to:
+- the topic's first lesson you haven't read, or its first lesson;
+- the unfinished lab, or else the next lab in the topic that isn't done;
+- **Retry the quiz**, which opens the quiz on that topic with **Only missed or unanswered** on;
+- the automation drill, when drill items were missed.
+
+When nothing is missed or unfinished, the list doesn't show.
+
+**Not included: failed lab checks.** The app doesn't keep a record of failed grades, only of finished labs and of work in progress. A lab you graded and didn't finish shows up as "not finished", which covers the same case.
+
+**Tests.** A new `review.spec.js` seeds missed questions in three topics, an automation miss and an unfinished lab. It checks the order of the list, what each row says and links to, and that **Retry the quiz** opens the right topic with the missed questions first. It also checks the quiz counts on Progress, that every question is in exactly one topic, and that Home has no list when nothing is missed. `quiz.spec.js` now checks the six topics in the filter, the 14 questions in IP connectivity, and the "IP connectivity · Routing" label.
+
 ## A shorter lab intro
 
 On a first visit, a lab put a lot above task 1: the ticket, the brief, a row of exam-topic tags, two tip boxes ("Read the lesson first" and "New here?"), and the step-by-step switch with a second "0 of 5 done". At 1366×768, task 1 in Static routing started at 550 px, and task 2 was off the screen.
