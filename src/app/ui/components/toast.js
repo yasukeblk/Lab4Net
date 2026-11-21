@@ -10,7 +10,8 @@
     return box;
   }
 
-  // toast({text, kind: 'info'|'ok'|'bad'|'warn', icon, action: {label, run}, actions: [...], timeout})
+  // toast({text, kind: 'info'|'ok'|'bad'|'warn', icon, action: {label, run}, actions: [...], timeout, screen})
+  // screen: true belongs to the screen it was shown on and closes when you leave it (toast.leave, from the shell)
   function toast(o) {
     if (typeof o === 'string') o = { text: o };
     const c = container();
@@ -31,9 +32,11 @@
     node.addEventListener('focusout', e => { if (!node.contains(e.relatedTarget)) run(); });
     c.appendChild(node);
     while (c.children.length > 3) c.firstElementChild.remove();
+    if (o.screen) node.dataset.screen = '';
     if (!o.sticky) run();
     return { close, el: node };
   }
+  toast.leave = () => { if (box) for (const n of box.querySelectorAll('[data-screen]')) n.remove(); };
 
   L4N.toast = toast;
 })(window.L4N = window.L4N || {});

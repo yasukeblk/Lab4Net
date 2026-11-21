@@ -1,5 +1,16 @@
 # Lab4Net changes
 
+## Fewer stray messages, a clearer subnetting start, a full lab title on phones
+
+Four small things a learner tripped over.
+
+- **Grade messages stay on their screen.** The pop-up after **Grade**, such as "0 of 10 checks pass" or "Lab complete · Grade S", used to follow you to the next screen: it was still showing on a lesson or on the subnetting drill. Now a lab's or an exam's grade message closes when you leave that screen. Messages about the move itself, such as "That link is out of date", still show after it.
+- **A failed grade is said once.** The pop-up "3 of 10 checks pass" repeated the line at the top of Results, which is right there on screen. Now it only appears when Results is out of sight, for example when you grade from the Console or Map pane on a phone. "Lab complete" still pops up, because it has the **Next lab** button.
+- **The subnetting drill starts with what to do.** It opened with "0 of 0 fields right on the first try" before you had tried anything. Now it says "Fill in all six fields, then check your answers." until your first check, then shows your score as before.
+- **The lab title fits on a phone.** At 390 px wide the header cut "Basic device setup" down to "Basic d…", because the "To do" chip took its room. On phones that chip is now hidden in labs. The Tasks panel already says "0 of 10 done", and the grade chip was already hidden there. Desktop is unchanged.
+
+**Tests.** A new `grade-toasts.spec.js` checks that a failed grade on desktop shows no pop-up, that "Lab complete" closes when you move to Lessons, and that "That link is out of date" still shows after its redirect. On a phone it checks that grading from the Console pane does show the pop-up, grading from the Tasks pane doesn't, and the lab title isn't cut. `subnet.spec.js` checks the new first line.
+
 ## A failed check takes you to its task
 
 After **Grade**, the Results list sits at the bottom of the Tasks panel, under every task. A failed check such as "R1 hostname is HQ-R1" said what was wrong, but not which task it belonged to, so you had to scroll back up and match it by hand.

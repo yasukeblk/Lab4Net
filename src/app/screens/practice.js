@@ -91,7 +91,7 @@
     root.append(el('div', { class: 'page' }, el('h1', { class: 'page__title', 'data-heading': '', tabindex: '-1', text: 'Subnetting' }), score, box));
     function fresh() { q = L4N.sim.subnet.make(range); done = null; draw(); }
     function draw() {
-      const sn = S().subnet; score.textContent = sn.right + ' of ' + sn.total + ' fields right on the first try';
+      const sn = S().subnet; score.textContent = sn.total ? sn.right + ' of ' + sn.total + ' fields right on the first try' : 'Fill in all six fields, then check your answers.';
       clear(box);
       const ans = L4N.sim.subnet.answers(q);
       const inputs = FIELDS.map((f, k) => ui.input({ label: f, value: done ? done[k].v : '', maxlength: 20 }));

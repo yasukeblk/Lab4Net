@@ -67,5 +67,12 @@
 
   const isTyping = t => !!(t && t.closest && t.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]'));
 
-  L4N.dom = { el, svg, icon, trusted, clear, append, text, id, isTyping, SVGNS };
+  // at least partly inside its window (the main one or a pop-out) and not hidden
+  function onScreen(n) {
+    if (!n || !n.isConnected || !n.getClientRects().length) return false;
+    const r = n.getBoundingClientRect(), w = n.ownerDocument.defaultView;
+    return r.bottom > 0 && r.top < w.innerHeight && r.right > 0 && r.left < w.innerWidth;
+  }
+
+  L4N.dom = { el, svg, icon, trusted, clear, append, text, id, isTyping, onScreen, SVGNS };
 })(window.L4N = window.L4N || {});
