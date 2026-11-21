@@ -61,7 +61,7 @@
     function stepRow() {
       // every task's commands at once: the same cost as using all the per-task help (grade.js)
       const sw = ui.toggle({ label: 'Step-by-step for every task (−15)', checked: !!ws.guide, onChange: v => ws.setGuide(v) });
-      return el('div', { class: 'tasks__row' }, sw, el('span', { class: 'tasks__count num', text: ws.tasks.filter(Boolean).length + ' of ' + lab.tasks.length + ' done' }));
+      return el('div', { class: 'tasks__row' }, sw);
     }
 
     function clues() {
@@ -123,12 +123,16 @@
       return out;
     }
 
-    // One line with a close button, so the tasks stay near the top.
-    function firstRunTip() {
-      if (!help() || ws.guide || (ws.hints && ws.hints.stepTip)) return null;
-      const box = el('div', { class: 'banner banner--line', role: 'note' }, icon('info'),
-        el('span', { text: 'New here? Each task has a Hint and its commands.' }),
-        ui.button({ icon: 'x', aria: 'Got it, hide this tip', kind: 'ghost', onClick: () => { ws.dismissHint('stepTip'); box.remove(); } }));
+    // The first-run tips share one line and one close button, so the tasks stay near the top: the lesson to read
+    // first (ws.lessonTip, from lessons.js) and where each task's help is (until closed or step-by-step is used).
+    function tipLine() {
+      const ls = ws.lessonTip && ws.lessonTip(), step = help() && !ws.guide && !(ws.hints && ws.hints.stepTip);
+      if (!ls && !step) return null;
+      const box = el('div', { class: 'banner banner--line', role: 'note' }, icon(ls ? 'lessons' : 'info'),
+        el('span', {}, ls && [el('button', { type: 'button', class: 'linkbtn', text: 'Read the lesson', onClick: ls.open }), ' first (' + ls.mins + ' min).' + (step ? ' ' : '')],
+          step && 'New here? Each task has a Hint and its commands.'),
+        ui.button({ icon: 'x', aria: ls && step ? 'Hide these tips' : ls ? 'Skip the lesson' : 'Got it, hide this tip', kind: 'ghost', onClick: () => {
+          if (ls) ls.seen(); if (step) ws.dismissHint('stepTip'); box.remove(); } }));
       return box;
     }
     // In a capstone the address plan is the brief, so it also sits open right under it in Tasks. Folded or open, it
@@ -180,13 +184,15 @@
         el('p', { class: 'ticket__from' }, el('span', { class: 'ticket__who', 'aria-hidden': 'true', text: tk.from.split(' ').map(w => w[0]).join('') }),
           el('b', { text: tk.from }), el('span', { text: ' · ' + tk.team }), el('span', { class: 'ticket__state', text: done ? 'Resolved' : 'Open' })),
         el('h3', { class: 'ticket__subj', text: tk.subject }), el('p', { class: 'ticket__body', text: tk.body })),
-        el('div', {}, trusted(lab.brief || '', 'p', { class: 'tasks__brief' }), el('div', { class: 'tasks__chips' }, objChips(lab)))));
+        trusted(lab.brief || '', 'p', { class: 'tasks__brief' })));
+      // the objective chips end the brief's last line rather than taking a row of their own
+      tasksBody.lastChild.lastChild.append(...objChips(lab));
       // 2. in a capstone, the address plan (every lab also has it in the Addresses tab)
       const plan = addressPlan(); if (plan) tasksBody.append(plan);
       // 3. incidents
-      if (entry.kind === 'incident') tasksBody.append(ui.callout({ kind: 'warn', icon: 'alert', body: ['This network worked until something changed. Find it, make the smallest repair, keep everything else working.'] }));
-      for (const fn of ws.topExtras || []) { const x = fn(); if (x) tasksBody.append(x); }
-      const tip = firstRunTip(); if (tip) tasksBody.append(tip);
+      // (one line: the brief already says what to keep working)
+      if (entry.kind === 'incident') tasksBody.append(el('p', { class: 'tasks__rule' }, icon('alert'), el('span', { text: 'This worked until something changed. Make the smallest repair.' })));
+      const tip = tipLine(); if (tip) tasksBody.append(tip);
       // 4. step-by-step switch and the count
       if (help()) tasksBody.append(stepRow());
       // 5. the tasks

@@ -1,5 +1,20 @@
 # Lab4Net changes
 
+## A shorter lab intro
+
+On a first visit, a lab put a lot above task 1: the ticket, the brief, a row of exam-topic tags, two tip boxes ("Read the lesson first" and "New here?"), and the step-by-step switch with a second "0 of 5 done". At 1366×768, task 1 in Static routing started at 550 px, and task 2 was off the screen.
+
+- **One tip line instead of two boxes.** The lesson and the first-run tip now share one line: "**Read the lesson** first (8 min). New here? Each task has a Hint and its commands." **Read the lesson** is a link in the sentence, not a separate button, so the text gets the whole width. One close button hides both for good. When only one of them still applies, the line shows just that one, with its old close button (**Skip the lesson** or **Got it**).
+- **The exam-topic tags end the brief** instead of taking a row of their own.
+- **One task count.** The step-by-step row no longer repeats "0 of 5 done", which the panel's header already shows. The switch's label now fits on one line.
+- **Incidents** had a three-line warning box under the brief. It is now one line: "This worked until something changed. Make the smallest repair." The brief already says what to keep working.
+
+**What stays.** The ticket and the brief both stay. They looked like the same thing said twice, but the ticket is what the person asked for, in their words, and the brief is the technical job, often with a rule the ticket doesn't have, such as "keeping the list numbered 10 to 40".
+
+**The result.** At 1366×768, task 1 now starts at 460 px in Static routing (it was 550), 440 px in Basic device setup (530), and 500 px in the first incident (546). Task 2 starts on screen too.
+
+**Tests.** `layout.spec.js` has a new check on a first visit to Static routing: the tags sit inside the brief, there is one tip line and one task count, and task 2 starts above 650 px (it was at 685). `lessons.spec.js` checks the shared line and its one close button, then the lesson-only line with **Skip the lesson** and the **Read the lesson** link. `firstrun.spec.js` closes the shared line with its new button.
+
 ## Fewer stray messages, a clearer subnetting start, a full lab title on phones
 
 Four small things a learner tripped over.

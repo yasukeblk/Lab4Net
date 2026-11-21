@@ -48,7 +48,8 @@ test('a new visitor: landing, Start here, the step-by-step callout shown once', 
   await expect(page).toHaveURL(/#\/labs\/basic-device-setup$/);
   const tip = page.getByText('New here? Each task has a Hint and its commands');
   await expect(tip).toBeVisible();
-  await page.getByRole('button', { name: 'Got it' }).click();
+  // the lab's lesson shares the tip's line, so one button closes both
+  await page.getByRole('button', { name: 'Hide these tips' }).click();
   await expect(tip).toHaveCount(0);
   await page.waitForTimeout(300);
   await page.reload();

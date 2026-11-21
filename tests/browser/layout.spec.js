@@ -29,6 +29,21 @@ for (let start = 0; start < labs.length; start += BATCH) {
   });
 }
 
+test('a first visit to a lab: the brief ends with its objectives, one tip line, one task count, two tasks in view', async ({ page }) => {
+  const errors = watch(page);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await open(page, '#/labs/static-routing', { main: JSON.parse(JSON.stringify(NEW)) });
+  const tasks = page.locator('#ws-tasks');
+  await expect(tasks.locator('.tasks__brief .chip--obj')).toHaveText(['CCNA 3.1', 'CCNA 3.3']);
+  await expect(tasks.locator('.banner')).toHaveCount(1);
+  await expect(tasks.locator('.tasks__count')).toHaveCount(1);          // the one in the panel's header
+  await expect(tasks.locator('.tasks__row')).toHaveText('Step-by-step for every task (−15)');
+  // the second task's text is in view as well (it started at 685 px before the intro was shortened, 595 after)
+  const top2 = await tasks.locator('.tasklist > .task').nth(1).evaluate(t => t.getBoundingClientRect().top);
+  expect(top2).toBeLessThan(650);
+  expect(errors()).toEqual([]);
+});
+
 test('Static routing: the map is short for a line of routers and the console shows at least 18 lines', async ({ page }) => {
   await open(page, '#/labs/static-routing', { main: NEW });
   const m = await page.evaluate(() => {
