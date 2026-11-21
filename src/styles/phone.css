@@ -5,7 +5,7 @@
   .svc__name { display: none; }
   :root { --row-h: 40px; --control-h: 40px; --topbar-h: 52px; }
   .topbar .btn .kbds { display: none; }
-  .topbar__status .chip--grade { display: none; }
+  .topbar__status .chip--grade, .topbar__lab { display: none; }
   .app, .app[data-sidebar="rail"] { grid-template-columns: minmax(0, 1fr); }
   .sidebar {
     position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: min(288px, 86vw);
@@ -36,5 +36,7 @@
   .topbar__actions { gap: var(--space-1); }
   .tabs .tab, .seg__opt, .btn--lg, .toggle { min-height: 40px; }
   .pane__head .btn--icon { width: 40px; height: 40px; }
+  /* a link inside a sentence: a 40 px tall target without spreading the lines apart */
+  .banner .linkbtn { padding: 10px 0; margin: -10px 0; }
 }
 @media (min-width: 768px) { .drawer-scrim { display: none; } }

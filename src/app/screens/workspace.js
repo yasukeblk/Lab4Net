@@ -198,9 +198,10 @@
       ws.sync();
       const pass = results.filter(x => x[1]).length;
       const n = done && ws.next();
-      if (done) L4N.toast({ text: 'Lab complete' + (letter ? ' · Grade ' + letter : ''), kind: 'ok', action: n ? { label: 'Next lab', run: () => L4N.shell.go(L4N.router.href('lab', n.slug)) } : null });
-      else L4N.toast({ text: pass + ' of ' + results.length + ' checks pass', kind: 'warn' });
       ws.tasksView.results.scrollIntoView({ block: 'nearest' });
+      // a failed grade is said once, in Results; a toast only when Results is off screen (the phone's map or console pane)
+      if (done) L4N.toast({ text: 'Lab complete' + (letter ? ' · Grade ' + letter : ''), kind: 'ok', screen: true, action: n ? { label: 'Next lab', run: () => L4N.shell.go(L4N.router.href('lab', n.slug)) } : null });
+      else if (!L4N.dom.onScreen(ws.tasksView.results)) L4N.toast({ text: pass + ' of ' + results.length + ' checks pass', kind: 'warn', screen: true });
       return results;
     };
 
@@ -268,7 +269,7 @@
     root.append(el('h1', { class: 'sr-only', 'data-heading': '', tabindex: '-1', text: entry.title }), frame);
 
     // ---- top bar ----
-    const statusBox = el('span', { class: 'hstack' });
+    const statusBox = el('span', { class: 'hstack topbar__lab' });
     function refreshStatus() {
       if (ov) return;
       clear(statusBox);

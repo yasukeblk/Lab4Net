@@ -78,17 +78,23 @@ test('the lessons list groups by exam topic and type; N and P move between secti
   await expect(page.locator('.reader__h').nth(1)).toBeFocused();
 });
 
-test('a build lab with a lesson shows the banner the first time; Skip hides it for good', async ({ page }) => {
+test('a build lab with a lesson shows it with the first-run tip, on one line; closing it hides both for good', async ({ page }) => {
   await open(page, '#/labs/static-routing');
-  const banner = page.getByRole('note').filter({ hasText: 'Read the lesson first (8 min)' });
+  const banner = page.getByRole('note').filter({ hasText: 'Read the lesson first (8 min). New here? Each task has a Hint and its commands.' });
   await expect(banner).toBeVisible();
-  await banner.getByRole('button', { name: 'Skip' }).click();
+  await expect(page.locator('#ws-tasks .banner')).toHaveCount(1);
+  await banner.getByRole('button', { name: 'Hide these tips' }).click();
   await expect(banner).toHaveCount(0);
   await page.waitForTimeout(300);
   await page.reload();
   await expect(page.locator('.con__prompt')).toBeVisible();
   await expect(page.getByText('Read the lesson first')).toHaveCount(0);
+  await expect(page.getByText('New here?')).toHaveCount(0);
+  // the first-run tip is closed now, so another lab's line is the lesson alone, closed with Skip
   await page.goto('/#/labs/vlans-and-access-ports');
-  await page.getByRole('note').getByRole('button', { name: 'Open lesson' }).click();
+  const only = page.getByRole('note').filter({ hasText: 'Read the lesson first' });
+  await expect(only).not.toContainText('New here');
+  await expect(only.getByRole('button', { name: 'Skip the lesson' })).toBeVisible();
+  await only.getByRole('button', { name: 'Read the lesson' }).click();
   await expect(page).toHaveURL(/#\/lessons\/vlans-and-access-ports$/);
 });

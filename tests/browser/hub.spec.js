@@ -8,11 +8,12 @@ const SEEDED = { v: 2, ui: { landingSeen: true, lastLab: 'static-routing', recen
   quiz: { answers: { 0: true, 1: true, 2: false } },
   exam: { history: [{ at: 1731700000000, mode: 'sabotage', base: 'static-routing', cleared: true, passed: 6, total: 6, grade: 'A', secs: 300, minutes: 20 }] } };
 
-test('Home: the next step, then Recently, then Next up and one line of totals; no bars or exam topics', async ({ page }) => {
+test('Home: the next step, then Review these, Recently, Next up and one line of totals; no bars or exam topics', async ({ page }) => {
   const errors = watch(page);
   await open(page, '#/', { main: SEEDED });
   const titles = await page.locator('#screen .section__title').allTextContents();
-  expect(titles.slice(0, 3)).toEqual(['Static routing', 'Recently', 'Next up']);
+  // question 2 (Automation) was missed, so Review these comes after the next step
+  expect(titles.slice(0, 4)).toEqual(['Static routing', 'Review these', 'Recently', 'Next up']);
   await expect(page.locator('#screen .bar')).toHaveCount(0);
   await expect(page.locator('#screen').getByText('Exam topics')).toHaveCount(0);
   const recent = page.locator('section[aria-labelledby="home-recent"] .row');

@@ -76,7 +76,7 @@
         if (!all) {
           ws.graded = { results, stale: false, hideList: true, noNext: true, summary: pass + ' of ' + results.length + ' checks pass' };
           ws.tasksView.renderResults();
-          L4N.toast({ text: pass + ' of ' + results.length + ' checks pass', kind: 'warn' });
+          if (!L4N.dom.onScreen(ws.tasksView.results)) L4N.toast({ text: pass + ' of ' + results.length + ' checks pass', kind: 'warn', screen: true });
           return results;
         }
         end(ws, results, 'Exam passed');
@@ -90,7 +90,7 @@
       ws.graded = { results, stale: false, noNext: true, grade: h && h.grade, summary: (h && h.cleared ? 'Exam passed' + (h.grade ? ' · Grade ' + h.grade : '') : word + ' · ' + pass + ' of ' + results.length + ' checks pass'), exam: h };
       ws.tasksView.renderResults();
       L4N.shell.topbar.setStatus(ui.chip(h && h.cleared ? 'Passed' : 'Not passed', h && h.cleared ? 'chip--done' : 'chip--failed', h && h.cleared ? 'check-circle' : 'x-circle'));
-      L4N.toast({ text: ws.graded.summary, kind: h && h.cleared ? 'ok' : 'warn', action: { label: 'New exam', run: () => go('#/practice/exam') } });
+      L4N.toast({ text: ws.graded.summary, kind: h && h.cleared ? 'ok' : 'warn', screen: true, action: { label: 'New exam', run: () => go('#/practice/exam') } });
     }
     const cleanup = L4N.workspace.mount(root, r, ctx, ov);
     const ws = L4N.workspace.current();

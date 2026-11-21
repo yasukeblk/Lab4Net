@@ -4,6 +4,8 @@ const { open } = require('./helpers');
 
 test('right answers score, the first check counts once, ranges work', async ({ page }) => {
   await open(page, '#/practice/subnetting');
+  // before any try, it says what to do rather than "0 of 0"
+  await expect(page.locator('.page .muted.num')).toHaveText('Fill in all six fields, then check your answers.');
   await page.getByRole('combobox', { name: 'Range' }).selectOption('small');
   const q = await page.locator('.subnet__q').textContent();
   expect(+q.split('/')[1]).toBeGreaterThanOrEqual(27);

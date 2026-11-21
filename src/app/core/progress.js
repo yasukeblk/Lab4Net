@@ -20,8 +20,13 @@
   // the objectives a lesson covers: a topic lesson's own, or its lab's
   const lessonObjs = l => (l.lesson.ccna && l.lesson.ccna.length ? l.lesson.ccna : l.lab && l.lab.lab.ccna) || [];
 
-  // six exam domains: weight, labs done, lessons read, coverage (labs and lessons by their first objective)
+  // a quiz question's exam topic (QUIZ_AREA in data/quiz.js)
+  const quizArea = i => { const A = typeof QUIZ_AREA !== 'undefined' ? QUIZ_AREA : { label: {}, q: {} }; return A.q[i] || A.label[QUIZ[i][0]] || '1'; };
+
+  // six exam domains: weight, labs done, lessons read, coverage (labs and lessons by their first objective), and the
+  // quiz questions in each, right and missed (last answer), shown beside the coverage rather than counted in it
   function domains() {
+    const qa = S().quiz.answers, qs = typeof QUIZ !== 'undefined' ? QUIZ.map((q, i) => i) : [];
     const D = typeof CCNA_DOMAINS !== 'undefined' ? CCNA_DOMAINS : [];
     return D.map(([id, name, weight]) => {
       const labsIn = L4N.data.labs.filter(l => domainOf((l.lab.ccna || [])[0]) === id);
@@ -30,7 +35,9 @@
       // Exam topic 6 has no console labs; its practice is the automation drill, counted by items answered right.
       const drill = id === '6' && typeof AUTOMATION !== 'undefined' ? { right: Object.values((L4N.store.get().automation || {}).answers || {}).filter(v => v === true).length, total: AUTOMATION.length } : null;
       const total = labsIn.length + lessonsIn.length + (drill ? drill.total : 0);
-      return { id, name, weight, labs: { done: ld, total: labsIn.length }, lessons: { read: lr, total: lessonsIn.length }, drill, done: ld + lr + (drill ? drill.right : 0), total, labsIn, lessonsIn };
+      const qi = qs.filter(i => quizArea(i) === id);
+      const quiz = { right: qi.filter(i => qa[i] === true).length, missed: qi.filter(i => qa[i] === false).length, total: qi.length };
+      return { id, name, weight, labs: { done: ld, total: labsIn.length }, lessons: { read: lr, total: lessonsIn.length }, drill, quiz, done: ld + lr + (drill ? drill.right : 0), total, labsIn, lessonsIn };
     });
   }
   function objectives(domainId) {
@@ -60,6 +67,21 @@
   // every lab in Path order
   function labsOrder() { return stages().flatMap(s => s.labs); }
 
-  L4N.stats = { labStatus, lessonRead, labs, lessons, quiz, domains, objectives, stages, labsOrder, domainOf, lessonObjs };
+  // What to go back to, weakest first (Home): exam topics with quiz questions or automation drill items last answered
+  // wrong, or labs started and not finished. Each names the first unread lesson (or the first lesson) of the topic, and
+  // the unfinished lab, or else the next lab not done, in Path order.
+  function review() {
+    const order = labsOrder(), aut = (S().automation || {}).answers || {};
+    return domains().map(d => {
+      const drill = d.drill ? Object.values(aut).filter(v => v === false).length : 0;
+      const open = order.filter(l => d.labsIn.includes(l) && labStatus(l.slug) === 'progress');
+      return { id: d.id, name: d.name, weight: d.weight, quiz: d.quiz.missed, drill, open,
+        lesson: d.lessonsIn.find(l => !lessonRead(l.slug)) || d.lessonsIn[0] || null,
+        lab: open[0] || order.find(l => d.labsIn.includes(l) && labStatus(l.slug) !== 'done') || null };
+    }).filter(x => x.quiz || x.drill || x.open.length)
+      .sort((a, b) => (b.quiz + b.drill) - (a.quiz + a.drill) || b.open.length - a.open.length || b.weight - a.weight).slice(0, 3);
+  }
+
+  L4N.stats = { labStatus, lessonRead, labs, lessons, quiz, quizArea, domains, review, objectives, stages, labsOrder, domainOf, lessonObjs };
   L4N.labsOrder = labsOrder;
 })(window.L4N = window.L4N || {});

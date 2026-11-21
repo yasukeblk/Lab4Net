@@ -200,9 +200,13 @@ test('a corrupt saved lab opens fresh with a toast', async ({ page }) => {
   await open(page, '#/labs/static-routing', { main: INSTANT, keys: { 'lab4net:v2:work': { 'static-routing': { journal: [{ device: 'R9', line: 'enable' }], tasks: [] } } } });
   await expect(page.getByText('Could not restore this lab. A fresh topology is ready.')).toBeVisible();
   await expect(prompt(page)).toHaveText('R1>');
-  await page.goto('/#/labs/vlans-and-access-ports');
+  // Write the bad entry in a page where no lab has been open: saved work is written 150 ms after a change (store.js),
+  // and on a slow run the first lab's write landed after the bad entry and replaced it (WebKit, about 1 run in 10 under load).
+  await page.goto('/#/settings');
+  await page.reload();
   await page.evaluate(() => localStorage.setItem('lab4net:v2:work', '{"vlans-and-access-ports":{"journal":"nope"}}'));
   await page.reload();
+  await page.goto('/#/labs/vlans-and-access-ports');
   await expect(page.getByText('Could not restore this lab. A fresh topology is ready.')).toBeVisible();
 });
 

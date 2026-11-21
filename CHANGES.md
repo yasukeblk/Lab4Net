@@ -1,5 +1,62 @@
 # Lab4Net changes
 
+## Review these: what you're weak at, on Home
+
+The app counted what you had done, but never said what to go back to. Home's **Next up** just follows the Path, and missed quiz questions weren't used anywhere outside the quiz. The quiz also sorted its questions under its own eight labels (Wireless, Routing, IPv6…), not the six exam topics that Progress and the labs use, so quiz results couldn't be shown by exam topic.
+
+**Quiz questions now belong to exam topics.** Each question keeps its own label, and also has one of the six exam topics. Most labels map straight across: Routing is IP connectivity, Switching is Network access, Security is Security fundamentals. Where a label spans two topics, the question has its own topic:
+- Wi-Fi basics (SSIDs, channels, bands) are Network fundamentals, controllers and AP modes are Network access, and WLAN security is Security fundamentals;
+- IPv6 addressing is Network fundamentals, but the IPv6 default route is IP connectivity;
+- the two questions on the data and control planes are Automation and programmability.
+
+The question bank itself is unchanged: answers are still kept by question index, and the labels are still checked by the quiz's Node test.
+
+**The quiz** now filters and scores by exam topic, with the same six names as Progress. Above each question it shows the topic and the question's own label, for example "IP connectivity · Routing", or just the topic when the label says the same thing. With **Only missed or unanswered** on, the questions you missed now come before the ones you haven't answered.
+
+**Progress** shows each exam topic's quiz score next to its labs and lessons, for example "1/14 quiz". The coverage bar is unchanged.
+
+**Home has a "Review these" list** under Continue. It shows up to three exam topics, weakest first, with what put them there: quiz questions whose last answer was wrong, automation drill items answered wrong, and labs started but not finished. Each row links to:
+- the topic's first lesson you haven't read, or its first lesson;
+- the unfinished lab, or else the next lab in the topic that isn't done;
+- **Retry the quiz**, which opens the quiz on that topic with **Only missed or unanswered** on;
+- the automation drill, when drill items were missed.
+
+When nothing is missed or unfinished, the list doesn't show.
+
+**Not included: failed lab checks.** The app doesn't keep a record of failed grades, only of finished labs and of work in progress. A lab you graded and didn't finish shows up as "not finished", which covers the same case.
+
+**Tests.** A new `review.spec.js` seeds missed questions in three topics, an automation miss and an unfinished lab. It checks the order of the list, what each row says and links to, and that **Retry the quiz** opens the right topic with the missed questions first. It also checks the quiz counts on Progress, that every question is in exactly one topic, and that Home has no list when nothing is missed. `quiz.spec.js` now checks the six topics in the filter, the 14 questions in IP connectivity, and the "IP connectivity · Routing" label. `hub.spec.js` expects Home's sections in their new order, with "Review these" after Continue, since its seeded profile has a missed question.
+
+**Screenshots.** The stored screenshots were refreshed for the screens these changes touch on purpose: the lab workspace (also during an exam and on a phone), Home, the quiz and Progress, 36 in all. The first CI run also showed the lesson reader 1 px lower, with its CCNA tags touching. The shorter lab intro had removed a style the lesson reader still used. That style is back, and the lesson reader matches the old screenshots exactly.
+
+**A test that failed by chance.** "A corrupt saved lab opens fresh with a toast" failed about 1 run in 10 in WebKit under load, on `main` as well. The test wrote a broken save and reloaded, but the app writes lab work 150 ms after a change. On a slow run, the first lab's save landed after the broken one and replaced it, so there was nothing broken to report. The test now reloads once before writing the broken save, so no save is pending, then makes the same check. It passed 72 runs in a row under the same load.
+
+## A shorter lab intro
+
+On a first visit, a lab put a lot above task 1: the ticket, the brief, a row of exam-topic tags, two tip boxes ("Read the lesson first" and "New here?"), and the step-by-step switch with a second "0 of 5 done". At 1366×768, task 1 in Static routing started at 550 px, and task 2 was off the screen.
+
+- **One tip line instead of two boxes.** The lesson and the first-run tip now share one line: "**Read the lesson** first (8 min). New here? Each task has a Hint and its commands." **Read the lesson** is a link in the sentence, not a separate button, so the text gets the whole width. On a phone the link's tap area is 40 px tall, like every other control, without spacing the lines apart. One close button hides both for good. When only one of them still applies, the line shows just that one, with its old close button (**Skip the lesson** or **Got it**).
+- **The exam-topic tags end the brief** instead of taking a row of their own.
+- **One task count.** The step-by-step row no longer repeats "0 of 5 done", which the panel's header already shows. The switch's label now fits on one line.
+- **Incidents** had a three-line warning box under the brief. It is now one line: "This worked until something changed. Make the smallest repair." The brief already says what to keep working.
+
+**What stays.** The ticket and the brief both stay. They looked like the same thing said twice, but the ticket is what the person asked for, in their words, and the brief is the technical job, often with a rule the ticket doesn't have, such as "keeping the list numbered 10 to 40".
+
+**The result.** At 1366×768, task 1 now starts at 460 px in Static routing (it was 550), 440 px in Basic device setup (530), and 500 px in the first incident (546). Task 2 starts on screen too.
+
+**Tests.** `layout.spec.js` has a new check on a first visit to Static routing: the tags sit inside the brief, there is one tip line and one task count, and task 2 starts above 650 px (it was at 685). `lessons.spec.js` checks the shared line and its one close button, then the lesson-only line with **Skip the lesson** and the **Read the lesson** link. `firstrun.spec.js` closes the shared line with its new button.
+
+## Fewer stray messages, a clearer subnetting start, a full lab title on phones
+
+Four small things a learner tripped over.
+
+- **Grade messages stay on their screen.** The pop-up after **Grade**, such as "0 of 10 checks pass" or "Lab complete · Grade S", used to follow you to the next screen: it was still showing on a lesson or on the subnetting drill. Now a lab's or an exam's grade message closes when you leave that screen. Messages about the move itself, such as "That link is out of date", still show after it.
+- **A failed grade is said once.** The pop-up "3 of 10 checks pass" repeated the line at the top of Results, which is right there on screen. Now it only appears when Results is out of sight, for example when you grade from the Console or Map pane on a phone. "Lab complete" still pops up, because it has the **Next lab** button.
+- **The subnetting drill starts with what to do.** It opened with "0 of 0 fields right on the first try" before you had tried anything. Now it says "Fill in all six fields, then check your answers." until your first check, then shows your score as before.
+- **The lab title fits on a phone.** At 390 px wide the header cut "Basic device setup" down to "Basic d…", because the "To do" chip took its room. On phones that chip is now hidden in labs. The Tasks panel already says "0 of 10 done", and the grade chip was already hidden there. Desktop is unchanged.
+
+**Tests.** A new `grade-toasts.spec.js` checks that a failed grade on desktop shows no pop-up, that "Lab complete" closes when you move to Lessons, and that "That link is out of date" still shows after its redirect. On a phone it checks that grading from the Console pane does show the pop-up, grading from the Tasks pane doesn't, and the lab title isn't cut. `subnet.spec.js` checks the new first line.
+
 ## A failed check takes you to its task
 
 After **Grade**, the Results list sits at the bottom of the Tasks panel, under every task. A failed check such as "R1 hostname is HQ-R1" said what was wrong, but not which task it belonged to, so you had to scroll back up and match it by hand.

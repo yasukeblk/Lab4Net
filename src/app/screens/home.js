@@ -1,4 +1,4 @@
-// home.js: Home (section 5.2): Continue (or Start here), Recently, Next up, a line of totals, Practice.
+// home.js: Home (section 5.2): Continue (or Start here), Review these, Recently, Next up, a line of totals, Practice.
 (function (L4N) {
   'use strict';
   const { el, icon } = L4N.dom;
@@ -41,7 +41,21 @@
         ui.button({ label: 'Resume', kind: 'primary', size: 'lg', icon: 'play', href: L4N.router.href('lab', last.slug) })));
     }
 
-    // 2. Recently: the last three labs finished or lessons read, with grades. Progress has the full picture.
+    // 2. Review these: the exam topics with missed quiz questions or unfinished labs, weakest first (stats.review)
+    const weak = stats.review();
+    const missedText = x => [x.quiz && x.quiz + ' quiz question' + (x.quiz > 1 ? 's' : '') + ' missed', x.drill && x.drill + ' automation item' + (x.drill > 1 ? 's' : '') + ' missed',
+      x.open.length && x.open.map(l => l.short).join(', ') + ' not finished'].filter(Boolean).join(' · ');
+    if (weak.length) page.append(el('section', { class: 'section', 'aria-labelledby': 'home-review' },
+      el('h2', { class: 'section__title', id: 'home-review', text: 'Review these' }),
+      el('ul', { class: 'review' }, weak.map(x => el('li', { class: 'review__row' },
+        el('span', { class: 'review__what' }, el('b', { text: x.name }), el('span', { class: 'muted', text: missedText(x) })),
+        el('span', { class: 'review__go' },
+          x.lesson && el('a', { href: L4N.router.href('lesson', x.lesson.slug), 'aria-label': 'Lesson: ' + x.lesson.title }, icon('lessons'), el('span', { text: x.lesson.title })),
+          x.lab && el('a', { href: L4N.router.href('lab', x.lab.slug), 'aria-label': 'Lab: ' + x.lab.short }, icon('labs'), el('span', { text: x.lab.short })),
+          x.quiz ? el('button', { type: 'button', class: 'linkbtn', text: 'Retry the quiz', 'aria-label': 'Retry the missed ' + x.name + ' quiz questions', onClick: () => L4N.quizReview(x.id) }) : null,
+          x.drill ? el('a', { href: '#/practice/automation', text: 'Automation drill' }) : null))))));
+
+    // 3. Recently: the last three labs finished or lessons read, with grades. Progress has the full picture.
     const recent = Object.keys(S.labs).filter(k => S.labs[k].done && S.labs[k].doneAt && L4N.data.lab(k))
       .map(k => ({ at: S.labs[k].doneAt, title: L4N.data.lab(k).short, href: L4N.router.href('lab', k), kind: 'Lab', grade: S.labs[k].grade }))
       .concat(Object.keys(S.lessons).filter(k => S.lessons[k].read && S.lessons[k].readAt && L4N.data.lesson(k))
@@ -52,16 +66,16 @@
       el('div', { class: 'list' }, recent.map(x => el('a', { class: 'row', href: x.href }, icon(x.kind === 'Lab' ? 'labs' : 'lessons'), el('span', { class: 'row__title', text: x.title }),
         el('span', { class: 'row__meta' }, el('span', { text: x.kind }), x.grade ? ui.gradeChip(x.grade) : null))))));
 
-    // 3. Next up: the next three labs on the Path that are not done
+    // 4. Next up: the next three labs on the Path that are not done
     const next = order.filter(l => stats.labStatus(l.slug) !== 'done' && l.slug !== (last && last.slug)).slice(0, 3);
     if (next.length) page.append(el('section', { class: 'section', 'aria-labelledby': 'home-next' },
       el('h2', { class: 'section__title', id: 'home-next', text: 'Next up' }), el('div', { class: 'list' }, next.map(row))));
 
-    // 4. One line of totals; the bars and the exam topics live on Progress
+    // 5. One line of totals; the bars and the exam topics live on Progress
     page.append(el('p', { class: 'home__summary num' }, labs.done + ' of ' + labs.total + ' labs · ' + lessons.done + ' of ' + lessons.total + ' lessons · ' +
       quiz.correct + ' of ' + quiz.total + ' quiz questions right · ', el('a', { href: '#/progress', text: 'See your progress' })));
 
-    // 5. Practice
+    // 6. Practice
     page.append(el('section', { class: 'section', 'aria-labelledby': 'home-practice' },
       el('h2', { class: 'section__title', id: 'home-practice', text: 'Practice' }),
       el('div', { class: 'hstack' },

@@ -59,7 +59,10 @@
 .tasks__body { padding: var(--space-3) var(--space-4) var(--space-8); display: flex; flex-direction: column; gap: var(--space-4); }
 .tasks__brief { font-size: var(--fs-14); line-height: var(--lh-14); color: var(--text); }
 .tasks__brief code, .task__text code, .why code { font-size: var(--fs-12); }
+.tasks__rule { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-13); line-height: var(--lh-13); color: var(--text-2); }
+.tasks__rule > .icon { flex: none; color: var(--warn); }
 .tasks__chips { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
+.tasks__brief .chip--obj { margin-left: var(--space-1); vertical-align: 1px; white-space: nowrap; }
 .sect { display: flex; flex-direction: column; gap: var(--space-2); }
 .sect > summary, .sect__head { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; list-style: none; min-height: 24px; }
 .sect > summary::-webkit-details-marker { display: none; }

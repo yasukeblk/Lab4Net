@@ -159,6 +159,7 @@
 
   function show(r, first) {
     if (cleanup) { try { cleanup(); } catch (e) { console.error(e); } cleanup = null; }
+    L4N.toast.leave();
     route = r;
     L4N.route = r;
     const def = defs[r.screen] || defs.home;
