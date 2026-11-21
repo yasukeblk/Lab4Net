@@ -27,6 +27,8 @@ When nothing is missed or unfinished, the list doesn't show.
 
 **Tests.** A new `review.spec.js` seeds missed questions in three topics, an automation miss and an unfinished lab. It checks the order of the list, what each row says and links to, and that **Retry the quiz** opens the right topic with the missed questions first. It also checks the quiz counts on Progress, that every question is in exactly one topic, and that Home has no list when nothing is missed. `quiz.spec.js` now checks the six topics in the filter, the 14 questions in IP connectivity, and the "IP connectivity · Routing" label. `hub.spec.js` expects Home's sections in their new order, with "Review these" after Continue, since its seeded profile has a missed question.
 
+**Screenshots.** The stored screenshots were refreshed for the screens these changes touch on purpose: the lab workspace (also during an exam and on a phone), Home, the quiz and Progress, 36 in all. The first CI run also showed the lesson reader 1 px lower, with its CCNA tags touching. The shorter lab intro had removed a style the lesson reader still used. That style is back, and the lesson reader matches the old screenshots exactly.
+
 **A test that failed by chance.** "A corrupt saved lab opens fresh with a toast" failed about 1 run in 10 in WebKit under load, on `main` as well. The test wrote a broken save and reloaded, but the app writes lab work 150 ms after a change. On a slow run, the first lab's save landed after the broken one and replaced it, so there was nothing broken to report. The test now reloads once before writing the broken save, so no save is pending, then makes the same check. It passed 72 runs in a row under the same load.
 
 ## A shorter lab intro
